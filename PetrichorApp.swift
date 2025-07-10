@@ -7,6 +7,8 @@ struct PetrichorApp: App {
     
     @AppStorage("showFoldersTab")
     private var showFoldersTab = false
+    
+    @State private var menuUpdateTrigger = UUID()
 
     var body: some Scene {
         WindowGroup {
@@ -14,6 +16,12 @@ struct PetrichorApp: App {
                 .environmentObject(appCoordinator.audioPlayerManager)
                 .environmentObject(appCoordinator.libraryManager)
                 .environmentObject(appCoordinator.playlistManager)
+                .onReceive(appCoordinator.playlistManager.$repeatMode) { _ in
+                    menuUpdateTrigger = UUID()
+                }
+                .onReceive(appCoordinator.audioPlayerManager.$currentTrack) { _ in
+                    menuUpdateTrigger = UUID()
+                }
         }
         .windowStyle(.hiddenTitleBar)
         .windowToolbarStyle(.unified)
@@ -27,7 +35,6 @@ struct PetrichorApp: App {
             // Replace the default About menu item
             CommandGroup(replacing: .appInfo) {
                 Button("About Petrichor") {
-                    // Post notification to open Settings with About tab selected
                     NotificationCenter.default.post(
                         name: NSNotification.Name("OpenSettingsAboutTab"),
                         object: nil
@@ -41,13 +48,86 @@ struct PetrichorApp: App {
                     NotificationCenter.default.post(name: NSNotification.Name("OpenSettings"), object: nil)
                 }
                 .keyboardShortcut(",", modifiers: .command)
+            }
+            
+            CommandMenu("Playback") {
+                Button("Play/Pause") {
+                    if appCoordinator.audioPlayerManager.currentTrack != nil {
+                        appCoordinator.audioPlayerManager.togglePlayPause()
+                    }
+                }
+                .keyboardShortcut(" ", modifiers: [])
+                .disabled(appCoordinator.audioPlayerManager.currentTrack == nil)
+                
+                Button(appCoordinator.audioPlayerManager.currentTrack?.isFavorite == true ? "Remove from Favorites" : "Add to Favorites") {
+                    if let track = appCoordinator.audioPlayerManager.currentTrack {
+                        appCoordinator.playlistManager.toggleFavorite(for: track)
+                        menuUpdateTrigger = UUID()
+                    }
+                }
+                .keyboardShortcut("f", modifiers: [.command, .shift])
+                .disabled(appCoordinator.audioPlayerManager.currentTrack == nil)
+                .id(menuUpdateTrigger)
                 
                 Divider()
                 
-                Button("Play/Pause") {
-                    appCoordinator.audioPlayerManager.togglePlayPause()
+                Button("Shuffle") {
+                    appCoordinator.playlistManager.toggleShuffle()
                 }
-                .keyboardShortcut("p", modifiers: [.command])
+                .keyboardShortcut("s", modifiers: .command)
+                
+                Button(repeatModeLabel) {
+                    appCoordinator.playlistManager.toggleRepeatMode()
+                    menuUpdateTrigger = UUID()
+                }
+                .keyboardShortcut("r", modifiers: .command)
+                .id(menuUpdateTrigger)
+                
+                Divider()
+                
+                Button("Next") {
+                    appCoordinator.playlistManager.playNextTrack()
+                }
+                .keyboardShortcut(.rightArrow, modifiers: .command)
+                .disabled(appCoordinator.audioPlayerManager.currentTrack == nil)
+                
+                Button("Previous") {
+                    appCoordinator.playlistManager.playPreviousTrack()
+                }
+                .keyboardShortcut(.leftArrow, modifiers: .command)
+                .disabled(appCoordinator.audioPlayerManager.currentTrack == nil)
+                
+                Button("Seek Forward") {
+                    if let currentTrack = appCoordinator.audioPlayerManager.currentTrack {
+                        let newTime = min(appCoordinator.audioPlayerManager.currentTime + 10, currentTrack.duration)
+                        appCoordinator.audioPlayerManager.seekTo(time: newTime)
+                    }
+                }
+                .keyboardShortcut(.rightArrow, modifiers: [])
+                .disabled(appCoordinator.audioPlayerManager.currentTrack == nil)
+                
+                Button("Seek Backward") {
+                    if appCoordinator.audioPlayerManager.currentTrack != nil {
+                        let newTime = max(appCoordinator.audioPlayerManager.currentTime - 10, 0)
+                        appCoordinator.audioPlayerManager.seekTo(time: newTime)
+                    }
+                }
+                .keyboardShortcut(.leftArrow, modifiers: [])
+                .disabled(appCoordinator.audioPlayerManager.currentTrack == nil)
+                
+                Divider()
+                
+                Button("Volume Up") {
+                    let newVolume = min(appCoordinator.audioPlayerManager.volume + 0.05, 1.0)
+                    appCoordinator.audioPlayerManager.setVolume(newVolume)
+                }
+                .keyboardShortcut(.upArrow, modifiers: [])
+                
+                Button("Volume Down") {
+                    let newVolume = max(appCoordinator.audioPlayerManager.volume - 0.05, 0.0)
+                    appCoordinator.audioPlayerManager.setVolume(newVolume)
+                }
+                .keyboardShortcut(.downArrow, modifiers: [])
             }
             
             // Add to View menu
@@ -65,6 +145,17 @@ struct PetrichorApp: App {
                 }
                 .keyboardShortcut("?", modifiers: .command)
             }
+        }
+    }
+    
+    private var repeatModeLabel: String {
+        switch appCoordinator.playlistManager.repeatMode {
+        case .off:
+            return "Repeat: Off"
+        case .all:
+            return "Repeat: All"
+        case .one:
+            return "Repeat: One"
         }
     }
 }
