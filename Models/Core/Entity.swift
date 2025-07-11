@@ -52,6 +52,7 @@ struct AlbumEntity: Entity {
     let albumId: Int64?
     let year: String?
     let duration: Double?
+    let artistName: String?
 
     var subtitle: String? {
         year
@@ -67,9 +68,10 @@ struct AlbumEntity: Entity {
         self.albumId = nil
         self.year = nil
         self.duration = nil
+        self.artistName = nil
     }
 
-    init(name: String, trackCount: Int, artworkData: Data? = nil, albumId: Int64? = nil, year: String? = nil, duration: Double? = nil) {
+    init(name: String, trackCount: Int, artworkData: Data? = nil, albumId: Int64? = nil, year: String? = nil, duration: Double? = nil, artistName: String? = nil) {
         // If we have an albumId, use it for a truly unique ID
         if let albumId = albumId {
             // Create a deterministic UUID from the album ID
@@ -87,6 +89,7 @@ struct AlbumEntity: Entity {
         self.albumId = albumId
         self.year = year
         self.duration = duration
+        self.artistName = artistName
     }
 }
 

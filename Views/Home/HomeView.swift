@@ -16,6 +16,9 @@ struct HomeView: View {
     
     @AppStorage("entitySortAscending")
     private var entitySortAscending: Bool = true
+
+    @AppStorage("albumSortByArtist")
+    private var albumSortByArtist: Bool = false
     
     @State private var selectedSidebarItem: HomeSidebarItem?
     @State private var selectedTrackID: UUID?
@@ -265,16 +268,29 @@ struct HomeView: View {
                 title: "All Albums",
                 trackCount: libraryManager.albumEntities.count
             ) {
-                Button(action: {
-                    entitySortAscending.toggle()
-                    sortEntities()
-                }) {
-                    Image(Icons.sortIcon(for: trackListSortAscending))
-                        .renderingMode(.template)
-                        .scaleEffect(0.8)
+                HStack(spacing: 8) {
+                    Button(action: {
+                        entitySortAscending.toggle()
+                        sortEntities()
+                    }) {
+                        Image(Icons.sortIcon(for: trackListSortAscending))
+                            .renderingMode(.template)
+                            .scaleEffect(0.8)
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Sort \(entitySortAscending ? "descending" : "ascending")")
+
+                    Button(action: {
+                        albumSortByArtist.toggle()
+                        sortAlbumEntities()
+                    }) {
+                        Image(systemName: albumSortByArtist ? "person.2.crop.square.stack" : "rectangle.stack")
+                            .renderingMode(.template)
+                            .scaleEffect(0.8)
+                    }
+                    .buttonStyle(.borderless)
+                    .help(albumSortByArtist ? "Sort by artist then album" : "Sort by album name")
                 }
-                .buttonStyle(.borderless)
-                .help("Sort \(entitySortAscending ? "descending" : "ascending")")
             }
             
             Divider()
@@ -307,6 +323,9 @@ struct HomeView: View {
             if libraryManager.albumEntities.count != lastAlbumCount {
                 sortAlbumEntities()
             }
+        }
+        .onChange(of: albumSortByArtist) {
+            sortAlbumEntities()
         }
     }
     
@@ -466,9 +485,33 @@ struct HomeView: View {
     }
     
     private func sortAlbumEntities() {
-        sortedAlbumEntities = entitySortAscending
-        ? libraryManager.albumEntities.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-        : libraryManager.albumEntities.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedDescending }
+        let albums = libraryManager.albumEntities
+
+        if albumSortByArtist {
+            sortedAlbumEntities = albums.sorted { a, b in
+                let artist1 = a.artistName ?? ""
+                let artist2 = b.artistName ?? ""
+
+                let artistComparison = artist1.localizedCaseInsensitiveCompare(artist2)
+
+                if artistComparison == .orderedSame {
+                    // Same artist, compare album titles
+                    let albumComparison = a.name.localizedCaseInsensitiveCompare(b.name)
+                    return entitySortAscending
+                    ? albumComparison == .orderedAscending
+                    : albumComparison == .orderedDescending
+                }
+
+                return entitySortAscending
+                ? artistComparison == .orderedAscending
+                : artistComparison == .orderedDescending
+            }
+        } else {
+            sortedAlbumEntities = entitySortAscending
+            ? albums.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            : albums.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedDescending }
+        }
+
         lastAlbumCount = sortedAlbumEntities.count
     }
     
