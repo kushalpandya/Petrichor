@@ -112,6 +112,10 @@ extension LibraryManager {
         }
 
         refreshEntities()
+
+        // Kick off asynchronous thumbnail preheating so that album/artist artwork is already cached
+        ThumbnailPreheater.shared.preheat(entities: cachedAlbumEntities)
+
         // Post notification that library is loaded
         NotificationCenter.default.post(name: NSNotification.Name("LibraryDidLoad"), object: nil)
     }

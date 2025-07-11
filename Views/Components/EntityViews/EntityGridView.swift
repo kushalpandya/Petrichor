@@ -30,6 +30,7 @@ struct EntityGridView<T: Entity>: View {
                         ) {
                             onSelectEntity(entity)
                         }
+                        .equatable()
                         .frame(width: itemWidth, height: itemHeight)
                         .contextMenu {
                             ForEach(contextMenuItems(entity), id: \.id) { item in
@@ -72,13 +73,14 @@ struct EntityGridView<T: Entity>: View {
 }
 
 // MARK: - Entity Grid Item
-private struct EntityGridItem<T: Entity>: View {
+private struct EntityGridItem<T: Entity>: View, Equatable {
     let entity: T
     let itemWidth: CGFloat
     let onSelect: () -> Void
 
     @State private var isHovered = false
-    @State private var artworkImage: NSImage?
+    // Cache a SwiftUI `Image` so we don’t recreate it every render pass
+    @State private var artworkImage: Image?
     @State private var artworkLoadTask: Task<Void, Never>?
 
     var body: some View {
@@ -90,7 +92,7 @@ private struct EntityGridItem<T: Entity>: View {
                     .aspectRatio(1, contentMode: .fit)
 
                 if let image = artworkImage {
-                    Image(nsImage: image)
+                    image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
                         .frame(width: 160, height: 160)
@@ -161,26 +163,37 @@ private struct EntityGridItem<T: Entity>: View {
     }
 
     private func loadArtworkAsync() {
+        // Attempt to fetch from cache first
+        let cacheKey = "\(entity.id.uuidString)-grid-\(Int(itemWidth))"
+        if let cachedNSImage = ImageCache.shared.image(forKey: cacheKey) {
+            // Convert once and store the SwiftUI `Image` so we don't recreate it repeatedly
+            self.artworkImage = Image(nsImage: cachedNSImage)
+            return
+        }
+
         artworkLoadTask?.cancel()
 
         artworkLoadTask = Task {
-            // Small delay to prioritize scrolling
-            try? await Task.sleep(nanoseconds: TimeConstants.fiftyMilliseconds)
+            // Yield once to allow SwiftUI to finish layout work before decoding image
+            await Task.yield()
 
             guard !Task.isCancelled else { return }
 
-            if let data = entity.artworkData,
-               let image = NSImage(data: data) {
-                // Resize image to appropriate size for grid
-                let targetSize = NSSize(width: itemWidth * 2, height: itemWidth * 2) // 2x for retina
-                let thumbnailImage = image.resized(to: targetSize)
+            if let data = entity.artworkData {
+                if let thumbnailImage = ThumbnailGenerator.makeThumbnailLimited(from: data, maxPixelSize: Int(itemWidth * 2)) {
+                    ImageCache.shared.insertImage(thumbnailImage, forKey: cacheKey)
 
-                await MainActor.run {
-                    guard !Task.isCancelled else { return }
-                    self.artworkImage = thumbnailImage
+                    await MainActor.run {
+                        guard !Task.isCancelled else { return }
+                        self.artworkImage = Image(nsImage: thumbnailImage)
+                    }
                 }
             }
         }
+    }
+
+    static func == (lhs: EntityGridItem<T>, rhs: EntityGridItem<T>) -> Bool {
+        lhs.entity.id == rhs.entity.id
     }
 }
 
