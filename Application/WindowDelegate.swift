@@ -46,7 +46,11 @@ class WindowDelegate: NSObject, NSWindowDelegate {
         return newFrame
     }
 
-    // Add this to prevent saving corrupted frames
+    /*
+    // Disabled: Early frame-correction logic caused issues with 3rd-party tiling managers and Mission Control Spaces.
+    // Keeping this method active made the window jump to the currently active Space and fight with the
+    // window manager over its size, leading to rapid resizing loops.  The logic has been entirely
+    // commented out to allow external window managers to control the window freely.
     func windowDidMove(_ notification: Notification) {
         guard let window = notification.object as? NSWindow else { return }
 
@@ -65,4 +69,5 @@ class WindowDelegate: NSObject, NSWindowDelegate {
             }
         }
     }
+*/
 }
