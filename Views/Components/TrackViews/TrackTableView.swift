@@ -224,12 +224,14 @@ struct TrackTableView: NSViewRepresentable {
             tableView.removeTableColumn(tableView.tableColumns[0])
         }
 
-        // Add play/pause column first
         let playColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("playPause"))
-        playColumn.title = "" // Empty header
+        playColumn.title = "#" // Track number column header
+        playColumn.headerCell.alignment = .center
+        // Enable sorting by track number when this column is clicked
+        playColumn.sortDescriptorPrototype = NSSortDescriptor(key: "trackNumber", ascending: true)
         playColumn.width = 32
         playColumn.minWidth = 32
-        playColumn.maxWidth = 32
+        playColumn.maxWidth = 40
         playColumn.resizingMask = [] // Fixed width, no resizing
         tableView.addTableColumn(playColumn)
 
@@ -1167,9 +1169,23 @@ struct PlayPauseCell: View {
                 // Show playing indicator only when actually playing
                 PlayingIndicator()
                     .frame(width: 16)
+            } else {
+                // Show track number when not hovered and not playing
+                Text(trackNumberText)
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
             }
         }
         .frame(width: 32, height: 44)
         .contentShape(Rectangle())
+    }
+
+    // MARK: - Helpers
+
+    private var trackNumberText: String {
+        if let num = track.trackNumber {
+            return String(num)
+        }
+        return ""
     }
 }
