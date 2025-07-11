@@ -179,7 +179,7 @@ struct FoldersView: View {
                     return []
                 }
             },
-            showDiscHeaders: false
+            sortByDiscAndTrackNumber: false
         )
     }
 

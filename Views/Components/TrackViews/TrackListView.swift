@@ -4,50 +4,111 @@ struct TrackListView: View {
     let tracks: [Track]
     let onPlayTrack: (Track) -> Void
     let contextMenuItems: (Track) -> [ContextMenuItem]
-    let showDiscHeaders: Bool
+    let sortByDiscAndTrackNumber: Bool
 
     @EnvironmentObject var playbackManager: PlaybackManager
     @State private var hoveredTrackID: UUID?
 
     var body: some View {
-        // Pre-compute grouping to simplify view builder content
-        let grouped = Dictionary(grouping: tracks) { $0.discNumber ?? 1 }
-        let discKeys = grouped.keys.sorted()
+        // Sort tracks as requested when the flag is enabled
+        let sortedTracks: [Track]
+
+        if sortByDiscAndTrackNumber {
+            // Determine if multiple albums are present
+            let hasMultipleAlbums = Set(tracks.map { $0.album }).count > 1
+
+            sortedTracks = tracks.sorted { lhs, rhs in
+                // 1. Album (only when multiple albums are present)
+                if hasMultipleAlbums {
+                    let albumComparison = lhs.album.localizedCaseInsensitiveCompare(rhs.album)
+                    if albumComparison != .orderedSame {
+                        return albumComparison == .orderedAscending
+                    }
+                }
+
+                // 2. Disc number (nil -> 1)
+                let disc1 = lhs.discNumber ?? 1
+                let disc2 = rhs.discNumber ?? 1
+                if disc1 != disc2 {
+                    return disc1 < disc2
+                }
+
+                // 3. Track number (nil -> Int.max so unknown tracks go last)
+                let num1 = lhs.trackNumber ?? Int.max
+                let num2 = rhs.trackNumber ?? Int.max
+                return num1 < num2
+            }
+        } else {
+            sortedTracks = tracks
+        }
+
+        // Group by album -> disc for header display
+        let hasMultipleAlbums = Set(sortedTracks.map { $0.album }).count > 1
+
+        // Helper to keep album order consistent with sorted list
+        let albumOrder: [String] = sortedTracks.reduce(into: []) { result, track in
+            if result.last != track.album {
+                result.append(track.album)
+            }
+        }
+
+        let albumGrouped = Dictionary(grouping: sortedTracks) { $0.album }
 
         return ScrollView {
             LazyVStack(spacing: 0, pinnedViews: []) {
-                ForEach(discKeys, id: \.self) { disc in
-                    // Show header only if showDiscHeaders is true and (multi-disc album or disc number greater than 1)
-                    if showDiscHeaders && (discKeys.count > 1 || disc > 1) {
+                ForEach(albumOrder, id: \.self) { album in
+                    let albumTracks = albumGrouped[album] ?? []
+
+                    // Album header if multiple albums
+                    if sortByDiscAndTrackNumber && hasMultipleAlbums {
                         HStack {
-                            Text("Disc \(disc)")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .padding(.vertical, 4)
+                            Text(album)
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .padding(.vertical, 6)
                             Spacer()
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(Color(NSColor.textBackgroundColor))
                     }
 
-                    ForEach(Array((grouped[disc] ?? []).enumerated()), id: \.element.id) { _, track in
-                        TrackListRow(
-                            track: track,
-                            isHovered: hoveredTrackID == track.id,
-                            onPlay: {
-                            let isCurrentTrack = playbackManager.currentTrack?.url.path == track.url.path
-                                if !isCurrentTrack {
-                                    onPlayTrack(track)
-                                }
-                            },
-                            onHover: { isHovered in
-                                hoveredTrackID = isHovered ? track.id : nil
+                    // Group tracks of this album by disc
+                    let discGrouped = Dictionary(grouping: albumTracks) { $0.discNumber ?? 1 }
+                    let discKeys = discGrouped.keys.sorted()
+
+                    ForEach(discKeys, id: \.self) { disc in
+                        // Disc header when needed
+                        if sortByDiscAndTrackNumber && (discKeys.count > 1 || disc > 1) {
+                            HStack {
+                                Text("Disc \(disc)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .padding(.vertical, 4)
+                                Spacer()
                             }
-                        )
-                        .contextMenu {
-                            TrackContextMenuContent(items: contextMenuItems(track))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color(NSColor.textBackgroundColor))
                         }
-                        .id(track.id)
+
+                        ForEach(Array((discGrouped[disc] ?? []).enumerated()), id: \.element.id) { _, track in
+                            TrackListRow(
+                                track: track,
+                                isHovered: hoveredTrackID == track.id,
+                                onPlay: {
+                                let isCurrentTrack = playbackManager.currentTrack?.url.path == track.url.path
+                                    if !isCurrentTrack {
+                                        onPlayTrack(track)
+                                    }
+                                },
+                                onHover: { isHovered in
+                                    hoveredTrackID = isHovered ? track.id : nil
+                                }
+                            )
+                            .contextMenu {
+                                TrackContextMenuContent(items: contextMenuItems(track))
+                            }
+                            .id(track.id)
+                        }
                     }
                 }
             }

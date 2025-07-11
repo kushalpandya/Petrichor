@@ -188,7 +188,7 @@ struct HomeView: View {
                             currentContext: .library
                         )
                     },
-                    showDiscHeaders: false
+                    sortByDiscAndTrackNumber: false
                 )
                 .background(Color(NSColor.textBackgroundColor))
             }
@@ -411,7 +411,7 @@ struct HomeView: View {
                                     currentContext: .library
                                 )
                             },
-                            showDiscHeaders: false
+                            sortByDiscAndTrackNumber: false
                         )
                         .background(Color(NSColor.textBackgroundColor))
                     }

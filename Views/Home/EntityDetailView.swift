@@ -49,7 +49,7 @@ struct EntityDetailView: View {
                             currentContext: .library
                         )
                     },
-                    showDiscHeaders: trackListSortByNumber
+                    sortByDiscAndTrackNumber: trackListSortByNumber
                 )
                 .background(Color(NSColor.textBackgroundColor))
             }
