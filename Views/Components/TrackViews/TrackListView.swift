@@ -85,6 +85,12 @@ private struct TrackListRow: View {
                 PlayingIndicator()
                     .frame(width: 16)
                     .transition(.scale.combined(with: .opacity))
+            } else {
+                // Show track number when not showing play button or playing indicator
+                Text(trackNumberText)
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+                    .transition(.scale.combined(with: .opacity))
             }
         }
         .frame(width: 40, height: 40)
@@ -270,5 +276,12 @@ private struct TrackListRow: View {
         let minutes = totalSeconds / 60
         let remainingSeconds = totalSeconds % 60
         return String(format: StringFormat.mmss, minutes, remainingSeconds)
+    }
+
+    private var trackNumberText: String {
+        if let num = track.trackNumber {
+            return String(num)
+        }
+        return ""
     }
 }
