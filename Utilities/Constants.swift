@@ -62,7 +62,6 @@ enum Icons {
     static let clockFill = "clock.fill"
     
     // Sort Icons
-    static let sortBy = "arrow.up.arrow.down"
     static let sortAscending = "sort.ascending"
     static let sortDescending = "sort.descending"
     

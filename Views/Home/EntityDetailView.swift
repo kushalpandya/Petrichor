@@ -107,35 +107,43 @@ struct EntityDetailView: View {
                 // Sort menu for list/grid views
                 if viewType != .table {
                     Menu {
-                        Text("Sort by:")
+                        Toggle("Title", isOn: Binding(
+                            get: { !trackListSortByNumber },
+                            set: { _ in
+                                trackListSortByNumber = false
+                            }
+                        ))
                         
-                        Button("Title ↑") {
-                            trackListSortByNumber = false
-                            trackListSortAscending = true
-                        }
-                        
-                        Button("Title ↓") {
-                            trackListSortByNumber = false
-                            trackListSortAscending = false
-                        }
+                        Toggle("Track number", isOn: Binding(
+                            get: { trackListSortByNumber },
+                            set: { _ in
+                                trackListSortByNumber = true
+                            }
+                        ))
                         
                         Divider()
                         
-                        Button("Track number ↑") {
-                            trackListSortByNumber = true
-                            trackListSortAscending = true
-                        }
+                        Toggle("Ascending", isOn: Binding(
+                            get: { trackListSortAscending },
+                            set: { _ in
+                                trackListSortAscending = true
+                            }
+                        ))
                         
-                        Button("Track number ↓") {
-                            trackListSortByNumber = true
-                            trackListSortAscending = false
-                        }
+                        Toggle("Descending", isOn: Binding(
+                            get: { !trackListSortAscending },
+                            set: { _ in
+                                trackListSortAscending = false
+                            }
+                        ))
                     } label: {
-                        Image(systemName: Icons.sortBy)
+                        Image(systemName: "line.3.horizontal.decrease")
                             .font(.system(size: 14))
                             .foregroundColor(.secondary)
                     }
-                    .buttonStyle(.borderless)
+                    .menuStyle(.borderlessButton)
+                    .menuIndicator(.hidden)
+                    .fixedSize()
                     .help("Sort tracks")
                 }
             }
