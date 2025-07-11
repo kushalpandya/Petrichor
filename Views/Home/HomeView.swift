@@ -187,7 +187,8 @@ struct HomeView: View {
                             playlistManager: playlistManager,
                             currentContext: .library
                         )
-                    }
+                    },
+                    showDiscHeaders: false
                 )
                 .background(Color(NSColor.textBackgroundColor))
             }
@@ -409,7 +410,8 @@ struct HomeView: View {
                                     playlistManager: playlistManager,
                                     currentContext: .library
                                 )
-                            }
+                            },
+                            showDiscHeaders: false
                         )
                         .background(Color(NSColor.textBackgroundColor))
                     }

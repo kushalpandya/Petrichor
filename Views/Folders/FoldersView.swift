@@ -178,7 +178,8 @@ struct FoldersView: View {
                 } else {
                     return []
                 }
-            }
+            },
+            showDiscHeaders: false
         )
     }
 

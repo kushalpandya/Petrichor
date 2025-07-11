@@ -232,7 +232,8 @@ struct PlaylistDetailView: View {
                         } else {
                             return []
                         }
-                    }
+                    },
+                    showDiscHeaders: false
                 )
                 .background(Color(NSColor.textBackgroundColor))
             }

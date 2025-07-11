@@ -48,7 +48,8 @@ struct EntityDetailView: View {
                             playlistManager: playlistManager,
                             currentContext: .library
                         )
-                    }
+                    },
+                    showDiscHeaders: trackListSortByNumber
                 )
                 .background(Color(NSColor.textBackgroundColor))
             }
@@ -159,9 +160,9 @@ struct EntityDetailView: View {
             }
         } else {
             return trackListSortAscending
-            ? tracks.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
-            : tracks.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedDescending }
-    }
+                ? tracks.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+                : tracks.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedDescending }
+        }
     }
     
     private var entityArtwork: some View {

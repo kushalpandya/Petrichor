@@ -8,6 +8,7 @@ struct TrackView: View {
     let playlistID: UUID?
     let onPlayTrack: (Track) -> Void
     let contextMenuItems: (Track) -> [ContextMenuItem]
+    let showDiscHeaders: Bool
 
     @EnvironmentObject var playbackManager: PlaybackManager
 
@@ -17,7 +18,8 @@ struct TrackView: View {
             TrackListView(
                 tracks: tracks,
                 onPlayTrack: onPlayTrack,
-                contextMenuItems: contextMenuItems
+                contextMenuItems: contextMenuItems,
+                showDiscHeaders: showDiscHeaders
             )
         case .grid:
             TrackGridView(
@@ -96,7 +98,8 @@ struct TrackContextMenuContent: View {
         onPlayTrack: { track in
             Logger.debugPrint("Playing \(track.title)")
         },
-        contextMenuItems: { _ in [] }
+        contextMenuItems: { _ in [] },
+        showDiscHeaders: false
     )
     .frame(height: 400)
     .environmentObject(PlaybackManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
@@ -121,7 +124,8 @@ struct TrackContextMenuContent: View {
         onPlayTrack: { track in
             Logger.debugPrint("Playing \(track.title)")
         },
-        contextMenuItems: { _ in [] }
+        contextMenuItems: { _ in [] },
+        showDiscHeaders: false
     )
     .frame(height: 600)
     .environmentObject(PlaybackManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
@@ -148,7 +152,8 @@ struct TrackContextMenuContent: View {
         onPlayTrack: { track in
             Logger.debugPrint("Playing \(track.title)")
         },
-        contextMenuItems: { _ in [] }
+        contextMenuItems: { _ in [] },
+        showDiscHeaders: false
     )
     .frame(height: 600)
     .environmentObject(PlaybackManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
@@ -175,7 +180,8 @@ struct TrackContextMenuContent: View {
         onPlayTrack: { track in
             Logger.debugPrint("Playing \(track.title)")
         },
-        contextMenuItems: { _ in [] }
+        contextMenuItems: { _ in [] },
+        showDiscHeaders: false
     )
     .frame(height: 600)
     .environmentObject(PlaybackManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
