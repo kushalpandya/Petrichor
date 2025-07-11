@@ -7,6 +7,11 @@
 import AppKit
 
 class WindowDelegate: NSObject, NSWindowDelegate {
+    // Flag to ensure we only attempt one corrective reposition. This prevents
+    // fighting with tiling/space-managing tools which may
+    // legitimately move the window after the initial launch.
+    private var didRestoreWindowFrame = false
+
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         // Save playback state when window closes
         AppCoordinator.shared?.savePlaybackState()
@@ -46,23 +51,33 @@ class WindowDelegate: NSObject, NSWindowDelegate {
         return newFrame
     }
 
-    // Add this to prevent saving corrupted frames
-    func windowDidMove(_ notification: Notification) {
-        guard let window = notification.object as? NSWindow else { return }
+   // Add this to prevent saving corrupted frames
+   func windowDidMove(_ notification: Notification) {
+       guard let window = notification.object as? NSWindow else { return }
 
-        // Check if the window is in a suspicious position (like preview pane)
-        let frame = window.frame
-        guard let mainScreen = NSScreen.main else { return }
-        if frame.width < 800 || frame.height < 600 || frame.origin.x > mainScreen.frame.width - 700 {
-            // Don't save this frame
-            window.setFrameAutosaveName("")
+       // If we've already handled a potential corrupted frame once, do not
+       // interfere with subsequent legitimate moves coming from tiling window
+       // managers or the system itself.
+       if didRestoreWindowFrame {
+           return
+       }
 
-            // Re-enable autosave after centering
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                window.setFrame(NSRect(x: 0, y: 0, width: 1200, height: 800), display: true)
-                window.center()
-                window.setFrameAutosaveName("MainWindow")
-            }
-        }
-    }
+       // Check if the window is in a suspicious position (like preview pane)
+       let frame = window.frame
+       guard let mainScreen = NSScreen.main else { return }
+       if frame.width < 800 || frame.height < 600 || frame.origin.x > mainScreen.frame.width - 700 {
+           // Don't save this frame
+           window.setFrameAutosaveName("")
+
+           // Re-enable autosave after centering
+           DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+               window.setFrame(NSRect(x: 0, y: 0, width: 1200, height: 800), display: true)
+               window.center()
+               window.setFrameAutosaveName("MainWindow")
+
+               // Mark the frame as restored so we don't do this again.
+               self.didRestoreWindowFrame = true
+           }
+       }
+   }
 }
