@@ -4,6 +4,10 @@ struct EntityDetailView: View {
     @AppStorage("trackListSortAscending")
     private var trackListSortAscending = true
 
+    // New: toggle to sort by track number instead of title
+    @AppStorage("trackListSortByNumber")
+    private var trackListSortByNumber = false
+
     let entity: any Entity
     let viewType: LibraryViewType
     let onBack: (() -> Void)?
@@ -108,6 +112,14 @@ struct EntityDetailView: View {
                     }
                     .buttonStyle(.borderless)
                     .help("Sort tracks \(trackListSortAscending ? "descending" : "ascending")")
+
+                    Button(action: { trackListSortByNumber.toggle() }) {
+                        Image(systemName: "number")
+                            .renderingMode(.template)
+                            .scaleEffect(0.8)
+                    }
+                    .buttonStyle(.borderless)
+                    .help(trackListSortByNumber ? "Sorting by track number" : "Sort by track number")
                 }
             }
             .padding([.bottom, .trailing], 12)
@@ -115,9 +127,25 @@ struct EntityDetailView: View {
     }
     
     private var sortedTracks: [Track] {
-        trackListSortAscending
-            ? tracks.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
-            : tracks.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedDescending }
+        if trackListSortByNumber {
+            return tracks.sorted { track1, track2 in
+                let disc1 = track1.discNumber ?? 1
+                let disc2 = track2.discNumber ?? 1
+
+                if disc1 != disc2 {
+                    return trackListSortAscending ? disc1 < disc2 : disc1 > disc2
+                }
+
+                // Same disc, compare track numbers
+                let num1 = track1.trackNumber ?? (trackListSortAscending ? Int.max : Int.min)
+                let num2 = track2.trackNumber ?? (trackListSortAscending ? Int.max : Int.min)
+                return trackListSortAscending ? num1 < num2 : num1 > num2
+            }
+        } else {
+            return trackListSortAscending
+                ? tracks.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+                : tracks.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedDescending }
+        }
     }
     
     private var entityArtwork: some View {

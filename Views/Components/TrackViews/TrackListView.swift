@@ -9,26 +9,45 @@ struct TrackListView: View {
     @State private var hoveredTrackID: UUID?
 
     var body: some View {
-        ScrollView {
+        // Pre-compute grouping to simplify view builder content
+        let grouped = Dictionary(grouping: tracks) { $0.discNumber ?? 1 }
+        let discKeys = grouped.keys.sorted()
+
+        return ScrollView {
             LazyVStack(spacing: 0, pinnedViews: []) {
-                ForEach(Array(tracks.enumerated()), id: \.element.id) { _, track in
-                    TrackListRow(
-                        track: track,
-                        isHovered: hoveredTrackID == track.id,
-                        onPlay: {
-                            let isCurrentTrack = audioPlayerManager.currentTrack?.url.path == track.url.path
-                            if !isCurrentTrack {
-                                onPlayTrack(track)
-                            }
-                        },
-                        onHover: { isHovered in
-                            hoveredTrackID = isHovered ? track.id : nil
+                ForEach(discKeys, id: \.self) { disc in
+                    // Show header only if multi-disc album or disc number greater than 1
+                    if discKeys.count > 1 || disc > 1 {
+                        HStack {
+                            Text("Disc \(disc)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .padding(.vertical, 4)
+                            Spacer()
                         }
-                    )
-                    .contextMenu {
-                        TrackContextMenuContent(items: contextMenuItems(track))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(NSColor.textBackgroundColor))
                     }
-                    .id(track.id)
+
+                    ForEach(Array((grouped[disc] ?? []).enumerated()), id: \.element.id) { _, track in
+                        TrackListRow(
+                            track: track,
+                            isHovered: hoveredTrackID == track.id,
+                            onPlay: {
+                                let isCurrentTrack = audioPlayerManager.currentTrack?.url.path == track.url.path
+                                if !isCurrentTrack {
+                                    onPlayTrack(track)
+                                }
+                            },
+                            onHover: { isHovered in
+                                hoveredTrackID = isHovered ? track.id : nil
+                            }
+                        )
+                        .contextMenu {
+                            TrackContextMenuContent(items: contextMenuItems(track))
+                        }
+                        .id(track.id)
+                    }
                 }
             }
             .padding(5)
@@ -49,6 +68,7 @@ private struct TrackListRow: View {
     var body: some View {
         HStack(spacing: 0) {
             playButtonSection
+            trackNumberSection
             trackContent
                 .contentShape(Rectangle())
                 .onTapGesture(count: 2, perform: onPlay)
@@ -270,5 +290,21 @@ private struct TrackListRow: View {
         let minutes = totalSeconds / 60
         let remainingSeconds = totalSeconds % 60
         return String(format: StringFormat.mmss, minutes, remainingSeconds)
+    }
+
+    // MARK: - Track Number Section
+
+    private var trackNumberSection: some View {
+        Text(trackNumberText)
+            .font(.system(size: 12))
+            .foregroundColor(.secondary)
+            .frame(width: 30, alignment: .trailing)
+    }
+
+    private var trackNumberText: String {
+        if let num = track.trackNumber {
+            return String(num)
+        }
+        return ""
     }
 }
