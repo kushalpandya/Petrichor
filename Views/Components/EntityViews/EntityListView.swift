@@ -21,6 +21,7 @@ struct EntityListView<T: Entity>: View {
                             hoveredEntityID = isHovered ? entity.id : nil
                         }
                     )
+                    .equatable()
                     .contextMenu {
                         ForEach(contextMenuItems(entity), id: \.id) { item in
                             contextMenuItem(item)
@@ -53,13 +54,14 @@ struct EntityListView<T: Entity>: View {
 }
 
 // MARK: - Entity List Row
-private struct EntityListRow<T: Entity>: View {
+private struct EntityListRow<T: Entity>: View, Equatable {
     let entity: T
     let isHovered: Bool
     let onSelect: () -> Void
     let onHover: (Bool) -> Void
 
-    @State private var artworkImage: NSImage?
+    // Store a SwiftUI `Image` to avoid re-creating it on every view update
+    @State private var artworkImage: Image?
     @State private var artworkLoadTask: Task<Void, Never>?
 
     var body: some View {
@@ -71,7 +73,7 @@ private struct EntityListRow<T: Entity>: View {
                     .frame(width: 48, height: 48)
 
                 if let image = artworkImage {
-                    Image(nsImage: image)
+                    image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
                         .frame(width: 48, height: 48)
@@ -144,25 +146,36 @@ private struct EntityListRow<T: Entity>: View {
     }
 
     private func loadArtworkAsync() {
+        // Try cache first
+        let cacheKey = "\(entity.id.uuidString)-list"
+        if let cachedNSImage = ImageCache.shared.image(forKey: cacheKey) {
+            self.artworkImage = Image(nsImage: cachedNSImage)
+            return
+        }
+
         artworkLoadTask?.cancel()
 
         artworkLoadTask = Task {
-            // Small delay to prioritize scrolling
-            try? await Task.sleep(nanoseconds: TimeConstants.fiftyMilliseconds)
+            // Yield once to allow SwiftUI to finish layout work before decoding
+            await Task.yield()
 
             guard !Task.isCancelled else { return }
 
-            if let data = entity.artworkData,
-               let image = NSImage(data: data) {
-                // Resize image to thumbnail size to save memory
-                let thumbnailImage = image.resized(to: NSSize(width: 96, height: 96))
+            if let data = entity.artworkData {
+                if let thumbnailImage = ThumbnailGenerator.makeThumbnailLimited(from: data, maxPixelSize: 96 * 2) {
+                    ImageCache.shared.insertImage(thumbnailImage, forKey: cacheKey)
 
-                await MainActor.run {
-                    guard !Task.isCancelled else { return }
-                    self.artworkImage = thumbnailImage
+                    await MainActor.run {
+                        guard !Task.isCancelled else { return }
+                        self.artworkImage = Image(nsImage: thumbnailImage)
+                    }
                 }
             }
         }
+    }
+
+    static func == (lhs: EntityListRow<T>, rhs: EntityListRow<T>) -> Bool {
+        lhs.entity.id == rhs.entity.id && lhs.isHovered == rhs.isHovered
     }
 }
 
