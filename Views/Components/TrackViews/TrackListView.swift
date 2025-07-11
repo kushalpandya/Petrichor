@@ -51,6 +51,9 @@ struct TrackListView: View {
                 }
             }
             .padding(5)
+            .onAppear {
+                ThumbnailPreheater.shared.preheat(tracks: tracks)
+            }
         }
     }
 }
@@ -64,6 +67,7 @@ private struct TrackListRow: View {
 
     @EnvironmentObject var audioPlayerManager: AudioPlayerManager
     @State private var artworkImage: NSImage?
+    @State private var artworkLoadTask: Task<Void, Never>? // Task to manage async artwork loading and allow cancellation
 
     var body: some View {
         HStack(spacing: 0) {
@@ -137,8 +141,16 @@ private struct TrackListRow: View {
                 loadingArtwork
             }
         }
-        .task { await loadArtwork() }
-        .onDisappear { artworkImage = nil }
+        // Perform artwork loading with Task for better cancellation and concurrency control
+        .onAppear {
+            loadArtworkAsync()
+        }
+        .onDisappear {
+            // Cancel loading task and clear image to free memory
+            artworkLoadTask?.cancel()
+            artworkLoadTask = nil
+            artworkImage = nil
+        }
     }
 
     private var placeholderArtwork: some View {
@@ -269,18 +281,35 @@ private struct TrackListRow: View {
         }
     }
 
-    private func loadArtwork() async {
-        guard artworkImage == nil else { return }
+    /// Optimized artwork loading with caching and limited concurrency thumbnail generation (similar to EntityListView)
+    private func loadArtworkAsync() {
+        // Prevent duplicate tasks
+        guard artworkLoadTask == nil else { return }
 
-        await withCheckedContinuation { continuation in
-            Task {
-                if let artworkData = track.artworkData,
-                   let image = NSImage(data: artworkData) {
+        // Try cache first
+        let cacheKey = "\(track.id.uuidString)-track-list"
+        if let cachedImage = ImageCache.shared.image(forKey: cacheKey) {
+            self.artworkImage = cachedImage
+            return
+        }
+
+        artworkLoadTask = Task {
+            // Yield once to allow SwiftUI finish layout before heavy work
+            await Task.yield()
+
+            guard !Task.isCancelled else { return }
+
+            if let data = track.artworkData {
+                // Generate downsampled thumbnail with concurrency limit
+                if let thumbnailImage = ThumbnailGenerator.makeThumbnailLimited(from: data, maxPixelSize: 160) { // 40pt * 4 for high-res displays
+                    // Insert into cache
+                    ImageCache.shared.insertImage(thumbnailImage, forKey: cacheKey)
+
                     await MainActor.run {
-                        self.artworkImage = image
+                        guard !Task.isCancelled else { return }
+                        self.artworkImage = thumbnailImage
                     }
                 }
-                continuation.resume()
             }
         }
     }
