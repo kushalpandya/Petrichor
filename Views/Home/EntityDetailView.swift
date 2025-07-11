@@ -8,7 +8,7 @@ struct EntityDetailView: View {
     let viewType: LibraryViewType
     let onBack: (() -> Void)?
     
-    @EnvironmentObject var audioPlayerManager: AudioPlayerManager
+    @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var playlistManager: PlaylistManager
     @EnvironmentObject var libraryManager: LibraryManager
     @State private var tracks: [Track] = []
@@ -40,7 +40,7 @@ struct EntityDetailView: View {
                     contextMenuItems: { track in
                         TrackContextMenu.createMenuItems(
                             for: track,
-                            audioPlayerManager: audioPlayerManager,
+                            playbackManager: playbackManager,
                             playlistManager: playlistManager,
                             currentContext: .library
                         )
@@ -364,7 +364,7 @@ struct EntityDetailView: View {
         viewType: .list
     ) { Logger.debugPrint("Back tapped") }
     .environmentObject(LibraryManager())
-    .environmentObject(AudioPlayerManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
+    .environmentObject(PlaybackManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
     .environmentObject(PlaylistManager())
     .frame(height: 600)
 }
@@ -377,7 +377,7 @@ struct EntityDetailView: View {
         viewType: .grid
     ) { Logger.debugPrint("Back tapped") }
     .environmentObject(LibraryManager())
-    .environmentObject(AudioPlayerManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
+    .environmentObject(PlaybackManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
     .environmentObject(PlaylistManager())
     .frame(height: 600)
 }

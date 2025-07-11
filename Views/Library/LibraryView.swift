@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct LibraryView: View {
-    @EnvironmentObject var audioPlayerManager: AudioPlayerManager
+    @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var libraryManager: LibraryManager
     @EnvironmentObject var playlistManager: PlaylistManager
 
@@ -140,7 +140,7 @@ struct LibraryView: View {
                     contextMenuItems: { track in
                         TrackContextMenu.createMenuItems(
                             for: track,
-                            audioPlayerManager: audioPlayerManager,
+                            playbackManager: playbackManager,
                             playlistManager: playlistManager,
                             currentContext: .library
                         )
@@ -255,7 +255,7 @@ struct LibraryView: View {
     private func createLibraryContextMenu(for track: Track) -> [ContextMenuItem] {
         TrackContextMenu.createMenuItems(
             for: track,
-            audioPlayerManager: audioPlayerManager,
+            playbackManager: playbackManager,
             playlistManager: playlistManager,
             currentContext: .library
         )
@@ -310,7 +310,7 @@ struct LibraryView: View {
     LibraryView(viewType: .list)
         .environmentObject({
             let coordinator = AppCoordinator()
-            return coordinator.audioPlayerManager
+            return coordinator.playbackManager
         }())
         .environmentObject({
             let coordinator = AppCoordinator()

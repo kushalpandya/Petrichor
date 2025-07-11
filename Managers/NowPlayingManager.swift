@@ -58,7 +58,7 @@ class NowPlayingManager {
         commandCenter.changePlaybackPositionCommand.removeTarget(nil)
     }
 
-    func connectRemoteCommandCenter(audioPlayer: AudioPlayerManager, playlistManager: PlaylistManager) {
+    func connectRemoteCommandCenter(audioPlayer: PlaybackManager, playlistManager: PlaylistManager) {
         let commandCenter = MPRemoteCommandCenter.shared()
 
         // Add handler for play command

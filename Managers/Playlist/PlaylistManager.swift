@@ -28,14 +28,14 @@ class PlaylistManager: ObservableObject {
     internal var libraryManager: LibraryManager?
 
     // MARK: - Dependencies
-    internal weak var audioPlayer: AudioPlayerManager?
+    internal weak var audioPlayer: PlaybackManager?
 
     // MARK: - Initialization
     init() {
         // Don't load playlists yet - wait until libraryManager is set
     }
 
-    func setAudioPlayer(_ player: AudioPlayerManager) {
+    func setAudioPlayer(_ player: PlaybackManager) {
         self.audioPlayer = player
     }
 

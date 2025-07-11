@@ -7,7 +7,7 @@ extension Notification.Name {
 enum TrackContextMenu {
     static func createMenuItems(
         for track: Track,
-        audioPlayerManager: AudioPlayerManager,
+        playbackManager: PlaybackManager,
         playlistManager: PlaylistManager,
         currentContext: MenuContext
     ) -> [ContextMenuItem] {
@@ -178,10 +178,10 @@ enum TrackContextMenu {
     ) -> [ContextMenuItem] {
         var items: [ContextMenuItem] = []
         
-        // Get regular playlists
+        // Cache playlists to avoid repeated access
         let playlists = playlistManager.playlists.filter { $0.type == .regular }
         
-        // Playlists submenu
+        // Create playlist items more efficiently
         var playlistItems: [ContextMenuItem] = []
         
         // Create new playlist item
@@ -193,15 +193,19 @@ enum TrackContextMenu {
             )
         })
         
-        // Add to existing playlists
+        // Add to existing playlists - optimize the containment check
         if !playlists.isEmpty {
             playlistItems.append(.divider)
+            
+            // Pre-compute track ID for efficiency
+            let trackId = track.trackId
+            
             for playlist in playlists {
-                let isInPlaylist = playlist.tracks.contains { $0.trackId == track.trackId }
+                // More efficient containment check
+                let isInPlaylist = trackId != nil && playlist.tracks.contains { $0.trackId == trackId }
                 let title = isInPlaylist ? "✓ \(playlist.name)" : playlist.name
                 
                 playlistItems.append(.button(title: title) {
-                    // Use updateTrackInPlaylist with the playlist object
                     playlistManager.updateTrackInPlaylist(
                         track: track,
                         playlist: playlist,
@@ -213,9 +217,7 @@ enum TrackContextMenu {
         
         items.append(.menu(title: "Add to Playlist", items: playlistItems))
         
-        // Favorites toggle
-        let isFavorite = track.isFavorite
-        items.append(.button(title: isFavorite ? "Remove from Favorites" : "Add to Favorites") {
+        items.append(.button(title: track.isFavorite ? "Remove from Favorites" : "Add to Favorites") {
             playlistManager.toggleFavorite(for: track)
         })
         

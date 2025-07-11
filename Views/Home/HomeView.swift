@@ -2,7 +2,7 @@ import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject var libraryManager: LibraryManager
-    @EnvironmentObject var audioPlayerManager: AudioPlayerManager
+    @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var playlistManager: PlaylistManager
     
     @AppStorage("trackListSortAscending")
@@ -183,7 +183,7 @@ struct HomeView: View {
                     contextMenuItems: { track in
                         TrackContextMenu.createMenuItems(
                             for: track,
-                            audioPlayerManager: audioPlayerManager,
+                            playbackManager: playbackManager,
                             playlistManager: playlistManager,
                             currentContext: .library
                         )
@@ -405,7 +405,7 @@ struct HomeView: View {
                             contextMenuItems: { track in
                                 TrackContextMenu.createMenuItems(
                                     for: track,
-                                    audioPlayerManager: audioPlayerManager,
+                                    playbackManager: playbackManager,
                                     playlistManager: playlistManager,
                                     currentContext: .library
                                 )
@@ -506,7 +506,7 @@ struct HomeView: View {
     
     HomeView(isShowingEntities: $isShowingEntities)
         .environmentObject(LibraryManager())
-        .environmentObject(AudioPlayerManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
+        .environmentObject(PlaybackManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
         .environmentObject(PlaylistManager())
         .frame(width: 800, height: 600)
 }

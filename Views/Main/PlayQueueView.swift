@@ -2,7 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct PlayQueueView: View {
-    @EnvironmentObject var audioPlayerManager: AudioPlayerManager
+    @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var playlistManager: PlaylistManager
     @State private var draggedTrack: Track?
     @State private var showingClearConfirmation = false
@@ -151,7 +151,7 @@ struct PlayQueueView: View {
             track: track,
             position: index,
             isCurrentTrack: index == playlistManager.currentQueueIndex,
-            isPlaying: index == playlistManager.currentQueueIndex && audioPlayerManager.isPlaying,
+            isPlaying: index == playlistManager.currentQueueIndex && playbackManager.isPlaying,
             playlistManager: playlistManager
         ) {
                 playlistManager.removeFromQueue(at: index)
@@ -354,11 +354,11 @@ struct QueueDropDelegate: DropDelegate {
     
     return PlayQueueView(showingQueue: $showingQueue)
         .environmentObject({
-            let audioPlayerManager = AudioPlayerManager(
+            let playbackManager = PlaybackManager(
                 libraryManager: LibraryManager(),
                 playlistManager: PlaylistManager()
             )
-            return audioPlayerManager
+            return playbackManager
         }())
         .environmentObject({
             let playlistManager = PlaylistManager()
@@ -383,11 +383,11 @@ struct QueueDropDelegate: DropDelegate {
     
     return PlayQueueView(showingQueue: $showingQueue)
         .environmentObject({
-            let audioPlayerManager = AudioPlayerManager(
+            let playbackManager = PlaybackManager(
                 libraryManager: LibraryManager(),
                 playlistManager: PlaylistManager()
             )
-            return audioPlayerManager
+            return playbackManager
         }())
         .environmentObject(PlaylistManager())
         .frame(width: 350, height: 600)

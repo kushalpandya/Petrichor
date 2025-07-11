@@ -5,7 +5,7 @@ struct TrackListView: View {
     let onPlayTrack: (Track) -> Void
     let contextMenuItems: (Track) -> [ContextMenuItem]
 
-    @EnvironmentObject var audioPlayerManager: AudioPlayerManager
+    @EnvironmentObject var playbackManager: PlaybackManager
     @State private var hoveredTrackID: UUID?
 
     var body: some View {
@@ -16,7 +16,7 @@ struct TrackListView: View {
                         track: track,
                         isHovered: hoveredTrackID == track.id,
                         onPlay: {
-                            let isCurrentTrack = audioPlayerManager.currentTrack?.url.path == track.url.path
+                            let isCurrentTrack = playbackManager.currentTrack?.url.path == track.url.path
                             if !isCurrentTrack {
                                 onPlayTrack(track)
                             }
@@ -43,7 +43,7 @@ private struct TrackListRow: View {
     let onPlay: () -> Void
     let onHover: (Bool) -> Void
 
-    @EnvironmentObject var audioPlayerManager: AudioPlayerManager
+    @EnvironmentObject var playbackManager: PlaybackManager
     @State private var artworkImage: NSImage?
 
     var body: some View {
@@ -61,12 +61,12 @@ private struct TrackListRow: View {
     // MARK: - Computed Properties
 
     private var isCurrentTrack: Bool {
-        guard let currentTrack = audioPlayerManager.currentTrack else { return false }
+        guard let currentTrack = playbackManager.currentTrack else { return false }
         return currentTrack.url.path == track.url.path
     }
 
     private var isPlaying: Bool {
-        isCurrentTrack && audioPlayerManager.isPlaying
+        isCurrentTrack && playbackManager.isPlaying
     }
 
     // MARK: - View Components
@@ -207,7 +207,7 @@ private struct TrackListRow: View {
         // Show button if:
         // 1. Hovered (play or pause depending on state)
         // 2. Current track but paused (persistent play button)
-        isHovered || (isCurrentTrack && !audioPlayerManager.isPlaying)
+        isHovered || (isCurrentTrack && !playbackManager.isPlaying)
     }
 
     private var playButtonIcon: String {
@@ -243,7 +243,7 @@ private struct TrackListRow: View {
 
     private func handlePlayButtonTap() {
         if isCurrentTrack {
-            audioPlayerManager.togglePlayPause()
+            playbackManager.togglePlayPause()
         } else {
             onPlay()
         }

@@ -11,7 +11,7 @@ class AppCoordinator: ObservableObject {
     private(set) static var shared: AppCoordinator?
     let libraryManager: LibraryManager
     let playlistManager: PlaylistManager
-    let audioPlayerManager: AudioPlayerManager
+    let playbackManager: PlaybackManager
     let nowPlayingManager: NowPlayingManager
     let menuBarManager: MenuBarManager
     
@@ -33,18 +33,18 @@ class AppCoordinator: ObservableObject {
         playlistManager = PlaylistManager()
         
         // Create audio player with dependencies
-        audioPlayerManager = AudioPlayerManager(libraryManager: libraryManager, playlistManager: playlistManager)
+        playbackManager = PlaybackManager(libraryManager: libraryManager, playlistManager: playlistManager)
         
         // Connect managers
-        playlistManager.setAudioPlayer(audioPlayerManager)
+        playlistManager.setAudioPlayer(playbackManager)
         playlistManager.setLibraryManager(libraryManager)
         
         // Setup now playing
         nowPlayingManager = NowPlayingManager()
-        nowPlayingManager.connectRemoteCommandCenter(audioPlayer: audioPlayerManager, playlistManager: playlistManager)
+        nowPlayingManager.connectRemoteCommandCenter(audioPlayer: playbackManager, playlistManager: playlistManager)
         
         // Setup menubar
-        menuBarManager = MenuBarManager(audioPlayerManager: audioPlayerManager, playlistManager: playlistManager)
+        menuBarManager = MenuBarManager(playbackManager: playbackManager, playlistManager: playlistManager)
         
         hadFoldersAtStartup = !libraryManager.folders.isEmpty
         
@@ -76,13 +76,13 @@ class AppCoordinator: ObservableObject {
     private func clearAllSavedState() {
         UserDefaults.standard.removeObject(forKey: playbackStateKey)
         UserDefaults.standard.removeObject(forKey: playbackUIStateKey)
-        audioPlayerManager.restoredUITrack = nil
-        audioPlayerManager.currentTrack = nil
+        playbackManager.restoredUITrack = nil
+        playbackManager.currentTrack = nil
     }
     
     func savePlaybackState(for calledFromStateTimer: Bool = false) {
         // Only save if we have a current track
-        guard let currentTrack = audioPlayerManager.currentTrack else {
+        guard let currentTrack = playbackManager.currentTrack else {
             clearAllSavedState()
             return
         }
@@ -103,14 +103,14 @@ class AppCoordinator: ObservableObject {
         
         let state = PlaybackState(
             currentTrack: currentTrack,
-            playbackPosition: audioPlayerManager.actualCurrentTime,
+            playbackPosition: playbackManager.actualCurrentTime,
             queueVisible: isQueueVisible,
             queue: playlistManager.currentQueue,
             currentQueueIndex: playlistManager.currentQueueIndex,
             queueSource: playlistManager.currentQueueSource,
             sourceIdentifier: sourceIdentifier,
-            volume: audioPlayerManager.volume,
-            isMuted: audioPlayerManager.volume < 0.01,
+            volume: playbackManager.volume,
+            isMuted: playbackManager.volume < 0.01,
             shuffleEnabled: playlistManager.isShuffleEnabled,
             repeatMode: playlistManager.repeatMode
         )
@@ -139,7 +139,7 @@ class AppCoordinator: ObservableObject {
         }
         
         // Restore UI immediately
-        audioPlayerManager.restoreUIState(uiState)
+        playbackManager.restoreUIState(uiState)
         isQueueVisible = uiState.queueVisible
     }
     
@@ -272,7 +272,7 @@ class AppCoordinator: ObservableObject {
         // Restore playback settings first
         playlistManager.isShuffleEnabled = state.shuffleEnabled
         playlistManager.repeatMode = state.repeatModeEnum
-        audioPlayerManager.setVolume(state.isMuted ? 0 : state.volume)
+        playbackManager.setVolume(state.isMuted ? 0 : state.volume)
         
         // Set the queue
         playlistManager.currentQueue = restoredQueue
@@ -311,8 +311,8 @@ class AppCoordinator: ObservableObject {
             }
             
             // Clear the temporary UI track before setting the real one
-            audioPlayerManager.restoredUITrack = nil
-            audioPlayerManager.prepareTrackForRestoration(currentTrack, at: state.playbackPosition)
+            playbackManager.restoredUITrack = nil
+            playbackManager.prepareTrackForRestoration(currentTrack, at: state.playbackPosition)
             Logger.info("Playback state restored")
         }
     }

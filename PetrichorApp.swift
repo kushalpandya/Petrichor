@@ -13,13 +13,13 @@ struct PetrichorApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environmentObject(appCoordinator.audioPlayerManager)
+                .environmentObject(appCoordinator.playbackManager)
                 .environmentObject(appCoordinator.libraryManager)
                 .environmentObject(appCoordinator.playlistManager)
                 .onReceive(appCoordinator.playlistManager.$repeatMode) { _ in
                     menuUpdateTrigger = UUID()
                 }
-                .onReceive(appCoordinator.audioPlayerManager.$currentTrack) { _ in
+                .onReceive(appCoordinator.playbackManager.$currentTrack) { _ in
                     menuUpdateTrigger = UUID()
                 }
         }
@@ -52,21 +52,21 @@ struct PetrichorApp: App {
             
             CommandMenu("Playback") {
                 Button("Play/Pause") {
-                    if appCoordinator.audioPlayerManager.currentTrack != nil {
-                        appCoordinator.audioPlayerManager.togglePlayPause()
+                    if appCoordinator.playbackManager.currentTrack != nil {
+                        appCoordinator.playbackManager.togglePlayPause()
                     }
                 }
                 .keyboardShortcut(" ", modifiers: [])
-                .disabled(appCoordinator.audioPlayerManager.currentTrack == nil)
+                .disabled(appCoordinator.playbackManager.currentTrack == nil)
                 
-                Button(appCoordinator.audioPlayerManager.currentTrack?.isFavorite == true ? "Remove from Favorites" : "Add to Favorites") {
-                    if let track = appCoordinator.audioPlayerManager.currentTrack {
+                Button(appCoordinator.playbackManager.currentTrack?.isFavorite == true ? "Remove from Favorites" : "Add to Favorites") {
+                    if let track = appCoordinator.playbackManager.currentTrack {
                         appCoordinator.playlistManager.toggleFavorite(for: track)
                         menuUpdateTrigger = UUID()
                     }
                 }
                 .keyboardShortcut("f", modifiers: [.command, .shift])
-                .disabled(appCoordinator.audioPlayerManager.currentTrack == nil)
+                .disabled(appCoordinator.playbackManager.currentTrack == nil)
                 .id(menuUpdateTrigger)
                 
                 Divider()
@@ -89,43 +89,43 @@ struct PetrichorApp: App {
                     appCoordinator.playlistManager.playNextTrack()
                 }
                 .keyboardShortcut(.rightArrow, modifiers: .command)
-                .disabled(appCoordinator.audioPlayerManager.currentTrack == nil)
+                .disabled(appCoordinator.playbackManager.currentTrack == nil)
                 
                 Button("Previous") {
                     appCoordinator.playlistManager.playPreviousTrack()
                 }
                 .keyboardShortcut(.leftArrow, modifiers: .command)
-                .disabled(appCoordinator.audioPlayerManager.currentTrack == nil)
+                .disabled(appCoordinator.playbackManager.currentTrack == nil)
                 
                 Button("Seek Forward") {
-                    if let currentTrack = appCoordinator.audioPlayerManager.currentTrack {
-                        let newTime = min(appCoordinator.audioPlayerManager.currentTime + 10, currentTrack.duration)
-                        appCoordinator.audioPlayerManager.seekTo(time: newTime)
+                    if let currentTrack = appCoordinator.playbackManager.currentTrack {
+                        let newTime = min(appCoordinator.playbackManager.actualCurrentTime + 10, currentTrack.duration)
+                        appCoordinator.playbackManager.seekTo(time: newTime)
                     }
                 }
                 .keyboardShortcut(.rightArrow, modifiers: [])
-                .disabled(appCoordinator.audioPlayerManager.currentTrack == nil)
+                .disabled(appCoordinator.playbackManager.currentTrack == nil)
                 
                 Button("Seek Backward") {
-                    if appCoordinator.audioPlayerManager.currentTrack != nil {
-                        let newTime = max(appCoordinator.audioPlayerManager.currentTime - 10, 0)
-                        appCoordinator.audioPlayerManager.seekTo(time: newTime)
+                    if appCoordinator.playbackManager.currentTrack != nil {
+                        let newTime = max(appCoordinator.playbackManager.actualCurrentTime - 10, 0)
+                        appCoordinator.playbackManager.seekTo(time: newTime)
                     }
                 }
                 .keyboardShortcut(.leftArrow, modifiers: [])
-                .disabled(appCoordinator.audioPlayerManager.currentTrack == nil)
+                .disabled(appCoordinator.playbackManager.currentTrack == nil)
                 
                 Divider()
                 
                 Button("Volume Up") {
-                    let newVolume = min(appCoordinator.audioPlayerManager.volume + 0.05, 1.0)
-                    appCoordinator.audioPlayerManager.setVolume(newVolume)
+                    let newVolume = min(appCoordinator.playbackManager.volume + 0.05, 1.0)
+                    appCoordinator.playbackManager.setVolume(newVolume)
                 }
                 .keyboardShortcut(.upArrow, modifiers: [])
                 
                 Button("Volume Down") {
-                    let newVolume = max(appCoordinator.audioPlayerManager.volume - 0.05, 0.0)
-                    appCoordinator.audioPlayerManager.setVolume(newVolume)
+                    let newVolume = max(appCoordinator.playbackManager.volume - 0.05, 0.0)
+                    appCoordinator.playbackManager.setVolume(newVolume)
                 }
                 .keyboardShortcut(.downArrow, modifiers: [])
             }

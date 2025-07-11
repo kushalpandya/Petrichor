@@ -40,7 +40,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             coordinator.savePlaybackState()
 
             // Stop the playback
-            coordinator.audioPlayerManager.stopGracefully()
+            coordinator.playbackManager.stopGracefully()
             
             // Force a database checkpoint to ensure all data is persisted
             coordinator.libraryManager.databaseManager.checkpoint()
@@ -136,7 +136,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.autoenablesItems = false
         
         guard let coordinator = AppCoordinator.shared else { return menu }
-        let audioPlayerManager = coordinator.audioPlayerManager
+        let playbackManager = coordinator.playbackManager
         let playlistManager = coordinator.playlistManager
         
         // Now Playing header
@@ -144,7 +144,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         nowPlayingItem.isEnabled = false
         menu.addItem(nowPlayingItem)
         
-        if let currentTrack = audioPlayerManager.currentTrack {
+        if let currentTrack = playbackManager.currentTrack {
             // Song title
             let titleItem = NSMenuItem(title: "  \(currentTrack.title)", action: nil, keyEquivalent: "")
             titleItem.isEnabled = false
@@ -225,14 +225,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem.separator())
         
         // Playback controls
-        let playPauseTitle = audioPlayerManager.isPlaying ? "Pause" : "Play"
+        let playPauseTitle = playbackManager.isPlaying ? "Pause" : "Play"
         let playPauseItem = NSMenuItem(
             title: playPauseTitle,
             action: #selector(togglePlayPause),
             keyEquivalent: ""
         )
         playPauseItem.target = self
-        playPauseItem.isEnabled = audioPlayerManager.currentTrack != nil
+        playPauseItem.isEnabled = playbackManager.currentTrack != nil
         menu.addItem(playPauseItem)
         
         let nextItem = NSMenuItem(
@@ -241,7 +241,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             keyEquivalent: ""
         )
         nextItem.target = self
-        nextItem.isEnabled = audioPlayerManager.currentTrack != nil
+        nextItem.isEnabled = playbackManager.currentTrack != nil
         menu.addItem(nextItem)
 
         let previousItem = NSMenuItem(
@@ -250,7 +250,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             keyEquivalent: ""
         )
         previousItem.target = self
-        previousItem.isEnabled = audioPlayerManager.currentTrack != nil
+        previousItem.isEnabled = playbackManager.currentTrack != nil
         menu.addItem(previousItem)
         
         return menu
@@ -261,7 +261,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc
     private func toggleFavorite() {
         guard let coordinator = AppCoordinator.shared,
-              let track = coordinator.audioPlayerManager.currentTrack else { return }
+              let track = coordinator.playbackManager.currentTrack else { return }
         
         coordinator.playlistManager.toggleFavorite(for: track)
     }
@@ -288,7 +288,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     @objc
     private func togglePlayPause() {
-        AppCoordinator.shared?.audioPlayerManager.togglePlayPause()
+        AppCoordinator.shared?.playbackManager.togglePlayPause()
     }
     
     @objc

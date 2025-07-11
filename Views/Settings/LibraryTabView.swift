@@ -334,7 +334,7 @@ struct LibraryTabView: View {
     private func resetLibraryData() {
         // Stop any current playback
         if let coordinator = AppCoordinator.shared {
-            coordinator.audioPlayerManager.stop()
+            coordinator.playbackManager.stop()
             coordinator.playlistManager.clearQueue()
         }
 

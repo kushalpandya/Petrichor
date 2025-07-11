@@ -2,7 +2,7 @@ import SwiftUI
 import Foundation
 
 struct FoldersView: View {
-    @EnvironmentObject var audioPlayerManager: AudioPlayerManager
+    @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var libraryManager: LibraryManager
     @EnvironmentObject var playlistManager: PlaylistManager
     @State private var selectedFolderNode: FolderNode?
@@ -162,7 +162,7 @@ struct FoldersView: View {
                     if let dbFolder = node.databaseFolder {
                         return TrackContextMenu.createMenuItems(
                             for: track,
-                            audioPlayerManager: audioPlayerManager,
+                            playbackManager: playbackManager,
                             playlistManager: playlistManager,
                             currentContext: .folder(dbFolder)
                         )
@@ -170,7 +170,7 @@ struct FoldersView: View {
                         // For sub-folders, use library context
                         return TrackContextMenu.createMenuItems(
                             for: track,
-                            audioPlayerManager: audioPlayerManager,
+                            playbackManager: playbackManager,
                             playlistManager: playlistManager,
                             currentContext: .library
                         )
@@ -291,7 +291,7 @@ struct FoldersView: View {
     FoldersView(viewType: .list)
         .environmentObject({
             let coordinator = AppCoordinator()
-            return coordinator.audioPlayerManager
+            return coordinator.playbackManager
         }())
         .environmentObject({
             let coordinator = AppCoordinator()

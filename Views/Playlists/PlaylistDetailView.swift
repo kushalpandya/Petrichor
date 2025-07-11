@@ -4,7 +4,7 @@ struct PlaylistDetailView: View {
     let playlistID: UUID
     let viewType: LibraryViewType
 
-    @EnvironmentObject var audioPlayerManager: AudioPlayerManager
+    @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var playlistManager: PlaylistManager
     @StateObject private var playlistSortManager = PlaylistSortManager.shared
     @State private var selectedTrackID: UUID?
@@ -225,7 +225,7 @@ struct PlaylistDetailView: View {
                         if let playlist = playlist {
                             return TrackContextMenu.createMenuItems(
                                 for: track,
-                                audioPlayerManager: audioPlayerManager,
+                                playbackManager: playbackManager,
                                 playlistManager: playlistManager,
                                 currentContext: .playlist(playlist)
                             )
@@ -432,7 +432,7 @@ struct PlaylistDetailView: View {
         }())
         .environmentObject({
             let coordinator = AppCoordinator()
-            return coordinator.audioPlayerManager
+            return coordinator.playbackManager
         }())
         .frame(height: 600)
 }
@@ -460,7 +460,7 @@ struct PlaylistDetailView: View {
         }())
         .environmentObject({
             let coordinator = AppCoordinator()
-            return coordinator.audioPlayerManager
+            return coordinator.playbackManager
         }())
         .frame(height: 600)
 }

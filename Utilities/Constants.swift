@@ -78,6 +78,7 @@ enum About {
     static let appSubtitle = "An offline macOS music player"
     static let appWebsite = "https://github.com/kushalpandya/Petrichor"
     static let appWiki = "https://github.com/kushalpandya/Petrichor/wiki"
+    static let appPlaybackQueueLabel = "org.Petrichor.playback"
 }
 
 // MARK: - Audio File Formats
@@ -117,6 +118,8 @@ enum AnimationDuration {
 enum TimeConstants {
     static let fiftyMilliseconds: UInt64 = 50_000_000
     static let oneFiftyMilliseconds: UInt64 = 150_000_000
+    static let stateSaveTimerDuration: Double = 30.0
+    static let playbackProgressTimerDuration: Double = 5.0
 }
 
 // MARK: - Database Constants

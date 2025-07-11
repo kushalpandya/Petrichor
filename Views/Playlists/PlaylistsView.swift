@@ -4,7 +4,7 @@ struct PlaylistsView: View {
     let viewType: LibraryViewType
 
     @EnvironmentObject var playlistManager: PlaylistManager
-    @EnvironmentObject var audioPlayerManager: AudioPlayerManager
+    @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var libraryManager: LibraryManager
     @State private var selectedPlaylist: Playlist?
 
@@ -75,7 +75,7 @@ struct PlaylistsView: View {
         }())
         .environmentObject({
             let coordinator = AppCoordinator()
-            return coordinator.audioPlayerManager
+            return coordinator.playbackManager
         }())
         .environmentObject(LibraryManager())
         .frame(width: 800, height: 600)
@@ -89,7 +89,7 @@ struct PlaylistsView: View {
         }())
         .environmentObject({
             let coordinator = AppCoordinator()
-            return coordinator.audioPlayerManager
+            return coordinator.playbackManager
         }())
         .environmentObject(LibraryManager())
         .frame(width: 800, height: 600)

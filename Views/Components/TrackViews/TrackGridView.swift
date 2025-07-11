@@ -5,7 +5,7 @@ struct TrackGridView: View {
     let onPlayTrack: (Track) -> Void
     let contextMenuItems: (Track) -> [ContextMenuItem]
 
-    @EnvironmentObject var audioPlayerManager: AudioPlayerManager
+    @EnvironmentObject var playbackManager: PlaybackManager
     @State private var gridWidth: CGFloat = 0
     @State private var visibleRange: Range<Int> = 0..<0
 
@@ -30,7 +30,7 @@ struct TrackGridView: View {
                             TrackGridItem(
                                 track: track
                             ) {
-                                    let isCurrentTrack = audioPlayerManager.currentTrack?.url.path == track.url.path
+                                    let isCurrentTrack = playbackManager.currentTrack?.url.path == track.url.path
                                     if !isCurrentTrack {
                                         onPlayTrack(track)
                                     }
@@ -73,18 +73,18 @@ private struct TrackGridItem: View {
     @ObservedObject var track: Track
     let onPlay: () -> Void
 
-    @EnvironmentObject var audioPlayerManager: AudioPlayerManager
+    @EnvironmentObject var playbackManager: PlaybackManager
     @State private var isHovered = false
     @State private var artworkImage: NSImage?
     @State private var artworkLoadTask: Task<Void, Never>?
 
     private var isCurrentTrack: Bool {
-        guard let currentTrack = audioPlayerManager.currentTrack else { return false }
+        guard let currentTrack = playbackManager.currentTrack else { return false }
         return currentTrack.url.path == track.url.path
     }
 
     private var isPlaying: Bool {
-        isCurrentTrack && audioPlayerManager.isPlaying
+        isCurrentTrack && playbackManager.isPlaying
     }
 
     var body: some View {
@@ -159,7 +159,7 @@ private struct TrackGridItem: View {
             .overlay(
                 Button(action: {
                     if isCurrentTrack {
-                        audioPlayerManager.togglePlayPause()
+                        playbackManager.togglePlayPause()
                     } else {
                         onPlay()
                     }

@@ -28,7 +28,7 @@ struct TrackTableView: NSViewRepresentable {
     let onPlayTrack: (Track) -> Void
     let contextMenuItems: (Track) -> [ContextMenuItem]
 
-    @EnvironmentObject var audioPlayerManager: AudioPlayerManager
+    @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var playlistManager: PlaylistManager
     @StateObject private var columnManager = ColumnVisibilityManager.shared
 
@@ -135,14 +135,14 @@ struct TrackTableView: NSViewRepresentable {
 
         // Always update these properties
         context.coordinator.columnVisibility = columnManager.columnVisibility
-        context.coordinator.audioPlayerManager = audioPlayerManager
+        context.coordinator.playbackManager = playbackManager
 
         // Update column visibility
         updateColumnVisibility(tableView: tableView)
 
         // Update playing indicator and hover state changes
-        let currentPlayingPath = audioPlayerManager.currentTrack?.url.path
-        let isCurrentlyPlaying = audioPlayerManager.isPlaying
+        let currentPlayingPath = playbackManager.currentTrack?.url.path
+        let isCurrentlyPlaying = playbackManager.isPlaying
         let wasPlaying = context.coordinator.isPlaying
         let playbackStateChanged = wasPlaying != isCurrentlyPlaying
         let hoveredRowChanged = context.coordinator.lastHoveredRow != context.coordinator.hoveredRow
@@ -211,7 +211,7 @@ struct TrackTableView: NSViewRepresentable {
             tracks: tracks,
             playlistID: playlistID,
             onPlayTrack: onPlayTrack,
-            audioPlayerManager: audioPlayerManager,
+            playbackManager: playbackManager,
             playlistManager: playlistManager,
             contextMenuItems: contextMenuItems,
             columnVisibility: columnManager.columnVisibility
@@ -332,7 +332,7 @@ struct TrackTableView: NSViewRepresentable {
         let playlistID: UUID?
         let playlistSortManager = PlaylistSortManager.shared
         let onPlayTrack: (Track) -> Void
-        var audioPlayerManager: AudioPlayerManager
+        var playbackManager: PlaybackManager
         let playlistManager: PlaylistManager
         let contextMenuItems: (Track) -> [ContextMenuItem]
         var columnVisibility: TrackTableColumnVisibility
@@ -353,7 +353,7 @@ struct TrackTableView: NSViewRepresentable {
             tracks: [Track],
             playlistID: UUID?,
             onPlayTrack: @escaping (Track) -> Void,
-            audioPlayerManager: AudioPlayerManager,
+            playbackManager: PlaybackManager,
             playlistManager: PlaylistManager,
             contextMenuItems: @escaping (Track) -> [ContextMenuItem],
             columnVisibility: TrackTableColumnVisibility
@@ -362,7 +362,7 @@ struct TrackTableView: NSViewRepresentable {
             self.sortedTracks = tracks
             self.playlistID = playlistID
             self.onPlayTrack = onPlayTrack
-            self.audioPlayerManager = audioPlayerManager
+            self.playbackManager = playbackManager
             self.playlistManager = playlistManager
             self.contextMenuItems = contextMenuItems
             self.columnVisibility = columnVisibility
@@ -370,14 +370,14 @@ struct TrackTableView: NSViewRepresentable {
             super.init()
 
             // Observe playback state changes
-            audioPlayerManager.$isPlaying
+            playbackManager.$isPlaying
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] _ in
                     self?.updatePlayingIndicator()
                 }
                 .store(in: &cancellables)
 
-            audioPlayerManager.$currentTrack
+            playbackManager.$currentTrack
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] _ in
                     self?.updatePlayingIndicator()
@@ -426,7 +426,7 @@ struct TrackTableView: NSViewRepresentable {
                     hostingView.rootView = PlayPauseCell(
                         track: track,
                         isHovered: hoveredRow == row,
-                        audioPlayerManager: audioPlayerManager
+                        playbackManager: playbackManager
                     ) { [unowned self] in
                             self.handlePlayTrack(track)
                     }
@@ -435,7 +435,7 @@ struct TrackTableView: NSViewRepresentable {
                     let hostingView = NSHostingView(rootView: PlayPauseCell(
                         track: track,
                         isHovered: hoveredRow == row,
-                        audioPlayerManager: audioPlayerManager
+                        playbackManager: playbackManager
                     ) { [unowned self] in
                             self.handlePlayTrack(track)
                     })
@@ -458,13 +458,13 @@ struct TrackTableView: NSViewRepresentable {
                     // Update the existing hosting view's content
                     hostingView.rootView = TrackTableTitleCell(
                         track: track,
-                        audioPlayerManager: audioPlayerManager
+                        playbackManager: playbackManager
                     )
                     return hostingView
                 } else {
                     let hostingView = NSHostingView(rootView: TrackTableTitleCell(
                         track: track,
-                        audioPlayerManager: audioPlayerManager
+                        playbackManager: playbackManager
                     ))
                     hostingView.identifier = identifier
                     return hostingView
@@ -711,7 +711,7 @@ struct TrackTableView: NSViewRepresentable {
         }
         
         private func handlePlayTrack(_ track: Track) {
-            let previousTrack = audioPlayerManager.currentTrack
+            let previousTrack = playbackManager.currentTrack
             
             // Check if this is a playlist context
             if let playlistID = playlistID,
@@ -833,7 +833,7 @@ struct TrackTableView: NSViewRepresentable {
             }
 
             // Find and update the currently playing track row
-            if let currentTrack = audioPlayerManager.currentTrack,
+            if let currentTrack = playbackManager.currentTrack,
                let index = sortedTracks.firstIndex(where: { $0.url.path == currentTrack.url.path }) {
                 // Update both the play/pause column and title column
                 let columnsToUpdate = ["playPause", "title"]
@@ -1068,7 +1068,7 @@ struct TrackTableView: NSViewRepresentable {
 // Native version of title cell
 struct TrackTableTitleCell: View {
     let track: Track
-    @ObservedObject var audioPlayerManager: AudioPlayerManager
+    @ObservedObject var playbackManager: PlaybackManager
 
     // Use the track's existing artwork data directly
     private var artworkImage: NSImage? {
@@ -1079,12 +1079,12 @@ struct TrackTableTitleCell: View {
     }
 
     private var isCurrentTrack: Bool {
-        guard let currentTrack = audioPlayerManager.currentTrack else { return false }
+        guard let currentTrack = playbackManager.currentTrack else { return false }
         return currentTrack.url.path == track.url.path
     }
 
     private var isPlaying: Bool {
-        isCurrentTrack && audioPlayerManager.isPlaying
+        isCurrentTrack && playbackManager.isPlaying
     }
 
     var body: some View {
@@ -1134,25 +1134,25 @@ struct TrackTableTitleCell: View {
 struct PlayPauseCell: View {
     let track: Track
     let isHovered: Bool
-    let audioPlayerManager: AudioPlayerManager
+    let playbackManager: PlaybackManager
     let onPlay: () -> Void
 
     private var isCurrentTrack: Bool {
-        guard let currentTrack = audioPlayerManager.currentTrack else { return false }
+        guard let currentTrack = playbackManager.currentTrack else { return false }
         return currentTrack.url.path == track.url.path
     }
 
     private var isPlaying: Bool {
-        isCurrentTrack && audioPlayerManager.isPlaying
+        isCurrentTrack && playbackManager.isPlaying
     }
 
     var body: some View {
         ZStack {
-            if isHovered || (isCurrentTrack && !audioPlayerManager.isPlaying) {
+            if isHovered || (isCurrentTrack && !playbackManager.isPlaying) {
                 // Show button on hover OR when it's the current track but paused
                 Button(action: {
                     if isCurrentTrack {
-                        audioPlayerManager.togglePlayPause()
+                        playbackManager.togglePlayPause()
                     } else {
                         onPlay()
                     }

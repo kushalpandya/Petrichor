@@ -9,7 +9,7 @@ struct TrackView: View {
     let onPlayTrack: (Track) -> Void
     let contextMenuItems: (Track) -> [ContextMenuItem]
 
-    @EnvironmentObject var audioPlayerManager: AudioPlayerManager
+    @EnvironmentObject var playbackManager: PlaybackManager
 
     var body: some View {
         switch viewType {
@@ -99,7 +99,7 @@ struct TrackContextMenuContent: View {
         contextMenuItems: { _ in [] }
     )
     .frame(height: 400)
-    .environmentObject(AudioPlayerManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
+    .environmentObject(PlaybackManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
 }
 
 #Preview("Grid View") {
@@ -124,7 +124,7 @@ struct TrackContextMenuContent: View {
         contextMenuItems: { _ in [] }
     )
     .frame(height: 600)
-    .environmentObject(AudioPlayerManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
+    .environmentObject(PlaybackManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
 }
 
 #Preview("Table View") {
@@ -151,7 +151,7 @@ struct TrackContextMenuContent: View {
         contextMenuItems: { _ in [] }
     )
     .frame(height: 600)
-    .environmentObject(AudioPlayerManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
+    .environmentObject(PlaybackManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
 }
 
 #Preview("Table View with Playlist") {
@@ -178,5 +178,5 @@ struct TrackContextMenuContent: View {
         contextMenuItems: { _ in [] }
     )
     .frame(height: 600)
-    .environmentObject(AudioPlayerManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
+    .environmentObject(PlaybackManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
 }

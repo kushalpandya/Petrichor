@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
-    @EnvironmentObject var audioPlayerManager: AudioPlayerManager
+    @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var libraryManager: LibraryManager
     @EnvironmentObject var playlistManager: PlaylistManager
 
@@ -69,11 +69,11 @@ struct ContentView: View {
             pendingLibraryFilter: $pendingLibraryFilter,
             showTrackDetail: showTrackDetail
         )
-        .onChange(of: audioPlayerManager.currentTrack?.id) { oldId, _ in
+        .onChange(of: playbackManager.currentTrack?.id) { oldId, _ in
             if showingTrackDetail,
                let detailTrack = detailTrack,
                detailTrack.id == oldId,
-               let newTrack = audioPlayerManager.currentTrack {
+               let newTrack = playbackManager.currentTrack {
                 self.detailTrack = newTrack
             }
         }
@@ -360,7 +360,7 @@ class WindowManager {
     ContentView()
         .environmentObject({
             let coordinator = AppCoordinator()
-            return coordinator.audioPlayerManager
+            return coordinator.playbackManager
         }())
         .environmentObject({
             let coordinator = AppCoordinator()

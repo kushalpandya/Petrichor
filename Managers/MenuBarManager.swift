@@ -10,15 +10,15 @@ import SwiftUI
 
 class MenuBarManager: NSObject {
     private var statusItem: NSStatusItem?
-    private let audioPlayerManager: AudioPlayerManager
+    private let playbackManager: PlaybackManager
     private let playlistManager: PlaylistManager
 
     var isMenuBarActive: Bool {
         statusItem != nil
     }
 
-    init(audioPlayerManager: AudioPlayerManager, playlistManager: PlaylistManager) {
-        self.audioPlayerManager = audioPlayerManager
+    init(playbackManager: PlaybackManager, playlistManager: PlaylistManager) {
+        self.playbackManager = playbackManager
         self.playlistManager = playlistManager
         super.init()
 
@@ -73,7 +73,7 @@ class MenuBarManager: NSObject {
         guard let button = statusItem?.button else { return }
 
         // Use play/pause circle icons based on playback state
-        let iconName = audioPlayerManager.isPlaying ? Icons.playCircleFill : Icons.pauseCircleFill
+        let iconName = playbackManager.isPlaying ? Icons.playCircleFill : Icons.pauseCircleFill
 
         if let image = NSImage(systemSymbolName: iconName, accessibilityDescription: "Petrichor") {
             image.size = NSSize(width: 18, height: 18)
@@ -102,7 +102,7 @@ class MenuBarManager: NSObject {
 
         // Play/Pause
         let playPauseItem = NSMenuItem(
-            title: audioPlayerManager.isPlaying ? "Pause" : "Play",
+            title: playbackManager.isPlaying ? "Pause" : "Play",
             action: #selector(togglePlayPause),
             keyEquivalent: ""
         )
@@ -174,7 +174,7 @@ class MenuBarManager: NSObject {
 
     @objc
     private func togglePlayPause() {
-        audioPlayerManager.togglePlayPause()
+        playbackManager.togglePlayPause()
         updateMenu()
     }
 
