@@ -16,19 +16,17 @@ extension PlaylistManager {
             return
         }
 
-        // Update track object
-        await MainActor.run {
-            track.isFavorite = isFavorite
-        }
+        // Create updated track
+        let updatedTrack = track.withFavoriteStatus(isFavorite)
 
         do {
             if let dbManager = libraryManager?.databaseManager {
                 try await dbManager.updateTrackFavoriteStatus(trackId: trackId, isFavorite: isFavorite)
 
-                // Update library manager's track FIRST
+                // Update library manager's tracks array
                 await MainActor.run {
-                    if let libraryTrack = self.libraryManager?.tracks.first(where: { $0.trackId == trackId }) {
-                        libraryTrack.isFavorite = isFavorite
+                    if let index = self.libraryManager?.tracks.firstIndex(where: { $0.trackId == trackId }) {
+                        self.libraryManager?.tracks[index] = updatedTrack
                         Logger.info("Updated library track favorite status")
                     }
                 }
@@ -36,14 +34,11 @@ extension PlaylistManager {
                 Logger.info("Updated favorite status for track: \(track.title) to \(isFavorite)")
                 
                 // THEN update smart playlists
-                await handleTrackPropertyUpdate(track)
+                await handleTrackPropertyUpdate(updatedTrack)
             }
         } catch {
             Logger.error("Failed to update favorite status: \(error)")
-            // Revert change
-            await MainActor.run {
-                track.isFavorite = !isFavorite
-            }
+            // No need to revert since we didn't modify the original
         }
     }
 
@@ -59,177 +54,99 @@ extension PlaylistManager {
                     if playlist.name == DefaultPlaylists.favorites && !playlist.isUserEditable {
                         // Update favorite status
                         await updateTrackFavoriteStatus(track: track, isFavorite: add)
-                    } else if playlist.type == .smart && !playlist.isContentEditable {
-                        // Other smart playlists are read-only
-                        Logger.warning("Cannot manually add/remove tracks from \(playlist.name)")
-                        return
                     }
+                    // Other smart playlists are read-only
+                    return
+                }
+
+                // For regular playlists, add/remove from playlist
+                if add {
+                    await addTrackToRegularPlaylist(track: track, playlistID: playlist.id)
                 } else {
-                    // Regular playlist - directly add/remove
-                    if add {
-                        await addTrackToRegularPlaylist(track: track, playlistID: playlist.id)
-                    } else {
-                        await removeTrackFromRegularPlaylist(track: track, playlistID: playlist.id)
-                    }
-                }
-
-                // Update smart playlists to reflect any changes
-                if playlist.type == .smart {
-                    await MainActor.run {
-                        self.updateSmartPlaylists()
-                    }
+                    await removeTrackFromRegularPlaylist(track: track, playlistID: playlist.id)
                 }
             }
         }
     }
 
-    /// Add multiple tracks to a playlist at once
-    @MainActor
-    func addTracksToPlaylist(tracks: [Track], playlistID: UUID) {
-        Task {
-            guard let index = playlists.firstIndex(where: { $0.id == playlistID }),
-                  playlists[index].type == .regular,
-                  playlists[index].isContentEditable else {
-                Logger.warning("Cannot add to this playlist")
-                return
-            }
-
-            var updatedPlaylist = playlists[index]
-            var tracksAdded = 0
-
-            // Add all tracks that aren't already in the playlist
-            for track in tracks {
-                if !updatedPlaylist.tracks.contains(where: { $0.trackId == track.trackId }) {
-                    updatedPlaylist.addTrack(track)
-                    tracksAdded += 1
-                }
-            }
-
-            if tracksAdded > 0 {
-                // Update in-memory
-                playlists[index] = updatedPlaylist
-
-                // Save to database once
-                do {
-                    if let dbManager = libraryManager?.databaseManager {
-                        try await dbManager.savePlaylistAsync(updatedPlaylist)
-                        Logger.info("Added \(tracksAdded) tracks to playlist")
-                    }
-                } catch {
-                    Logger.error("Failed to save playlist: \(error)")
-                    // Revert changes
-                    if let dbManager = libraryManager?.databaseManager {
-                        let savedPlaylists = dbManager.loadAllPlaylists()
-                        if let originalPlaylist = savedPlaylists.first(where: { $0.id == playlistID }) {
-                            playlists[index] = originalPlaylist
-                        }
-                    }
-                }
-            }
-
-            // Update smart playlists if needed
-            updateSmartPlaylists()
-        }
-    }
-
-    /// Remove multiple tracks from a playlist at once
-    @MainActor
-    func removeTracksFromPlaylist(tracks: [Track], playlistID: UUID) {
-        Task {
-            guard let index = playlists.firstIndex(where: { $0.id == playlistID }),
-                  playlists[index].type == .regular,
-                  playlists[index].isContentEditable else {
-                Logger.warning("Cannot remove from this playlist")
-                return
-            }
-
-            var updatedPlaylist = playlists[index]
-            var tracksRemoved = 0
-
-            // Remove all specified tracks from the playlist
-            for track in tracks {
-                if updatedPlaylist.tracks.contains(where: { $0.trackId == track.trackId }) {
-                    updatedPlaylist.removeTrack(track)  // Pass the track object, not the index
-                    tracksRemoved += 1
-                }
-            }
-
-            if tracksRemoved > 0 {
-                // Update in-memory
-                playlists[index] = updatedPlaylist
-
-                // Save to database once
-                do {
-                    if let dbManager = libraryManager?.databaseManager {
-                        try await dbManager.savePlaylistAsync(updatedPlaylist)
-                        Logger.info("Removed \(tracksRemoved) tracks from playlist")
-                    }
-                } catch {
-                    Logger.error("Failed to save playlist: \(error)")
-                    // Revert changes
-                    if let dbManager = libraryManager?.databaseManager {
-                        let savedPlaylists = dbManager.loadAllPlaylists()
-                        if let originalPlaylist = savedPlaylists.first(where: { $0.id == playlistID }) {
-                            playlists[index] = originalPlaylist
-                        }
-                    }
-                }
-            }
-
-            // Update smart playlists if needed
-            updateSmartPlaylists()
-        }
-    }
-
-    /// Toggle a track's membership in a playlist
-    func toggleTrackInPlaylist(track: Track, playlist: Playlist) {
-        let isInPlaylist = playlist.tracks.contains { $0.trackId == track.trackId }
-        updateTrackInPlaylist(track: track, playlist: playlist, add: !isInPlaylist)
-    }
-
-    /// Check if a track is in a playlist
-    func isTrackInPlaylist(track: Track, playlist: Playlist) -> Bool {
-        playlist.tracks.contains { $0.trackId == track.trackId }
-    }
-    
-    /// Update track properties that may affect smart playlist membership
-    func handleTrackPropertyUpdate(_ track: Track) async {
-        await MainActor.run {
-            // Only update playlists affected by this specific track
-            self.updateSmartPlaylistsForTrack(track)
-        }
-    }
-
-    /// Update track play count and last played date
+    /// Update play count for a track
     func incrementPlayCount(for track: Track) {
-        // These modifications should be on main thread
-        Task { @MainActor in
-            track.playCount += 1
-            track.lastPlayedDate = Date()
-            
-            guard let trackId = track.trackId else { return }
-            
-            // Continue with the async work
-            Task {
-                do {
-                    if let dbManager = libraryManager?.databaseManager {
-                        try await dbManager.updateTrackPlayInfo(
-                            trackId: trackId,
-                            playCount: track.playCount,
-                            lastPlayedDate: track.lastPlayedDate!
-                        )
+        Task {
+            guard let trackId = track.trackId else {
+                Logger.error("Cannot update play count - track has no database ID")
+                return
+            }
 
-                        // Update smart playlists after play info changes
-                        await handleTrackPropertyUpdate(track)
-                    }
-                } catch {
-                    Logger.error("Failed to update play info: \(error)")
+            let newPlayCount = track.playCount + 1
+            let lastPlayedDate = Date()
+
+            do {
+                if let dbManager = libraryManager?.databaseManager {
+                    try await dbManager.updateTrackPlayInfo(
+                        trackId: trackId,
+                        playCount: newPlayCount,
+                        lastPlayedDate: lastPlayedDate
+                    )
+
+                    // Update the track with new play stats
+                    let updatedTrack = track.withPlayStats(playCount: newPlayCount, lastPlayedDate: lastPlayedDate)
+
+                    // Update in library
                     await MainActor.run {
-                        track.playCount -= 1
-                        track.lastPlayedDate = nil
+                        if let index = self.libraryManager?.tracks.firstIndex(where: { $0.trackId == trackId }) {
+                            self.libraryManager?.tracks[index] = updatedTrack
+                        }
                     }
+
+                    Logger.info("Incremented play count for track: \(track.title)")
+
+                    // Update smart playlists
+                    await handleTrackPropertyUpdate(updatedTrack)
                 }
+            } catch {
+                Logger.error("Failed to update play count: \(error)")
             }
         }
+    }
+
+    /// Handle track property updates to refresh smart playlists and other dependent data
+    internal func handleTrackPropertyUpdate(_ track: Track) async {
+        // Update smart playlists
+        await MainActor.run {
+            self.updateSmartPlaylists()
+        }
+
+        // Update current queue if the track is in it
+        await MainActor.run {
+            if let queueIndex = self.currentQueue.firstIndex(where: { $0.trackId == track.trackId }) {
+                self.currentQueue[queueIndex] = track
+            }
+        }
+
+        // Update current track if it's the one being updated
+        if let currentTrack = audioPlayer?.currentTrack, currentTrack.trackId == track.trackId {
+            await MainActor.run {
+                self.audioPlayer?.currentTrack = track
+            }
+        }
+    }
+
+    /// Handle the start of track playback
+    func handleTrackPlaybackStarted(_ track: Track) {
+        Task {
+            await MainActor.run {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("TrackPlaybackStarted"),
+                    object: nil,
+                    userInfo: ["track": track]
+                )
+            }
+        }
+    }
+
+    /// Handle track playback completion
+    func handleTrackPlaybackCompleted(_ track: Track) {
+        // Increment play count when track completes
+        incrementPlayCount(for: track)
     }
 }

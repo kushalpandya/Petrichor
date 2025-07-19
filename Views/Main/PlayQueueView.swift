@@ -367,7 +367,7 @@ struct QueueDropDelegate: DropDelegate {
             let playlistManager = PlaylistManager()
             // Add some sample tracks to the queue for preview
             let sampleTracks = (0..<5).map { i in
-                let track = Track(url: URL(fileURLWithPath: "/path/to/sample\(i).mp3"))
+                var track = Track(url: URL(fileURLWithPath: "/path/to/sample\(i).mp3"))
                 track.title = "Sample Song \(i)"
                 track.artist = "Sample Artist"
                 track.album = "Sample Album"

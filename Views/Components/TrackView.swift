@@ -79,7 +79,7 @@ struct TrackContextMenuContent: View {
 // MARK: - Preview
 #Preview("List View") {
     let sampleTracks = (0..<5).map { i in
-        let track = Track(url: URL(fileURLWithPath: "/path/to/sample\(i).mp3"))
+        var track = Track(url: URL(fileURLWithPath: "/path/to/sample\(i).mp3"))
         track.title = "Sample Song \(i)"
         track.artist = "Sample Artist"
         track.album = "Sample Album"
@@ -104,7 +104,7 @@ struct TrackContextMenuContent: View {
 
 #Preview("Grid View") {
     let sampleTracks = (0..<6).map { i in
-        let track = Track(url: URL(fileURLWithPath: "/path/to/sample\(i).mp3"))
+        var track = Track(url: URL(fileURLWithPath: "/path/to/sample\(i).mp3"))
         track.title = "Sample Song \(i)"
         track.artist = "Sample Artist"
         track.album = "Sample Album"
@@ -129,7 +129,7 @@ struct TrackContextMenuContent: View {
 
 #Preview("Table View") {
     let sampleTracks = (0..<10).map { i in
-        let track = Track(url: URL(fileURLWithPath: "/path/to/sample\(i).mp3"))
+        var track = Track(url: URL(fileURLWithPath: "/path/to/sample\(i).mp3"))
         track.title = "Sample Song \(i)"
         track.artist = "Sample Artist \(i % 3)"
         track.album = "Sample Album \(i % 2)"
@@ -156,7 +156,7 @@ struct TrackContextMenuContent: View {
 
 #Preview("Table View with Playlist") {
     let sampleTracks = (0..<10).map { i in
-        let track = Track(url: URL(fileURLWithPath: "/path/to/sample\(i).mp3"))
+        var track = Track(url: URL(fileURLWithPath: "/path/to/sample\(i).mp3"))
         track.title = "Playlist Song \(i)"
         track.artist = "Artist \(i % 3)"
         track.album = "Album \(i % 2)"

@@ -63,8 +63,7 @@ class PlaybackManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
     }
 
     func restoreUIState(_ uiState: PlaybackUIState) {
-        // Create a temporary track object for UI display
-        let tempTrack = Track(url: URL(fileURLWithPath: "/restored"))
+        var tempTrack = Track(url: URL(fileURLWithPath: "/restored"))
         tempTrack.title = uiState.trackTitle
         tempTrack.artist = uiState.trackArtist
         tempTrack.album = uiState.trackAlbum
