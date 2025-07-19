@@ -415,7 +415,7 @@ private struct FileDetailsSection: View {
 
 #Preview {
     let sampleTrack = {
-        let track = Track(url: URL(fileURLWithPath: "/sample.mp3"))
+        var track = Track(url: URL(fileURLWithPath: "/sample.mp3"))
         track.title = "Sample Song"
         track.artist = "Sample Artist"
         track.album = "Sample Album"

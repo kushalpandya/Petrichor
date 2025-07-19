@@ -393,13 +393,13 @@ struct AddSongsToPlaylistSheet: View {
             }
         }
 
-        // Apply batch operations
-        if !tracksToAdd.isEmpty {
-            playlistManager.addTracksToPlaylist(tracks: tracksToAdd, playlistID: playlist.id)
+        // Apply operations
+        for track in tracksToAdd {
+            playlistManager.addTrackToPlaylist(track: track, playlistID: playlist.id)
         }
 
-        if !tracksToRemoveList.isEmpty {
-            playlistManager.removeTracksFromPlaylist(tracks: tracksToRemoveList, playlistID: playlist.id)
+        for track in tracksToRemoveList {
+            playlistManager.removeTrackFromPlaylist(track: track, playlistID: playlist.id)
         }
 
         dismiss()

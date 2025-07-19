@@ -129,8 +129,13 @@ extension DatabaseManager {
         // Process album first (so we can link the track to it)
         try processTrackAlbum(&mutableTrack, in: db)
         
-        // Save the track (with album_id set)
-        try mutableTrack.save(db)
+        // Insert the track
+        try mutableTrack.insert(db)
+        
+        // Ensure we have a valid track ID (fallback to lastInsertedRowID if needed)
+        if mutableTrack.trackId == nil {
+            mutableTrack.trackId = db.lastInsertedRowID
+        }
         
         guard let trackId = mutableTrack.trackId else {
             throw DatabaseError.invalidTrackId

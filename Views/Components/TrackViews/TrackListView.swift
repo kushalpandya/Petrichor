@@ -38,7 +38,7 @@ struct TrackListView: View {
 
 // MARK: - Track List Row
 private struct TrackListRow: View {
-    @ObservedObject var track: Track
+    let track: Track
     let isHovered: Bool
     let onPlay: () -> Void
     let onHover: (Bool) -> Void

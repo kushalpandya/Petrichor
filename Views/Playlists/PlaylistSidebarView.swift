@@ -193,11 +193,11 @@ struct PlaylistSidebarView: View {
         ]
 
         // Create sample tracks for regular playlists
-        let sampleTrack1 = Track(url: URL(fileURLWithPath: "/sample1.mp3"))
+        var sampleTrack1 = Track(url: URL(fileURLWithPath: "/sample1.mp3"))
         sampleTrack1.title = "Sample Song 1"
         sampleTrack1.artist = "Artist 1"
 
-        let sampleTrack2 = Track(url: URL(fileURLWithPath: "/sample2.mp3"))
+        var sampleTrack2 = Track(url: URL(fileURLWithPath: "/sample2.mp3"))
         sampleTrack2.title = "Sample Song 2"
         sampleTrack2.artist = "Artist 2"
 
@@ -211,7 +211,7 @@ struct PlaylistSidebarView: View {
         return manager
     }()
 
-    return PlaylistSidebarView(selectedPlaylist: $selectedPlaylist)
+    PlaylistSidebarView(selectedPlaylist: $selectedPlaylist)
         .environmentObject(previewManager)
         .frame(width: 250, height: 500)
 }

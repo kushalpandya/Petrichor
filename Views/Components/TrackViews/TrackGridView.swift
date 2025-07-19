@@ -70,7 +70,7 @@ struct TrackGridView: View {
 
 // MARK: - Track Grid Item (Optimized)
 private struct TrackGridItem: View {
-    @ObservedObject var track: Track
+    let track: Track
     let onPlay: () -> Void
 
     @EnvironmentObject var playbackManager: PlaybackManager
