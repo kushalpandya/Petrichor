@@ -9,34 +9,42 @@ import GRDB
 
 extension DatabaseManager {
     /// Search tracks using FTS5 for general search
-    func searchTracksUsingFTS(_ searchText: String) -> [Track] {
-        guard !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return []
-        }
-        
+    func searchTracksUsingFTS(_ query: String) -> [Track] {
         do {
-            var matchingTracks = try dbQueue.read { db in
-                // Create search pattern that matches all tokens
-                let searchPattern = FTS5Pattern(matchingAllTokensIn: searchText)
+            return try dbQueue.read { db in
+                // First get matching track IDs from FTS
+                let pattern = FTS5Pattern(matchingAllTokensIn: query)
+                let trackIds = try Row
+                    .fetchAll(db, sql: """
+                        SELECT track_id
+                        FROM tracks_fts
+                        WHERE tracks_fts MATCH ?
+                        ORDER BY rank
+                    """, arguments: [pattern])
+                    .compactMap { row in
+                        row["track_id"] as Int64?
+                    }
                 
-                // Define a request for tracks that match the FTS search
-                return try Track.fetchAll(
-                    db,
-                    sql: """
-                    SELECT t.*
-                    FROM tracks t
-                    JOIN tracks_fts fts ON t.id = fts.track_id
-                    WHERE tracks_fts MATCH ?
-                    ORDER BY rank
-                    LIMIT 500
-                    """,
-                    arguments: [searchPattern]
-                )
+                guard !trackIds.isEmpty else { return [] }
+                
+                // Fetch lightweight tracks for those IDs
+                var tracks = try Track.lightweightRequest()
+                    .filter(trackIds.contains(Track.Columns.trackId))
+                    .fetchAll(db)
+                
+                // Sort by the FTS rank order
+                let idToIndex = Dictionary(uniqueKeysWithValues: trackIds.enumerated().map { ($1, $0) })
+                tracks.sort { track1, track2 in
+                    let index1 = idToIndex[track1.trackId ?? -1] ?? Int.max
+                    let index2 = idToIndex[track2.trackId ?? -1] ?? Int.max
+                    return index1 < index2
+                }
+                
+                // Populate album artwork
+                populateAlbumArtworkForTracks(&tracks)
+                
+                return tracks
             }
-            
-            populateAlbumArtworkForTracks(&matchingTracks)
-            
-            return matchingTracks
         } catch {
             Logger.error("FTS search failed: \(error)")
             return []
