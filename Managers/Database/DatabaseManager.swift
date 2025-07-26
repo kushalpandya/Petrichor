@@ -123,8 +123,8 @@ class DatabaseManager: ObservableObject {
 // MARK: - Local Enums
 
 enum TrackProcessResult {
-    case new(Track, TrackMetadata)
-    case update(Track, TrackMetadata)
+    case new(FullTrack, TrackMetadata)
+    case update(FullTrack, TrackMetadata)
     case skipped
 }
 

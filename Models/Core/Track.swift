@@ -6,72 +6,41 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
     var trackId: Int64?
     let url: URL
     
-    // Core metadata
+    // Core metadata for display
     var title: String
     var artist: String
     var album: String
-    var composer: String
-    var genre: String
-    var year: String
     var duration: Double
-    var trackArtworkData: Data?
-    var albumArtworkData: Data?
-    var isMetadataLoaded: Bool = false
-    var isFavorite: Bool = false
-    var playCount: Int = 0
-    var lastPlayedDate: Date?
     
     // File properties
     let format: String
     var folderId: Int64?
     
-    // Additional metadata
+    // Navigation fields (for "Go to" functionality)
     var albumArtist: String?
+    var composer: String
+    var genre: String
+    var year: String
+    
+    // User interaction state
+    var isFavorite: Bool = false
+    var playCount: Int = 0
+    var lastPlayedDate: Date?
+    
+    // Sorting fields
     var trackNumber: Int?
-    var totalTracks: Int?
     var discNumber: Int?
-    var totalDiscs: Int?
-    var rating: Int?
-    var compilation: Bool = false
-    var releaseDate: String?
-    var originalReleaseDate: String?
-    var bpm: Int?
-    var mediaType: String?
-    var bitrate: Int?
-    var sampleRate: Int?
-    var channels: Int?
-    var codec: String?
-    var bitDepth: Int?
-    var fileSize: Int64?
-    var dateAdded: Date?
-    var dateModified: Date?
     
-    // Duplicate tracking
+    // State tracking
+    var isMetadataLoaded: Bool = false
     var isDuplicate: Bool = false
-    var primaryTrackId: Int64?
-    var duplicateGroupId: String?
+    var dateAdded: Date?
     
-    // Sort fields
-    var sortTitle: String?
-    var sortArtist: String?
-    var sortAlbum: String?
-    var sortAlbumArtist: String?
-    
-    // Extended metadata
-    var extendedMetadata: ExtendedMetadata?
-    
-    // Album reference
+    // Album reference (for artwork lookup)
     var albumId: Int64?
     
-    // Computed property for artwork
-    var artworkData: Data? {
-        // Prefer album artwork if available
-        if let albumArtwork = albumArtworkData {
-            return albumArtwork
-        }
-        // Fall back to track's own artwork
-        return trackArtworkData
-    }
+    // Transient property for album artwork (populated separately)
+    var albumArtworkData: Data?
     
     // MARK: - Initialization
     
@@ -87,7 +56,6 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
         self.year = "Unknown Year"
         self.duration = 0
         self.format = url.pathExtension
-        self.extendedMetadata = ExtendedMetadata()
     }
     
     // MARK: - DB Configuration
@@ -107,7 +75,6 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
         static let trackId = Column("id")
         static let folderId = Column("folder_id")
         static let path = Column("path")
-        static let filename = Column("filename")
         static let title = Column("title")
         static let artist = Column("artist")
         static let album = Column("album")
@@ -116,38 +83,15 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
         static let year = Column("year")
         static let duration = Column("duration")
         static let format = Column("format")
-        static let trackArtworkData = Column("track_artwork_data")
         static let dateAdded = Column("date_added")
         static let isFavorite = Column("is_favorite")
         static let playCount = Column("play_count")
         static let lastPlayedDate = Column("last_played_date")
         static let albumArtist = Column("album_artist")
         static let trackNumber = Column("track_number")
-        static let totalTracks = Column("total_tracks")
         static let discNumber = Column("disc_number")
-        static let totalDiscs = Column("total_discs")
-        static let rating = Column("rating")
-        static let compilation = Column("compilation")
-        static let releaseDate = Column("release_date")
-        static let originalReleaseDate = Column("original_release_date")
-        static let bpm = Column("bpm")
-        static let mediaType = Column("media_type")
-        static let bitrate = Column("bitrate")
-        static let sampleRate = Column("sample_rate")
-        static let channels = Column("channels")
-        static let codec = Column("codec")
-        static let bitDepth = Column("bit_depth")
-        static let fileSize = Column("file_size")
-        static let dateModified = Column("date_modified")
-        static let isDuplicate = Column("is_duplicate")
-        static let primaryTrackId = Column("primary_track_id")
-        static let duplicateGroupId = Column("duplicate_group_id")
-        static let sortTitle = Column("sort_title")
-        static let sortArtist = Column("sort_artist")
-        static let sortAlbum = Column("sort_album")
-        static let sortAlbumArtist = Column("sort_album_artist")
         static let albumId = Column("album_id")
-        static let extendedMetadata = Column("extended_metadata")
+        static let isDuplicate = Column("is_duplicate")
     }
     
     // MARK: - FetchableRecord
@@ -168,61 +112,34 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
         genre = row[Columns.genre]
         year = row[Columns.year]
         duration = row[Columns.duration]
-        trackArtworkData = row[Columns.trackArtworkData]
         dateAdded = row[Columns.dateAdded]
         isFavorite = row[Columns.isFavorite]
         playCount = row[Columns.playCount]
         lastPlayedDate = row[Columns.lastPlayedDate]
         
-        // Additional metadata
+        // Navigation fields
         albumArtist = row[Columns.albumArtist]
+        
+        // Sorting fields
         trackNumber = row[Columns.trackNumber]
-        totalTracks = row[Columns.totalTracks]
         discNumber = row[Columns.discNumber]
-        totalDiscs = row[Columns.totalDiscs]
-        rating = row[Columns.rating]
-        compilation = row[Columns.compilation] ?? false
-        releaseDate = row[Columns.releaseDate]
-        originalReleaseDate = row[Columns.originalReleaseDate]
-        bpm = row[Columns.bpm]
-        mediaType = row[Columns.mediaType]
-        bitrate = row[Columns.bitrate]
-        sampleRate = row[Columns.sampleRate]
-        channels = row[Columns.channels]
-        codec = row[Columns.codec]
-        bitDepth = row[Columns.bitDepth]
-        fileSize = row[Columns.fileSize]
-        dateModified = row[Columns.dateModified]
         
-        // Duplicate tracking
+        // State
         isDuplicate = row[Columns.isDuplicate] ?? false
-        primaryTrackId = row[Columns.primaryTrackId]
-        duplicateGroupId = row[Columns.duplicateGroupId]
-        
-        // Sort fields
-        sortTitle = row[Columns.sortTitle]
-        sortArtist = row[Columns.sortArtist]
-        sortAlbum = row[Columns.sortAlbum]
-        sortAlbumArtist = row[Columns.sortAlbumArtist]
         
         // Album reference
         albumId = row[Columns.albumId]
         
-        // Extended metadata
-        let extendedMetadataJSON: String? = row[Columns.extendedMetadata]
-        extendedMetadata = ExtendedMetadata.fromJSON(extendedMetadataJSON)
-        
-        // Mark as loaded
         isMetadataLoaded = true
     }
     
     // MARK: - PersistableRecord
     
     func encode(to container: inout PersistenceContainer) throws {
+        // Only encode the lightweight fields when saving
         container[Columns.trackId] = trackId
         container[Columns.folderId] = folderId
         container[Columns.path] = url.path
-        container[Columns.filename] = url.lastPathComponent
         container[Columns.title] = title
         container[Columns.artist] = artist
         container[Columns.album] = album
@@ -232,64 +149,21 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
         container[Columns.duration] = duration
         container[Columns.format] = format
         container[Columns.dateAdded] = dateAdded ?? Date()
-        container[Columns.trackArtworkData] = trackArtworkData
         container[Columns.isFavorite] = isFavorite
         container[Columns.playCount] = playCount
         container[Columns.lastPlayedDate] = lastPlayedDate
         container[Columns.albumArtist] = albumArtist
         container[Columns.trackNumber] = trackNumber
-        container[Columns.totalTracks] = totalTracks
         container[Columns.discNumber] = discNumber
-        container[Columns.totalDiscs] = totalDiscs
-        container[Columns.rating] = rating
-        container[Columns.compilation] = compilation
-        container[Columns.releaseDate] = releaseDate
-        container[Columns.originalReleaseDate] = originalReleaseDate
-        container[Columns.bpm] = bpm
-        container[Columns.mediaType] = mediaType
-        container[Columns.bitrate] = bitrate
-        container[Columns.sampleRate] = sampleRate
-        container[Columns.channels] = channels
-        container[Columns.codec] = codec
-        container[Columns.bitDepth] = bitDepth
-        container[Columns.fileSize] = fileSize
-        container[Columns.dateModified] = dateModified
-        container[Columns.isDuplicate] = isDuplicate
-        container[Columns.primaryTrackId] = primaryTrackId
-        container[Columns.duplicateGroupId] = duplicateGroupId
-        container[Columns.sortTitle] = sortTitle
-        container[Columns.sortArtist] = sortArtist
-        container[Columns.sortAlbum] = sortAlbum
-        container[Columns.sortAlbumArtist] = sortAlbumArtist
         container[Columns.albumId] = albumId
-        
-        // Save extended metadata as JSON
-        container[Columns.extendedMetadata] = extendedMetadata?.toJSON()
     }
     
-    // Update if exists based on path
-    mutating func didInsert(_ inserted: InsertionSuccess) {
-        trackId = inserted.rowID
-    }
-    
-    // MARK: - Associations
+    // MARK: - Relationships
     
     static let folder = belongsTo(Folder.self)
-    static let album = belongsTo(Album.self, using: ForeignKey(["album_id"]))
-    static let trackArtists = hasMany(TrackArtist.self)
-    static let artists = hasMany(Artist.self, through: trackArtists, using: TrackArtist.artist)
-    static let genres = hasMany(Genre.self, through: hasMany(TrackGenre.self), using: TrackGenre.genre)
     
     var folder: QueryInterfaceRequest<Folder> {
         request(for: Track.folder)
-    }
-    
-    var artists: QueryInterfaceRequest<Artist> {
-        request(for: Track.artists)
-    }
-    
-    var genres: QueryInterfaceRequest<Genre> {
-        request(for: Track.genres)
     }
     
     // MARK: - Equatable
@@ -303,16 +177,102 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
-    
-    // MARK: - Sorting support
-    
-    var albumArtistForSorting: String {
-        albumArtist ?? ""
+}
+
+// MARK: - Helper Methods
+
+extension Track {
+    /// Get a display-friendly artist name
+    var displayArtist: String {
+        albumArtist ?? artist
     }
     
-    // MARK: - Duplicate Detection
+    /// Get formatted duration string
+    var formattedDuration: String {
+        let totalSeconds = Int(duration)
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let seconds = totalSeconds % 60
+        
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
+        } else {
+            return String(format: "%d:%02d", minutes, seconds)
+        }
+    }
     
-    /// Generate a normalized key for duplicate detection
+    /// Computed property for artwork
+    var artworkData: Data? {
+        // Only return album artwork since track artwork is not stored in lightweight model
+        albumArtworkData
+    }
+    
+    /// Check if this track has album artwork
+    var hasArtwork: Bool {
+        albumArtworkData != nil
+    }
+}
+
+// MARK: - Update Helpers
+
+extension Track {
+    /// Create a copy with updated favorite status
+    func withFavoriteStatus(_ isFavorite: Bool) -> Track {
+        var copy = self
+        copy.isFavorite = isFavorite
+        return copy
+    }
+    
+    /// Create a copy with updated play stats
+    func withPlayStats(playCount: Int, lastPlayedDate: Date?) -> Track {
+        var copy = self
+        copy.playCount = playCount
+        copy.lastPlayedDate = lastPlayedDate
+        return copy
+    }
+}
+
+// MARK: - Database Query Helpers
+
+extension Track {
+    /// Fetch only the columns needed for lightweight Track
+    static var lightweightSelection: [Column] {
+        [
+            Columns.trackId,
+            Columns.folderId,
+            Columns.path,
+            Columns.title,
+            Columns.artist,
+            Columns.album,
+            Columns.composer,
+            Columns.genre,
+            Columns.year,
+            Columns.duration,
+            Columns.format,
+            Columns.dateAdded,
+            Columns.isFavorite,
+            Columns.playCount,
+            Columns.lastPlayedDate,
+            Columns.albumArtist,
+            Columns.trackNumber,
+            Columns.discNumber,
+            Columns.albumId,
+            Columns.isDuplicate
+        ]
+    }
+    
+    /// Request for fetching lightweight tracks
+    static func lightweightRequest() -> QueryInterfaceRequest<Track> {
+        Track
+            .select(lightweightSelection)
+            .filter(Columns.isDuplicate == false)
+    }
+}
+
+// MARK: - Duplicate Detection
+
+extension Track {
+    /// Generate a key for duplicate detection
     var duplicateKey: String {
         let normalizedTitle = title.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedAlbum = album.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
@@ -323,90 +283,31 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
         
         return "\(normalizedTitle)|\(normalizedAlbum)|\(normalizedYear)|\(roundedDuration)"
     }
-    
-    /// Check if this track is a duplicate candidate of another track
-    func isDuplicateOf(_ other: Track) -> Bool {
-        // Must have valid durations
-        guard duration > 0, other.duration > 0 else { return false }
-        
-        // Check if durations are within 2 seconds of each other
-        let durationDiff = abs(duration - other.duration)
-        guard durationDiff <= 2.0 else { return false }
-        
-        // Compare normalized metadata
-        return duplicateKey == other.duplicateKey
-    }
 }
-
-// MARK: - Quality Scoring
+// MARK: - Full Track Loading
 
 extension Track {
-    /// Calculate a quality score for duplicate detection
-    /// Higher score = better quality
-    var qualityScore: Int {
-        var score = 0
+    /// Fetch the complete FullTrack record from database
+    /// - Parameter db: Database connection
+    /// - Returns: FullTrack with all metadata, or nil if not found
+    func fullTrack(db: Database) throws -> FullTrack? {
+        guard let trackId = trackId else { return nil }
         
-        let formatLower = format.lowercased()
-        let bitrateValue = bitrate ?? 0
-        
-        // Format scoring (lossless > high bitrate lossy > low bitrate)
-        switch formatLower {
-        case "flac", "alac", "wav", "aiff":
-            score += 1000
-        case "mp3":
-            if bitrateValue >= 320 { score += 800 } else if bitrateValue >= 256 { score += 600 } else if bitrateValue >= 192 { score += 400 } else { score += 200 }
-        case "aac", "m4a":
-            if bitrateValue >= 256 { score += 700 } else if bitrateValue >= 192 { score += 500 } else { score += 300 }
-        case "ogg", "opus":
-            if bitrateValue >= 192 { score += 600 } else { score += 400 }
-        default:
-            score += 100
-        }
-        
-        // Metadata completeness
-        if !title.isEmpty && title != "Unknown Title" { score += 50 }
-        if !artist.isEmpty && artist != "Unknown Artist" { score += 50 }
-        if !album.isEmpty && album != "Unknown Album" { score += 50 }
-        if albumArtist != nil { score += 25 }
-        if trackNumber != nil { score += 25 }
-        if year != "Unknown Year" { score += 25 }
-        if artworkData != nil { score += 100 }
-        
-        // File characteristics
-        if let sampleRate = sampleRate {
-            if sampleRate >= 96000 { score += 100 } else if sampleRate >= 48000 { score += 50 }
-        }
-        
-        if let bitDepth = bitDepth {
-            if bitDepth >= 24 { score += 50 }
-        }
-        
-        return score
-    }
-}
-
-// MARK: - Update Helpers
-
-extension Track {
-    /// Create a mutable copy with updated favorite status
-    func withFavoriteStatus(_ isFavorite: Bool) -> Track {
-        var copy = self
-        copy.isFavorite = isFavorite
-        return copy
+        return try FullTrack
+            .filter(FullTrack.Columns.trackId == trackId)
+            .fetchOne(db)
     }
     
-    /// Create a mutable copy with updated play stats
-    func withPlayStats(playCount: Int, lastPlayedDate: Date?) -> Track {
-        var copy = self
-        copy.playCount = playCount
-        copy.lastPlayedDate = lastPlayedDate
-        return copy
-    }
-    
-    /// Create a mutable copy with updated album artwork
-    func withAlbumArtwork(_ artworkData: Data?) -> Track {
-        var copy = self
-        copy.albumArtworkData = artworkData
-        return copy
+    /// Async version for fetching FullTrack
+    /// - Parameter dbQueue: Database queue
+    /// - Returns: FullTrack with all metadata, or nil if not found
+    func fullTrack(using dbQueue: DatabaseQueue) async throws -> FullTrack? {
+        guard let trackId = trackId else { return nil }
+        
+        return try await dbQueue.read { db in
+            try FullTrack
+                .filter(FullTrack.Columns.trackId == trackId)
+                .fetchOne(db)
+        }
     }
 }

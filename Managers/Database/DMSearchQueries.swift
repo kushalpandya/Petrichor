@@ -9,34 +9,27 @@ import GRDB
 
 extension DatabaseManager {
     /// Search tracks using FTS5 for general search
-    func searchTracksUsingFTS(_ searchText: String) -> [Track] {
-        guard !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return []
-        }
-        
+    func searchTracksUsingFTS(_ query: String) -> [Track] {
         do {
-            var matchingTracks = try dbQueue.read { db in
-                // Create search pattern that matches all tokens
-                let searchPattern = FTS5Pattern(matchingAllTokensIn: searchText)
-                
-                // Define a request for tracks that match the FTS search
-                return try Track.fetchAll(
-                    db,
-                    sql: """
-                    SELECT t.*
-                    FROM tracks t
-                    JOIN tracks_fts fts ON t.id = fts.track_id
+            var tracks = try dbQueue.read { db in
+                let pattern = FTS5Pattern(matchingAllTokensIn: query)
+                let matchingTrackIds = try Int64.fetchAll(db, sql: """
+                    SELECT track_id
+                    FROM tracks_fts
                     WHERE tracks_fts MATCH ?
                     ORDER BY rank
-                    LIMIT 500
-                    """,
-                    arguments: [searchPattern]
-                )
+                    """, arguments: [pattern])
+                
+                guard !matchingTrackIds.isEmpty else { return [Track]() }
+                
+                return try Track.lightweightRequest()
+                    .filter(matchingTrackIds.contains(Track.Columns.trackId))
+                    .fetchAll(db)
             }
             
-            populateAlbumArtworkForTracks(&matchingTracks)
+            populateAlbumArtworkForTracks(&tracks)
             
-            return matchingTracks
+            return tracks
         } catch {
             Logger.error("FTS search failed: \(error)")
             return []

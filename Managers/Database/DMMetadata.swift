@@ -8,7 +8,7 @@
 import Foundation
 
 extension DatabaseManager {
-    func applyMetadataToTrack(_ track: inout Track, from metadata: TrackMetadata, at fileURL: URL) {
+    func applyMetadataToTrack(_ track: inout FullTrack, from metadata: TrackMetadata, at fileURL: URL) {
         // Core fields
         track.title = metadata.title ?? fileURL.deletingPathExtension().lastPathComponent
         track.artist = metadata.artist ?? "Unknown Artist"
@@ -64,7 +64,7 @@ extension DatabaseManager {
         track.extendedMetadata = metadata.extended
     }
 
-    func updateTrackIfNeeded(_ track: inout Track, with metadata: TrackMetadata, at fileURL: URL) -> Bool {
+    func updateTrackIfNeeded(_ track: inout FullTrack, with metadata: TrackMetadata, at fileURL: URL) -> Bool {
         var hasChanges = false
 
         // Update core metadata
@@ -86,7 +86,7 @@ extension DatabaseManager {
         return hasChanges
     }
 
-    func updateCoreMetadata(_ track: inout Track, with metadata: TrackMetadata) -> Bool {
+    func updateCoreMetadata(_ track: inout FullTrack, with metadata: TrackMetadata) -> Bool {
         var hasChanges = false
 
         if let newTitle = metadata.title, !newTitle.isEmpty && newTitle != track.title {
@@ -147,7 +147,7 @@ extension DatabaseManager {
         return hasChanges
     }
 
-    func updateAdditionalMetadata(_ track: inout Track, with metadata: TrackMetadata) -> Bool {
+    func updateAdditionalMetadata(_ track: inout FullTrack, with metadata: TrackMetadata) -> Bool {
         var hasChanges = false
 
         // Album metadata
@@ -234,7 +234,7 @@ extension DatabaseManager {
         return hasChanges
     }
 
-    func updateAudioProperties(_ track: inout Track, with metadata: TrackMetadata) -> Bool {
+    func updateAudioProperties(_ track: inout FullTrack, with metadata: TrackMetadata) -> Bool {
         var hasChanges = false
 
         if let newBitrate = metadata.bitrate, newBitrate != track.bitrate {
@@ -265,7 +265,7 @@ extension DatabaseManager {
         return hasChanges
     }
 
-    func updateFileProperties(_ track: inout Track, at fileURL: URL) -> Bool {
+    func updateFileProperties(_ track: inout FullTrack, at fileURL: URL) -> Bool {
         var hasChanges = false
 
         if let attributes = try? fileURL.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey]) {

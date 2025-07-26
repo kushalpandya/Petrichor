@@ -30,7 +30,7 @@ extension DatabaseManager {
     }
 
     /// Process all artists for a track (artists, composers, album artists)
-    func processTrackArtists(_ track: Track, metadata: TrackMetadata, in db: Database) throws {
+    func processTrackArtists(_ track: FullTrack, metadata: TrackMetadata, in db: Database) throws {
         guard let trackId = track.trackId else { return }
 
         // Process main artists
@@ -137,7 +137,7 @@ extension DatabaseManager {
     }
 
     /// Process album for a track
-    func processTrackAlbum(_ track: inout Track, in db: Database) throws {
+    func processTrackAlbum(_ track: inout FullTrack, in db: Database) throws {
         guard !track.album.isEmpty && track.album != "Unknown Album" else { return }
         
         // Determine the album artist (prefer albumArtist field, fallback to first artist from multi-artist string)
@@ -212,7 +212,7 @@ extension DatabaseManager {
         }
     }
 
-    private func updateAlbumMetadata(albumId: Int64, from track: Track, in db: Database) throws {
+    private func updateAlbumMetadata(albumId: Int64, from track: FullTrack, in db: Database) throws {
         guard let album = try Album.fetchOne(db, key: albumId) else { return }
 
         var needsUpdate = false
@@ -271,7 +271,7 @@ extension DatabaseManager {
     // MARK: - Genre Management
 
     /// Find or create genres for a track
-    func processTrackGenres(_ track: Track, in db: Database) throws {
+    func processTrackGenres(_ track: FullTrack, in db: Database) throws {
         guard let trackId = track.trackId,
               !track.genre.isEmpty && track.genre != "Unknown Genre" else { return }
 
