@@ -364,7 +364,6 @@ struct HomeView: View {
                 }
                 // Check if it's an artist entity
                 else if pinnedItem.filterType == .artists,
-                         pinnedItem.entityId != nil || pinnedItem.artistId != nil,  // Add this check
                          let artistEntity = libraryManager.artistEntities.first(where: { $0.name == pinnedItem.filterValue }) {
                     // Use EntityDetailView for artist entity
                     EntityDetailView(
@@ -375,11 +374,7 @@ struct HomeView: View {
                 }
                 // Check if it's an album entity
                 else if pinnedItem.filterType == .albums,
-                         pinnedItem.entityId != nil || pinnedItem.albumId != nil,  // Add this check
-                         let albumEntity = libraryManager.albumEntities.first(where: {
-                             $0.name == pinnedItem.filterValue &&
-                             (pinnedItem.albumId == nil || $0.albumId == pinnedItem.albumId)
-                         }) {
+                         let albumEntity = libraryManager.albumEntities.first(where: { $0.name == pinnedItem.filterValue }) {
                     // Use EntityDetailView for album entity
                     EntityDetailView(
                         entity: albumEntity,
@@ -387,38 +382,24 @@ struct HomeView: View {
                         onBack: nil
                     )
                 }
-                // Use default header for library items
+                // For all other pinned items (genres, years, composers, etc.)
                 else {
-                    // Header
-                    if viewType == .table {
-                        TrackListHeader(
-                            title: pinnedItem.displayName,
-                            subtitle: nil,
-                            trackCount: sortedTracks.count
-                        ) {
-                            EmptyView()
+                    // Regular track list header
+                    TrackListHeader(
+                        title: pinnedItem.displayName,
+                        trackCount: sortedTracks.count
+                    ) {
+                        Button(action: { trackListSortAscending.toggle() }) {
+                            Image(Icons.sortIcon(for: trackListSortAscending))
+                                .renderingMode(.template)
+                                .scaleEffect(0.8)
                         }
-                    } else {
-                        TrackListHeader(
-                            title: pinnedItem.displayName,
-                            subtitle: nil,
-                            trackCount: sortedTracks.count
-                        ) {
-                            Button(action: {
-                                trackListSortAscending.toggle()
-                                sortTracks()
-                            }) {
-                                Image(Icons.sortIcon(for: trackListSortAscending))
-                                    .renderingMode(.template)
-                                    .scaleEffect(0.8)
-                            }
-                            .buttonStyle(.borderless)
-                            .help("Sort tracks \(trackListSortAscending ? "descending" : "ascending")")
-                        }
+                        .buttonStyle(.borderless)
+                        .help("Sort tracks \(trackListSortAscending ? "descending" : "ascending")")
                     }
-                    
+
                     Divider()
-                    
+
                     // Track list
                     if sortedTracks.isEmpty {
                         VStack(spacing: 16) {
@@ -440,6 +421,7 @@ struct HomeView: View {
                             playlistID: nil,
                             onPlayTrack: { track in
                                 playlistManager.playTrack(track, fromTracks: sortedTracks)
+                                playlistManager.currentQueueSource = .library
                             },
                             contextMenuItems: { track in
                                 TrackContextMenu.createMenuItems(
@@ -453,6 +435,8 @@ struct HomeView: View {
                         .background(Color(NSColor.textBackgroundColor))
                     }
                 }
+            } else {
+                NoMusicEmptyStateView(context: .mainWindow)
             }
         }
     }

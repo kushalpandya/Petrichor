@@ -836,6 +836,20 @@ extension DatabaseManager {
         }
     }
     
+    /// Get album by title
+    func getAlbumByTitle(_ title: String) -> Album? {
+        do {
+            return try dbQueue.read { db in
+                try Album
+                    .filter(Album.Columns.title == title)
+                    .fetchOne(db)
+            }
+        } catch {
+            Logger.error("Failed to get album by title: \(error)")
+            return nil
+        }
+    }
+    
     // MARK: - Helper Methods
 
     /// Apply duplicate filtering to a Track query if the user preference is enabled
