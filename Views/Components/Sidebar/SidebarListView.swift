@@ -241,8 +241,22 @@ extension SidebarListView where Item == LibrarySidebarItem {
         let allItem = LibrarySidebarItem(allItemFor: filterType, count: totalTracksCount)
         items.append(allItem)
 
-        // Add filter items (which should already be sorted with Unknown first)
-        items.append(contentsOf: filterItems.map { LibrarySidebarItem(filterItem: $0) })
+        // Convert filter items to sidebar items
+        let sidebarItems = filterItems.map { LibrarySidebarItem(filterItem: $0) }
+        
+        // Separate unknown and regular items
+        let unknownItems = sidebarItems.filter { item in
+            item.filterName == filterType.unknownPlaceholder ||
+            item.title == filterType.unknownPlaceholder
+        }
+        let regularItems = sidebarItems.filter { item in
+            item.filterName != filterType.unknownPlaceholder &&
+            item.title != filterType.unknownPlaceholder
+        }
+        
+        // Add regular items first, then unknown items at the end
+        items.append(contentsOf: regularItems)
+        items.append(contentsOf: unknownItems)
 
         self.init(
             items: items,

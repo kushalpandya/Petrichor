@@ -44,23 +44,9 @@ struct LibraryView: View {
                         tracksListView
                     }
                 )
-                .onAppear {
-                    // Set initial filter selection
-                    if selectedFilterItem == nil {
-                        selectedFilterItem = LibraryFilterItem.allItem(for: selectedFilterType, totalCount: libraryManager.tracks.count)
-                    }
-                    updateFilteredTracks()
-
-                    // Mark view as ready
-                    isViewReady = true
-
-                    // Check if there's a pending filter to apply
-                    if let request = pendingFilter {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            selectedFilterType = request.filterType
-                            pendingSearchText = request.value
-                            pendingFilter = nil
-                        }
+                .onChange(of: libraryManager.tracks) { _, newTracks in
+                    if let currentItem = selectedFilterItem, currentItem.isAllItem {
+                        selectedFilterItem = LibraryFilterItem.allItem(for: selectedFilterType, totalCount: newTracks.count)
                     }
                 }
                 .onDisappear {
@@ -68,7 +54,7 @@ struct LibraryView: View {
                 }
                 .onChange(of: libraryManager.tracks) { _, newTracks in
                     // Update filter item when tracks change
-                    if let currentItem = selectedFilterItem, currentItem.name.hasPrefix("All") {
+                    if let currentItem = selectedFilterItem, currentItem.isAllItem {
                         selectedFilterItem = LibraryFilterItem.allItem(for: selectedFilterType, totalCount: newTracks.count)
                     }
                 }
@@ -183,7 +169,7 @@ struct LibraryView: View {
         if !libraryManager.globalSearchText.isEmpty {
             return "Search Results"
         } else if let filterItem = selectedFilterItem {
-            if filterItem.name.hasPrefix("All") {
+            if filterItem.isAllItem {
                 return "All Tracks"
             } else {
                 return filterItem.name
@@ -209,7 +195,7 @@ struct LibraryView: View {
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
-            } else if let filterItem = selectedFilterItem, !filterItem.name.hasPrefix("All") {
+            } else if let filterItem = selectedFilterItem, !filterItem.isAllItem {
                 Text("No tracks found for \"\(filterItem.name)\"")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
@@ -232,7 +218,7 @@ struct LibraryView: View {
         var tracks = libraryManager.searchResults
 
         // Then apply sidebar filter if present
-        if let filterItem = selectedFilterItem, !filterItem.name.hasPrefix("All") {
+        if let filterItem = selectedFilterItem, !filterItem.isAllItem {
             tracks = tracks.filter { track in
                 selectedFilterType.trackMatches(track, filterValue: filterItem.name)
             }

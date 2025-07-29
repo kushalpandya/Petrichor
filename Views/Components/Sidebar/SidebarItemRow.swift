@@ -138,10 +138,18 @@ struct SidebarItemRow<Item: SidebarItem>: View {
     private var titleView: some View {
         Text(item.title)
             .font(.system(size: 13, weight: isSelected ? .medium : .regular))
+            .italic(isUnknownItem)
             .lineLimit(1)
             .foregroundColor(isSelected ? .white : .primary)
             .help(isTitleTruncated ? item.title : "")
             .background(truncationDetector(for: item.title, isTruncated: $isTitleTruncated))
+    }
+    
+    private var isUnknownItem: Bool {
+        if let librarySidebarItem = item as? LibrarySidebarItem {
+            return librarySidebarItem.title == librarySidebarItem.filterType.unknownPlaceholder
+        }
+        return false
     }
     
     private func subtitleView(subtitle: String) -> some View {

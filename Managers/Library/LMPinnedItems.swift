@@ -25,8 +25,7 @@ extension LibraryManager {
     
     /// Pin a library filter item (from sidebar)
     func pinLibraryItem(filterType: LibraryFilterType, filterValue: String) async {
-        // Don't allow pinning "All" items
-        if filterValue.hasPrefix("All ") {
+        if filterValue.isEmpty {
             return
         }
         
