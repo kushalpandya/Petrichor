@@ -453,11 +453,17 @@ extension DatabaseManager {
                 for artist in artists {
                     guard let artistId = artist.id else { continue }
 
-                    let trackCount = try TrackArtist
+                    // Get track IDs for this artist
+                    let trackIds = try TrackArtist
                         .filter(TrackArtist.Columns.artistId == artistId)
                         .filter(TrackArtist.Columns.role == TrackArtist.Role.artist)
                         .select(TrackArtist.Columns.trackId, as: Int64.self)
                         .distinct()
+                        .fetchAll(db)
+
+                    // Count only non-duplicate tracks if preference is set
+                    let trackCount = try applyDuplicateFilter(Track.all())
+                        .filter(trackIds.contains(Track.Columns.trackId))
                         .fetchCount(db)
 
                     if trackCount > 0 {
@@ -502,12 +508,18 @@ extension DatabaseManager {
 
                 for artist in artists {
                     guard let artistId = artist.id else { continue }
-
-                    let trackCount = try TrackArtist
+                    
+                    // Get track IDs for this album-artist
+                    let trackIds = try TrackArtist
                         .filter(TrackArtist.Columns.artistId == artistId)
                         .filter(TrackArtist.Columns.role == TrackArtist.Role.albumArtist)
                         .select(TrackArtist.Columns.trackId, as: Int64.self)
                         .distinct()
+                        .fetchAll(db)
+
+                    // Count only non-duplicate tracks if preference is set
+                    let trackCount = try applyDuplicateFilter(Track.all())
+                        .filter(trackIds.contains(Track.Columns.trackId))
                         .fetchCount(db)
 
                     if trackCount > 0 {
@@ -552,12 +564,18 @@ extension DatabaseManager {
 
                 for composer in composers {
                     guard let composerId = composer.id else { continue }
-
-                    let trackCount = try TrackArtist
+                    
+                    // Get track IDs for this composer
+                    let trackIds = try TrackArtist
                         .filter(TrackArtist.Columns.artistId == composerId)
                         .filter(TrackArtist.Columns.role == TrackArtist.Role.composer)
                         .select(TrackArtist.Columns.trackId, as: Int64.self)
                         .distinct()
+                        .fetchAll(db)
+
+                    // Count only non-duplicate tracks if preference is set
+                    let trackCount = try applyDuplicateFilter(Track.all())
+                        .filter(trackIds.contains(Track.Columns.trackId))
                         .fetchCount(db)
 
                     if trackCount > 0 {
@@ -651,10 +669,16 @@ extension DatabaseManager {
                 for genre in genres {
                     guard let genreId = genre.id else { continue }
 
-                    let trackCount = try TrackGenre
+                    // Get track IDs for this genre
+                    let trackIds = try TrackGenre
                         .filter(TrackGenre.Columns.genreId == genreId)
                         .select(TrackGenre.Columns.trackId, as: Int64.self)
                         .distinct()
+                        .fetchAll(db)
+
+                    // Count only non-duplicate tracks if preference is set
+                    let trackCount = try applyDuplicateFilter(Track.all())
+                        .filter(trackIds.contains(Track.Columns.trackId))
                         .fetchCount(db)
 
                     if trackCount > 0 {

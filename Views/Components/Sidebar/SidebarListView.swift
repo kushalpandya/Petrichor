@@ -89,7 +89,7 @@ struct SidebarListView<Item: SidebarItem>: View {
 
     private var itemsList: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            VStack(spacing: 1) {
+            LazyVStack(spacing: 1) {
                 ForEach(items) { item in
                     SidebarItemRow(
                         item: item,

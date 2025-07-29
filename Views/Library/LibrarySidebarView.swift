@@ -131,14 +131,14 @@ struct LibrarySidebarView: View {
     private func initializeSelection() {
         // Always ensure we have a selection
         if selectedFilterItem == nil {
-            let allItem = LibraryFilterItem.allItem(for: selectedFilterType, totalCount: libraryManager.tracks.count)
+            let allItem = LibraryFilterItem.allItem(for: selectedFilterType, totalCount: libraryManager.searchResults.count)
             selectedFilterItem = allItem
         }
 
         // Always sync the sidebar selection with the filter selection
         if let filterItem = selectedFilterItem {
             if filterItem.name.hasPrefix("All") {
-                selectedSidebarItem = LibrarySidebarItem(allItemFor: selectedFilterType, count: libraryManager.tracks.count)
+                selectedSidebarItem = LibrarySidebarItem(allItemFor: selectedFilterType, count: libraryManager.searchResults.count)
             } else {
                 selectedSidebarItem = LibrarySidebarItem(filterItem: filterItem)
             }
@@ -185,9 +185,14 @@ struct LibrarySidebarView: View {
     }
 
     private func updateFilteredItems() {
-        // Get items based on centralized search results
+        // Get items based on whether we're in search mode or not
         var items: [LibraryFilterItem]
-        items = selectedFilterType.getFilterItems(from: libraryManager.searchResults)
+        
+        if !libraryManager.globalSearchText.isEmpty {
+            items = selectedFilterType.getFilterItems(from: libraryManager.searchResults)
+        } else {
+            items = libraryManager.getLibraryFilterItems(for: selectedFilterType)
+        }
 
         // Apply local sidebar search filter if present
         if !searchText.isEmpty {
