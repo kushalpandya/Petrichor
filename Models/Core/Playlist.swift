@@ -78,6 +78,7 @@ struct Playlist: Identifiable, FetchableRecord, PersistableRecord {
     var dateModified: Date
     var coverArtworkData: Data?
     let type: PlaylistType
+    var trackCount: Int = 0
     var sortOrder: Int = 0
     var isUserEditable: Bool  // Can user delete/rename this playlist?
     var isContentEditable: Bool  // Can user add/remove tracks?

@@ -11,6 +11,9 @@ struct LibrarySearch {
     static func searchTracks(_ tracks: [Track], with query: String) -> [Track] {
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedQuery.isEmpty else { return tracks }
+        
+        // Require at least 2 characters for search
+        guard trimmedQuery.count >= 2 else { return [] }
 
         // Use FTS5 search from database
         if let coordinator = AppCoordinator.shared {

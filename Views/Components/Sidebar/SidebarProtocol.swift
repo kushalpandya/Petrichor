@@ -198,7 +198,7 @@ struct PlaylistSidebarItem: SidebarItem {
 
         // Set subtitle and count based on playlist type
         if playlist.type == .smart {
-            let trackCount = playlist.tracks.count
+            let trackCount = playlist.trackCount
             if let limit = playlist.trackLimit {
                 self.subtitle = "\(trackCount) / \(limit) songs"
             } else {
@@ -206,7 +206,7 @@ struct PlaylistSidebarItem: SidebarItem {
             }
             self.count = nil
         } else {
-            self.subtitle = "\(playlist.tracks.count) songs"
+            self.subtitle = "\(playlist.trackCount) songs"
             self.count = nil
         }
     }

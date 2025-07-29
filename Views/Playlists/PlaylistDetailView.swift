@@ -48,11 +48,20 @@ struct PlaylistDetailView: View {
             .onChange(of: playlistID) {
                 selectedTrackID = nil
             }
+            .onChange(of: playlist.dateModified) {
+                loadPlaylistTracksIfNeeded()
+            }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("CreatePlaylistWithTrack"))) { notification in
                 if let track = notification.userInfo?["track"] as? Track {
                     trackToAddToNewPlaylist = track
                     showingCreatePlaylistWithTrack = true
                 }
+            }
+            .onAppear {
+                loadPlaylistTracksIfNeeded()
+            }
+            .onChange(of: playlist.id) {
+                loadPlaylistTracksIfNeeded()
             }
         } else {
             playlistNotFoundView
@@ -124,11 +133,11 @@ struct PlaylistDetailView: View {
 
             if let playlist = playlist {
                 HStack {
-                    Text("\(playlist.tracks.count) songs")
+                    Text("\(playlist.trackCount) songs")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
 
-                    if !playlist.tracks.isEmpty {
+                    if playlist.trackCount > 0 {
                         Text("•")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
@@ -171,7 +180,7 @@ struct PlaylistDetailView: View {
                 .padding(.vertical, verticalPadding)
             }
             .buttonStyle(.borderedProminent)
-            .disabled(playlist?.tracks.isEmpty ?? true)
+            .disabled(playlist?.trackCount == 0)
 
             Button(action: shufflePlaylist) {
                 HStack(spacing: iconTextSpacing) {
@@ -184,7 +193,7 @@ struct PlaylistDetailView: View {
                 .padding(.vertical, verticalPadding)
             }
             .buttonStyle(.bordered)
-            .disabled(playlist?.tracks.isEmpty ?? true)
+            .disabled(playlist?.trackCount == 0)
 
             if playlist?.type == .regular {
                 Button(action: { showingAddSongs = true }) {
@@ -394,6 +403,20 @@ struct PlaylistDetailView: View {
     }
 
     // MARK: - Action Methods
+    
+    private func loadPlaylistTracksIfNeeded() {
+        guard let playlist = playlist else { return }
+            
+        if playlist.type == .smart && playlist.tracks.isEmpty {
+            // Load smart playlist tracks using the optimized query
+            Task {
+                await playlistManager.loadSmartPlaylistTracks(playlist)
+            }
+        } else if playlist.type == .regular && playlist.tracks.isEmpty {
+            // Load regular playlist tracks
+            playlistManager.loadPlaylistTracks(for: playlist.id)
+        }
+    }
 
     private func playPlaylist() {
         guard let playlist = playlist, !playlist.tracks.isEmpty else { return }

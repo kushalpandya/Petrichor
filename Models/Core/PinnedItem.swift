@@ -81,7 +81,7 @@ struct PinnedItem: Identifiable, FetchableRecord, PersistableRecord {
         self.albumId = nil
         self.playlistId = playlist.id
         self.displayName = playlist.name
-        self.subtitle = "\(playlist.tracks.count) songs"
+        self.subtitle = "\(playlist.trackCount) songs"
         self.iconName = Icons.defaultPlaylistIcon(for: playlist)
         self.sortOrder = 0
         self.dateAdded = Date()

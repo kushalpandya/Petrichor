@@ -46,6 +46,7 @@ class LibraryManager: ObservableObject {
 
     // MARK: - Private/Internal Properties
     private var fileWatcherTimer: Timer?
+    private var hasPerformedInitialScan = false
     internal var entitiesLoaded = false
     internal let userDefaults = UserDefaults.standard
     internal let fileManager = FileManager.default
@@ -132,6 +133,24 @@ class LibraryManager: ObservableObject {
         // Handle "only on launch" setting
         if currentInterval == .onlyOnLaunch {
             Logger.info("Auto-scan set to only on launch, performing initial scan...")
+            
+            // Check if we've scanned recently (within last hour)
+            if let lastScanDate = userDefaults.object(forKey: UserDefaultsKeys.lastScanDate) as? Date {
+                let hoursSinceLastScan = Date().timeIntervalSince(lastScanDate) / 3600
+                if hoursSinceLastScan < 1.0 {
+                    Logger.info("Last scan was \(String(format: "%.1f", hoursSinceLastScan)) hours ago, skipping initial scan")
+                    hasPerformedInitialScan = true
+                    return
+                }
+            }
+            
+            // Skip if we already performed initial scan
+            guard !hasPerformedInitialScan else {
+                Logger.info("Initial scan already performed, skipping")
+                return
+            }
+            
+            hasPerformedInitialScan = true
             
             // Perform scan after a short delay to let the UI initialize
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in

@@ -93,10 +93,6 @@ extension LibraryManager {
         updateTotalCounts()
 
         Logger.info("Loaded \(folders.count) folders and \(totalTrackCount) tracks from database")
-        
-        if discoverTracks.isEmpty {
-            loadDiscoverTracks()
-        }
 
         // Refresh stale bookmarks in background
         if !foldersNeedingRefresh.isEmpty {

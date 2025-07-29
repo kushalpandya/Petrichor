@@ -86,7 +86,7 @@ struct HomeSidebarView: View {
                 }
             }
         }
-        .onChange(of: playlistManager.playlists.map { "\($0.id)-\($0.tracks.count)" }) {
+        .onChange(of: playlistManager.playlists.map { "\($0.id)-\($0.trackCount)" }) {
             updateAllItems()
         }
     }
