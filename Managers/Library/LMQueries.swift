@@ -69,8 +69,10 @@ extension LibraryManager {
 
     func updateSearchResults() {
         if globalSearchText.isEmpty {
-            searchResults = tracks
+            // When not searching, don't populate searchResults with all tracks
+            searchResults = []
         } else {
+            // Use LibrarySearch which uses FTS from database
             searchResults = LibrarySearch.searchTracks(tracks, with: globalSearchText)
         }
     }

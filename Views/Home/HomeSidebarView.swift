@@ -94,11 +94,12 @@ struct HomeSidebarView: View {
     // MARK: - Update Items Helper
     
     private func updateAllItems() {
-        let artistCount = libraryManager.databaseManager.getArtistCount()
-        let albumCount = libraryManager.databaseManager.getAlbumCount()
+        let artistCount = libraryManager.artistCount
+        let albumCount = libraryManager.albumCount
         
         var items: [HomeSidebarItem] = [
-            HomeSidebarItem(type: .tracks, trackCount: libraryManager.tracks.count),
+            HomeSidebarItem(type: .discover, trackCount: libraryManager.discoverTracks.count),
+            HomeSidebarItem(type: .tracks, trackCount: libraryManager.totalTrackCount),
             HomeSidebarItem(type: .artists, artistCount: artistCount),
             HomeSidebarItem(type: .albums, albumCount: albumCount)
         ]
@@ -156,9 +157,14 @@ struct HomeSidebarView: View {
     // MARK: - Update Selection Helper
 
     private func updateSelectedItem() {
-        // Select "Tracks" by default if nothing is selected
+        // Select "Discover" by default if nothing is selected
         if selectedItem == nil {
-            selectedItem = allItems.first
+            selectedItem = allItems.first { item in
+                if case .fixed(let type) = item.source, type == .discover {
+                    return true
+                }
+                return false
+            } ?? allItems.first
         } else if let current = selectedItem {
             // Update the selected item to get the latest count for fixed items
             switch current.source {

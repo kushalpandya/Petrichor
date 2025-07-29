@@ -20,9 +20,14 @@ class LibraryManager: ObservableObject {
         }
     }
     @Published var searchResults: [Track] = []
+    @Published var discoverTracks: [Track] = []
+    @Published var isLoadingDiscover: Bool = false
     @Published var pinnedItems: [PinnedItem] = []
     @Published internal var cachedArtistEntities: [ArtistEntity] = []
     @Published internal var cachedAlbumEntities: [AlbumEntity] = []
+    @Published private(set) var totalTrackCount: Int = 0
+    @Published private(set) var artistCount: Int = 0
+    @Published private(set) var albumCount: Int = 0
 
     // MARK: - Entity Properties
     var artistEntities: [ArtistEntity] {
@@ -106,6 +111,12 @@ class LibraryManager: ObservableObject {
                 folder.url.stopAccessingSecurityScopedResource()
             }
         }
+    }
+    
+    internal func updateTotalCounts() {
+        totalTrackCount = databaseManager.getTotalTrackCount()
+        artistCount = databaseManager.getArtistCount()
+        albumCount = databaseManager.getAlbumCount()
     }
 
     // MARK: - File Watching

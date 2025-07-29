@@ -22,6 +22,7 @@ struct HomeView: View {
     
     @State private var selectedSidebarItem: HomeSidebarItem?
     @State private var selectedTrackID: UUID?
+    @State private var sortedDiscoverTracks: [Track] = []
     @State private var sortedTracks: [Track] = []
     @State private var sortedArtistEntities: [ArtistEntity] = []
     @State private var sortedAlbumEntities: [AlbumEntity] = []
@@ -33,7 +34,7 @@ struct HomeView: View {
     @Binding var isShowingEntities: Bool
     
     var body: some View {
-        if libraryManager.folders.isEmpty || libraryManager.tracks.isEmpty {
+        if libraryManager.folders.isEmpty {
             NoMusicEmptyStateView(context: .mainWindow)
         } else {
             PersistentSplitView(
@@ -48,6 +49,8 @@ struct HomeView: View {
                                 switch selectedItem.source {
                                 case .fixed(let type):
                                     switch type {
+                                    case .discover:
+                                        discoverView
                                     case .tracks:
                                         tracksView
                                     case .artists:
@@ -106,8 +109,10 @@ struct HomeView: View {
                         
                         // Load appropriate data
                         switch type {
+                        case .discover:
+                            isShowingEntities = false
                         case .tracks:
-                            sortTracks()
+                            sortAllTracks()
                         case .artists:
                             sortArtistEntities()
                         case .albums:
@@ -139,49 +144,52 @@ struct HomeView: View {
         }
     }
     
-    // MARK: - Tracks View
-    
-    private var tracksView: some View {
-        VStack(spacing: 0) {
+    // MARK: - Discover View
+
+    @ViewBuilder
+    private var discoverView: some View {
+        VStack(alignment: .leading, spacing: 0) {
             // Header
-            if viewType == .table {
-                TrackListHeader(
-                    title: "All Tracks",
-                    trackCount: libraryManager.tracks.count
-                ) {
-                    EmptyView()
+            TrackListHeader(
+                title: "Discover",
+                trackCount: sortedDiscoverTracks.count
+            ) {
+                // Sort button
+                Button(action: { trackListSortAscending.toggle() }) {
+                    Image(Icons.sortIcon(for: trackListSortAscending))
+                        .renderingMode(.template)
+                        .scaleEffect(0.8)
                 }
-            } else {
-                TrackListHeader(
-                    title: "All Tracks",
-                    trackCount: libraryManager.tracks.count
-                ) {
-                    Button(action: {
-                        trackListSortAscending.toggle()
-                        sortTracks()
-                    }) {
-                        Image(Icons.sortIcon(for: trackListSortAscending))
-                            .renderingMode(.template)
-                            .scaleEffect(0.8)
-                    }
-                    .buttonStyle(.borderless)
-                    .help("Sort tracks \(trackListSortAscending ? "descending" : "ascending")")
-                }
+                .buttonStyle(.borderless)
+                .help("Sort tracks \(trackListSortAscending ? "ascending" : "descending")")
             }
             
             Divider()
-            
-            // Track list
-            if libraryManager.tracks.isEmpty {
-                NoMusicEmptyStateView(context: .mainWindow)
+
+            if libraryManager.discoverTracks.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: Icons.sparkles)
+                        .font(.system(size: 48))
+                        .foregroundColor(.gray)
+                    
+                    Text("No undiscovered tracks")
+                        .font(.headline)
+                    
+                    Text("You've played all tracks in your library!")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding()
             } else {
                 TrackView(
-                    tracks: sortedTracks,
+                    tracks: sortedDiscoverTracks,
                     viewType: viewType,
                     selectedTrackID: $selectedTrackID,
                     playlistID: nil,
                     onPlayTrack: { track in
-                        playlistManager.playTrack(track, fromTracks: sortedTracks)
+                        playlistManager.playTrack(track, fromTracks: libraryManager.discoverTracks)
+                        playlistManager.currentQueueSource = .library
                     },
                     contextMenuItems: { track in
                         TrackContextMenu.createMenuItems(
@@ -192,16 +200,83 @@ struct HomeView: View {
                         )
                     }
                 )
-                .background(Color(NSColor.textBackgroundColor))
             }
         }
         .onAppear {
-            if sortedTracks.isEmpty {
-                sortTracks()
+            libraryManager.loadDiscoverTracks()
+            sortDiscoverTracks()
+        }
+        .onChange(of: trackListSortAscending) {
+            sortDiscoverTracks()
+        }
+        .onChange(of: libraryManager.discoverTracks) {
+            sortDiscoverTracks()
+        }
+    }
+    
+    // MARK: - Tracks View
+    
+    private var tracksView: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            TrackListHeader(
+                title: "All Tracks",
+                trackCount: sortedTracks.count
+            ) {
+                // Sort button
+                Button(action: { trackListSortAscending.toggle() }) {
+                    Image(Icons.sortIcon(for: trackListSortAscending))
+                        .renderingMode(.template)
+                        .scaleEffect(0.8)
+                }
+                .buttonStyle(.borderless)
+                .help("Sort tracks \(trackListSortAscending ? "ascending" : "descending")")
+            }
+            
+            Divider()
+            
+            // Show loading or tracks
+            if libraryManager.tracks.isEmpty {
+                VStack {
+                    Spacer()
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle())
+                        .scaleEffect(1.2)
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .onAppear {
+                    Task {
+                        await libraryManager.loadAllTracks()
+                        sortAllTracks()
+                    }
+                }
+            } else {
+                TrackView(
+                    tracks: sortedTracks,
+                    viewType: viewType,
+                    selectedTrackID: $selectedTrackID,
+                    playlistID: nil,
+                    onPlayTrack: { track in
+                        playlistManager.playTrack(track, fromTracks: sortedTracks)
+                        playlistManager.currentQueueSource = .library
+                    },
+                    contextMenuItems: { track in
+                        TrackContextMenu.createMenuItems(
+                            for: track,
+                            playbackManager: playbackManager,
+                            playlistManager: playlistManager,
+                            currentContext: .library
+                        )
+                    }
+                )
             }
         }
         .onChange(of: libraryManager.tracks) {
-            sortTracks()
+            sortAllTracks()
+        }
+        .onChange(of: trackListSortAscending) {
+            sortAllTracks()
         }
     }
     
@@ -468,7 +543,13 @@ struct HomeView: View {
         .background(Color(NSColor.textBackgroundColor))
     }
     
-    private func sortTracks() {
+    private func sortDiscoverTracks() {
+        sortedDiscoverTracks = trackListSortAscending
+            ? libraryManager.discoverTracks.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+            : libraryManager.discoverTracks.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedDescending }
+    }
+    
+    private func sortAllTracks() {
         if let selectedItem = selectedSidebarItem,
            case .pinned(let pinnedItem) = selectedItem.source {
             // If viewing a pinned item, sort those tracks

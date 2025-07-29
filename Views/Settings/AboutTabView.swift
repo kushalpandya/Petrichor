@@ -10,7 +10,7 @@ struct AboutTabView: View {
 
                 appInfoSection
 
-                if !libraryManager.tracks.isEmpty {
+                if !libraryManager.folders.isEmpty {
                     libraryStatisticsSection
                 }
 
@@ -20,7 +20,7 @@ struct AboutTabView: View {
             }
             .padding()
         }
-        .scrollDisabled(libraryManager.tracks.isEmpty)
+        .scrollDisabled(libraryManager.folders.isEmpty)
         .background(Color.clear)
     }
 
@@ -209,7 +209,7 @@ struct AboutTabView: View {
     }
 
     private func formatTotalDuration() -> String {
-        let totalSeconds = libraryManager.tracks.reduce(0) { $0 + $1.duration }
+        let totalSeconds = libraryManager.databaseManager.getTotalDuration()
         let totalHours = Int(totalSeconds) / 3600
         let days = totalHours / 24
         let remainingHours = totalHours % 24

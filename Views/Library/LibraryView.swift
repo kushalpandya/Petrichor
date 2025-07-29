@@ -28,7 +28,7 @@ struct LibraryView: View {
 
     var body: some View {
         VStack {
-            if libraryManager.tracks.isEmpty {
+            if libraryManager.folders.isEmpty {
                 NoMusicEmptyStateView(context: .mainWindow)
             } else {
                 // Main library view with sidebar
@@ -214,17 +214,35 @@ struct LibraryView: View {
     // MARK: - Filtering Tracks Helper
 
     private func updateFilteredTracks() {
-        // Start with all tracks
-        var tracks = libraryManager.searchResults
-
-        // Then apply sidebar filter if present
-        if let filterItem = selectedFilterItem, !filterItem.isAllItem {
-            tracks = tracks.filter { track in
-                selectedFilterType.trackMatches(track, filterValue: filterItem.name)
+        // If we have a global search, use database FTS search
+        if !libraryManager.globalSearchText.isEmpty {
+            // searchResults should already be populated by updateSearchResults()
+            // which uses database FTS search
+            var tracks = libraryManager.searchResults
+            
+            // Apply sidebar filter if present
+            if let filterItem = selectedFilterItem, !filterItem.isAllItem {
+                tracks = tracks.filter { track in
+                    selectedFilterType.trackMatches(track, filterValue: filterItem.name)
+                }
+            }
+            
+            cachedFilteredTracks = sortTracks(tracks)
+        } else {
+            // No global search - load only what's needed based on selection
+            if let filterItem = selectedFilterItem {
+                if filterItem.isAllItem {
+                    // "All" item selected during search - we shouldn't get here with our new logic
+                    cachedFilteredTracks = []
+                } else {
+                    // Load tracks for specific filter from database
+                    let tracks = libraryManager.getTracksBy(filterType: selectedFilterType, value: filterItem.name)
+                    cachedFilteredTracks = sortTracks(tracks)
+                }
+            } else {
+                cachedFilteredTracks = []
             }
         }
-
-        cachedFilteredTracks = sortTracks(tracks)
     }
 
     private func sortTracks(_ tracks: [Track]) -> [Track] {

@@ -140,14 +140,12 @@ extension DatabaseManager {
                 }
             }
             
-            // Fallback to the original filter-based method
-            let allTracks = getAllTracks()
-            var tracks = allTracks.filter { track in
-                filterType.trackMatches(track, filterValue: filterValue)
-            }
-            
+            // Use optimized database query for filter-based retrieval
+            var tracks = getTracksByFilterType(filterType, value: filterValue)
+
+            // Populate album artwork if needed
             populateAlbumArtworkForTracks(&tracks)
-            
+
             return tracks
             
         case .playlist:

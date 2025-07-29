@@ -11,9 +11,8 @@ extension PlaylistManager {
     /// Update all smart playlists with current track data
     func updateSmartPlaylists() {
         guard let libraryManager = libraryManager else { return }
-        let allTracks = libraryManager.tracks
         
-        Logger.info("Updating smart playlists with \(allTracks.count) tracks")
+        Logger.info("Updating smart playlists")
         
         // Ensure we're on the main thread since we're updating @Published property
         if Thread.isMainThread {
@@ -21,7 +20,8 @@ extension PlaylistManager {
             for index in playlists.indices {
                 guard playlists[index].type == .smart else { continue }
                 
-                let matchingTracks = evaluateSmartPlaylist(playlists[index], allTracks: allTracks)
+                // Query tracks from database based on criteria
+                let matchingTracks = getTracksForSmartPlaylist(playlists[index])
                 playlists[index].tracks = matchingTracks
                 
                 Logger.info("Updated '\(playlists[index].name)' with \(matchingTracks.count) tracks")
@@ -32,13 +32,24 @@ extension PlaylistManager {
                 for index in self.playlists.indices {
                     guard self.playlists[index].type == .smart else { continue }
                     
-                    let matchingTracks = self.evaluateSmartPlaylist(self.playlists[index], allTracks: allTracks)
+                    let matchingTracks = self.getTracksForSmartPlaylist(self.playlists[index])
                     self.playlists[index].tracks = matchingTracks
                     
                     Logger.info("Updated '\(self.playlists[index].name)' with \(matchingTracks.count) tracks")
                 }
             }
         }
+    }
+
+    /// Get tracks for a smart playlist from database
+    private func getTracksForSmartPlaylist(_ playlist: Playlist) -> [Track] {
+        guard let criteria = playlist.smartCriteria,
+              let libraryManager = libraryManager else { return [] }
+        
+        // For now, we'll need to load tracks to evaluate complex criteria
+        // In the future, this could be optimized with specific database queries
+        let allTracks = libraryManager.databaseManager.getAllTracks()
+        return evaluateSmartPlaylist(playlist, allTracks: allTracks)
     }
     
     /// Update smart playlists for a specific track change

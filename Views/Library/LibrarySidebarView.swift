@@ -23,7 +23,9 @@ struct LibrarySidebarView: View {
             SidebarView(
                 filterItems: filteredItems,
                 filterType: selectedFilterType,
-                totalTracksCount: libraryManager.searchResults.count,
+                totalTracksCount: libraryManager.globalSearchText.isEmpty ?
+                    libraryManager.totalTrackCount :
+                    libraryManager.searchResults.count,
                 selectedItem: $selectedSidebarItem,
                 showAllItem: !libraryManager.globalSearchText.isEmpty,
                 onItemTap: { item in

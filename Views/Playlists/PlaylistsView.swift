@@ -12,7 +12,7 @@ struct PlaylistsView: View {
     private var splitPosition: Double = 200
 
     var body: some View {
-        if libraryManager.tracks.isEmpty {
+        if libraryManager.folders.isEmpty {
             // Show unified empty state when no music exists
             NoMusicEmptyStateView(context: .mainWindow)
         } else {

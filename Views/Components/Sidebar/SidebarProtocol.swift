@@ -35,12 +35,15 @@ struct HomeSidebarItem: SidebarItem {
     let source: ItemSource
 
     enum HomeItemType: CaseIterable {
+        case discover
         case tracks
         case artists
         case albums
 
         var stableID: UUID {
             switch self {
+            case .discover:
+                return UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
             case .tracks:
                 return UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
             case .artists:
@@ -52,6 +55,7 @@ struct HomeSidebarItem: SidebarItem {
 
         var title: String {
             switch self {
+            case .discover: return "Discover"
             case .tracks: return "Tracks"
             case .artists: return "Artists"
             case .albums: return "Albums"
@@ -60,6 +64,7 @@ struct HomeSidebarItem: SidebarItem {
 
         var icon: String {
             switch self {
+            case .discover: return Icons.sparkles
             case .tracks: return Icons.musicNote
             case .artists: return Icons.person2Fill
             case .albums: return Icons.opticalDiscFill
@@ -77,6 +82,12 @@ struct HomeSidebarItem: SidebarItem {
 
         // Set subtitle based on type
         switch type {
+        case .discover:
+            if let count = trackCount {
+                self.subtitle = "\(count) songs"
+            } else {
+                self.subtitle = "0 Songs"
+            }
         case .tracks:
             if let count = trackCount {
                 self.subtitle = "\(count) songs"

@@ -10,36 +10,40 @@ import GRDB
 
 extension DatabaseManager {
     /// Populate track album art from albums table
+    func populateAlbumArtworkForTracks(_ tracks: inout [Track], db: Database) throws {
+        // Get unique album IDs
+        let albumIds = tracks.compactMap { $0.albumId }.removingDuplicates()
+        
+        guard !albumIds.isEmpty else { return }
+        
+        // Fetch only id and artwork_data columns
+        let request = Album
+            .select(Album.Columns.id, Album.Columns.artworkData)
+            .filter(albumIds.contains(Album.Columns.id))
+        
+        let rows = try Row.fetchAll(db, request)
+        
+        // Build artwork map
+        let albumArtworkMap: [Int64: Data] = rows.reduce(into: [:]) { dict, row in
+            if let id: Int64 = row["id"],
+               let artwork: Data = row["artwork_data"] {
+                dict[id] = artwork
+            }
+        }
+        
+        // Populate the transient property
+        for i in 0..<tracks.count {
+            if let albumId = tracks[i].albumId,
+               let albumArtwork = albumArtworkMap[albumId] {
+                tracks[i].albumArtworkData = albumArtwork
+            }
+        }
+    }
+
     func populateAlbumArtworkForTracks(_ tracks: inout [Track]) {
         do {
             try dbQueue.read { db in
-                // Get unique album IDs
-                let albumIds = tracks.compactMap { $0.albumId }.removingDuplicates()
-                
-                guard !albumIds.isEmpty else { return }
-                
-                // Fetch only id and artwork_data columns
-                let request = Album
-                    .select(Album.Columns.id, Album.Columns.artworkData)
-                    .filter(albumIds.contains(Album.Columns.id))
-                
-                let rows = try Row.fetchAll(db, request)
-                
-                // Build artwork map
-                let albumArtworkMap: [Int64: Data] = rows.reduce(into: [:]) { dict, row in
-                    if let id: Int64 = row["id"],
-                       let artwork: Data = row["artwork_data"] {
-                        dict[id] = artwork
-                    }
-                }
-                
-                // Populate the transient property
-                for i in 0..<tracks.count {
-                    if let albumId = tracks[i].albumId,
-                       let albumArtwork = albumArtworkMap[albumId] {
-                        tracks[i].albumArtworkData = albumArtwork
-                    }
-                }
+                try populateAlbumArtworkForTracks(&tracks, db: db)
             }
         } catch {
             Logger.error("Failed to populate album artwork: \(error)")
@@ -61,6 +65,94 @@ extension DatabaseManager {
             }
         } catch {
             Logger.error("Failed to populate album artwork for full track: \(error)")
+        }
+    }
+    
+    /// Get tracks for the Discover feature
+    func getDiscoverTracks(limit: Int = 50, excludeTrackIds: Set<Int64> = []) -> [Track] {
+        do {
+            return try dbQueue.read { db in
+                // First try to get unplayed tracks
+                var query = applyDuplicateFilter(Track.all())
+                    .filter(Track.Columns.playCount == 0)
+                
+                if !excludeTrackIds.isEmpty {
+                    query = query.filter(!excludeTrackIds.contains(Track.Columns.trackId))
+                }
+                
+                // Order randomly
+                query = query.order(sql: "RANDOM()")
+                    .limit(limit)
+                
+                var tracks = try query.fetchAll(db)
+                
+                // If we don't have enough unplayed tracks, fill with least recently played
+                if tracks.count < limit {
+                    let remaining = limit - tracks.count
+                    let existingIds = Set(tracks.compactMap { $0.trackId })
+                        .union(excludeTrackIds)
+                    
+                    let additionalTracks = try applyDuplicateFilter(Track.all())
+                        .filter(!existingIds.contains(Track.Columns.trackId))
+                        .order(
+                            Track.Columns.lastPlayedDate.asc,
+                            Track.Columns.playCount.asc
+                        )
+                        .limit(remaining)
+                        .fetchAll(db)
+                    
+                    tracks.append(contentsOf: additionalTracks)
+                }
+                
+                try populateAlbumArtworkForTracks(&tracks, db: db)
+                
+                return tracks
+            }
+        } catch {
+            Logger.error("Failed to get discover tracks: \(error)")
+            return []
+        }
+    }
+
+    /// Get tracks by IDs (for loading saved discover tracks)
+    func getTracks(byIds trackIds: [Int64]) -> [Track] {
+        do {
+            return try dbQueue.read { db in
+                try Track
+                    .filter(trackIds.contains(Track.Columns.trackId))
+                    .fetchAll(db)
+            }
+        } catch {
+            Logger.error("Failed to get tracks by IDs: \(error)")
+            return []
+        }
+    }
+    
+    /// Get total track count without loading tracks
+    func getTotalTrackCount() -> Int {
+        do {
+            return try dbQueue.read { db in
+                try applyDuplicateFilter(Track.all()).fetchCount(db)
+            }
+        } catch {
+            Logger.error("Failed to get total track count: \(error)")
+            return 0
+        }
+    }
+    
+    /// Get total duration of all tracks in the library
+    func getTotalDuration() -> Double {
+        do {
+            return try dbQueue.read { db in
+                let result = try applyDuplicateFilter(Track.all())
+                    .select(sum(Track.Columns.duration), as: Double.self)
+                    .fetchOne(db)
+                
+                return result ?? 0.0
+            }
+        } catch {
+            Logger.error("Failed to get total duration: \(error)")
+            return 0.0
         }
     }
 
@@ -210,7 +302,7 @@ extension DatabaseManager {
                 tracks = tracks.sorted { $0.title < $1.title }
                 
                 // Populate album artwork
-                populateAlbumArtworkForTracks(&tracks)
+                try populateAlbumArtworkForTracks(&tracks, db: db)
                 
                 return tracks
             }
@@ -851,6 +943,17 @@ extension DatabaseManager {
     }
     
     // MARK: - Helper Methods
+    
+    func trackExists(withId trackId: Int64) -> Bool {
+        do {
+            return try dbQueue.read { db in
+                try Track.filter(Track.Columns.trackId == trackId).fetchCount(db) > 0
+            }
+        } catch {
+            Logger.error("Failed to check track existence: \(error)")
+            return false
+        }
+    }
 
     /// Apply duplicate filtering to a Track query if the user preference is enabled
     func applyDuplicateFilter(_ query: QueryInterfaceRequest<Track>) -> QueryInterfaceRequest<Track> {

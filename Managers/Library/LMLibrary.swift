@@ -88,10 +88,15 @@ extension LibraryManager {
         }
 
         folders = resolvedFolders
-        tracks = databaseManager.getAllTracks()
+        tracks = []
         updateSearchResults()
+        updateTotalCounts()
 
-        Logger.info("Loaded \(folders.count) folders and \(tracks.count) tracks from database")
+        Logger.info("Loaded \(folders.count) folders and \(totalTrackCount) tracks from database")
+        
+        if discoverTracks.isEmpty {
+            loadDiscoverTracks()
+        }
 
         // Refresh stale bookmarks in background
         if !foldersNeedingRefresh.isEmpty {
@@ -114,6 +119,22 @@ extension LibraryManager {
         refreshEntities()
         // Post notification that library is loaded
         NotificationCenter.default.post(name: NSNotification.Name("LibraryDidLoad"), object: nil)
+    }
+    
+    /// Load all tracks into memory
+    func loadAllTracks() async {
+        if tracks.isEmpty {
+            Logger.info("Loading all tracks into memory...")
+            
+            let loadedTracks = await Task.detached {
+                self.databaseManager.getAllTracks()
+            }.value
+            
+            await MainActor.run {
+                self.tracks = loadedTracks
+                self.updateSearchResults()
+            }
+        }
     }
 
     func refreshEntities() {
@@ -208,6 +229,7 @@ extension LibraryManager {
             await MainActor.run { [weak self] in
                 self?.loadMusicLibrary()
                 self?.updateSearchResults()
+                self?.updateTotalCounts()
                 
                 // Stop activity after everything is done
                 NotificationManager.shared.stopActivity()
@@ -296,9 +318,11 @@ extension LibraryManager {
 
     internal func loadEntities() {
         guard !entitiesLoaded else { return }
-        entitiesLoaded = true
 
         cachedArtistEntities = databaseManager.getArtistEntities()
         cachedAlbumEntities = databaseManager.getAlbumEntities()
+        
+        entitiesLoaded = true
+        Logger.info("Loaded \(cachedArtistEntities.count) artists and \(cachedAlbumEntities.count) albums")
     }
 }
