@@ -14,6 +14,10 @@ struct AddSongsToPlaylistSheet: View {
     @State private var selectedTracks: Set<UUID> = []
     @State private var tracksToRemove: Set<UUID> = []
     @State private var sortOrder: SortOrder = .title
+    @State private var searchResults: [Track] = []
+    @State private var isSearching = false
+    @State private var hasSearched = false
+    @State private var searchTask: Task<Void, Never>?
 
     // Cache playlist track database IDs for faster lookup
     private var playlistTrackDatabaseIDs: Set<Int64> {
@@ -25,15 +29,6 @@ struct AddSongsToPlaylistSheet: View {
         case artist = "Artist"
         case album = "Album"
         case dateAdded = "Date Added"
-
-        var icon: String {
-            switch self {
-            case .title: return "textformat"
-            case .artist: return "person"
-            case .album: return "opticaldisc"
-            case .dateAdded: return "calendar"
-            }
-        }
     }
 
     var body: some View {
@@ -49,16 +44,23 @@ struct AddSongsToPlaylistSheet: View {
             Divider()
 
             // Select all header
-            if !visibleTracks.isEmpty {
+            if !searchResults.isEmpty {
                 selectAllHeader
                 Divider()
             }
 
-            // Track list using List for better performance
-            if libraryManager.tracks.isEmpty {
-                emptyLibrary
+            // Track list
+            if !hasSearched {
+                // Show search prompt
+                searchPromptView
+            } else if isSearching {
+                // Show loading state
+                loadingView
+            } else if searchResults.isEmpty {
+                // Show no results
+                noResultsView
             } else {
-                // Using List instead of ScrollView for better performance
+                // Show results using List for performance
                 List(visibleTracks, id: \.id) { track in
                     TrackSelectionRow(
                         track: track,
@@ -81,6 +83,14 @@ struct AddSongsToPlaylistSheet: View {
             sheetFooter
         }
         .frame(width: 600, height: 700)
+        .onDisappear {
+            // Clean up memory when sheet is dismissed
+            searchResults = []
+            selectedTracks = []
+            tracksToRemove = []
+            searchText = ""
+            hasSearched = false
+        }
     }
 
     // MARK: - Cached Properties
@@ -100,8 +110,16 @@ struct AddSongsToPlaylistSheet: View {
                         .font(.system(size: 16))
                         .foregroundColor(selectAllCheckboxColor)
 
-                    Text("Select all \(selectableTracksCount) results")
-                        .font(.system(size: 13))
+                    HStack(spacing: 4) {
+                        Text("Select all \(selectableTracksCount)")
+                            .font(.system(size: 13))
+                        
+                        if inPlaylistTracksCount > 0 {
+                            Text("(\(inPlaylistTracksCount) already in playlist)")
+                                .font(.system(size: 13))
+                                .foregroundColor(.secondary)
+                        }
+                    }
 
                     if !searchText.isEmpty {
                         Text("for \"\(searchText)\"")
@@ -116,85 +134,104 @@ struct AddSongsToPlaylistSheet: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(Color(NSColor.controlBackgroundColor).opacity(0.3))
+        .background(Color(NSColor.windowBackgroundColor))
     }
 
     private var sheetHeader: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Add Songs to \"\(playlist.name)\"")
-                    .font(.headline)
-
-                Text("Select songs to add or remove from this playlist")
-                    .font(.caption)
+            // Close button
+            Button(action: { dismiss() }) {
+                Image(systemName: Icons.xmarkCircleFill)
+                    .font(.system(size: 18))
                     .foregroundColor(.secondary)
+                    .background(Circle().fill(Color.clear))
+            }
+            .help("Dismiss")
+            .buttonStyle(.plain)
+            .keyboardShortcut(.escape)
+            .focusable(false)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Add Songs to Playlist")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+                Text(playlist.name)
+                    .font(.headline)
             }
 
             Spacer()
 
-            Button(action: { dismiss() }) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.title2)
+            // Stats
+            VStack(alignment: .trailing, spacing: 4) {
+                Text("\(playlist.tracks.count) songs")
+                    .font(.caption)
                     .foregroundColor(.secondary)
+
+                if !selectedTracks.isEmpty || !tracksToRemove.isEmpty {
+                    HStack(spacing: 4) {
+                        if !selectedTracks.isEmpty {
+                            Text("+\(selectedTracks.count)")
+                                .font(.caption)
+                                .foregroundColor(.green)
+                        }
+                        if !tracksToRemove.isEmpty {
+                            Text("-\(tracksToRemove.count)")
+                                .font(.caption)
+                                .foregroundColor(.red)
+                        }
+                    }
+                }
             }
-            .buttonStyle(.plain)
         }
         .padding()
-        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+        .background(Color(NSColor.controlBackgroundColor).opacity(0.3))
     }
 
     private var controlsSection: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 12) {
             // Search field
             HStack {
                 Image(systemName: Icons.magnifyingGlass)
                     .foregroundColor(.secondary)
 
-                TextField("Search by title, artist, album, or genre...", text: $searchText)
+                TextField("Search songs...", text: $searchText)
                     .textFieldStyle(.plain)
+                    .onSubmit {
+                        performSearch()
+                    }
+                    .onChange(of: searchText) {
+                        performSearch()
+                    }
 
                 if !searchText.isEmpty {
-                    Button(action: { searchText = "" }) {
-                        Image(systemName: "xmark.circle.fill")
+                    Button(action: {
+                        searchText = ""
+                        performSearch()
+                    }) {
+                        Image(systemName: Icons.xmarkCircleFill)
                             .foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .background(Color(NSColor.textBackgroundColor))
+            .padding(8)
+            .background(Color(NSColor.controlBackgroundColor))
             .cornerRadius(6)
+            .frame(maxWidth: .infinity)
 
             // Sort picker
             Picker("Sort by", selection: $sortOrder) {
                 ForEach(SortOrder.allCases, id: \.self) { order in
-                    Label(order.rawValue, systemImage: order.icon)
+                    Text(order.rawValue)
                         .tag(order)
                 }
             }
             .pickerStyle(.menu)
-            .frame(width: 120)
+            .frame(width: 150)
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
-    }
-
-    private var emptyLibrary: some View {
-        VStack(spacing: 16) {
-            Image(systemName: Icons.musicNoteList)
-                .font(.system(size: 48))
-                .foregroundColor(.gray)
-
-            Text("No Music in Library")
-                .font(.headline)
-
-            Text("Add some music to your library first")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(NSColor.textBackgroundColor))
     }
 
     private var sheetFooter: some View {
@@ -230,6 +267,13 @@ struct AddSongsToPlaylistSheet: View {
         visibleTracks.filter { track in
             guard let trackId = track.trackId else { return true }
             return !playlistTrackDatabaseIDs.contains(trackId)
+        }.count
+    }
+    
+    private var inPlaylistTracksCount: Int {
+        visibleTracks.filter { track in
+            guard let trackId = track.trackId else { return false }
+            return playlistTrackDatabaseIDs.contains(trackId)
         }.count
     }
 
@@ -269,70 +313,59 @@ struct AddSongsToPlaylistSheet: View {
     }
 
     private var visibleTracks: [Track] {
-        let filtered: [Track]
-
-        let availableTracks = hideDuplicateTracks ?
-            libraryManager.tracks.filter { !$0.isDuplicate } :
-            libraryManager.tracks
+        // Return search results directly since we're already filtering in performSearch
+        let sorted: [Track]
         
-        if searchText.isEmpty {
-            // No search - show all library tracks (playlist status will be determined by playlistTrackIDs)
-            filtered = availableTracks
-        } else {
-            // When searching, only show library tracks that match
-            let searchLower = searchText.lowercased()
-            filtered = availableTracks.filter { track in
-                track.title.lowercased().contains(searchLower) ||
-                track.artist.lowercased().contains(searchLower) ||
-                track.album.lowercased().contains(searchLower) ||
-                track.genre.lowercased().contains(searchLower)
+        switch sortOrder {
+        case .title:
+            sorted = searchResults.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        case .artist:
+            sorted = searchResults.sorted { $0.artist.localizedCaseInsensitiveCompare($1.artist) == .orderedAscending }
+        case .album:
+            sorted = searchResults.sorted { $0.album.localizedCaseInsensitiveCompare($1.album) == .orderedAscending }
+        case .dateAdded:
+            sorted = searchResults.sorted { first, second in
+                let firstDate = first.dateAdded ?? Date()
+                let secondDate = second.dateAdded ?? Date()
+                return firstDate > secondDate
             }
         }
-
-        return filtered.sorted { track1, track2 in
-            switch sortOrder {
-            case .title:
-                return track1.title.localizedCaseInsensitiveCompare(track2.title) == .orderedAscending
-            case .artist:
-                return track1.artist.localizedCaseInsensitiveCompare(track2.artist) == .orderedAscending
-            case .album:
-                return track1.album.localizedCaseInsensitiveCompare(track2.album) == .orderedAscending
-            case .dateAdded:
-                return track1.title.localizedCaseInsensitiveCompare(track2.title) == .orderedAscending
-            }
-        }
+        
+        return sorted
     }
 
     private var hasChanges: Bool {
         !selectedTracks.isEmpty || !tracksToRemove.isEmpty
     }
 
-    private var actionButtonTitle: String {
-        var parts: [String] = []
+    private var selectionInfoText: String {
+        let addCount = selectedTracks.count
+        let removeCount = tracksToRemove.count
 
-        if !selectedTracks.isEmpty {
-            parts.append("Add \(selectedTracks.count)")
+        if addCount > 0 && removeCount > 0 {
+            return "\(addCount) to add, \(removeCount) to remove"
+        } else if addCount > 0 {
+            return "\(addCount) song\(addCount == 1 ? "" : "s") to add"
+        } else if removeCount > 0 {
+            return "\(removeCount) song\(removeCount == 1 ? "" : "s") to remove"
+        } else {
+            return "\(visibleTracks.count) song\(visibleTracks.count == 1 ? "" : "s")"
         }
-
-        if !tracksToRemove.isEmpty {
-            parts.append("Remove \(tracksToRemove.count)")
-        }
-
-        return parts.isEmpty ? "Apply" : parts.joined(separator: ", ")
     }
 
-    private var selectionInfoText: String {
-        var parts: [String] = []
+    private var actionButtonTitle: String {
+        let addCount = selectedTracks.count
+        let removeCount = tracksToRemove.count
 
-        if !selectedTracks.isEmpty {
-            parts.append("\(selectedTracks.count) to add")
+        if addCount > 0 && removeCount > 0 {
+            return "Apply Changes"
+        } else if addCount > 0 {
+            return "Add \(addCount) Song\(addCount == 1 ? "" : "s")"
+        } else if removeCount > 0 {
+            return "Remove \(removeCount) Song\(removeCount == 1 ? "" : "s")"
+        } else {
+            return "Done"
         }
-
-        if !tracksToRemove.isEmpty {
-            parts.append("\(tracksToRemove.count) to remove")
-        }
-
-        return parts.isEmpty ? "No changes" : parts.joined(separator: ", ")
     }
 
     // MARK: - Actions
@@ -345,15 +378,15 @@ struct AddSongsToPlaylistSheet: View {
 
         if allSelectableTracksSelected {
             // Deselect all
-            selectedTracks.removeAll()
+            for track in selectableTracks {
+                selectedTracks.remove(track.id)
+            }
         } else {
-            // Select all tracks not in playlist
+            // Select all
             for track in selectableTracks {
                 selectedTracks.insert(track.id)
             }
         }
-
-        // Don't auto-select tracks for removal
     }
 
     private func toggleTrackSelection(_ track: Track) {
@@ -377,18 +410,18 @@ struct AddSongsToPlaylistSheet: View {
     }
 
     private func applyChanges() {
-        // Collect tracks to add
+        // Collect tracks to add from search results instead of libraryManager.tracks
         var tracksToAdd: [Track] = []
         for trackId in selectedTracks {
-            if let track = libraryManager.tracks.first(where: { $0.id == trackId }) {
+            if let track = searchResults.first(where: { $0.id == trackId }) {
                 tracksToAdd.append(track)
             }
         }
 
-        // Collect tracks to remove
+        // Collect tracks to remove from search results
         var tracksToRemoveList: [Track] = []
         for trackId in tracksToRemove {
-            if let track = libraryManager.tracks.first(where: { $0.id == trackId }) {
+            if let track = searchResults.first(where: { $0.id == trackId }) {
                 tracksToRemoveList.append(track)
             }
         }
@@ -402,7 +435,128 @@ struct AddSongsToPlaylistSheet: View {
             playlistManager.removeTrackFromPlaylist(track: track, playlistID: playlist.id)
         }
 
+        // Clean up before dismissing
+        searchResults = []
+        selectedTracks = []
+        tracksToRemove = []
+        
         dismiss()
+    }
+
+    private func performSearch() {
+        // Cancel any existing search
+        searchTask?.cancel()
+        
+        let trimmedQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Clear results if search is empty or too short
+        guard !trimmedQuery.isEmpty else {
+            searchResults = []
+            hasSearched = false
+            return
+        }
+        
+        // Require at least 2 characters
+        guard trimmedQuery.count >= 2 else {
+            searchResults = []
+            hasSearched = true
+            isSearching = false
+            return
+        }
+        
+        isSearching = true
+        hasSearched = true
+        
+        // Create new search task with debouncing
+        searchTask = Task {
+            // Debounce: wait 300ms
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            
+            // Check if task was cancelled
+            guard !Task.isCancelled else { return }
+            
+            // Use LibrarySearch as requested
+            let allResults = LibrarySearch.searchTracks([], with: trimmedQuery)
+
+            // Separate tracks into those in playlist and those not
+            let playlistTrackIds = Set(playlist.tracks.compactMap { $0.trackId })
+            var tracksInPlaylist: [Track] = []
+            var tracksNotInPlaylist: [Track] = []
+
+            for track in allResults {
+                if let trackId = track.trackId, playlistTrackIds.contains(trackId) {
+                    tracksInPlaylist.append(track)
+                } else {
+                    tracksNotInPlaylist.append(track)
+                }
+            }
+
+            let combinedResults = tracksInPlaylist + tracksNotInPlaylist
+
+            await MainActor.run {
+                guard !Task.isCancelled else { return }
+                searchResults = combinedResults
+                isSearching = false
+            }
+        }
+    }
+
+    // MARK: - Search State Views
+
+    private var searchPromptView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: Icons.magnifyingGlass)
+                .font(.system(size: 48))
+                .foregroundColor(.gray)
+            
+            Text("Search for songs to add")
+                .font(.headline)
+            
+            Text("Enter a search term above to find songs")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(NSColor.textBackgroundColor))
+    }
+
+    private var loadingView: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .scaleEffect(1.5)
+            
+            Text("Searching...")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(NSColor.textBackgroundColor))
+    }
+
+    private var noResultsView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: Icons.magnifyingGlass)
+                .font(.system(size: 48))
+                .foregroundColor(.gray)
+            
+            if searchText.trimmingCharacters(in: .whitespacesAndNewlines).count < 2 {
+                Text("Search term too short")
+                    .font(.headline)
+                
+                Text("Enter at least 2 characters to search")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            } else {
+                Text("No results found")
+                    .font(.headline)
+                
+                Text("Try a different search term")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(NSColor.textBackgroundColor))
     }
 }
 
