@@ -88,26 +88,28 @@ struct LibrarySidebarView: View {
                 // Clear the pending search first
                 pendingSearchText = nil
                 
-                // Wait for tab switch to complete if needed
+                // Set the search text to filter the sidebar
+                searchText = searchValue
+                localSearchText = searchValue
+                
+                // Update filtered items with the search
+                updateFilteredItems()
+                
+                // Use a small delay to ensure filtered items are updated
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    // Set the search text to filter the sidebar
-                    searchText = searchValue
-                    localSearchText = searchValue
+                    // Find the exact matching item from ALL items
+                    let allItems = libraryManager.getLibraryFilterItems(for: selectedFilterType)
                     
-                    // Force update of filtered items
-                    updateFilteredItems()
-                    
-                    // Wait for filtered items to update, then select the first match
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        // Select the first item in the filtered results
-                        if let firstMatch = filteredItems.first {
-                            let sidebarItem = LibrarySidebarItem(filterItem: firstMatch)
-                            handleItemSelection(sidebarItem)
-                        } else {
-                            // No matches found - clear selection
-                            selectedFilterItem = nil
-                            selectedSidebarItem = nil
-                        }
+                    if let matchingItem = allItems.first(where: { item in
+                        item.name == searchValue
+                    }) {
+                        // Found exact match - select it
+                        selectedFilterItem = matchingItem
+                        let sidebarItem = LibrarySidebarItem(filterItem: matchingItem)
+                        selectedSidebarItem = sidebarItem
+                        
+                        // Manually trigger the selection to update tracks
+                        handleItemSelection(sidebarItem)
                     }
                 }
             }
@@ -233,7 +235,6 @@ struct LibrarySidebarView: View {
             selectedSidebarItem = nil
         }
 
-        // Clear local search when switching filter types
         searchText = ""
         localSearchText = ""
     }

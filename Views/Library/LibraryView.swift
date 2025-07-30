@@ -71,11 +71,12 @@ struct LibraryView: View {
                     updateFilteredTracks()
                 }
                 .onChange(of: pendingFilter) { _, newValue in
-                    if let request = newValue, isViewReady {
-                        Logger.info("View is ready, applying filter type: \(request.filterType)")
-                        selectedFilterType = request.filterType
-                        pendingSearchText = request.value
+                    if let request = newValue {
                         pendingFilter = nil
+                        selectedFilterType = request.filterType
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            pendingSearchText = request.value
+                        }
                     }
                 }
                 .onChange(of: libraryManager.globalSearchText) {
@@ -237,7 +238,9 @@ struct LibraryView: View {
                     cachedFilteredTracks = []
                 } else {
                     // Load tracks for specific filter from database
-                    let tracks = libraryManager.getTracksBy(filterType: selectedFilterType, value: filterItem.name)
+                    var tracks = libraryManager.getTracksBy(filterType: selectedFilterType, value: filterItem.name)
+                    // Populate album artwork for the tracks
+                    libraryManager.databaseManager.populateAlbumArtworkForTracks(&tracks)
                     cachedFilteredTracks = sortTracks(tracks)
                 }
             } else {
