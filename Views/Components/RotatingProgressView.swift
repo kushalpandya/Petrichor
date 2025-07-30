@@ -4,11 +4,13 @@ struct RotatingProgressView: NSViewRepresentable {
     let size: CGFloat
     let lineWidth: CGFloat
     let color: NSColor
+    @Binding var isAnimating: Bool
     
-    init(size: CGFloat = 16, lineWidth: CGFloat = 2, color: NSColor = .controlAccentColor) {
+    init(size: CGFloat = 16, lineWidth: CGFloat = 2, color: NSColor = .controlAccentColor, isAnimating: Binding<Bool> = .constant(true)) {
         self.size = size
         self.lineWidth = lineWidth
         self.color = color
+        self._isAnimating = isAnimating
     }
     
     func makeNSView(context: Context) -> NSView {
@@ -16,7 +18,6 @@ struct RotatingProgressView: NSViewRepresentable {
         containerView.wantsLayer = true
         containerView.layer?.masksToBounds = false
         
-
         let progressLayer = CAShapeLayer()
         progressLayer.frame = CGRect(x: 0, y: 0, width: size, height: size)
         
@@ -40,8 +41,36 @@ struct RotatingProgressView: NSViewRepresentable {
         progressLayer.strokeEnd = 1
         
         containerView.layer?.addSublayer(progressLayer)
+        context.coordinator.progressLayer = progressLayer
         
-        // Create the rotation animation
+        if isAnimating {
+            addRotationAnimation(to: progressLayer)
+        }
+        
+        return containerView
+    }
+    
+    func updateNSView(_ nsView: NSView, context: Context) {
+        guard let progressLayer = context.coordinator.progressLayer else { return }
+        
+        if isAnimating {
+            if progressLayer.animation(forKey: "rotation") == nil {
+                addRotationAnimation(to: progressLayer)
+            }
+        } else {
+            progressLayer.removeAnimation(forKey: "rotation")
+        }
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+    
+    class Coordinator {
+        var progressLayer: CAShapeLayer?
+    }
+    
+    private func addRotationAnimation(to layer: CAShapeLayer) {
         let rotationAnimation = CABasicAnimation(keyPath: "transform.rotation.z")
         rotationAnimation.fromValue = 0
         rotationAnimation.toValue = 2 * Double.pi
@@ -51,13 +80,7 @@ struct RotatingProgressView: NSViewRepresentable {
         rotationAnimation.fillMode = .forwards
         rotationAnimation.timingFunction = CAMediaTimingFunction(name: .linear)
         
-        progressLayer.add(rotationAnimation, forKey: "rotation")
-        
-        return containerView
-    }
-    
-    func updateNSView(_ nsView: NSView, context: Context) {
-        // No updates needed - animation runs continuously
+        layer.add(rotationAnimation, forKey: "rotation")
     }
 }
 

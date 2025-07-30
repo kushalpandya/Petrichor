@@ -1,12 +1,9 @@
 import SwiftUI
 
 struct ScanningAnimation: View {
-    @State private var isAnimating = false
-    @State private var rotationAngle: Double = 0
-
-    // Customizable properties
     let size: CGFloat
     let lineWidth: CGFloat
+    @State private var isVisible = false
 
     init(size: CGFloat = 80, lineWidth: CGFloat = 4) {
         self.size = size
@@ -30,7 +27,6 @@ struct ScanningAnimation: View {
                             Color.accentColor.opacity(0.5)
                         ]),
                         startPoint: .leading,
-                        
                         endPoint: .trailing
                     ),
                     style: StrokeStyle(
@@ -39,30 +35,27 @@ struct ScanningAnimation: View {
                     )
                 )
                 .frame(width: size, height: size)
-                .rotationEffect(.degrees(rotationAngle))
-                .onAppear {
-                    withAnimation(
-                        Animation.linear(duration: 1.5)
-                            .repeatForever(autoreverses: false)
-                    ) {
-                        rotationAngle = 360
-                    }
-                }
+                .rotationEffect(.degrees(isVisible ? 360 : 0))
+                .animation(
+                    isVisible ? Animation.linear(duration: 1.5).repeatForever(autoreverses: false) : .default,
+                    value: isVisible
+                )
 
-            // Center icon with pulsing effect
             Image(systemName: Icons.musicNote)
                 .font(.system(size: size * 0.4, weight: .light))
                 .foregroundColor(.accentColor)
-                .scaleEffect(isAnimating ? 1.1 : 0.9)
-                .opacity(isAnimating ? 1.0 : 0.7)
-                .onAppear {
-                    withAnimation(
-                        Animation.easeInOut(duration: 1.0)
-                            .repeatForever(autoreverses: true)
-                    ) {
-                        isAnimating = true
-                    }
-                }
+                .scaleEffect(isVisible ? 1.1 : 0.9)
+                .opacity(isVisible ? 1.0 : 0.7)
+                .animation(
+                    isVisible ? Animation.easeInOut(duration: 1.0).repeatForever(autoreverses: true) : .default,
+                    value: isVisible
+                )
+        }
+        .onAppear {
+            isVisible = true
+        }
+        .onDisappear {
+            isVisible = false
         }
     }
 }
