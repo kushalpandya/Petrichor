@@ -18,6 +18,14 @@ struct GeneralTabView: View {
 
     @AppStorage("showFoldersTab")
     private var showFoldersTab = false
+    
+    @AppStorage("discoverUpdateInterval")
+    private var discoverUpdateInterval: DiscoverUpdateInterval = .weekly
+
+    @AppStorage("discoverTrackCount")
+    private var discoverTrackCount: Int = 50
+    
+    @State private var initialDiscoverTrackCount: Int = 0
 
     enum ColorMode: String, CaseIterable, TabbedItem {
         case light = "Light"
@@ -85,6 +93,32 @@ struct GeneralTabView: View {
                     .pickerStyle(.menu)
                     .frame(maxWidth: .infinity)
                 }
+                
+                HStack {
+                    Picker("Refresh Discover every", selection: $discoverUpdateInterval) {
+                        ForEach(DiscoverUpdateInterval.allCases, id: \.self) { interval in
+                            Text(interval.displayName).tag(interval)
+                        }
+                    }
+                    .help("How often to refresh the Discover tracks list")
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: .infinity)
+                }
+
+                HStack {
+                    Text("Number of Discover tracks")
+                    Spacer()
+                    HStack(spacing: 4) {
+                        Text("\(discoverTrackCount)")
+                            .font(.system(.body, design: .monospaced))
+                            .frame(minWidth: 40, alignment: .trailing)
+                            .foregroundColor(.primary)
+                        Stepper("", value: $discoverTrackCount, in: 1...200, step: 1)
+                            .labelsHidden()
+                            .fixedSize()
+                    }
+                    .help("Number of tracks to show in Discover (1-200)")
+                }
             }
         }
         .formStyle(.grouped)
@@ -97,6 +131,16 @@ struct GeneralTabView: View {
         }
         .onAppear {
             updateAppearance(colorMode)
+        }
+        .onAppear {
+            initialDiscoverTrackCount = discoverTrackCount
+        }
+        .onDisappear {
+            if discoverTrackCount != initialDiscoverTrackCount {
+                if let libraryManager = AppCoordinator.shared?.libraryManager {
+                    libraryManager.refreshDiscoverTracks()
+                }
+            }
         }
     }
 

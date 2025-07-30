@@ -85,17 +85,17 @@ struct AboutTabView: View {
             )
 
             statisticItem(
-                value: "\(libraryManager.tracks.count)",
+                value: "\(libraryManager.totalTrackCount)",
                 label: "Tracks"
             )
 
             statisticItem(
-                value: "\(libraryManager.getDistinctValues(for: .artists).count)",
+                value: "\(libraryManager.artistCount)",
                 label: "Artists"
             )
 
             statisticItem(
-                value: "\(libraryManager.getDistinctValues(for: .albums).count)",
+                value: "\(libraryManager.albumCount)",
                 label: "Albums"
             )
 

@@ -76,6 +76,10 @@ struct HomeSidebarView: View {
             updateAllItems()
             updateSelectedItem()
         }
+        .onChange(of: libraryManager.discoverTracks.count) {
+            updateAllItems()
+            updateSelectedItem()
+        }
         .onChange(of: libraryManager.pinnedItems) {
             updateAllItems()
             // Update selection if a pinned item was removed

@@ -2,29 +2,19 @@ import Foundation
 
 extension LibraryManager {
     // MARK: - Constants
-    private static let discoverTrackIdsKey = "DiscoverTrackIds"
-    private static let discoverLastUpdatedKey = "DiscoverLastUpdated"
-    private static let discoverUpdateIntervalKey = "DiscoverUpdateInterval"
-    
-    enum DiscoverUpdateInterval: String, CaseIterable {
-        case daily = "Daily"
-        case weekly = "Weekly"
-        case biweekly = "Biweekly"
-        case monthly = "Monthly"
-        
-        var timeInterval: TimeInterval {
-            switch self {
-            case .daily: return 86400 // 1 day
-            case .weekly: return 604800 // 7 days
-            case .biweekly: return 1209600 // 14 days
-            case .monthly: return 2592000 // 30 days
-            }
-        }
-    }
+    private static let discoverTrackIdsKey = "discoverTrackIds"
+    private static let discoverLastUpdatedKey = "discoverLastUpdated"
+    private static let discoverUpdateIntervalKey = "discoverUpdateInterval"
+    private static let discoverTrackCountKey = "discoverTrackCount"
     
     private var discoverUpdateInterval: DiscoverUpdateInterval {
         let rawValue = userDefaults.string(forKey: Self.discoverUpdateIntervalKey) ?? DiscoverUpdateInterval.weekly.rawValue
         return DiscoverUpdateInterval(rawValue: rawValue) ?? .weekly
+    }
+    
+    private var discoverTrackCount: Int {
+        let count = userDefaults.integer(forKey: Self.discoverTrackCountKey)
+        return count > 0 ? count : 50
     }
     
     // MARK: - Methods
@@ -34,7 +24,7 @@ extension LibraryManager {
         
         if shouldRefreshDiscover() {
             // Generate new discover list
-            tracks = databaseManager.getDiscoverTracks(limit: 50)
+            tracks = databaseManager.getDiscoverTracks(limit: discoverTrackCount)
             
             // Save track IDs
             let trackIds = tracks.compactMap { $0.trackId }
@@ -48,7 +38,7 @@ extension LibraryManager {
                 databaseManager.populateAlbumArtworkForTracks(&tracks)
             } else {
                 // No saved tracks, generate new
-                tracks = databaseManager.getDiscoverTracks(limit: 50)
+                tracks = databaseManager.getDiscoverTracks(limit: discoverTrackCount)
                 
                 // Save track IDs
                 let trackIds = tracks.compactMap { $0.trackId }
@@ -59,6 +49,25 @@ extension LibraryManager {
         
         self.discoverTracks = tracks
         Logger.info("Discover tracks loaded")
+    }
+    
+    /// Force refresh discover tracks (called when settings change)
+    func refreshDiscoverTracks() {
+        Logger.info("Force refreshing discover tracks")
+        
+        // Clear the last updated date to force refresh
+        userDefaults.removeObject(forKey: Self.discoverLastUpdatedKey)
+        
+        // Clear current tracks to force UI update
+        self.discoverTracks = []
+        
+        // Reload tracks immediately
+        loadDiscoverTracks()
+        
+        // Force UI update by triggering objectWillChange
+        DispatchQueue.main.async { [weak self] in
+            self?.objectWillChange.send()
+        }
     }
     
     /// Check if discover list needs refresh
@@ -74,7 +83,7 @@ extension LibraryManager {
     /// Generate new discover tracks
     private func generateDiscoverTracks() async -> [Track] {
         let tracks = await Task.detached {
-            self.databaseManager.getDiscoverTracks(limit: 50)
+            self.databaseManager.getDiscoverTracks(limit: self.discoverTrackCount)
         }.value
         
         // Save track IDs
