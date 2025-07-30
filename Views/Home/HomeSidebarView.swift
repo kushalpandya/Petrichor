@@ -144,7 +144,16 @@ struct HomeSidebarView: View {
             case .library:
                 trackCount = libraryManager.getTracksForPinnedItem(pinnedItem).count
             case .playlist:
-                trackCount = playlistManager.getTracksForPinnedPlaylist(pinnedItem).count
+                if let playlistId = pinnedItem.playlistId,
+                   let playlist = playlistManager.playlists.first(where: { $0.id == playlistId }) {
+                    if playlist.type == .smart && playlist.trackCount == 0 {
+                        trackCount = await libraryManager.databaseManager.getSmartPlaylistTrackCount(playlist)
+                    } else {
+                        trackCount = playlist.trackCount
+                    }
+                } else {
+                    trackCount = 0
+                }
             }
             
             // Update cache and UI if count changed
