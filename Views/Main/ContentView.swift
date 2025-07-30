@@ -31,7 +31,7 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Persistent Contextual Toolbar - always present when we have music
-            if !libraryManager.folders.isEmpty && !libraryManager.tracks.isEmpty {
+            if !libraryManager.folders.isEmpty {
                 ContextualToolbar(
                     viewType: Binding(
                         get: {
@@ -171,7 +171,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private var playerControls: some View {
-        if !libraryManager.folders.isEmpty && !libraryManager.tracks.isEmpty {
+        if !libraryManager.folders.isEmpty {
             PlayerView(showingQueue: Binding(
                 get: { showingQueue },
                 set: { newValue in

@@ -70,30 +70,42 @@ extension SidebarView where Item == LibrarySidebarItem {
         filterType: LibraryFilterType,
         totalTracksCount: Int,
         selectedItem: Binding<LibrarySidebarItem?>,
+        showAllItem: Bool = true,
         onItemTap: @escaping (LibrarySidebarItem) -> Void,
-        contextMenuItems: ((LibrarySidebarItem) -> [ContextMenuItem])? = nil
+        contextMenuItems: ((LibrarySidebarItem) -> [ContextMenuItem])? = nil,
     ) {
-        // Use the convenience initializer from SidebarListView
-        let listView = SidebarListView(
-            filterItems: filterItems,
-            filterType: filterType,
-            totalTracksCount: totalTracksCount,
+        // Create items list
+        var items: [LibrarySidebarItem] = []
+        
+        // Conditionally add "All" item first
+        if showAllItem {
+            let allItem = LibrarySidebarItem(allItemFor: filterType, count: totalTracksCount)
+            items.append(allItem)
+        }
+        
+        // Filter items should already be sorted, but we need to ensure Unknown items are at the end
+        let sidebarItems = filterItems.map { LibrarySidebarItem(filterItem: $0) }
+        
+        // Separate unknown and regular items
+        let unknownItems = sidebarItems.filter { $0.title == filterType.unknownPlaceholder }
+        let regularItems = sidebarItems.filter { $0.title != filterType.unknownPlaceholder }
+        
+        // Add regular items first, then unknown items
+        items.append(contentsOf: regularItems)
+        items.append(contentsOf: unknownItems)
+        
+        self.init(
+            items: items,
             selectedItem: selectedItem,
             onItemTap: onItemTap,
-            contextMenuItems: contextMenuItems
+            contextMenuItems: contextMenuItems,
+            onRename: nil,
+            headerTitle: nil,
+            headerControls: nil,
+            showIcon: true,
+            iconColor: .secondary,
+            showCount: false,
+            trailingContent: nil
         )
-        
-        // Extract the properties we need
-        self.items = listView.items
-        self._selectedItem = selectedItem
-        self.onItemTap = onItemTap
-        self.contextMenuItems = contextMenuItems
-        self.onRename = nil
-        self.headerTitle = nil
-        self.headerControls = nil
-        self.showIcon = true
-        self.iconColor = .secondary
-        self.showCount = false
-        self.trailingContent = nil
     }
 }

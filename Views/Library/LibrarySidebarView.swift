@@ -23,8 +23,11 @@ struct LibrarySidebarView: View {
             SidebarView(
                 filterItems: filteredItems,
                 filterType: selectedFilterType,
-                totalTracksCount: libraryManager.searchResults.count,
+                totalTracksCount: libraryManager.globalSearchText.isEmpty ?
+                    libraryManager.totalTrackCount :
+                    libraryManager.searchResults.count,
                 selectedItem: $selectedSidebarItem,
+                showAllItem: !libraryManager.globalSearchText.isEmpty,
                 onItemTap: { item in
                     handleItemSelection(item)
                 },
@@ -34,8 +37,13 @@ struct LibrarySidebarView: View {
             )
         }
         .onAppear {
-            initializeSelection()
+            // First update the filtered items
             updateFilteredItems()
+
+            // Then initialize selection after items are available
+            DispatchQueue.main.async {
+               initializeSelection()
+            }
         }
         .onChange(of: searchText) {
             updateFilteredItems()
@@ -50,37 +58,58 @@ struct LibrarySidebarView: View {
             // Re-sort items when sort order changes
             updateFilteredItems()
         }
+        .onChange(of: libraryManager.globalSearchText) { oldValue, newValue in
+            updateFilteredItems()
+            
+            // Handle transition between search and non-search modes
+            if oldValue.isEmpty && !newValue.isEmpty {
+                // Entering search mode - select "All" item
+                let totalCount = libraryManager.searchResults.count
+                let allItem = LibraryFilterItem.allItem(for: selectedFilterType, totalCount: totalCount)
+                selectedFilterItem = allItem
+                selectedSidebarItem = LibrarySidebarItem(allItemFor: selectedFilterType, count: totalCount)
+            } else if !oldValue.isEmpty && newValue.isEmpty {
+                // Exiting search mode - select first available item if current selection is "All"
+                if let currentSelection = selectedFilterItem, currentSelection.isAllItem {
+                    if !filteredItems.isEmpty {
+                        selectedFilterItem = filteredItems.first
+                        if let filterItem = selectedFilterItem {
+                            selectedSidebarItem = LibrarySidebarItem(filterItem: filterItem)
+                        }
+                    } else {
+                        selectedFilterItem = nil
+                        selectedSidebarItem = nil
+                    }
+                }
+            }
+        }
         .onChange(of: pendingSearchText) { _, newValue in
             if let searchValue = newValue {
                 // Clear the pending search first
                 pendingSearchText = nil
                 
-                // Wait for tab switch to complete if needed
+                // Set the search text to filter the sidebar
+                searchText = searchValue
+                localSearchText = searchValue
+                
+                // Update filtered items with the search
+                updateFilteredItems()
+                
+                // Use a small delay to ensure filtered items are updated
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    // Apply the search text first
-                    searchText = searchValue
-                    localSearchText = searchValue
+                    // Find the exact matching item from ALL items
+                    let allItems = libraryManager.getLibraryFilterItems(for: selectedFilterType)
                     
-                    // Wait a bit more for the filtered items to update
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                        // Now find the item in the filtered list
-                        if let exactMatch = filteredItems.first(where: { $0.name == searchValue }) {
-                            // Create the sidebar item for selection
-                            let sidebarItem = LibrarySidebarItem(filterItem: exactMatch)
-                            
-                            // Use handleItemSelection to properly set both
-                            handleItemSelection(sidebarItem)
-                        } else {
-                            // If not in filtered items, try to get from all items
-                            let allItems = libraryManager.getLibraryFilterItems(for: selectedFilterType)
-                            if let exactMatch = allItems.first(where: { $0.name == searchValue }) {
-                                // Create the sidebar item for selection
-                                let sidebarItem = LibrarySidebarItem(filterItem: exactMatch)
-                                
-                                // Use handleItemSelection
-                                handleItemSelection(sidebarItem)
-                            }
-                        }
+                    if let matchingItem = allItems.first(where: { item in
+                        item.name == searchValue
+                    }) {
+                        // Found exact match - select it
+                        selectedFilterItem = matchingItem
+                        let sidebarItem = LibrarySidebarItem(filterItem: matchingItem)
+                        selectedSidebarItem = sidebarItem
+                        
+                        // Manually trigger the selection to update tracks
+                        handleItemSelection(sidebarItem)
                     }
                 }
             }
@@ -89,6 +118,9 @@ struct LibrarySidebarView: View {
             handleFilterTypeChange(newType)
         }
         .onChange(of: libraryManager.searchResults) {
+            updateFilteredItems()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .libraryDataDidChange)) { _ in
             updateFilteredItems()
         }
     }
@@ -129,16 +161,28 @@ struct LibrarySidebarView: View {
     // MARK: - Helper Methods
 
     private func initializeSelection() {
-        // Always ensure we have a selection
+        // When not in search mode and no selection exists, select the first item if available
         if selectedFilterItem == nil {
-            let allItem = LibraryFilterItem.allItem(for: selectedFilterType, totalCount: libraryManager.tracks.count)
-            selectedFilterItem = allItem
+            if !libraryManager.globalSearchText.isEmpty {
+                // In search mode, we can still use the "All" item
+                let allItem = LibraryFilterItem.allItem(for: selectedFilterType, totalCount: libraryManager.searchResults.count)
+                selectedFilterItem = allItem
+            } else if !filteredItems.isEmpty {
+                // Not in search mode, select the first available item
+                selectedFilterItem = filteredItems.first
+            } else {
+                // If filtered items aren't ready yet, get them directly
+                let items = libraryManager.getLibraryFilterItems(for: selectedFilterType)
+                if !items.isEmpty {
+                    selectedFilterItem = items.first
+                }
+            }
         }
 
         // Always sync the sidebar selection with the filter selection
         if let filterItem = selectedFilterItem {
-            if filterItem.name.hasPrefix("All") {
-                selectedSidebarItem = LibrarySidebarItem(allItemFor: selectedFilterType, count: libraryManager.tracks.count)
+            if filterItem.isAllItem {
+                selectedSidebarItem = LibrarySidebarItem(allItemFor: selectedFilterType, count: libraryManager.searchResults.count)
             } else {
                 selectedSidebarItem = LibrarySidebarItem(filterItem: filterItem)
             }
@@ -169,25 +213,41 @@ struct LibrarySidebarView: View {
     }
 
     private func handleFilterTypeChange(_ newType: LibraryFilterType) {
+        // Update filtered items first to get the available items
+        updateFilteredItems()
+        
         // Reset selection when filter type changes
-        let totalCount = libraryManager.searchResults.count
-        let allItem = LibraryFilterItem.allItem(for: newType, totalCount: totalCount)
-        selectedFilterItem = allItem
+        if !libraryManager.globalSearchText.isEmpty {
+            // In search mode, select "All"
+            let totalCount = libraryManager.searchResults.count
+            let allItem = LibraryFilterItem.allItem(for: newType, totalCount: totalCount)
+            selectedFilterItem = allItem
+            selectedSidebarItem = LibrarySidebarItem(allItemFor: newType, count: totalCount)
+        } else if !filteredItems.isEmpty {
+            // Not in search mode, select the first available item
+            selectedFilterItem = filteredItems.first
+            if let filterItem = selectedFilterItem {
+                selectedSidebarItem = LibrarySidebarItem(filterItem: filterItem)
+            }
+        } else {
+            // No items available
+            selectedFilterItem = nil
+            selectedSidebarItem = nil
+        }
 
-        // Create the corresponding sidebar item with the same ID
-        selectedSidebarItem = LibrarySidebarItem(allItemFor: newType, count: totalCount)
-
-        // Clear local search when switching filter types
         searchText = ""
         localSearchText = ""
-
-        updateFilteredItems()
     }
 
     private func updateFilteredItems() {
-        // Get items based on centralized search results
+        // Get items based on whether we're in search mode or not
         var items: [LibraryFilterItem]
-        items = selectedFilterType.getFilterItems(from: libraryManager.searchResults)
+        
+        if !libraryManager.globalSearchText.isEmpty {
+            items = selectedFilterType.getFilterItems(from: libraryManager.searchResults)
+        } else {
+            items = libraryManager.getLibraryFilterItems(for: selectedFilterType)
+        }
 
         // Apply local sidebar search filter if present
         if !searchText.isEmpty {
@@ -198,7 +258,7 @@ struct LibrarySidebarView: View {
         }
 
         // Apply custom sorting
-        filteredItems = sortItemsWithUnknownFirst(items)
+        filteredItems = sortItemsWithUnknownLast(items)
     }
 
     private func isValidFilterItem(_ item: LibraryFilterItem) -> Bool {
@@ -209,10 +269,7 @@ struct LibrarySidebarView: View {
 
     // MARK: - Custom Sorting
 
-    private func sortItemsWithUnknownFirst(_ items: [LibraryFilterItem]) -> [LibraryFilterItem] {
-        // Separate items into two groups:
-        // 1. "Unknown X" items
-        // 2. Regular items
+    private func sortItemsWithUnknownLast(_ items: [LibraryFilterItem]) -> [LibraryFilterItem] {
         var unknownItems: [LibraryFilterItem] = []
         var regularItems: [LibraryFilterItem] = []
 
@@ -232,9 +289,7 @@ struct LibrarySidebarView: View {
                 comparison == .orderedDescending
         }
 
-        // Return with unknown items first, then sorted regular items
-        // (The "All" item is added separately in the SidebarView extension)
-        return unknownItems + regularItems
+        return regularItems + unknownItems
     }
 
     private func isUnknownItem(_ item: LibraryFilterItem) -> Bool {

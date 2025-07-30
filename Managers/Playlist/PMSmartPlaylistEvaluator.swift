@@ -87,9 +87,6 @@ extension PlaylistManager {
         case "duration":
             return evaluateNumericRule(track.duration, condition: rule.condition, value: rule.value)
             
-        case "rating":
-            return evaluateNumericRule(Double(track.rating ?? 0), condition: rule.condition, value: rule.value)
-            
         default:
             Logger.warning("Unknown field for smart playlist rule: \(rule.field)")
             return false

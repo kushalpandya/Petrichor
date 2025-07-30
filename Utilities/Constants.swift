@@ -35,6 +35,7 @@ enum Icons {
     static let folderFillBadgeMinus = "folder.fill.badge.minus"
     
     // UI Elements
+    static let sparkles = "sparkles"
     static let settings = "gear"
     static let magnifyingGlass = "magnifyingglass"
     static let checkmarkSquareFill = "checkmark.square.fill"

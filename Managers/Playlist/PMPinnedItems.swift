@@ -110,9 +110,17 @@ extension PlaylistManager {
     }
 
     private func getSmartPlaylistTracks(_ playlist: Playlist) -> [Track] {
-        guard let manager = libraryManager else { return [] }
-        let allTracks = manager.tracks
+        guard libraryManager != nil else { return [] }
         
-        return evaluateSmartPlaylist(playlist, allTracks: allTracks)
+        // Check if playlist needs refresh
+        if smartPlaylistNeedsRefresh(playlist) {
+            Task {
+                await loadSmartPlaylistTracks(playlist)
+            }
+            return []
+        }
+        
+        // Return cached tracks
+        return playlist.tracks
     }
 }

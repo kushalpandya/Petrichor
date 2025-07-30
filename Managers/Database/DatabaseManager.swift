@@ -83,6 +83,12 @@ class DatabaseManager: ObservableObject {
     /// Clean up database file and recreate schema
     /// Warning: This will delete all data!
     func resetDatabase() throws {
+        Task { @MainActor in
+            self.isScanning = false
+            self.scanStatusMessage = ""
+        }
+        
+        // Erase the database
         try dbQueue.erase()
         
         // Re-run migrations on the fresh database
@@ -123,8 +129,8 @@ class DatabaseManager: ObservableObject {
 // MARK: - Local Enums
 
 enum TrackProcessResult {
-    case new(Track, TrackMetadata)
-    case update(Track, TrackMetadata)
+    case new(FullTrack, TrackMetadata)
+    case update(FullTrack, TrackMetadata)
     case skipped
 }
 

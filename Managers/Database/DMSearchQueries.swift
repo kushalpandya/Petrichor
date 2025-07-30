@@ -9,34 +9,29 @@ import GRDB
 
 extension DatabaseManager {
     /// Search tracks using FTS5 for general search
-    func searchTracksUsingFTS(_ searchText: String) -> [Track] {
-        guard !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return []
-        }
-        
+    func searchTracksUsingFTS(_ query: String) -> [Track] {
         do {
-            var matchingTracks = try dbQueue.read { db in
-                // Create search pattern that matches all tokens
-                let searchPattern = FTS5Pattern(matchingAllTokensIn: searchText)
+            var tracks = try dbQueue.read { db in
+                let tokens = query.split(separator: " ").map { String($0) }
+                let prefixQuery = tokens.map { "\($0)*" }.joined(separator: " ")
                 
-                // Define a request for tracks that match the FTS search
-                return try Track.fetchAll(
-                    db,
-                    sql: """
-                    SELECT t.*
-                    FROM tracks t
-                    JOIN tracks_fts fts ON t.id = fts.track_id
+                let matchingTrackIds = try Int64.fetchAll(db, sql: """
+                    SELECT track_id
+                    FROM tracks_fts
                     WHERE tracks_fts MATCH ?
                     ORDER BY rank
-                    LIMIT 500
-                    """,
-                    arguments: [searchPattern]
-                )
+                    """, arguments: [prefixQuery])
+                
+                guard !matchingTrackIds.isEmpty else { return [Track]() }
+                
+                return try Track.lightweightRequest()
+                    .filter(matchingTrackIds.contains(Track.Columns.trackId))
+                    .fetchAll(db)
             }
             
-            populateAlbumArtworkForTracks(&matchingTracks)
+            populateAlbumArtworkForTracks(&tracks)
             
-            return matchingTracks
+            return tracks
         } catch {
             Logger.error("FTS search failed: \(error)")
             return []
@@ -51,7 +46,8 @@ extension DatabaseManager {
         
         do {
             var tracks = try dbQueue.read { db in
-                let searchPattern = FTS5Pattern(matchingAllTokensIn: searchText)
+                let tokens = searchText.split(separator: " ").map { String($0) }
+                let prefixQuery = tokens.map { "\($0)*" }.joined(separator: " ")
                 
                 if excludingTrackIds.isEmpty {
                     // Simple case - no exclusions
@@ -65,14 +61,14 @@ extension DatabaseManager {
                         ORDER BY rank
                         LIMIT 200
                         """,
-                        arguments: [searchPattern]
+                        arguments: [prefixQuery]
                     )
                 } else {
                     // With exclusions - still need some SQL
                     let excludedIds = Array(excludingTrackIds)
                     let placeholders = databaseQuestionMarks(count: excludedIds.count)
                     
-                    var arguments: [DatabaseValueConvertible] = [searchPattern]
+                    var arguments: [DatabaseValueConvertible] = [prefixQuery]
                     arguments.append(contentsOf: excludedIds)
                     
                     return try Track.fetchAll(

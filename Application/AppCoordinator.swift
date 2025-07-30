@@ -152,7 +152,7 @@ class AppCoordinator: ObservableObject {
         isRestoringPlayback = true
         
         // Don't restore immediately, wait for library to be fully loaded
-        if libraryManager.tracks.isEmpty {
+        if libraryManager.totalTrackCount == 0 {
             if libraryManager.folders.isEmpty {
                 clearAllSavedState()
                 isRestoringPlayback = false
@@ -188,7 +188,7 @@ class AppCoordinator: ObservableObject {
         }
         
         // Check if library is loaded with content
-        if libraryManager.tracks.isEmpty || libraryManager.folders.isEmpty {
+        if libraryManager.folders.isEmpty || libraryManager.totalTrackCount == 0 {
             clearAllSavedState()
             isRestoringPlayback = false
             return
@@ -225,9 +225,14 @@ class AppCoordinator: ObservableObject {
     }
     
     private func performStateRestoration(_ state: PlaybackState) {
+        // Load only the tracks we need for restoration
+        let trackIdsNeeded = Set(state.queueTrackIds + [state.currentTrackId].compactMap { $0 })
+        var relevantTracks = libraryManager.databaseManager.getTracks(byIds: Array(trackIdsNeeded))
+        libraryManager.databaseManager.populateAlbumArtworkForTracks(&relevantTracks)
+
         // Create a track ID to track map for efficient lookup
         let trackIdMap: [Int64: Track] = Dictionary(
-            libraryManager.tracks.compactMap { track in
+            relevantTracks.compactMap { track in
                 guard let trackId = track.trackId else { return nil }
                 return (trackId, track)
             }
@@ -235,7 +240,7 @@ class AppCoordinator: ObservableObject {
         
         // Create a path to track map as fallback
         let trackPathMap: [String: Track] = Dictionary(
-            libraryManager.tracks.map { track in
+            relevantTracks.map { track in
                 (track.url.path, track)
             }
         ) { first, _ in first }
@@ -340,7 +345,7 @@ class AppCoordinator: ObservableObject {
            let state = try? JSONDecoder().decode(PlaybackState.self, from: savedStateData) {
             // Check if the current track still exists
             if let trackId = state.currentTrackId {
-                let trackExists = libraryManager.tracks.contains { $0.trackId == trackId }
+                let trackExists = libraryManager.databaseManager.trackExists(withId: trackId)
                 if !trackExists {
                     UserDefaults.standard.removeObject(forKey: playbackStateKey)
                 }

@@ -42,8 +42,20 @@ struct LibraryTabView: View {
             Button("Cancel", role: .cancel) { }
             Button("Remove", role: .destructive) {
                 if let folder = folderToRemove {
-                    libraryManager.removeFolder(folder)
-                    folderToRemove = nil
+                    Task {
+                        await MainActor.run {
+                            NotificationManager.shared.startActivity("Removing folder '\(folder.name)'...")
+                        }
+                        
+                        // Small delay to ensure UI updates
+                        try? await Task.sleep(nanoseconds: TimeConstants.fiftyMilliseconds)
+                        
+                        libraryManager.removeFolder(folder)
+                        
+                        await MainActor.run {
+                            folderToRemove = nil
+                        }
+                    }
                 }
             }
         } message: {
@@ -193,7 +205,7 @@ struct LibraryTabView: View {
         VStack(spacing: 12) {
             // Action buttons row
             HStack(spacing: 12) {
-                Button(action: { libraryManager.cleanupMissingFolders() }) {
+                Button(action: { libraryManager.cleanupMissingFolders(notifyUser: true) }) {
                     HStack(spacing: 6) {
                         Image(systemName: "sparkles")
                             .font(.system(size: 12, weight: .medium))
@@ -317,18 +329,35 @@ struct LibraryTabView: View {
 
         let alert = NSAlert()
         alert.messageText = "Remove Selected Folders"
-        alert.informativeText = "Are you sure you want to remove \(selectedFolders.count) folders? " +
-                               "This will remove all tracks from these folders from your library."
+        alert.informativeText = "Are you sure you want to remove \(selectedFolders.count) folders? This will remove all tracks from these folders from your library."
         alert.addButton(withTitle: "Remove")
         alert.addButton(withTitle: "Cancel")
         alert.alertStyle = .warning
 
         if alert.runModal() == .alertFirstButtonReturn {
-            for folder in selectedFolders {
-                libraryManager.removeFolder(folder)
+            // User confirmed - now show progress
+            Task {
+                await MainActor.run {
+                    let message = selectedFolders.count == 1
+                        ? "Removing folder '\(selectedFolders[0].name)'..."
+                        : "Removing \(selectedFolders.count) folders..."
+                    NotificationManager.shared.startActivity(message)
+                }
+                
+                // Small delay to ensure UI updates
+                try? await Task.sleep(nanoseconds: TimeConstants.fiftyMilliseconds)
+                
+                for folder in selectedFolders {
+                    libraryManager.removeFolder(folder)
+                    // Small delay between removals
+                    try? await Task.sleep(nanoseconds: TimeConstants.fiftyMilliseconds)
+                }
+                
+                await MainActor.run {
+                    selectedFolderIDs.removeAll()
+                    isSelectMode = false
+                }
             }
-            selectedFolderIDs.removeAll()
-            isSelectMode = false
         }
     }
 

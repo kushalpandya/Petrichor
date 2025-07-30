@@ -28,6 +28,7 @@ class PlaybackManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
     }
 
     // MARK: - Private Properties
+    private var currentFullTrack: FullTrack?
     private var playbackProgressTimer: Timer?
     private var stateSaveTimer: Timer?
     private var restoredPosition: Double = 0
@@ -63,12 +64,11 @@ class PlaybackManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
     }
 
     func restoreUIState(_ uiState: PlaybackUIState) {
-        // Create a temporary track object for UI display
-        let tempTrack = Track(url: URL(fileURLWithPath: "/restored"))
+        var tempTrack = Track(url: URL(fileURLWithPath: "/restored"))
         tempTrack.title = uiState.trackTitle
         tempTrack.artist = uiState.trackArtist
         tempTrack.album = uiState.trackAlbum
-        tempTrack.trackArtworkData = uiState.artworkData
+        tempTrack.albumArtworkData = uiState.artworkData
         tempTrack.duration = uiState.trackDuration
         tempTrack.isMetadataLoaded = true
 
@@ -90,43 +90,27 @@ class PlaybackManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
         // Clear any restored UI state
         restoredUITrack = nil
 
-        do {
-            // Stop any current playback gracefully first
-            if let currentPlayer = player {
-                // Disable fade to prevent audio overload
-                currentPlayer.stop()
-                player = nil
+        Task {
+            do {
+                // Fetch full track data for playback
+                guard let fullTrack = try await track.fullTrack(using: libraryManager.databaseManager.dbQueue) else {
+                    await MainActor.run {
+                        Logger.error("Failed to fetch full track data for: \(track.title)")
+                        NotificationManager.shared.addMessage(.error, "Cannot play track - missing data")
+                    }
+                    return
+                }
+                
+                // Continue with playback on main thread
+                await MainActor.run {
+                    self.playFullTrack(fullTrack, lightweightTrack: track)
+                }
+            } catch {
+                await MainActor.run {
+                    Logger.error("Failed to fetch track data: \(error)")
+                    NotificationManager.shared.addMessage(.error, "Failed to load track for playback")
+                }
             }
-
-            // Create and prepare player with optimized settings
-            player = try AVAudioPlayer(contentsOf: track.url)
-            player?.delegate = self
-            player?.prepareToPlay()
-            player?.enableRate = false  // Disable rate adjustment as playback is fixed at 1x
-            player?.isMeteringEnabled = false  // Disable metering as it is not required
-
-            // Set volume directly without fade to prevent buffer issues
-            player?.volume = volume
-
-            // Start playback
-            player?.play()
-
-            // Update state
-            currentTrack = track
-            isPlaying = true
-            restoredPosition = 0
-            lastReportedTime = 0
-            startStateSaveTimer()
-            startPlaybackProgressTimer()
-        } catch {
-            Logger.error("Failed to play track: \(error)")
-            let errorMessage = FolderUtils.getMessageForError(
-                error,
-                context: "play track",
-                path: track.url.path
-            )
-            
-            NotificationManager.shared.addMessage(.error, errorMessage)
         }
     }
 
@@ -179,6 +163,7 @@ class PlaybackManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
     func stop() {
         player?.stop()
         player = nil
+        currentFullTrack = nil
         isPlaying = false
         currentTime = 0
         lastReportedTime = 0
@@ -263,6 +248,70 @@ class PlaybackManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
         // Clear any restored UI state
         restoredUITrack = nil
 
+        Task {
+            do {
+                // Fetch full track data
+                guard let fullTrack = try await track.fullTrack(using: libraryManager.databaseManager.dbQueue) else {
+                    await MainActor.run {
+                        Logger.error("Failed to fetch full track data for restoration: \(track.title)")
+                    }
+                    return
+                }
+                
+                await MainActor.run {
+                    self.prepareFullTrackForRestoration(fullTrack, lightweightTrack: track, at: position)
+                }
+            } catch {
+                await MainActor.run {
+                    Logger.error("Failed to fetch track for restoration: \(error)")
+                }
+            }
+        }
+    }
+    
+    private func playFullTrack(_ fullTrack: FullTrack, lightweightTrack: Track) {
+        do {
+            // Stop any current playback gracefully first
+            if let currentPlayer = player {
+                // Disable fade to prevent audio overload
+                currentPlayer.stop()
+                player = nil
+            }
+
+            // Create and prepare player with optimized settings
+            player = try AVAudioPlayer(contentsOf: fullTrack.url)
+            player?.delegate = self
+            player?.prepareToPlay()
+            player?.enableRate = false  // Disable rate adjustment as playback is fixed at 1x
+            player?.isMeteringEnabled = false  // Disable metering as it is not required
+
+            // Set volume directly without fade to prevent buffer issues
+            player?.volume = volume
+
+            // Start playback
+            player?.play()
+
+            // Update state - keep lightweight track for UI
+            currentTrack = lightweightTrack
+            currentFullTrack = fullTrack  // Store full track for metadata access
+            isPlaying = true
+            restoredPosition = 0
+            lastReportedTime = 0
+            startStateSaveTimer()
+            startPlaybackProgressTimer()
+        } catch {
+            Logger.error("Failed to play track: \(error)")
+            let errorMessage = FolderUtils.getMessageForError(
+                error,
+                context: "play track",
+                path: fullTrack.url.path
+            )
+            
+            NotificationManager.shared.addMessage(.error, errorMessage)
+        }
+    }
+    
+    private func prepareFullTrackForRestoration(_ fullTrack: FullTrack, lightweightTrack: Track, at position: Double) {
         do {
             // Stop any current playback
             if let currentPlayer = player {
@@ -271,20 +320,19 @@ class PlaybackManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
             }
 
             // Create player but don't prepare or play yet
-            player = try AVAudioPlayer(contentsOf: track.url)
+            player = try AVAudioPlayer(contentsOf: fullTrack.url)
             player?.delegate = self
             player?.volume = volume
             player?.currentTime = position
 
             // Update state without playing
-            currentTrack = track
+            currentTrack = lightweightTrack
+            currentFullTrack = fullTrack
             currentTime = position
             lastReportedTime = position
             isPlaying = false
 
-            // Don't start timers yet - wait for actual playback
-
-            Logger.info("Prepared track for restoration without playing")
+            Logger.info("Prepared track for restoration at position: \(position)")
         } catch {
             Logger.error("Failed to prepare track for restoration: \(error)")
         }

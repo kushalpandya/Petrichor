@@ -130,15 +130,16 @@ struct PlayQueueView: View {
 
     private var queueListView: some View {
         ScrollViewReader { proxy in
-            List {
-                ForEach(Array(playlistManager.currentQueue.enumerated()), id: \.element.id) { index, track in
-                    queueRow(for: track, at: index)
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(playlistManager.currentQueue.enumerated()), id: \.element.id) { index, track in
+                        queueRow(for: track, at: index)
+                            .id(track.id)
+                    }
                 }
+                .padding(.top, 5)
+                .padding(.horizontal, 8)
             }
-            .padding(.top, 5)
-            .padding(.horizontal, -8)
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
             .background(Color(NSColor.textBackgroundColor))
             .onChange(of: playlistManager.currentQueueIndex) { _, newIndex in
                 handleQueueIndexChange(newIndex: newIndex, proxy: proxy)
@@ -208,7 +209,7 @@ struct PlayQueueRow: View {
     @State private var isHovered = false
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             positionIndicator
 
             trackInfo
@@ -220,7 +221,6 @@ struct PlayQueueRow: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .background(rowBackground)
-        .padding(.horizontal, 5)
         .contentShape(Rectangle())
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.15)) {
@@ -249,9 +249,11 @@ struct PlayQueueRow: View {
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
                     .monospacedDigit()
-                    .frame(width: 20)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
         }
+        .frame(width: 55)
     }
 
     private var trackInfo: some View {
@@ -367,7 +369,7 @@ struct QueueDropDelegate: DropDelegate {
             let playlistManager = PlaylistManager()
             // Add some sample tracks to the queue for preview
             let sampleTracks = (0..<5).map { i in
-                let track = Track(url: URL(fileURLWithPath: "/path/to/sample\(i).mp3"))
+                var track = Track(url: URL(fileURLWithPath: "/path/to/sample\(i).mp3"))
                 track.title = "Sample Song \(i)"
                 track.artist = "Sample Artist"
                 track.album = "Sample Album"

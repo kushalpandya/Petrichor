@@ -69,6 +69,20 @@ class PlaylistManager: ObservableObject {
         }
     }
     
+    func updateSmartPlaylistCounts() {
+        Task {
+            for index in playlists.indices {
+                if playlists[index].type == .smart {
+                    let count = await libraryManager?.databaseManager.getSmartPlaylistTrackCount(playlists[index]) ?? 0
+                    
+                    await MainActor.run {
+                        self.playlists[index].trackCount = count
+                    }
+                }
+            }
+        }
+    }
+    
     /// Load all playlists from database
     func loadPlaylists() {
         guard let dbManager = libraryManager?.databaseManager else {
@@ -82,8 +96,47 @@ class PlaylistManager: ObservableObject {
         
         playlists = sortPlaylists(smart: savedSmartPlaylists, regular: savedRegularPlaylists)
         
-        // Update smart playlists with current track data
-        updateSmartPlaylists()
+        updateSmartPlaylistCounts()
+    }
+    
+    /// Ensure tracks are loaded for a playlist
+    func loadPlaylistTracks(for playlistId: UUID) {
+        guard let playlist = playlists.first(where: { $0.id == playlistId }),
+              playlist.type == .regular,
+              playlist.tracks.isEmpty,
+              let dbManager = libraryManager?.databaseManager else {
+            return
+        }
+        
+        let tracks = dbManager.loadTracksForPlaylist(playlistId)
+        
+        if let index = playlists.firstIndex(where: { $0.id == playlistId }) {
+            playlists[index].tracks = tracks
+        }
+    }
+    
+    /// Get tracks for a playlist, loading them if needed
+    func getPlaylistTracks(_ playlist: Playlist) -> [Track] {
+        if playlist.type == .smart {
+            // Smart playlists are already handled differently
+            return playlist.tracks
+        }
+        
+        // For regular playlists, load tracks if not already loaded
+        if playlist.tracks.isEmpty {
+            if let dbManager = libraryManager?.databaseManager {
+                let tracks = dbManager.loadTracksForPlaylist(playlist.id)
+                
+                // Update the playlist with loaded tracks
+                if let index = playlists.firstIndex(where: { $0.id == playlist.id }) {
+                    playlists[index].tracks = tracks
+                }
+                
+                return tracks
+            }
+        }
+        
+        return playlist.tracks
     }
     
     /// Sort playlists according to type and predefined order

@@ -28,7 +28,7 @@ struct LibraryView: View {
 
     var body: some View {
         VStack {
-            if libraryManager.tracks.isEmpty {
+            if libraryManager.folders.isEmpty {
                 NoMusicEmptyStateView(context: .mainWindow)
             } else {
                 // Main library view with sidebar
@@ -44,23 +44,9 @@ struct LibraryView: View {
                         tracksListView
                     }
                 )
-                .onAppear {
-                    // Set initial filter selection
-                    if selectedFilterItem == nil {
-                        selectedFilterItem = LibraryFilterItem.allItem(for: selectedFilterType, totalCount: libraryManager.tracks.count)
-                    }
-                    updateFilteredTracks()
-
-                    // Mark view as ready
-                    isViewReady = true
-
-                    // Check if there's a pending filter to apply
-                    if let request = pendingFilter {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            selectedFilterType = request.filterType
-                            pendingSearchText = request.value
-                            pendingFilter = nil
-                        }
+                .onChange(of: libraryManager.tracks) { _, newTracks in
+                    if let currentItem = selectedFilterItem, currentItem.isAllItem {
+                        selectedFilterItem = LibraryFilterItem.allItem(for: selectedFilterType, totalCount: newTracks.count)
                     }
                 }
                 .onDisappear {
@@ -68,7 +54,7 @@ struct LibraryView: View {
                 }
                 .onChange(of: libraryManager.tracks) { _, newTracks in
                     // Update filter item when tracks change
-                    if let currentItem = selectedFilterItem, currentItem.name.hasPrefix("All") {
+                    if let currentItem = selectedFilterItem, currentItem.isAllItem {
                         selectedFilterItem = LibraryFilterItem.allItem(for: selectedFilterType, totalCount: newTracks.count)
                     }
                 }
@@ -78,27 +64,29 @@ struct LibraryView: View {
                 .onChange(of: selectedFilterType) {
                     updateFilteredTracks()
                 }
-                .onChange(of: libraryManager.tracks.count) {
-                    // Only update if the number of tracks changed (tracks added/removed)
+                .onChange(of: libraryManager.totalTrackCount) {
                     updateFilteredTracks()
                 }
                 .onChange(of: trackListSortAscending) {
                     updateFilteredTracks()
                 }
                 .onChange(of: pendingFilter) { _, newValue in
-                    if let request = newValue, isViewReady {
-                        Logger.info("View is ready, applying filter type: \(request.filterType)")
-                        selectedFilterType = request.filterType
-                        pendingSearchText = request.value
+                    if let request = newValue {
                         pendingFilter = nil
+                        selectedFilterType = request.filterType
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            pendingSearchText = request.value
+                        }
                     }
-                    // If view is not ready, onAppear will handle it
                 }
                 .onChange(of: libraryManager.globalSearchText) {
                     updateFilteredTracks()
                 }
                 .sheet(isPresented: $showingCreatePlaylistWithTrack) {
                     createPlaylistSheet
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .libraryDataDidChange)) { _ in
+                    updateFilteredTracks()
                 }
                 .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("CreatePlaylistWithTrack"))) { notification in
                     if let track = notification.userInfo?["track"] as? Track {
@@ -183,7 +171,7 @@ struct LibraryView: View {
         if !libraryManager.globalSearchText.isEmpty {
             return "Search Results"
         } else if let filterItem = selectedFilterItem {
-            if filterItem.name.hasPrefix("All") {
+            if filterItem.isAllItem {
                 return "All Tracks"
             } else {
                 return filterItem.name
@@ -209,7 +197,7 @@ struct LibraryView: View {
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
-            } else if let filterItem = selectedFilterItem, !filterItem.name.hasPrefix("All") {
+            } else if let filterItem = selectedFilterItem, !filterItem.isAllItem {
                 Text("No tracks found for \"\(filterItem.name)\"")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
@@ -228,17 +216,37 @@ struct LibraryView: View {
     // MARK: - Filtering Tracks Helper
 
     private func updateFilteredTracks() {
-        // Start with all tracks
-        var tracks = libraryManager.searchResults
-
-        // Then apply sidebar filter if present
-        if let filterItem = selectedFilterItem, !filterItem.name.hasPrefix("All") {
-            tracks = tracks.filter { track in
-                selectedFilterType.trackMatches(track, filterValue: filterItem.name)
+        // If we have a global search, use database FTS search
+        if !libraryManager.globalSearchText.isEmpty {
+            // searchResults should already be populated by updateSearchResults()
+            // which uses database FTS search
+            var tracks = libraryManager.searchResults
+            
+            // Apply sidebar filter if present
+            if let filterItem = selectedFilterItem, !filterItem.isAllItem {
+                tracks = tracks.filter { track in
+                    selectedFilterType.trackMatches(track, filterValue: filterItem.name)
+                }
+            }
+            
+            cachedFilteredTracks = sortTracks(tracks)
+        } else {
+            // No global search - load only what's needed based on selection
+            if let filterItem = selectedFilterItem {
+                if filterItem.isAllItem {
+                    // "All" item selected during search - we shouldn't get here with our new logic
+                    cachedFilteredTracks = []
+                } else {
+                    // Load tracks for specific filter from database
+                    var tracks = libraryManager.getTracksBy(filterType: selectedFilterType, value: filterItem.name)
+                    // Populate album artwork for the tracks
+                    libraryManager.databaseManager.populateAlbumArtworkForTracks(&tracks)
+                    cachedFilteredTracks = sortTracks(tracks)
+                }
+            } else {
+                cachedFilteredTracks = []
             }
         }
-
-        cachedFilteredTracks = sortTracks(tracks)
     }
 
     private func sortTracks(_ tracks: [Track]) -> [Track] {

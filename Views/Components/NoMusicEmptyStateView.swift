@@ -191,8 +191,8 @@ struct NoMusicEmptyStateView: View {
             }
 
             // Track count
-            if !libraryManager.tracks.isEmpty {
-                Text("\(libraryManager.tracks.count) tracks found")
+            if !libraryManager.folders.isEmpty {
+                Text("\(libraryManager.totalTrackCount) tracks found")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

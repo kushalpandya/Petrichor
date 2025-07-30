@@ -3,6 +3,10 @@ import SwiftUI
 struct TrackDetailView: View {
     let track: Track
     let onClose: () -> Void
+    
+    @State private var fullTrack: FullTrack?
+    @State private var isLoading = true
+    @EnvironmentObject var libraryManager: LibraryManager
 
     var body: some View {
         VStack(spacing: 0) {
@@ -11,27 +15,90 @@ struct TrackDetailView: View {
 
             Divider()
 
-            // Scrollable content
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Album artwork
-                    artworkSection
-
-                    // Track info
-                    trackInfoSection
-
-                    // Combined Track Information section
-                    if !trackInformationItems.isEmpty {
-                        metadataSection(title: "Details", items: trackInformationItems)
-                    }
-
-                    // Collapsible File Details section
-                    FileDetailsSection(track: track)
+            // Show loading or content based on state
+            if isLoading && fullTrack == nil {
+                // Loading state
+                VStack {
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                        .scaleEffect(0.8)
+                    Text("Loading track details...")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.top, 8)
                 }
-                .padding(20)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let fullTrack = fullTrack {
+                // Content loaded - show full track details
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // Album artwork
+                        artworkSection(for: fullTrack)
+
+                        // Track info
+                        trackInfoSection(for: fullTrack)
+
+                        // Combined Track Information section
+                        let items = trackInformationItems(for: fullTrack)
+                        if !items.isEmpty {
+                            metadataSection(title: "Details", items: items)
+                        }
+
+                        // Collapsible File Details section
+                        FileDetailsSection(fullTrack: fullTrack)
+                    }
+                    .padding(20)
+                }
+            } else {
+                // Error state - couldn't load full track
+                VStack(spacing: 16) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary)
+                    Text("Unable to load track details")
+                        .font(.headline)
+                    Text("The track information could not be retrieved.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .background(Color(NSColor.windowBackgroundColor))
+        .onAppear {
+            loadFullTrack()
+        }
+        .onChange(of: track.id) {
+            isLoading = true
+            fullTrack = nil
+            loadFullTrack()
+        }
+    }
+    
+    // MARK: - Load Full Track
+    
+    private func loadFullTrack() {
+        Task {
+            do {
+                if var loaded = try await track.fullTrack(using: libraryManager.databaseManager.dbQueue) {
+                    libraryManager.databaseManager.populateAlbumArtworkForFullTrack(&loaded)
+                    
+                    await MainActor.run {
+                        self.fullTrack = loaded
+                        self.isLoading = false
+                    }
+                } else {
+                    await MainActor.run {
+                        self.isLoading = false
+                    }
+                }
+            } catch {
+                Logger.error("Failed to load full track: \(error)")
+                await MainActor.run {
+                    self.isLoading = false
+                }
+            }
+        }
     }
 
     // MARK: - Header Section
@@ -56,9 +123,9 @@ struct TrackDetailView: View {
 
     // MARK: - Artwork Section
 
-    private var artworkSection: some View {
+    private func artworkSection(for fullTrack: FullTrack) -> some View {
         ZStack {
-            if let artworkData = track.artworkData,
+            if let artworkData = fullTrack.artworkData,
                let nsImage = NSImage(data: artworkData) {
                 Image(nsImage: nsImage)
                     .resizable()
@@ -66,7 +133,7 @@ struct TrackDetailView: View {
                     .frame(width: 250, height: 250)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
-                    .id(track.id) // Add stable identity
+                    .id(fullTrack.id) // Add stable identity
             } else {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color.gray.opacity(0.2))
@@ -76,7 +143,7 @@ struct TrackDetailView: View {
                             .font(.system(size: 60))
                             .foregroundColor(.secondary)
                     )
-                    .id("placeholder-\(track.id)")
+                    .id("placeholder-\(fullTrack.id)")
             }
         }
         .padding(.top, 10)
@@ -84,21 +151,21 @@ struct TrackDetailView: View {
 
     // MARK: - Track Info Section
 
-    private var trackInfoSection: some View {
+    private func trackInfoSection(for fullTrack: FullTrack) -> some View {
         VStack(spacing: 8) {
-            Text(track.title)
+            Text(fullTrack.title)
                 .font(.title2)
                 .fontWeight(.semibold)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
 
-            Text(track.artist)
+            Text(fullTrack.artist)
                 .font(.title3)
                 .foregroundColor(.secondary)
                 .lineLimit(1)
 
-            if !track.album.isEmpty && track.album != "Unknown Album" {
-                Text(track.album)
+            if !fullTrack.album.isEmpty && fullTrack.album != "Unknown Album" {
+                Text(fullTrack.album)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .lineLimit(1)
@@ -140,66 +207,66 @@ struct TrackDetailView: View {
 
     // MARK: - Combined Metadata
 
-    private var trackInformationItems: [(label: String, value: String)] {
+    private func trackInformationItems(for fullTrack: FullTrack) -> [(label: String, value: String)] {
         var items: [(label: String, value: String)] = []
 
         // Album (added as requested)
-        if !track.album.isEmpty && track.album != "Unknown Album" {
-            items.append(("Album", track.album))
+        if !fullTrack.album.isEmpty && fullTrack.album != "Unknown Album" {
+            items.append(("Album", fullTrack.album))
         }
 
         // Album Artist
-        if let albumArtist = track.albumArtist, !albumArtist.isEmpty {
+        if let albumArtist = fullTrack.albumArtist, !albumArtist.isEmpty {
             items.append(("Album Artist", albumArtist))
         }
 
         // Duration
-        items.append(("Duration", formatDuration(track.duration)))
+        items.append(("Duration", formatDuration(fullTrack.duration)))
 
         // Track Number
-        if let trackNumber = track.trackNumber {
+        if let trackNumber = fullTrack.trackNumber {
             var trackStr = "\(trackNumber)"
-            if let totalTracks = track.totalTracks {
+            if let totalTracks = fullTrack.totalTracks {
                 trackStr += " of \(totalTracks)"
             }
             items.append(("Track", trackStr))
         }
 
         // Disc Number
-        if let discNumber = track.discNumber {
+        if let discNumber = fullTrack.discNumber {
             var discStr = "\(discNumber)"
-            if let totalDiscs = track.totalDiscs {
+            if let totalDiscs = fullTrack.totalDiscs {
                 discStr += " of \(totalDiscs)"
             }
             items.append(("Disc", discStr))
         }
 
         // Genre
-        if !track.genre.isEmpty && track.genre != "Unknown Genre" {
-            items.append(("Genre", track.genre))
+        if !fullTrack.genre.isEmpty && fullTrack.genre != "Unknown Genre" {
+            items.append(("Genre", fullTrack.genre))
         }
 
         // Year
-        if !track.year.isEmpty && track.year != "Unknown Year" {
-            items.append(("Year", track.year))
+        if !fullTrack.year.isEmpty && fullTrack.year != "Unknown Year" {
+            items.append(("Year", fullTrack.year))
         }
 
         // Composer
-        if !track.composer.isEmpty && track.composer != "Unknown Composer" {
-            items.append(("Composer", track.composer))
+        if !fullTrack.composer.isEmpty && fullTrack.composer != "Unknown Composer" {
+            items.append(("Composer", fullTrack.composer))
         }
 
         // Release Dates
-        if let releaseDate = track.releaseDate, !releaseDate.isEmpty {
+        if let releaseDate = fullTrack.releaseDate, !releaseDate.isEmpty {
             items.append(("Release Date", releaseDate))
         }
 
-        if let originalDate = track.originalReleaseDate, !originalDate.isEmpty {
+        if let originalDate = fullTrack.originalReleaseDate, !originalDate.isEmpty {
             items.append(("Original Release", originalDate))
         }
 
         // Additional metadata from extended
-        if let ext = track.extendedMetadata {
+        if let ext = fullTrack.extendedMetadata {
             if let conductor = ext.conductor, !conductor.isEmpty {
                 items.append(("Conductor", conductor))
             }
@@ -222,32 +289,32 @@ struct TrackDetailView: View {
         }
 
         // BPM
-        if let bpm = track.bpm, bpm > 0 {
+        if let bpm = fullTrack.bpm, bpm > 0 {
             items.append(("BPM", "\(bpm)"))
         }
 
         // Rating
-        if let rating = track.rating, rating > 0 {
+        if let rating = fullTrack.rating, rating > 0 {
             items.append(("Rating", String(repeating: "★", count: rating) + String(repeating: "☆", count: 5 - rating)))
         }
 
         // Play Count
-        if track.playCount > 0 {
-            items.append(("Play Count", "\(track.playCount)"))
+        if fullTrack.playCount > 0 {
+            items.append(("Play Count", "\(fullTrack.playCount)"))
         }
 
         // Last Played
-        if let lastPlayed = track.lastPlayedDate {
+        if let lastPlayed = fullTrack.lastPlayedDate {
             items.append(("Last Played", formatDate(lastPlayed)))
         }
 
         // Favorite
-        if track.isFavorite {
+        if fullTrack.isFavorite {
             items.append(("Favorite", "Yes"))
         }
 
         // Compilation
-        if track.compilation {
+        if fullTrack.compilation {
             items.append(("Compilation", "Yes"))
         }
 
@@ -274,7 +341,7 @@ struct TrackDetailView: View {
 // MARK: - File Details Section View
 
 private struct FileDetailsSection: View {
-    let track: Track
+    let fullTrack: FullTrack
     @State private var isExpanded = false
 
     var body: some View {
@@ -331,49 +398,49 @@ private struct FileDetailsSection: View {
         var items: [(label: String, value: String)] = []
 
         // File format
-        items.append(("Format", track.format.uppercased()))
+        items.append(("Format", fullTrack.format.uppercased()))
 
         // Audio properties
-        if let codec = track.codec, !codec.isEmpty {
+        if let codec = fullTrack.codec, !codec.isEmpty {
             items.append(("Codec", codec))
         }
 
-        if let bitrate = track.bitrate, bitrate > 0 {
+        if let bitrate = fullTrack.bitrate, bitrate > 0 {
             items.append(("Bitrate", "\(bitrate) kbps"))
         }
 
-        if let sampleRate = track.sampleRate, sampleRate > 0 {
+        if let sampleRate = fullTrack.sampleRate, sampleRate > 0 {
             let formatted = formatSampleRate(sampleRate)
             items.append(("Sample Rate", formatted))
         }
 
-        if let bitDepth = track.bitDepth, bitDepth > 0 {
+        if let bitDepth = fullTrack.bitDepth, bitDepth > 0 {
             items.append(("Bit Depth", "\(bitDepth)-bit"))
         }
 
-        if let channels = track.channels, channels > 0 {
+        if let channels = fullTrack.channels, channels > 0 {
             items.append(("Channels", formatChannels(channels)))
         }
 
         // File info
-        if let fileSize = track.fileSize, fileSize > 0 {
+        if let fileSize = fullTrack.fileSize, fileSize > 0 {
             items.append(("File Size", formatFileSize(fileSize)))
         }
 
         // File path
-        items.append(("File Path", track.url.path))
+        items.append(("File Path", fullTrack.url.path))
 
         // Dates
-        if let dateAdded = track.dateAdded {
+        if let dateAdded = fullTrack.dateAdded {
             items.append(("Date Added", formatDate(dateAdded)))
         }
 
-        if let dateModified = track.dateModified {
+        if let dateModified = fullTrack.dateModified {
             items.append(("Date Modified", formatDate(dateModified)))
         }
 
         // Media Type
-        if let mediaType = track.mediaType, !mediaType.isEmpty {
+        if let mediaType = fullTrack.mediaType, !mediaType.isEmpty {
             items.append(("Media Type", mediaType))
         }
 
@@ -415,7 +482,7 @@ private struct FileDetailsSection: View {
 
 #Preview {
     let sampleTrack = {
-        let track = Track(url: URL(fileURLWithPath: "/sample.mp3"))
+        var track = Track(url: URL(fileURLWithPath: "/sample.mp3"))
         track.title = "Sample Song"
         track.artist = "Sample Artist"
         track.album = "Sample Album"
@@ -423,10 +490,10 @@ private struct FileDetailsSection: View {
         track.genre = "Electronic"
         track.year = "2024"
         track.trackNumber = 5
-        track.totalTracks = 12
         return track
     }()
 
     TrackDetailView(track: sampleTrack) {}
         .frame(width: 350, height: 700)
+        .environmentObject(LibraryManager())
 }

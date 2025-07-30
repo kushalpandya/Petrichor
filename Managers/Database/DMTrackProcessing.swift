@@ -26,21 +26,32 @@ extension DatabaseManager {
                     }
                     
                     do {
-                        // Check if track already exists
+                        // Check if track already exists (use lightweight Track for efficiency)
                         if let existingTrack = try await self.dbQueue.read({ db in
                             try Track.filter(Track.Columns.path == fileURL.path).fetchOne(db)
                         }) {
+                            // Fetch the full track for comparison and update
+                            guard let existingFullTrack = try await existingTrack.fullTrack(using: self.dbQueue) else {
+                                // If we can't get full track, treat as new
+                                let metadata = MetadataExtractor.extractMetadataSync(from: fileURL)
+                                var fullTrack = FullTrack(url: fileURL)
+                                fullTrack.folderId = folderId
+                                self.applyMetadataToTrack(&fullTrack, from: metadata, at: fileURL)
+                                
+                                return (fileURL, TrackProcessResult.new(fullTrack, metadata))
+                            }
+                            
                             // Check if file has been modified
                             if let attributes = try? fileURL.resourceValues(forKeys: [.contentModificationDateKey]),
                                let modificationDate = attributes.contentModificationDate,
-                               let trackModifiedDate = existingTrack.dateModified,
+                               let trackModifiedDate = existingFullTrack.dateModified,
                                modificationDate <= trackModifiedDate {
                                 return (fileURL, TrackProcessResult.skipped)
                             }
                             
                             // File has changed, extract metadata
                             let metadata = MetadataExtractor.extractMetadataSync(from: fileURL)
-                            var updatedTrack = existingTrack
+                            var updatedTrack = existingFullTrack
                             
                             let hasChanges = self.updateTrackIfNeeded(&updatedTrack, with: metadata, at: fileURL)
                             
@@ -52,11 +63,11 @@ extension DatabaseManager {
                         } else {
                             // New track
                             let metadata = MetadataExtractor.extractMetadataSync(from: fileURL)
-                            var track = Track(url: fileURL)
-                            track.folderId = folderId
-                            self.applyMetadataToTrack(&track, from: metadata, at: fileURL)
+                            var fullTrack = FullTrack(url: fileURL)
+                            fullTrack.folderId = folderId
+                            self.applyMetadataToTrack(&fullTrack, from: metadata, at: fileURL)
                             
-                            return (fileURL, TrackProcessResult.new(track, metadata))
+                            return (fileURL, TrackProcessResult.new(fullTrack, metadata))
                         }
                     } catch {
                         // Log the error and skip this track
@@ -67,7 +78,13 @@ extension DatabaseManager {
             }
             
             // Collect results into a single structure to avoid concurrent mutations
-            let processResults = try await group.reduce(into: (new: [(Track, TrackMetadata)](), update: [(Track, TrackMetadata)](), skipped: 0)) { result, item in
+            let processResults = try await group.reduce(
+                into: (
+                    new: [(FullTrack, TrackMetadata)](),
+                    update: [(FullTrack, TrackMetadata)](),
+                    skipped: 0
+                )
+            ) { result, item in
                 let (_, trackResult) = item
                 switch trackResult {
                 case .new(let track, let metadata):
@@ -123,14 +140,19 @@ extension DatabaseManager {
     // MARK: - Track Processing
     
     /// Process a new track with normalized data
-    private func processNewTrack(_ track: Track, metadata: TrackMetadata, in db: Database) throws {
+    private func processNewTrack(_ track: FullTrack, metadata: TrackMetadata, in db: Database) throws {
         var mutableTrack = track
         
         // Process album first (so we can link the track to it)
         try processTrackAlbum(&mutableTrack, in: db)
         
-        // Save the track (with album_id set)
-        try mutableTrack.save(db)
+        // Insert the track
+        try mutableTrack.insert(db)
+        
+        // Ensure we have a valid track ID (fallback to lastInsertedRowID if needed)
+        if mutableTrack.trackId == nil {
+            mutableTrack.trackId = db.lastInsertedRowID
+        }
         
         guard let trackId = mutableTrack.trackId else {
             throw DatabaseError.invalidTrackId
@@ -168,7 +190,7 @@ extension DatabaseManager {
     }
     
     /// Process an updated track with normalized data
-    private func processUpdatedTrack(_ track: Track, metadata: TrackMetadata, in db: Database) throws {
+    private func processUpdatedTrack(_ track: FullTrack, metadata: TrackMetadata, in db: Database) throws {
         var mutableTrack = track
         
         // Update album association
@@ -206,7 +228,7 @@ extension DatabaseManager {
     
     // MARK: - Metadata Logging
     
-    private func logTrackMetadata(_ track: Track) {
+    private func logTrackMetadata(_ track: FullTrack) {
         // Log interesting metadata for debugging
         if let extendedMetadata = track.extendedMetadata {
             var interestingFields: [String] = []
@@ -237,15 +259,17 @@ extension DatabaseManager {
     func detectAndMarkDuplicates() async {
         do {
             try await dbQueue.write { db in
-                // First, reset all duplicate flags
-                try Track.updateAll(db,
-                                    Track.Columns.isDuplicate.set(to: false),
-                                    Track.Columns.primaryTrackId.set(to: nil),
-                                    Track.Columns.duplicateGroupId.set(to: nil)
+                // First, reset all duplicate flags using FullTrack
+                try FullTrack.updateAll(db,
+                    FullTrack.Columns.isDuplicate.set(to: false),
+                    FullTrack.Columns.primaryTrackId.set(to: nil),
+                    FullTrack.Columns.duplicateGroupId.set(to: nil)
                 )
                 
-                // Get all tracks
-                let allTracks = try Track.fetchAll(db)
+                // Get all tracks (use lightweight Track for efficiency)
+                let allTracks = try Track
+                    .select(Track.lightweightSelection)
+                    .fetchAll(db)
                 
                 // Group tracks by duplicate key
                 var duplicateGroups: [String: [Track]] = [:]
@@ -260,8 +284,16 @@ extension DatabaseManager {
                 
                 // Process each group that has duplicates
                 for (_, tracks) in duplicateGroups where tracks.count > 1 {
+                    // Fetch full tracks for quality scoring
+                    let fullTracks = try tracks.compactMap { track -> FullTrack? in
+                        guard let trackId = track.trackId else { return nil }
+                        return try FullTrack
+                            .filter(FullTrack.Columns.trackId == trackId)
+                            .fetchOne(db)
+                    }
+                    
                     // Sort by quality score (highest first)
-                    let sortedTracks = tracks.sorted { $0.qualityScore > $1.qualityScore }
+                    let sortedTracks = fullTracks.sorted { $0.qualityScore > $1.qualityScore }
                     
                     // The first track is the primary (highest quality)
                     guard let primaryTrack = sortedTracks.first,
@@ -271,26 +303,26 @@ extension DatabaseManager {
                     let groupId = UUID().uuidString
                     
                     // Update all tracks in the group
-                    for track in sortedTracks {
-                        guard let trackId = track.trackId else { continue }
+                    for fullTrack in sortedTracks {
+                        guard let trackId = fullTrack.trackId else { continue }
                         
                         if trackId == primaryId {
                             // This is the primary track
-                            try Track
-                                .filter(Track.Columns.trackId == trackId)
+                            try FullTrack
+                                .filter(FullTrack.Columns.trackId == trackId)
                                 .updateAll(db,
-                                           Track.Columns.isDuplicate.set(to: false),
-                                           Track.Columns.primaryTrackId.set(to: nil),
-                                           Track.Columns.duplicateGroupId.set(to: groupId)
+                                    FullTrack.Columns.isDuplicate.set(to: false),
+                                    FullTrack.Columns.primaryTrackId.set(to: nil),
+                                    FullTrack.Columns.duplicateGroupId.set(to: groupId)
                                 )
                         } else {
                             // This is a duplicate
-                            try Track
-                                .filter(Track.Columns.trackId == trackId)
+                            try FullTrack
+                                .filter(FullTrack.Columns.trackId == trackId)
                                 .updateAll(db,
-                                           Track.Columns.isDuplicate.set(to: true),
-                                           Track.Columns.primaryTrackId.set(to: primaryId),
-                                           Track.Columns.duplicateGroupId.set(to: groupId)
+                                    FullTrack.Columns.isDuplicate.set(to: true),
+                                    FullTrack.Columns.primaryTrackId.set(to: primaryId),
+                                    FullTrack.Columns.duplicateGroupId.set(to: groupId)
                                 )
                         }
                     }
@@ -299,9 +331,9 @@ extension DatabaseManager {
                 // Log results
                 let duplicateCount = try Track.filter(Track.Columns.isDuplicate == true).fetchCount(db)
                 let groupCount = try Track
-                    .select(Track.Columns.duplicateGroupId, as: String?.self)
+                    .select(Column("duplicate_group_id"), as: String?.self)
                     .distinct()
-                    .filter(Track.Columns.duplicateGroupId != nil)
+                    .filter(Column("duplicate_group_id") != nil)
                     .fetchCount(db)
                 
                 Logger.info("Duplicate detection complete: \(duplicateCount) duplicates found in \(groupCount) groups")

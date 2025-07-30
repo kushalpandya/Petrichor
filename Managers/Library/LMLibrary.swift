@@ -88,10 +88,11 @@ extension LibraryManager {
         }
 
         folders = resolvedFolders
-        tracks = databaseManager.getAllTracks()
+        tracks = []
         updateSearchResults()
+        updateTotalCounts()
 
-        Logger.info("Loaded \(folders.count) folders and \(tracks.count) tracks from database")
+        Logger.info("Loaded \(folders.count) folders and \(totalTrackCount) tracks from database")
 
         // Refresh stale bookmarks in background
         if !foldersNeedingRefresh.isEmpty {
@@ -101,9 +102,6 @@ extension LibraryManager {
                 }
             }
         }
-
-        // Update last scan date
-        userDefaults.set(Date(), forKey: UserDefaultsKeys.lastScanDate)
 
         // Notify playlist manager to update smart playlists
         if let coordinator = AppCoordinator.shared {
@@ -115,10 +113,30 @@ extension LibraryManager {
         // Post notification that library is loaded
         NotificationCenter.default.post(name: NSNotification.Name("LibraryDidLoad"), object: nil)
     }
+    
+    /// Load all tracks into memory
+    func loadAllTracks() async {
+        if tracks.isEmpty {
+            Logger.info("Loading all tracks into memory...")
+            
+            let loadedTracks = await Task.detached {
+                self.databaseManager.getAllTracks()
+            }.value
+            
+            await MainActor.run {
+                self.tracks = loadedTracks
+                self.updateSearchResults()
+            }
+        }
+    }
 
     func refreshEntities() {
         entitiesLoaded = false
-        loadEntities()
+        cachedArtistEntities = databaseManager.getArtistEntities()
+        cachedAlbumEntities = databaseManager.getAlbumEntities()
+        entitiesLoaded = true
+        Logger.info("Refreshed entities: \(cachedArtistEntities.count) artists and \(cachedAlbumEntities.count) albums")
+        objectWillChange.send()
     }
 
     func refreshLibrary() {
@@ -208,6 +226,7 @@ extension LibraryManager {
             await MainActor.run { [weak self] in
                 self?.loadMusicLibrary()
                 self?.updateSearchResults()
+                self?.updateTotalCounts()
                 
                 // Stop activity after everything is done
                 NotificationManager.shared.stopActivity()
@@ -296,9 +315,11 @@ extension LibraryManager {
 
     internal func loadEntities() {
         guard !entitiesLoaded else { return }
-        entitiesLoaded = true
 
         cachedArtistEntities = databaseManager.getArtistEntities()
         cachedAlbumEntities = databaseManager.getAlbumEntities()
+        
+        entitiesLoaded = true
+        Logger.info("Loaded \(cachedArtistEntities.count) artists and \(cachedAlbumEntities.count) albums")
     }
 }

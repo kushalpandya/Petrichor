@@ -54,10 +54,14 @@ struct LogEntry {
     }
     
     var consoleMessage: String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "HH:mm:ss.SSS"
+
         let context = extractContext(from: file)
         let funcName = extractFunctionName(from: function)
+        let timestamp = dateFormatter.string(from: timestamp)
         
-        return "\(level.emoji) [\(level.prefix)] [\(context) > \(funcName):\(line)] \(message)"
+        return "[\(timestamp)] \(level.emoji) [\(level.prefix)] [\(context) > \(funcName):\(line)] \(message)"
     }
     
     private func extractContext(from filePath: String) -> String {
