@@ -188,7 +188,7 @@ struct HomeView: View {
                     selectedTrackID: $selectedTrackID,
                     playlistID: nil,
                     onPlayTrack: { track in
-                        playlistManager.playTrack(track, fromTracks: libraryManager.discoverTracks)
+                        playlistManager.playTrack(track, fromTracks: sortedDiscoverTracks)
                         playlistManager.currentQueueSource = .library
                     },
                     contextMenuItems: { track in
@@ -203,7 +203,9 @@ struct HomeView: View {
             }
         }
         .onAppear {
-            libraryManager.loadDiscoverTracks()
+            if libraryManager.discoverTracks.isEmpty {
+                libraryManager.loadDiscoverTracks()
+            }
             sortDiscoverTracks()
         }
         .onChange(of: trackListSortAscending) {
