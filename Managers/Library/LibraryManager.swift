@@ -164,6 +164,11 @@ class LibraryManager: ObservableObject {
             }
             return
         }
+        
+        if currentInterval == .manually {
+            Logger.info("Auto-scan set to manual, no automatic scanning will occur")
+            return
+        }
 
         // Only start a timer if auto-scan has a time interval
         guard let interval = currentInterval.timeInterval else {

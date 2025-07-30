@@ -15,7 +15,7 @@ struct SettingsView: View {
         var icon: String {
             switch self {
             case .general: return Icons.settings
-            case .library: return Icons.musicNoteList
+            case .library: return Icons.customMusicNoteRectangleStack
             case .about: return Icons.infoCircle
             }
         }
@@ -23,7 +23,7 @@ struct SettingsView: View {
         var selectedIcon: String {
             switch self {
             case .general: return Icons.settings
-            case .library: return Icons.musicNoteList
+            case .library: return Icons.customMusicNoteRectangleStack
             case .about: return Icons.infoCircleFill
             }
         }

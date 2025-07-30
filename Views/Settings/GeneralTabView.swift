@@ -74,7 +74,7 @@ struct GeneralTabView: View {
                     .help("Shows Folders tab within the main window to browse music directly from added folders")
             }
 
-            Section("Library Scanning") {
+            Section("Library") {
                 HStack {
                     Picker("Auto-scan library every", selection: $autoScanInterval) {
                         ForEach(AutoScanInterval.allCases, id: \.self) { interval in
@@ -96,7 +96,6 @@ struct GeneralTabView: View {
             updateAppearance(newValue)
         }
         .onAppear {
-            // Apply the saved color mode when the view appears
             updateAppearance(colorMode)
         }
     }
