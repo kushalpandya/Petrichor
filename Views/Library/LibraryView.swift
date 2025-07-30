@@ -64,8 +64,7 @@ struct LibraryView: View {
                 .onChange(of: selectedFilterType) {
                     updateFilteredTracks()
                 }
-                .onChange(of: libraryManager.tracks.count) {
-                    // Only update if the number of tracks changed (tracks added/removed)
+                .onChange(of: libraryManager.totalTrackCount) {
                     updateFilteredTracks()
                 }
                 .onChange(of: trackListSortAscending) {
@@ -78,13 +77,15 @@ struct LibraryView: View {
                         pendingSearchText = request.value
                         pendingFilter = nil
                     }
-                    // If view is not ready, onAppear will handle it
                 }
                 .onChange(of: libraryManager.globalSearchText) {
                     updateFilteredTracks()
                 }
                 .sheet(isPresented: $showingCreatePlaylistWithTrack) {
                     createPlaylistSheet
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .libraryDataDidChange)) { _ in
+                    updateFilteredTracks()
                 }
                 .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("CreatePlaylistWithTrack"))) { notification in
                     if let track = notification.userInfo?["track"] as? Track {

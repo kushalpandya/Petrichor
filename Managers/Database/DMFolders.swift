@@ -97,6 +97,12 @@ extension DatabaseManager {
         await MainActor.run {
             self.isScanning = false
         }
+        
+        // Wait for DB operations to finish before notifying scan completion
+        try? await dbQueue.writeWithoutTransaction { _ in }
+        await MainActor.run {
+            NotificationCenter.default.post(name: .libraryDataDidChange, object: nil)
+        }
 
         return addedFolders
     }
@@ -158,47 +164,15 @@ extension DatabaseManager {
     func removeFolder(_ folder: Folder, completion: @escaping (Result<Void, Error>) -> Void) {
         Task {
             do {
-                try await dbQueue.write { db in
+                _ = try await dbQueue.write { db in
                     // Delete the folder (cascades to tracks and junction tables)
                     try folder.delete(db)
-                    
-                    // Get all artist IDs that still have tracks
-                    let artistsWithTracks = try TrackArtist
-                        .select(TrackArtist.Columns.artistId, as: Int64.self)
-                        .distinct()
-                        .fetchSet(db)
-                    
-                    // Delete artists that are NOT in the set of artists with tracks
-                    try Artist
-                        .filter(!artistsWithTracks.contains(Artist.Columns.id))
-                        .deleteAll(db)
-                    
-                    // Get all album IDs that still have tracks
-                    let albumsWithTracks = try Track
-                        .select(Track.Columns.albumId, as: Int64?.self)
-                        .filter(Track.Columns.albumId != nil)
-                        .distinct()
-                        .fetchSet(db)
-                        .compactMap { $0 }
-                    
-                    // Delete albums that are NOT in the set of albums with tracks
-                    try Album
-                        .filter(!albumsWithTracks.contains(Album.Columns.id))
-                        .deleteAll(db)
-                    
-                    // Get all genre IDs that still have tracks
-                    let genresWithTracks = try TrackGenre
-                        .select(TrackGenre.Columns.genreId, as: Int64.self)
-                        .distinct()
-                        .fetchSet(db)
-                    
-                    // Delete genres that are NOT in the set of genres with tracks
-                    try Genre
-                        .filter(!genresWithTracks.contains(Genre.Columns.id))
-                        .deleteAll(db)
-                    
-                    Logger.info("Removed folder '\(folder.name)' and cleaned up orphaned data")
                 }
+                
+                // Now run comprehensive cleanup for any orphaned data
+                try await cleanupOrphanedData()
+                
+                Logger.info("Removed folder '\(folder.name)' and cleaned up orphaned data")
                 
                 await MainActor.run {
                     completion(.success(()))
@@ -207,7 +181,7 @@ extension DatabaseManager {
                 await MainActor.run {
                     completion(.failure(error))
                     Logger.error("Failed to remove folder '\(folder.name)': \(error)")
-                    NotificationManager.shared.addMessage(.error, "Faield to remove folder '\(folder.name)'")
+                    NotificationManager.shared.addMessage(.error, "Failed to remove folder '\(folder.name)'")
                 }
             }
         }
@@ -353,7 +327,7 @@ extension DatabaseManager {
 
         // Get existing tracks for this folder to check for updates
         let existingTracks = getTracksForFolder(folderId)
-        let existingTracksByURL = Dictionary(uniqueKeysWithValues: existingTracks.map { ($0.url, $0) })
+        _ = Dictionary(uniqueKeysWithValues: existingTracks.map { ($0.url, $0) })
 
         // Collect all music files first - do this synchronously before async context
         var musicFiles: [URL] = []
@@ -372,33 +346,46 @@ extension DatabaseManager {
         let totalFiles = musicFiles.count
         let foundPaths = scannedPaths
 
-        if totalFiles == 0 {
-            Logger.info("No music files found in folder \(folder.name)")
+        // Identify tracks to remove (files that no longer exist)
+        let tracksToRemove = existingTracks.filter { !foundPaths.contains($0.url) }
+        let trackIdsToRemove = tracksToRemove.compactMap { $0.id }
+        
+        // Remove tracks and clean up orphaned metadata
+        if !trackIdsToRemove.isEmpty {
+            let removedCount = trackIdsToRemove.count
             
-            // If folder is empty but we had tracks before, clean them up
-            if !existingTracks.isEmpty {
-                try await dbQueue.write { db in
-                    for track in existingTracks {
-                        try track.delete(db)
-                        Logger.info("Removed track that no longer exists: \(track.url.lastPathComponent)")
-                    }
-                }
-                
-                // Notify about the cleanup
-                await MainActor.run {
-                    NotificationManager.shared.addMessage(.info, "Folder '\(folder.name)' is now empty, removed \(existingTracks.count) tracks")
+            // Delete tracks
+            try await dbQueue.write { db in
+                for track in tracksToRemove {
+                    try track.delete(db)
+                    Logger.info("Removed track that no longer exists: \(track.url.lastPathComponent)")
                 }
             }
             
-            // Update folder track count to 0
+            // Clean up orphaned metadata
+            try await cleanupAfterTrackRemoval(trackIdsToRemove)
+            
+            // Notify about the cleanup
+            await MainActor.run {
+                if totalFiles == 0 {
+                    NotificationManager.shared.addMessage(.info, "Folder '\(folder.name)' is now empty, removed \(removedCount) tracks")
+                } else {
+                    let message = removedCount == 1
+                        ? "Removed 1 missing track from '\(folder.name)'"
+                        : "Removed \(removedCount) missing tracks from '\(folder.name)'"
+                    NotificationManager.shared.addMessage(.info, message)
+                }
+            }
+        }
+
+        // If no music files found and all tracks removed, we're done
+        if totalFiles == 0 {
             try await updateFolderTrackCount(folder)
             return
         }
 
-        // Process in batches
+        // Process music files in batches
         let batchSize = totalFiles > 1000 ? 100 : 50
-
-        // Create immutable copy for async context
         let fileBatches = musicFiles.chunked(into: batchSize)
 
         for batch in fileBatches {
@@ -422,20 +409,6 @@ extension DatabaseManager {
             }
         }
 
-        // Remove tracks that no longer exist in the folder
-        let removedCount = try await dbQueue.write { db -> Int in
-            var count = 0
-            for (url, track) in existingTracksByURL {
-                if !foundPaths.contains(url) {
-                    // File no longer exists, remove from database
-                    try track.delete(db)
-                    Logger.info("Removed track that no longer exists: \(url.lastPathComponent)")
-                    count += 1
-                }
-            }
-            return count
-        }
-
         // Update folder metadata
         if let folderId = folder.id {
             try await updateFolderMetadata(folderId)
@@ -455,16 +428,7 @@ extension DatabaseManager {
             }
         }
         
-        if removedCount > 0 {
-            await MainActor.run {
-                let message = removedCount == 1
-                    ? "Removed 1 missing track from '\(folder.name)'"
-                    : "Removed \(removedCount) missing tracks from '\(folder.name)'"
-                NotificationManager.shared.addMessage(.info, message)
-            }
-        }
-        
-        Logger.info("Completed scanning folder \(folder.name): \(processedCount) processed, \(failedFiles.count) failed, \(removedCount) removed")
+        Logger.info("Completed scanning folder \(folder.name): \(processedCount) processed, \(failedFiles.count) failed")
     }
 
     func updateFolderTrackCount(_ folder: Folder) async throws {

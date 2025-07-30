@@ -9,6 +9,10 @@
 import Foundation
 import AppKit
 
+extension Notification.Name {
+    static let libraryDataDidChange = Notification.Name("LibraryDataDidChange")
+}
+
 class LibraryManager: ObservableObject {
     @Published var tracks: [Track] = []
     @Published var folders: [Folder] = []
@@ -88,12 +92,16 @@ class LibraryManager: ObservableObject {
 
         loadMusicLibrary()
         
-        // Clean up missing folders on startup
-        cleanupMissingFolders()
-        
         pinnedItems = databaseManager.getPinnedItemsSync()
         
-        startFileWatcher()
+        Task {
+            try? await Task.sleep(nanoseconds: TimeConstants.fiftyMilliseconds)
+            cleanupMissingFolders()
+            
+            await MainActor.run {
+                startFileWatcher()
+            }
+        }
 
         // Observe auto-scan interval changes
         NotificationCenter.default.addObserver(
@@ -118,6 +126,7 @@ class LibraryManager: ObservableObject {
         totalTrackCount = databaseManager.getTotalTrackCount()
         artistCount = databaseManager.getArtistCount()
         albumCount = databaseManager.getAlbumCount()
+        NotificationCenter.default.post(name: .libraryDataDidChange, object: nil)
     }
 
     // MARK: - File Watching
@@ -134,24 +143,15 @@ class LibraryManager: ObservableObject {
         if currentInterval == .onlyOnLaunch {
             Logger.info("Auto-scan set to only on launch, performing initial scan...")
             
-            // Check if we've scanned recently (within last hour)
-            if let lastScanDate = userDefaults.object(forKey: UserDefaultsKeys.lastScanDate) as? Date {
-                let hoursSinceLastScan = Date().timeIntervalSince(lastScanDate) / 3600
-                if hoursSinceLastScan < 1.0 {
-                    Logger.info("Last scan was \(String(format: "%.1f", hoursSinceLastScan)) hours ago, skipping initial scan")
-                    hasPerformedInitialScan = true
-                    return
-                }
-            }
-            
-            // Skip if we already performed initial scan
+            // Skip if we already performed initial scan (within this app session)
             guard !hasPerformedInitialScan else {
-                Logger.info("Initial scan already performed, skipping")
+                Logger.info("Initial scan already performed in this session, skipping")
                 return
             }
             
             hasPerformedInitialScan = true
             
+            // Always perform scan on launch when set to "onlyOnLaunch"
             // Perform scan after a short delay to let the UI initialize
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
                 guard let self = self else { return }

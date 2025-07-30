@@ -103,9 +103,6 @@ extension LibraryManager {
             }
         }
 
-        // Update last scan date
-        userDefaults.set(Date(), forKey: UserDefaultsKeys.lastScanDate)
-
         // Notify playlist manager to update smart playlists
         if let coordinator = AppCoordinator.shared {
             coordinator.playlistManager.updateSmartPlaylists()
@@ -135,7 +132,11 @@ extension LibraryManager {
 
     func refreshEntities() {
         entitiesLoaded = false
-        loadEntities()
+        cachedArtistEntities = databaseManager.getArtistEntities()
+        cachedAlbumEntities = databaseManager.getAlbumEntities()
+        entitiesLoaded = true
+        Logger.info("Refreshed entities: \(cachedArtistEntities.count) artists and \(cachedAlbumEntities.count) albums")
+        objectWillChange.send()
     }
 
     func refreshLibrary() {

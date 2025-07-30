@@ -49,7 +49,7 @@ extension LibraryManager {
                         switch result {
                         case .success(let dbFolders):
                             Logger.info("Successfully added \(dbFolders.count) folders to database")
-                            self.loadMusicLibrary() // Reload to reflect changes
+                            self.loadMusicLibrary()
                         case .failure(let error):
                             Logger.error("Failed to add folders to database: \(error)")
                         }
@@ -60,20 +60,27 @@ extension LibraryManager {
     }
 
     func removeFolder(_ folder: Folder) {
-        // Remove from database
+        Logger.info("Removing folder: \(folder.name)")
+        
         databaseManager.removeFolder(folder) { [weak self] result in
+            guard let self = self else { return }
+            
             switch result {
             case .success:
-                Logger.info("Successfully removed folder from database")
-                self?.loadMusicLibrary() // Reload to reflect changes
-                
-                // Notify PlaylistManager to refresh playlists
-                if let coordinator = AppCoordinator.shared {
-                    coordinator.playlistManager.refreshPlaylistsAfterFolderRemoval()
-                }
+                Logger.info("Successfully removed folder: \(folder.name)")
+                // Remove from local array
+                self.folders.removeAll { $0.id == folder.id }
+                // Reload library immediately
+                self.loadMusicLibrary()
+                // Stop the activity indicator
+                NotificationManager.shared.stopActivity()
                 
             case .failure(let error):
-                Logger.error("Failed to remove folder from database: \(error)")
+                Logger.error("Failed to remove folder: \(error)")
+                // Stop the activity indicator on failure too
+                NotificationManager.shared.stopActivity()
+                // Show error message
+                NotificationManager.shared.addMessage(.error, "Failed to remove folder '\(folder.name)'")
             }
         }
     }
@@ -105,9 +112,9 @@ extension LibraryManager {
         }
     }
 
-    func cleanupMissingFolders() {
+    func cleanupMissingFolders(notifyUser: Bool = false) {
         var foldersToRemove: [Folder] = []
-        
+            
         for folder in folders {
             if !fileManager.fileExists(atPath: folder.url.path) {
                 foldersToRemove.append(folder)
@@ -116,6 +123,23 @@ extension LibraryManager {
         
         if foldersToRemove.isEmpty {
             Logger.info("No missing folders found during cleanup")
+            
+            if notifyUser {
+                Task {
+                    do {
+                        try await databaseManager.cleanupOrphanedData()
+                        Logger.info("Database cleanup completed")
+                        
+                        await MainActor.run {
+                            refreshEntities()
+                            updateTotalCounts()
+                            NotificationManager.shared.addMessage(.info, "Database cleanup completed")
+                        }
+                    } catch {
+                        Logger.error("Database cleanup failed: \(error)")
+                    }
+                }
+            }
             return
         }
         
@@ -142,6 +166,8 @@ extension LibraryManager {
         }
         
         group.notify(queue: .main) { [weak self] in
+            guard let self = self else { return }
+            
             NotificationManager.shared.stopActivity()
             
             // Add notifications
@@ -157,7 +183,21 @@ extension LibraryManager {
                 NotificationManager.shared.addMessage(.error, message)
             }
             
-            self?.loadMusicLibrary()
+            Task {
+                do {
+                    try await self.databaseManager.cleanupOrphanedData()
+                    Logger.info("Database cleanup completed after folder cleanup")
+                    
+                    await MainActor.run {
+                        self.refreshEntities()
+                        self.updateTotalCounts()
+                    }
+                } catch {
+                    Logger.error("Database cleanup failed: \(error)")
+                }
+            }
+            
+            self.loadMusicLibrary()
         }
     }
 

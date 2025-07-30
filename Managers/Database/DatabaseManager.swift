@@ -83,6 +83,12 @@ class DatabaseManager: ObservableObject {
     /// Clean up database file and recreate schema
     /// Warning: This will delete all data!
     func resetDatabase() throws {
+        Task { @MainActor in
+            self.isScanning = false
+            self.scanStatusMessage = ""
+        }
+        
+        // Erase the database
         try dbQueue.erase()
         
         // Re-run migrations on the fresh database

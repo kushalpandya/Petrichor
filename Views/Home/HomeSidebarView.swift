@@ -89,6 +89,13 @@ struct HomeSidebarView: View {
         .onChange(of: playlistManager.playlists.map { "\($0.id)-\($0.trackCount)" }) {
             updateAllItems()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .libraryDataDidChange)) { _ in
+            updateAllItems()
+            updateSelectedItem()
+            Task {
+                await updatePinnedItemTrackCounts()
+            }
+        }
     }
 
     // MARK: - Update Items Helper
