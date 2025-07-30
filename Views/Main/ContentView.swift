@@ -160,6 +160,11 @@ struct ContentView: View {
                 )
         } else if showingTrackDetail, let track = detailTrack {
             TrackDetailView(track: track, onClose: hideTrackDetail)
+                .mask(
+                    Rectangle()
+                        .opacity(showingTrackDetail ? 1 : 0)
+                        .animation(.easeInOut(duration: 0.3).delay(0.15), value: showingTrackDetail)
+                )
                 .transition(
                     .asymmetric(
                         insertion: .move(edge: .trailing),
