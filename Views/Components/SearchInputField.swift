@@ -35,6 +35,7 @@ struct SearchInputField: NSViewRepresentable {
     
     func updateNSView(_ nsView: NSSearchField, context: Context) {
         nsView.stringValue = text
+        nsView.placeholderString = placeholder
         
         // Handle focus resignation
         if context.coordinator.shouldResignFirstResponder {
