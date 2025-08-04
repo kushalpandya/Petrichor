@@ -309,11 +309,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             mainMenu.removeItem(fileMenu)
         }
         
-        // Remove Edit menu
-        if let editMenu = mainMenu.item(withTitle: "Edit") {
-            mainMenu.removeItem(editMenu)
-        }
-        
         // Remove Format menu
         if let formatMenu = mainMenu.item(withTitle: "Format") {
             mainMenu.removeItem(formatMenu)
