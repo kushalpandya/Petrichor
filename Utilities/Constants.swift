@@ -99,6 +99,26 @@ enum AudioFormat {
     }
 }
 
+// MARK: - Artwork File Formats
+
+enum AlbumArtFormat {
+    static let supportedExtensions = ["jpg", "jpeg", "png", "tiff", "tif", "bmp"]
+    
+    static let knownFilenames = [
+        "cover", "Cover",
+        "folder", "Folder",
+        "album", "Album",
+        "artwork", "Artwork",
+        "front", "Front"
+    ]
+    
+    static let priorityKeywords = ["cover", "folder", "album", "artwork", "front"]
+    
+    static func isSupported(_ fileExtension: String) -> Bool {
+        supportedExtensions.contains(fileExtension.lowercased())
+    }
+}
+
 // MARK: - String Formats
 enum StringFormat {
     static let hhmmss: String = "%d:%02d:%02d"

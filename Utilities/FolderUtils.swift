@@ -22,9 +22,17 @@ enum FolderUtils {
         }
         
         DispatchQueue.global(qos: .utility).async {
-            let extensions = AudioFormat.supportedExtensions.map { $0.lowercased() }
-            let extFilter = extensions.map { "-iname '*.\($0)'" }.joined(separator: " -o ")
-            let findExpression = "\\( \(extFilter) \\)"
+            // Audio extensions
+            let audioExtensions = AudioFormat.supportedExtensions.map { $0.lowercased() }
+            let audioFilter = audioExtensions.map { "-iname '*.\($0)'" }.joined(separator: " -o ")
+
+            // Build artwork filter for specific filenames with supported extensions
+            let artworkPatterns: [String] = AlbumArtFormat.knownFilenames.flatMap { filename in
+                AlbumArtFormat.supportedExtensions.map { ext in "-iname '\(filename).\(ext)'" }
+            }
+            let artworkFilter = artworkPatterns.joined(separator: " -o ")
+            
+            let findExpression = "\\( \(audioFilter) -o \(artworkFilter) \\)"
             
             let command = """
             find "$1" -type f \(findExpression) -exec ls -lT {} + | sort | shasum -a 256

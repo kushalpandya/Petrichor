@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import AVFoundation
 import CoreMedia
 
@@ -6,7 +7,7 @@ class MetadataExtractor {
     // MARK: - Metadata Key Mappings
     
     private enum MetadataKeyType {
-        case composer, genre, year, albumArtist, trackNumber, discNumber
+        case composer, genre, year, albumArtist, trackNumber, discNumber, artwork
         case copyright, bpm, comment
         
         var keys: [String] {
@@ -53,6 +54,14 @@ class MetadataExtractor {
                     "TPOS", "discnumber", "disc", "disk",
                     AVMetadataKey.iTunesMetadataKeyDiscNumber.rawValue
                 ]
+            case .artwork:
+                return [
+                    "artwork", "covr", "apic", "pic", "cover", "albumart",
+                    AVMetadataKey.commonKeyArtwork.rawValue,
+                    AVMetadataKey.iTunesMetadataKeyCoverArt.rawValue,
+                    AVMetadataKey.id3MetadataKeyAttachedPicture.rawValue,
+                    "APIC", "PIC", "COVR"
+                ]
             case .copyright:
                 return [
                     "TCOP", "©cpy", "\u{00A9}cpy", "copyright",
@@ -82,6 +91,7 @@ class MetadataExtractor {
             case .albumArtist: return keys // Use exact matching for album artist
             case .trackNumber: return keys // Use exact matching for track number
             case .discNumber: return keys // Use exact matching for disc number
+            case .artwork: return keys // User exact matching for artwork
             case .copyright: return keys // Use exact matching for copyright
             case .bpm: return keys // Use exact matching for BPM
             case .comment: return keys // Use exact matching for comment
@@ -201,7 +211,7 @@ class MetadataExtractor {
     }
     
     @available(macOS, deprecated: 13.0)
-    static func extractMetadataSync(from url: URL) -> TrackMetadata {
+    static func extractMetadataSync(from url: URL, externalArtwork: Data? = nil) -> TrackMetadata {
         let asset = AVURLAsset(url: url)
         var metadata = TrackMetadata(url: url)
         
@@ -238,7 +248,63 @@ class MetadataExtractor {
             Logger.error("Timeout loading metadata for \(url.lastPathComponent)")
         }
         
+        if metadata.artworkData == nil, let externalArtwork = externalArtwork {
+            metadata.artworkData = externalArtwork
+        }
+        
         return metadata
+    }
+    
+    // MARK: - Folder-level Artwork Scanning
+
+    /// Scans a folder and returns a map of directory URLs to their artwork data
+    static func scanFolderForArtwork(at folderURL: URL) -> [URL: Data] {
+        var artworkMap: [URL: Data] = [:]
+        let fileManager = FileManager.default
+        
+        if let enumerator = fileManager.enumerator(
+            at: folderURL,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) {
+            var foundArtworkInCurrentDir = false
+            var lastDirectory: URL?
+            
+            for case let url as URL in enumerator {
+                let isDirectory = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
+                
+                if isDirectory {
+                    continue
+                }
+                
+                // Get the directory containing this file
+                let directory = url.deletingLastPathComponent()
+                
+                // Reset the flag when we move to a new directory
+                if directory != lastDirectory {
+                    foundArtworkInCurrentDir = false
+                    lastDirectory = directory
+                }
+                
+                // Skip if we already found artwork in this directory
+                if foundArtworkInCurrentDir {
+                    continue
+                }
+                
+                // Check if this is an artwork file
+                let filename = url.deletingPathExtension().lastPathComponent
+                let ext = url.pathExtension
+                
+                if AlbumArtFormat.knownFilenames.contains(filename) && AlbumArtFormat.isSupported(ext) {
+                    if let data = try? Data(contentsOf: url) {
+                        artworkMap[directory] = data
+                        foundArtworkInCurrentDir = true
+                    }
+                }
+            }
+        }
+        
+        return artworkMap
     }
     
     // MARK: - Private Methods
@@ -306,7 +372,7 @@ class MetadataExtractor {
             }
             
             // Handle artwork
-            if item.commonKey == .commonKeyArtwork {
+            if isKeyOfType(.artwork, keyString, identifier, commonKey) {
                 extractArtwork(from: item, into: &metadata)
             }
         }

@@ -9,7 +9,7 @@ import GRDB
 
 extension DatabaseManager {
     /// Process a batch of music files with normalized data support
-    func processBatch(_ batch: [(url: URL, folderId: Int64)]) async throws {
+    func processBatch(_ batch: [(url: URL, folderId: Int64)], artworkMap: [URL: Data] = [:]) async throws {
         await MainActor.run {
             self.isScanning = true
             self.scanStatusMessage = "Processing \(batch.count) files..."
@@ -25,6 +25,10 @@ extension DatabaseManager {
                         self.scanStatusMessage = "Processing: \(fileURL.lastPathComponent)"
                     }
                     
+                    // Get artwork for this file's directory
+                    let directory = fileURL.deletingLastPathComponent()
+                    let externalArtwork = artworkMap[directory]
+                    
                     do {
                         // Check if track already exists (use lightweight Track for efficiency)
                         if let existingTrack = try await self.dbQueue.read({ db in
@@ -33,7 +37,10 @@ extension DatabaseManager {
                             // Fetch the full track for comparison and update
                             guard let existingFullTrack = try await existingTrack.fullTrack(using: self.dbQueue) else {
                                 // If we can't get full track, treat as new
-                                let metadata = MetadataExtractor.extractMetadataSync(from: fileURL)
+                                let metadata = MetadataExtractor.extractMetadataSync(
+                                    from: fileURL,
+                                    externalArtwork: externalArtwork
+                                )
                                 var fullTrack = FullTrack(url: fileURL)
                                 fullTrack.folderId = folderId
                                 self.applyMetadataToTrack(&fullTrack, from: metadata, at: fileURL)
@@ -46,11 +53,19 @@ extension DatabaseManager {
                                let modificationDate = attributes.contentModificationDate,
                                let trackModifiedDate = existingFullTrack.dateModified,
                                modificationDate <= trackModifiedDate {
-                                return (fileURL, TrackProcessResult.skipped)
+                                // File hasn't changed, but check if we should update external artwork
+                                if externalArtwork != nil {
+                                    Logger.info("External artwork available for track without file changes: \(fileURL.lastPathComponent)")
+                                } else {
+                                    return (fileURL, TrackProcessResult.skipped)
+                                }
                             }
                             
                             // File has changed, extract metadata
-                            let metadata = MetadataExtractor.extractMetadataSync(from: fileURL)
+                            let metadata = MetadataExtractor.extractMetadataSync(
+                                from: fileURL,
+                                externalArtwork: externalArtwork
+                            )
                             var updatedTrack = existingFullTrack
                             
                             let hasChanges = self.updateTrackIfNeeded(&updatedTrack, with: metadata, at: fileURL)
@@ -62,7 +77,10 @@ extension DatabaseManager {
                             }
                         } else {
                             // New track
-                            let metadata = MetadataExtractor.extractMetadataSync(from: fileURL)
+                            let metadata = MetadataExtractor.extractMetadataSync(
+                                from: fileURL,
+                                externalArtwork: externalArtwork
+                            )
                             var fullTrack = FullTrack(url: fileURL)
                             fullTrack.folderId = folderId
                             self.applyMetadataToTrack(&fullTrack, from: metadata, at: fileURL)
@@ -217,13 +235,14 @@ extension DatabaseManager {
         // Re-process normalized relationships
         try processTrackArtists(mutableTrack, metadata: metadata, in: db)
         try processTrackGenres(mutableTrack, in: db)
-    }
-    
-    // MARK: - Single File Processing (for legacy compatibility)
-    
-    /// Process a single music file
-    func processMusicFile(at fileURL: URL, folderId: Int64) async throws {
-        try await processBatch([(url: fileURL, folderId: folderId)])
+        
+        // Update album artwork with updated external artwork
+        if let artworkData = metadata.artworkData,
+           !artworkData.isEmpty,
+           let albumId = mutableTrack.albumId {
+            try updateAlbumArtwork(albumId, artworkData: artworkData, in: db)
+            Logger.info("Updated album artwork for album ID: \(albumId)")
+        }
     }
     
     // MARK: - Metadata Logging

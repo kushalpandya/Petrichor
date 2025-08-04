@@ -383,6 +383,12 @@ extension DatabaseManager {
             try await updateFolderTrackCount(folder)
             return
         }
+        
+        // Scan for artwork files once for the entire folder
+        let artworkMap = MetadataExtractor.scanFolderForArtwork(at: folder.url)
+        if !artworkMap.isEmpty {
+            Logger.info("Found artwork in \(artworkMap.count) directories within \(folder.name)")
+        }
 
         // Process music files in batches
         let batchSize = totalFiles > 1000 ? 100 : 50
@@ -392,7 +398,7 @@ extension DatabaseManager {
             let batchWithFolderId = batch.map { url in (url: url, folderId: folderId) }
             
             do {
-                try await processBatch(batchWithFolderId)
+                try await processBatch(batchWithFolderId, artworkMap: artworkMap)
                 await scanState.incrementProcessed(by: batch.count)
                 
                 let currentProcessed = await scanState.getProcessedCount()
