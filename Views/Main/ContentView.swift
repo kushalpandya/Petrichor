@@ -116,36 +116,34 @@ struct ContentView: View {
     }
 
     private var sectionContent: some View {
-        VStack {
-            ZStack {
-                HomeView(isShowingEntities: $homeShowingEntities)
-                    .opacity(selectedTab == .home ? 1 : 0)
-                    .allowsHitTesting(selectedTab == .home)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                LibraryView(
-                    viewType: globalViewType,
-                    pendingFilter: $pendingLibraryFilter
-                )
-                .opacity(selectedTab == .library ? 1 : 0)
-                .allowsHitTesting(selectedTab == .library)
+        ZStack {
+            HomeView(isShowingEntities: $homeShowingEntities)
+                .opacity(selectedTab == .home ? 1 : 0)
+                .allowsHitTesting(selectedTab == .home)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                PlaylistsView(viewType: globalViewType)
-                    .opacity(selectedTab == .playlists ? 1 : 0)
-                    .allowsHitTesting(selectedTab == .playlists)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            LibraryView(
+                viewType: globalViewType,
+                pendingFilter: $pendingLibraryFilter
+            )
+            .opacity(selectedTab == .library ? 1 : 0)
+            .allowsHitTesting(selectedTab == .library)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                if showFoldersTab == true {
-                    FoldersView(viewType: globalViewType)
-                        .opacity(selectedTab == .folders ? 1 : 0)
-                        .allowsHitTesting(selectedTab == .folders)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
+            PlaylistsView(viewType: globalViewType)
+                .opacity(selectedTab == .playlists ? 1 : 0)
+                .allowsHitTesting(selectedTab == .playlists)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            if showFoldersTab == true {
+                FoldersView(viewType: globalViewType)
+                    .opacity(selectedTab == .folders ? 1 : 0)
+                    .allowsHitTesting(selectedTab == .folders)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .animation(.none, value: selectedTab)
         }
-        .frame(minWidth: 400, minHeight: 200)
+        .animation(.none, value: selectedTab)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     @ViewBuilder

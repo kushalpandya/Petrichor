@@ -88,7 +88,7 @@ struct SidebarListView<Item: SidebarItem>: View {
     // MARK: - Items List
 
     private var itemsList: some View {
-        ScrollView(.vertical, showsIndicators: false) {
+        ScrollView(.vertical) {
             LazyVStack(spacing: 1) {
                 ForEach(items) { item in
                     SidebarItemRow(

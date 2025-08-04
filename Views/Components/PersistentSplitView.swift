@@ -10,7 +10,7 @@ enum SplitViewType {
 
 // MARK: - Split View Sizes
 
-enum SplitViewSizes {
+enum SplitViewConstants {
     // Default widths
     static let leftSidebarDefaultWidth: CGFloat = 250
     static let rightSidebarDefaultWidth: CGFloat = 350
@@ -25,11 +25,11 @@ enum SplitViewSizes {
 
     // Divider properties
     static let dividerWidth: CGFloat = 1
-    static let dividerHoverWidth: CGFloat = 25
-    static let dividerZIndex: Double = 1000
+    static let dividerHoverWidth: CGFloat = 8
+    static let dividerZIndex: Double = 10
 
     // Colors
-    static let dividerColor = Color(NSColor.windowBackgroundColor)
+    static let dividerColor = Color(NSColor.separatorColor)
     static let backgroundColor = Color(NSColor.controlBackgroundColor)
 }
 
@@ -80,7 +80,7 @@ struct PersistentSplitView<Left: View, Center: View, Right: View>: View {
 
         // Initialize with stored value or default
         let storedValue = UserDefaults.standard.double(forKey: leftStorageKey)
-        self._leftWidth = State(initialValue: storedValue > 0 ? CGFloat(storedValue) : SplitViewSizes.leftSidebarDefaultWidth)
+        self._leftWidth = State(initialValue: storedValue > 0 ? CGFloat(storedValue) : SplitViewConstants.leftSidebarDefaultWidth)
         self._rightWidth = State(initialValue: 0)
     }
 
@@ -100,7 +100,7 @@ struct PersistentSplitView<Left: View, Center: View, Right: View>: View {
         // Initialize with stored value or default
         let storedValue = UserDefaults.standard.double(forKey: rightStorageKey)
         self._leftWidth = State(initialValue: 0)
-        self._rightWidth = State(initialValue: storedValue > 0 ? CGFloat(storedValue) : SplitViewSizes.rightSidebarDefaultWidth)
+        self._rightWidth = State(initialValue: storedValue > 0 ? CGFloat(storedValue) : SplitViewConstants.rightSidebarDefaultWidth)
     }
 
     // Both sidebars
@@ -121,50 +121,51 @@ struct PersistentSplitView<Left: View, Center: View, Right: View>: View {
         // Initialize with stored values or defaults
         let leftStored = UserDefaults.standard.double(forKey: leftStorageKey)
         let rightStored = UserDefaults.standard.double(forKey: rightStorageKey)
-        self._leftWidth = State(initialValue: leftStored > 0 ? CGFloat(leftStored) : SplitViewSizes.leftSidebarDefaultWidth)
-        self._rightWidth = State(initialValue: rightStored > 0 ? CGFloat(rightStored) : SplitViewSizes.rightSidebarDefaultWidth)
+        self._leftWidth = State(initialValue: leftStored > 0 ? CGFloat(leftStored) : SplitViewConstants.leftSidebarDefaultWidth)
+        self._rightWidth = State(initialValue: rightStored > 0 ? CGFloat(rightStored) : SplitViewConstants.rightSidebarDefaultWidth)
     }
 
     var body: some View {
-        GeometryReader { _ in
-            HStack(spacing: 0) {
-                // Left sidebar
-                if type == .leftOnly || type == .both {
-                    left()
-                        .frame(width: leftWidth)
+        HStack(spacing: 0) {
+            // Left sidebar
+            if type == .leftOnly || type == .both {
+                left()
+                    .frame(width: leftWidth)
+                    .frame(maxHeight: .infinity)
 
-                    SplitDivider(
-                        splitWidth: $leftWidth,
-                        minWidth: SplitViewSizes.leftSidebarMinWidth,
-                        maxWidth: SplitViewSizes.leftSidebarMaxWidth
-                    ) {
-                            UserDefaults.standard.set(Double(leftWidth), forKey: storageKeyLeft)
-                    }
-                }
-
-                // Center content
-                center()
-                    .frame(maxWidth: .infinity)
-
-                // Right sidebar
-                if type == .rightOnly || type == .both {
-                    SplitDivider(
-                        splitWidth: $rightWidth,
-                        minWidth: SplitViewSizes.rightSidebarMinWidth,
-                        maxWidth: SplitViewSizes.rightSidebarMaxWidth,
-                        isLeading: false
-                    ) {
-                            if let key = storageKeyRight {
-                                UserDefaults.standard.set(Double(rightWidth), forKey: key)
-                            }
-                    }
-
-                    right()
-                        .frame(width: rightWidth)
+                SplitDivider(
+                    splitWidth: $leftWidth,
+                    minWidth: SplitViewConstants.leftSidebarMinWidth,
+                    maxWidth: SplitViewConstants.leftSidebarMaxWidth
+                ) {
+                    UserDefaults.standard.set(Double(leftWidth), forKey: storageKeyLeft)
                 }
             }
+
+            // Center content
+            center()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            // Right sidebar
+            if type == .rightOnly || type == .both {
+                SplitDivider(
+                    splitWidth: $rightWidth,
+                    minWidth: SplitViewConstants.rightSidebarMinWidth,
+                    maxWidth: SplitViewConstants.rightSidebarMaxWidth,
+                    isLeading: false
+                ) {
+                    if let key = storageKeyRight {
+                        UserDefaults.standard.set(Double(rightWidth), forKey: key)
+                    }
+                }
+
+                right()
+                    .frame(width: rightWidth)
+                    .frame(maxHeight: .infinity)
+            }
         }
-        .background(SplitViewSizes.backgroundColor)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(SplitViewConstants.backgroundColor)
         .onAppear {
             updateWidthsFromStorage()
         }
@@ -218,13 +219,13 @@ private struct SplitDivider: View {
     }
 
     var body: some View {
-        Divider()
-            .frame(width: SplitViewSizes.dividerWidth)
-            .background(SplitViewSizes.dividerColor)
+        Rectangle()
+            .fill(SplitViewConstants.dividerColor)
+            .frame(width: 1)
             .overlay(
-                // Invisible wider area for hover detection
-                Color.clear
-                    .frame(width: SplitViewSizes.dividerHoverWidth)
+                Rectangle()
+                    .fill(Color.clear)
+                    .frame(width: SplitViewConstants.dividerHoverWidth)
                     .contentShape(Rectangle())
                     .onHover { hovering in
                         isHovering = hovering
@@ -242,11 +243,12 @@ private struct SplitDivider: View {
                                 splitWidth = min(max(minWidth, newWidth), maxWidth)
                             }
                             .onEnded { _ in
-                                onDragEnded()
+                                DispatchQueue.main.async {
+                                    onDragEnded()
+                                }
                             }
                     )
             )
-            .zIndex(SplitViewSizes.dividerZIndex)
     }
 }
 
