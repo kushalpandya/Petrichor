@@ -167,6 +167,7 @@ private struct TabbedButton<Item: TabbedItem>: View {
         }
         .buttonStyle(.plain)
         .disabled(isDisabled)
+        .background(WindowDragPreventer())
         .onHover { hovering in
             if !isDisabled {
                 isHovered = hovering
@@ -362,4 +363,18 @@ extension LibraryViewType: TabbedItem {
 
 extension SettingsView.SettingsTab: TabbedItem {
     var title: String { self.rawValue }
+}
+
+struct WindowDragPreventer: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        NonDraggableView()
+    }
+    
+    func updateNSView(_ nsView: NSView, context: Context) {}
+    
+    class NonDraggableView: NSView {
+        override var mouseDownCanMoveWindow: Bool {
+            false
+        }
+    }
 }
