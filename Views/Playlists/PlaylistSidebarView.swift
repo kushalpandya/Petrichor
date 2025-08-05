@@ -48,6 +48,7 @@ struct PlaylistSidebarView: View {
                     .font(.system(size: 14))
             }
             .buttonStyle(.borderless)
+            .hoverEffect(scale: 1.1)
             .help("Create New Playlist")
         }
     }
@@ -125,8 +126,8 @@ struct PlaylistSidebarView: View {
                 .disabled(newPlaylistName.isEmpty)
             }
         }
-        .padding(30)
-        .frame(width: 350)
+        .padding(20)
+        .frame(width: 300)
     }
 
     private func createPlaylist() {
