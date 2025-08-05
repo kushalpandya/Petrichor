@@ -89,6 +89,8 @@ extension LibraryManager {
 
         folders = resolvedFolders
         tracks = []
+        
+        loadLibraryCategories()
         updateSearchResults()
         updateTotalCounts()
 

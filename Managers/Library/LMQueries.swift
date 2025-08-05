@@ -44,23 +44,15 @@ extension LibraryManager {
     }
 
     func getLibraryFilterItems(for filterType: LibraryFilterType) -> [LibraryFilterItem] {
-        // Call the appropriate method based on filter type
-        switch filterType {
-        case .artists:
-            return databaseManager.getArtistFilterItems()
-        case .albumArtists:
-            return databaseManager.getAlbumArtistFilterItems()
-        case .composers:
-            return databaseManager.getComposerFilterItems()
-        case .albums:
-            return databaseManager.getAlbumFilterItems()
-        case .genres:
-            return databaseManager.getGenreFilterItems()
-        case .decades:
-            return databaseManager.getDecadeFilterItems()
-        case .years:
-            return databaseManager.getYearFilterItems()
+        if let cachedItems = cachedLibraryCategories[filterType] {
+            Logger.info("Returning cached library filter items for \(filterType)")
+            return cachedItems
         }
+        
+        let items = getLibraryFilterItemsFromDatabase(for: filterType)
+        cachedLibraryCategories[filterType] = items
+        
+        return items
     }
 
     func getDistinctValues(for filterType: LibraryFilterType) -> [String] {

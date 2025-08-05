@@ -114,9 +114,6 @@ struct LibrarySidebarView: View {
                 }
             }
         }
-        .onChange(of: selectedFilterType) { _, newType in
-            handleFilterTypeChange(newType)
-        }
         .onChange(of: libraryManager.searchResults) {
             updateFilteredItems()
         }
@@ -170,12 +167,6 @@ struct LibrarySidebarView: View {
             } else if !filteredItems.isEmpty {
                 // Not in search mode, select the first available item
                 selectedFilterItem = filteredItems.first
-            } else {
-                // If filtered items aren't ready yet, get them directly
-                let items = libraryManager.getLibraryFilterItems(for: selectedFilterType)
-                if !items.isEmpty {
-                    selectedFilterItem = items.first
-                }
             }
         }
 

@@ -51,6 +51,8 @@ class LibraryManager: ObservableObject {
     // MARK: - Private/Internal Properties
     private var fileWatcherTimer: Timer?
     private var hasPerformedInitialScan = false
+    internal var cachedLibraryCategories: [LibraryFilterType: [LibraryFilterItem]] = [:]
+    internal var libraryCategoriesLoaded = false
     internal var entitiesLoaded = false
     internal let userDefaults = UserDefaults.standard
     internal let fileManager = FileManager.default
@@ -127,6 +129,61 @@ class LibraryManager: ObservableObject {
         artistCount = databaseManager.getArtistCount()
         albumCount = databaseManager.getAlbumCount()
         NotificationCenter.default.post(name: .libraryDataDidChange, object: nil)
+    }
+    
+    // MARK: - Library Categories Cache Management
+
+    /// Load library categories into cache
+    func loadLibraryCategories() {
+        guard !libraryCategoriesLoaded else { return }
+        
+        Logger.info("Loading library categories into cache")
+        
+        // Load all categories in parallel for better performance
+        let categories = LibraryFilterType.allCases
+        
+        for category in categories {
+            let items = getLibraryFilterItemsFromDatabase(for: category)
+            cachedLibraryCategories[category] = items
+        }
+        
+        libraryCategoriesLoaded = true
+        Logger.info("Loaded library categories: \(cachedLibraryCategories.values.map { $0.count }) items total")
+    }
+
+    /// Refresh library categories cache
+    func refreshLibraryCategories() {
+        Logger.info("Refreshing library categories cache")
+        
+        // Clear existing cache
+        cachedLibraryCategories.removeAll()
+        libraryCategoriesLoaded = false
+        
+        // Reload categories
+        loadLibraryCategories()
+        
+        // Notify UI of changes
+        objectWillChange.send()
+    }
+
+    /// Helper method to fetch items from database
+    internal func getLibraryFilterItemsFromDatabase(for filterType: LibraryFilterType) -> [LibraryFilterItem] {
+        switch filterType {
+        case .artists:
+            return databaseManager.getArtistFilterItems()
+        case .albumArtists:
+            return databaseManager.getAlbumArtistFilterItems()
+        case .composers:
+            return databaseManager.getComposerFilterItems()
+        case .albums:
+            return databaseManager.getAlbumFilterItems()
+        case .genres:
+            return databaseManager.getGenreFilterItems()
+        case .decades:
+            return databaseManager.getDecadeFilterItems()
+        case .years:
+            return databaseManager.getYearFilterItems()
+        }
     }
 
     // MARK: - File Watching
