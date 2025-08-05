@@ -161,6 +161,7 @@ struct HomeView: View {
                         .scaleEffect(0.8)
                 }
                 .buttonStyle(.borderless)
+                .hoverEffect(scale: 1.1)
                 .help("Sort tracks \(trackListSortAscending ? "ascending" : "descending")")
             }
             
@@ -232,6 +233,7 @@ struct HomeView: View {
                         .scaleEffect(0.8)
                 }
                 .buttonStyle(.borderless)
+                .hoverEffect(scale: 1.1)
                 .help("Sort tracks \(trackListSortAscending ? "ascending" : "descending")")
             }
             
@@ -300,6 +302,7 @@ struct HomeView: View {
                         .scaleEffect(0.8)
                 }
                 .buttonStyle(.borderless)
+                .hoverEffect(scale: 1.1)
                 .help("Sort \(entitySortAscending ? "descending" : "ascending")")
             }
             
@@ -387,6 +390,7 @@ struct HomeView: View {
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
                 .fixedSize()
+                .hoverEffect(activeBackgroundColor: Color(NSColor.controlColor))
                 .help("Sort albums")
             }
             
@@ -472,6 +476,7 @@ struct HomeView: View {
                                 .scaleEffect(0.8)
                         }
                         .buttonStyle(.borderless)
+                        .hoverEffect(scale: 1.1)
                         .help("Sort tracks \(trackListSortAscending ? "descending" : "ascending")")
                     }
 

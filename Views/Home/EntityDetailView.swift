@@ -107,6 +107,7 @@ struct EntityDetailView: View {
                             .scaleEffect(0.8)
                     }
                     .buttonStyle(.borderless)
+                    .hoverEffect(scale: 1.1)
                     .help("Sort tracks \(trackListSortAscending ? "descending" : "ascending")")
                 }
             }

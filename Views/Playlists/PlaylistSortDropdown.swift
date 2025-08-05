@@ -56,6 +56,7 @@ struct PlaylistSortDropdown: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
+        .hoverEffect(activeBackgroundColor: Color(NSColor.controlColor))
         .help("Sort playlist tracks by \(getCurrentSortLabel())")
     }
     

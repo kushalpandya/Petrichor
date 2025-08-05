@@ -686,32 +686,6 @@ private struct PlayPauseIcon: View {
     }
 }
 
-// MARK: - Hover Effect Modifier
-
-struct HoverEffect: ViewModifier {
-    let scaleAmount: CGFloat
-    @State private var isHovered = false
-
-    init(scale: CGFloat = 1.1) {
-        self.scaleAmount = scale
-    }
-
-    func body(content: Content) -> some View {
-        content
-            .scaleEffect(isHovered ? scaleAmount : 1.0)
-            .animation(.easeInOut(duration: 0.2), value: isHovered)
-            .onHover { hovering in
-                isHovered = hovering
-            }
-    }
-}
-
-extension View {
-    func hoverEffect(scale: CGFloat = 1.1) -> some View {
-        modifier(HoverEffect(scale: scale))
-    }
-}
-
 #Preview {
     struct PreviewWrapper: View {
         @State private var showingQueue = false

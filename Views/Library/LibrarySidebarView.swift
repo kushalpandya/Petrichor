@@ -151,6 +151,7 @@ struct LibrarySidebarView: View {
                     .scaleEffect(0.8)
             }
             .buttonStyle(.borderless)
+            .hoverEffect(scale: 1.1)
             .help("Sort \(sortAscending ? "descending" : "ascending")")
         }
     }
