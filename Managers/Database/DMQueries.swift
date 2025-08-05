@@ -252,25 +252,42 @@ extension DatabaseManager {
                 
                 switch filterType {
                 case .artists, .albumArtists, .composers:
-                    // For artist-based filters, use normalized matching
-                    let normalizedSearchName = ArtistParser.normalizeArtistName(value)
-                    
-                    guard let artist = try Artist
-                        .filter((Artist.Columns.name == value) || (Artist.Columns.normalizedName == normalizedSearchName))
-                        .fetchOne(db),
-                        let artistId = artist.id else {
-                        return []
+                    if value == filterType.unknownPlaceholder {
+                        switch filterType {
+                        case .artists:
+                            tracks = try Track.lightweightRequest()
+                                .filter(Track.Columns.artist == value)
+                                .fetchAll(db)
+                        case .albumArtists:
+                            tracks = try Track.lightweightRequest()
+                                .filter(Track.Columns.albumArtist == value)
+                                .fetchAll(db)
+                        case .composers:
+                            tracks = try Track.lightweightRequest()
+                                .filter(Track.Columns.composer == value)
+                                .fetchAll(db)
+                        default:
+                            return []
+                        }
+                    } else {
+                        let normalizedSearchName = ArtistParser.normalizeArtistName(value)
+                        
+                        guard let artist = try Artist
+                            .filter((Artist.Columns.name == value) || (Artist.Columns.normalizedName == normalizedSearchName))
+                            .fetchOne(db),
+                            let artistId = artist.id else {
+                            return []
+                        }
+                        
+                        let trackIds = try TrackArtist
+                            .filter(TrackArtist.Columns.artistId == artistId)
+                            .select(TrackArtist.Columns.trackId, as: Int64.self)
+                            .fetchAll(db)
+                        
+                        tracks = try Track.lightweightRequest()
+                            .filter(trackIds.contains(Track.Columns.trackId))
+                            .fetchAll(db)
                     }
-                    
-                    // Get track IDs for this artist
-                    let trackIds = try TrackArtist
-                        .filter(TrackArtist.Columns.artistId == artistId)
-                        .select(TrackArtist.Columns.trackId, as: Int64.self)
-                        .fetchAll(db)
-                    
-                    tracks = try Track.lightweightRequest()
-                        .filter(trackIds.contains(Track.Columns.trackId))
-                        .fetchAll(db)
                         
                 case .albums:
                     tracks = try Track.lightweightRequest()
