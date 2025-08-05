@@ -6,8 +6,11 @@
 
 import Foundation
 import AppKit
+import Sparkle
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
+    internal var updaterController: SPUStandardUpdaterController?
+
     func applicationWillFinishLaunching(_ notification: Notification) {
         // Apply color mode very early, before any windows are shown
         let colorMode = UserDefaults.standard.string(forKey: "colorMode") ?? "auto"
@@ -91,6 +94,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             selector: #selector(trackChanged),
             name: NSNotification.Name("CurrentTrackChanged"),
             object: nil
+        )
+        
+        updaterController = SPUStandardUpdaterController(
+            startingUpdater: true,
+            updaterDelegate: nil,
+            userDriverDelegate: nil
         )
         
         Logger.info("App finished launching")

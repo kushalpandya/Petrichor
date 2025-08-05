@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		5590877F2DE0C078009E7719 /* PetrichorApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5590877E2DE0C078009E7719 /* PetrichorApp.swift */; };
 		55B0DEC12DE3A58400A41ED9 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 55B0DEC02DE3A58400A41ED9 /* GRDB */; };
+		55D673CF2E42CEA50095A358 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 55D673CE2E42CEA50095A358 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -81,6 +82,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				55B0DEC12DE3A58400A41ED9 /* GRDB in Frameworks */,
+				55D673CF2E42CEA50095A358 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -133,6 +135,7 @@
 			name = Petrichor;
 			packageProductDependencies = (
 				55B0DEC02DE3A58400A41ED9 /* GRDB */,
+				55D673CE2E42CEA50095A358 /* Sparkle */,
 			);
 			productName = Petrichor;
 			productReference = 550F4A0E2DB45B1A005F794E /* Petrichor.app */;
@@ -164,6 +167,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				55B0DEBF2DE3A58400A41ED9 /* XCRemoteSwiftPackageReference "GRDB" */,
+				55D673CD2E42CEA50095A358 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 550F4A052DB45B1A005F794E;
@@ -415,6 +419,14 @@
 				minimumVersion = 7.5.0;
 			};
 		};
+		55D673CD2E42CEA50095A358 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.7.1;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -422,6 +434,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 55B0DEBF2DE3A58400A41ED9 /* XCRemoteSwiftPackageReference "GRDB" */;
 			productName = GRDB;
+		};
+		55D673CE2E42CEA50095A358 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 55D673CD2E42CEA50095A358 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

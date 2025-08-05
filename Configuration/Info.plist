@@ -35,5 +35,13 @@
     <true/>
     <key>NSSupportsAutomaticGraphicsSwitching</key>
     <true/>
+    
+    <!-- Sparkle Configuration -->
+    <key>SUPublicEDKey</key>
+    <string>YPobXg0pi8vxrnsOk3ApMu2QF46GSFW68vwXjzuNEz4=</string>
+    <key>SUFeedURL</key>
+    <string>https://kushalpandya.github.io/Petrichor/appcast.xml</string>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
 </dict>
 </plist>

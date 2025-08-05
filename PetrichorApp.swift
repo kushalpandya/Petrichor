@@ -59,6 +59,11 @@ struct PetrichorApp: App {
         CommandGroup(after: .appInfo) {
             settingsMenuItem()
         }
+        
+        CommandGroup(after: .appInfo) {
+            Divider()
+            checkForUpdatesMenuItem()
+        }
     }
     
     private func aboutMenuItem() -> some View {
@@ -78,6 +83,14 @@ struct PetrichorApp: App {
             )
         }
         .keyboardShortcut(",", modifiers: .command)
+    }
+    
+    private func checkForUpdatesMenuItem() -> some View {
+        Button("Check for Updates...") {
+            if let updater = appDelegate.updaterController?.updater {
+                updater.checkForUpdates()
+            }
+        }
     }
     
     // MARK: - Playback Menu Commands

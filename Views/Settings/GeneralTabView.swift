@@ -1,4 +1,5 @@
 import SwiftUI
+import Sparkle
 
 struct GeneralTabView: View {
     @AppStorage("startAtLogin")
@@ -9,6 +10,9 @@ struct GeneralTabView: View {
     
     @AppStorage("hideDuplicateTracks")
     private var hideDuplicateTracks: Bool = true
+    
+    @AppStorage("automaticUpdatesEnabled")
+    private var automaticUpdatesEnabled = true
 
     @AppStorage("autoScanInterval")
     private var autoScanInterval: AutoScanInterval = .every60Minutes
@@ -63,6 +67,14 @@ struct GeneralTabView: View {
                         // Force UserDefaults to write immediately to prevent out of sync
                         Logger.info("Hide duplicate songs setting changed to \(hideDuplicateTracks), synchronizing UserDefaults, this will require a relaunch")
                         UserDefaults.standard.synchronize()
+                    }
+                Toggle("Check for updates automatically", isOn: $automaticUpdatesEnabled)
+                    .help("Automatically download and install updates when available")
+                    .onChange(of: automaticUpdatesEnabled) { _, newValue in
+                        if let appDelegate = NSApp.delegate as? AppDelegate,
+                           let updater = appDelegate.updaterController?.updater {
+                            updater.automaticallyChecksForUpdates = newValue
+                        }
                     }
             }
 
@@ -125,7 +137,7 @@ struct GeneralTabView: View {
         .scrollDisabled(true)
         .scrollContentBackground(.hidden)
         .background(Color.clear)
-        .padding()
+        .padding(5)
         .onChange(of: colorMode) { _, newValue in
             updateAppearance(newValue)
         }
