@@ -4,11 +4,11 @@ struct AppInfo {
     // MARK: - Version Information
 
     static var version: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? About.appVersion
     }
     
     static var build: String {
-        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? About.appBuild
     }
     
     static var versionWithBuild: String {
@@ -22,7 +22,7 @@ struct AppInfo {
     // MARK: - App Information
     
     static var name: String {
-        Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "Petrichor"
+        Bundle.main.infoDictionary?["CFBundleName"] as? String ?? About.appTitle
     }
     
     static var displayName: String {
@@ -30,7 +30,7 @@ struct AppInfo {
     }
     
     static var bundleIdentifier: String {
-        Bundle.main.bundleIdentifier ?? "org.Petrichor"
+        Bundle.main.bundleIdentifier ?? About.bundleIdentifier
     }
     
     // MARK: - Build Information

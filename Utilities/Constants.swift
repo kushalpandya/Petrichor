@@ -81,6 +81,8 @@ enum About {
     static let appWiki = "https://github.com/kushalpandya/Petrichor/wiki"
     static let sponsor = "https://github.com/sponsors/kushalpandya"
     static let appPlaybackQueueLabel = "org.Petrichor.playback"
+    static let appVersion = "1.0.0"
+    static let appBuild = "1"
 }
 
 // MARK: - Audio File Formats
