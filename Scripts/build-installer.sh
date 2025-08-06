@@ -111,12 +111,14 @@ run_build() {
     local arch="$3"
     shift 3
     
-    # Configure signing based on bypass flag
+    # Configure signing based on available credentials
     local sign_config=""
-    if [ "$BYPASS_NOTARY" = true ]; then
-        sign_config="CODE_SIGN_IDENTITY='' CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO DEVELOPMENT_TEAM=''"
-    else
+    if [ -n "$DEVELOPER_ID" ] && [ "$DEVELOPER_ID" != "-" ]; then
+        # Use Developer ID (paid account)
         sign_config="DEVELOPMENT_TEAM='$TEAM_ID' CODE_SIGN_IDENTITY='$DEVELOPER_ID' CODE_SIGNING_REQUIRED=YES CODE_SIGNING_ALLOWED=YES CODE_SIGN_STYLE=Manual ENABLE_HARDENED_RUNTIME=YES OTHER_CODE_SIGN_FLAGS='--timestamp --options=runtime'"
+    else
+        # Use automatic signing (free account)
+        sign_config="CODE_SIGN_IDENTITY='Apple Development' CODE_SIGNING_REQUIRED=YES CODE_SIGNING_ALLOWED=YES CODE_SIGN_STYLE=Automatic ENABLE_HARDENED_RUNTIME=NO"
     fi
     
     local cmd="xcodebuild $action \
@@ -202,19 +204,11 @@ create_installer() {
         return 1
     fi
     
-    # Step 2: Export
+    # Step 2: Export based on signing method
     info "Exporting signed app..."
     mkdir -p "$export_path"
     
-    if [ "$BYPASS_NOTARY" = true ]; then
-        # For ad-hoc builds, extract and sign manually
-        cp -R "$archive_path/Products/Applications/$APP_NAME.app" "$export_path/" || {
-            error "Failed to extract app from archive"; return 1
-        }
-        codesign --force --deep --sign "-" "$export_path/$APP_NAME.app" || {
-            error "Failed to ad-hoc sign app"; return 1
-        }
-    else
+    if [ -n "$DEVELOPER_ID" ] && [ "$DEVELOPER_ID" != "-" ]; then
         # Export with Developer ID
         cat > "$BUILD_DIR/exportOptions.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -228,19 +222,37 @@ create_installer() {
 </dict>
 </plist>
 EOF
+        
         xcodebuild -exportArchive \
             -archivePath "$archive_path" \
             -exportPath "$export_path" \
             -exportOptionsPlist "$BUILD_DIR/exportOptions.plist" &>/dev/null
+    else
+        # Export with development signing (free account)
+        cat > "$BUILD_DIR/exportOptions.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>development</string>
+</dict>
+</plist>
+EOF
         
-        [ -d "$export_path/$APP_NAME.app" ] || { error "Export failed"; return 1; }
+        xcodebuild -exportArchive \
+            -archivePath "$archive_path" \
+            -exportPath "$export_path" \
+            -exportOptionsPlist "$BUILD_DIR/exportOptions.plist" &>/dev/null
     fi
+    
+    [ -d "$export_path/$APP_NAME.app" ] || { error "Export failed"; return 1; }
     
     # Step 3: Notarize app (skip if bypassing)
     if [ "$BYPASS_NOTARY" = false ]; then
         notarize "$export_path/$APP_NAME.app" "app" || return 1
     else
-        warning "Skipping app notarization (ad-hoc signed)"
+        warning "Skipping app notarization (signed but not notarized)"
     fi
     
     # Step 4: Create DMG
@@ -269,17 +281,18 @@ EOF
     cd - >/dev/null
     [ -f "$dmg_path" ] || { error "DMG creation failed!"; return 1; }
     
-    # Step 5: Sign and notarize DMG
-    local sign_id="$DEVELOPER_ID"
-    [ "$BYPASS_NOTARY" = true ] && sign_id="-"
-    
-    info "Signing DMG..."
-    codesign --force --sign "$sign_id" "$dmg_path"
-    
-    if [ "$BYPASS_NOTARY" = false ]; then
-        notarize "$dmg_path" "DMG" || return 1
+    # Step 5: Sign DMG if we have Developer ID
+    if [ -n "$DEVELOPER_ID" ] && [ "$DEVELOPER_ID" != "-" ]; then
+        info "Signing DMG..."
+        codesign --force --sign "$DEVELOPER_ID" "$dmg_path"
+        
+        if [ "$BYPASS_NOTARY" = false ]; then
+            notarize "$dmg_path" "DMG" || return 1
+        else
+            warning "Skipping DMG notarization (signed but not notarized)"
+        fi
     else
-        warning "Skipping DMG notarization (ad-hoc signed)"
+        warning "DMG not signed (using free developer account)"
     fi
     
     # Generate checksum
@@ -302,34 +315,47 @@ print_usage() {
     echo "  --intel-only        Build Intel-only installer"
     echo "  --arm-only          Build Apple Silicon-only installer"
     echo "  --separate          Build separate Intel and Apple Silicon installers"
-    echo "  --bypass-notary     Skip notarization and use ad-hoc signing"
+    echo "  --bypass-notary     Skip notarization (still signs with Developer ID)"
     echo "  --help              Show this help message"
 }
 
 # Print bypass instructions
 print_bypass_instructions() {
-    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${YELLOW}⚠️  Ad-hoc Signed Build - Manual Installation Required${NC}"
-    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
-    
-    echo -e "This build is not notarized and will be blocked by Gatekeeper."
-    echo -e "Users must manually bypass Gatekeeper to install:\n"
-    
-    echo -e "${GREEN}Option 1: Remove quarantine from DMG and App${NC}"
-    echo -e "  ${YELLOW}# For the DMG:${NC}"
-    echo -e "  xattr -cr ~/Downloads/Petrichor-*.dmg\n"
-    echo -e "  ${YELLOW}# After installing, for the app:${NC}"
-    echo -e "  xattr -cr /Applications/Petrichor.app\n"
-    
-    echo -e "${GREEN}Option 2: Right-click method${NC}"
-    echo -e "  1. Right-click the DMG → Open"
-    echo -e "  2. Right-click Petrichor.app → Open"
-    echo -e "  3. Click 'Open' in the warning dialog\n"
-    
-    echo -e "${GREEN}Option 3: System Settings${NC}"
-    echo -e "  1. Try to open the app (it will be blocked)"
-    echo -e "  2. Go to System Settings → Privacy & Security"
-    echo -e "  3. Click 'Open Anyway' next to the Petrichor blocked message\n"
+    if [ -n "$DEVELOPER_ID" ] && [ "$DEVELOPER_ID" != "-" ]; then
+        # Instructions for Developer ID signed but not notarized
+        echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "${YELLOW}⚠️  Signed but Not Notarized - Testing Build${NC}"
+        echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
+        
+        echo -e "This build is signed with your Developer ID but not notarized."
+        echo -e "Users will see an 'unidentified developer' warning.\n"
+        
+        echo -e "${GREEN}To install:${NC}"
+        echo -e "  1. Right-click the DMG → Open"
+        echo -e "  2. Click 'Open' in the warning dialog"
+        echo -e "  3. Drag Petrichor to Applications"
+        echo -e "  4. Right-click Petrichor.app → Open"
+        echo -e "  5. Click 'Open' in the warning dialog\n"
+    else
+        # Instructions for free account development build
+        echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "${YELLOW}⚠️  Development Build - Free Account${NC}"
+        echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
+        
+        echo -e "${RED}IMPORTANT LIMITATIONS:${NC}"
+        echo -e "  • This app will ${RED}expire after 7 days${NC}"
+        echo -e "  • It may only work on this machine"
+        echo -e "  • Cannot be shared with other users\n"
+        
+        echo -e "${GREEN}To install:${NC}"
+        echo -e "  1. Open the DMG"
+        echo -e "  2. Drag Petrichor to Applications"
+        echo -e "  3. Open Petrichor from Applications"
+        echo -e "  4. If blocked, go to System Settings → Privacy & Security"
+        echo -e "  5. Click 'Open Anyway'\n"
+        
+        echo -e "${YELLOW}After 7 days:${NC} You'll need to rebuild the app with this script.\n"
+    fi
     
     echo -e "${YELLOW}Note:${NC} This build is for testing only, not for distribution to end users.\n"
 }
@@ -356,8 +382,9 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Validate environment variables (skip if bypassing notarization)
+# Validate environment variables based on mode
 if [ "$BYPASS_NOTARY" = false ]; then
+    # Full notarization requires Developer ID
     if [ -z "$TEAM_ID" ] || [ -z "$DEVELOPER_ID" ]; then
         error "Missing required environment variables for notarization!"
         echo ""
@@ -369,9 +396,29 @@ if [ "$BYPASS_NOTARY" = false ]; then
         echo "  export PETRICHOR_TEAM_ID=\"ABCD1234XY\""
         echo "  export PETRICHOR_DEVELOPER_ID=\"Developer ID Application: John Doe (ABCD1234XY)\""
         echo ""
-        echo "Or run with --bypass-notary to skip notarization:"
-        echo "  $0 --bypass-notary"
+        echo "Or run with --bypass-notary to skip notarization"
         exit 1
+    fi
+else
+    # Bypass mode - check if we have Developer ID, otherwise use free account
+    if [ -z "$TEAM_ID" ] || [ -z "$DEVELOPER_ID" ]; then
+        warning "No Developer ID found - will use free Apple Developer account"
+        warning "⚠️  The app will be signed with a development certificate that:"
+        warning "   • Expires after 7 days"
+        warning "   • May only work on this machine"
+        warning "   • Cannot be distributed to other users"
+        echo ""
+        echo "This is suitable for personal use and testing only."
+        echo ""
+        read -p "Continue with development signing? (y/n) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            exit 1
+        fi
+        TEAM_ID=""
+        DEVELOPER_ID=""
+    else
+        info "Using Developer ID for signing (without notarization)"
     fi
 fi
 
@@ -386,7 +433,7 @@ if [ "$BYPASS_NOTARY" = false ]; then
         exit 1
     fi
 else
-    warning "Bypassing notarization - will use ad-hoc signing"
+    warning "Bypassing notarization - app will be signed but not notarized"
 fi
 
 # Check requirements
@@ -444,7 +491,11 @@ for dmg in "$BUILD_DIR"/*.dmg; do
         echo -e "   📏 Size: ${GREEN}$(du -h "$dmg" | cut -f1)${NC}"
         echo -e "   📋 SHA256: ${GREEN}$(cat "$dmg.sha256" | awk '{print $1}')${NC}"
         if [ "$BYPASS_NOTARY" = true ]; then
-            echo -e "   ⚠️  ${YELLOW}Ad-hoc signed (not notarized)${NC}"
+            if [ -n "$DEVELOPER_ID" ] && [ "$DEVELOPER_ID" != "-" ]; then
+                echo -e "   ⚠️  ${YELLOW}Signed but not notarized${NC}"
+            else
+                echo -e "   ⚠️  ${YELLOW}Development build (expires in 7 days)${NC}"
+            fi
         else
             echo -e "   ✅ Notarized and ready for distribution"
         fi
