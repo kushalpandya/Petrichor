@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+    <channel>
+        <title>Petrichor Updates</title>
+        <description>Updates for Petrichor</description>
+        <language>en</language>
+        <item>
+            <title>Version 1.0.0-beta-2</title>
+            <pubDate>Wed, 30 Jul 2025 20:46:38 -0400</pubDate>
+            <sparkle:version>1.0.0-beta-2</sparkle:version>
+            <sparkle:shortVersionString>1.0.0-beta-2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure 
+                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.0.0-beta-2/Petrichor-1.0.0-beta-2-Universal.dmg"
+                length="1"
+                type="application/octet-stream" />
+            <description><![CDATA[
+                <h2>Initial Release</h2>
+                <p>This is the current version.</p>
+            ]]></description>
+        </item>
+    </channel>
+</rss>
