@@ -62,7 +62,7 @@ class MenuBarManager: NSObject {
     private func setupMenuBar() {
         guard statusItem == nil else { return }
         
-        guard NSApp.windows.count > 0 else {
+        guard !NSApp.windows.isEmpty else {
             // Retry after a delay if app isn't ready
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
                 self?.setupMenuBar()
