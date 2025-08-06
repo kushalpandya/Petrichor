@@ -38,9 +38,11 @@ class MenuBarManager: NSObject {
             object: nil
         )
 
-        // Set up initial state
-        if UserDefaults.standard.bool(forKey: "closeToMenubar") {
-            setupMenuBar()
+        // Defer menubar setup until app is fully launched
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            if UserDefaults.standard.bool(forKey: "closeToMenubar") {
+                self?.setupMenuBar()
+            }
         }
     }
 
@@ -59,6 +61,14 @@ class MenuBarManager: NSObject {
 
     private func setupMenuBar() {
         guard statusItem == nil else { return }
+        
+        guard NSApp.windows.count > 0 else {
+            // Retry after a delay if app isn't ready
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.setupMenuBar()
+            }
+            return
+        }
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
