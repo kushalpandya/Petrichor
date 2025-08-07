@@ -126,6 +126,7 @@ extension PlaylistManager {
         // Perform the track removal on main thread
         await MainActor.run {
             self.playlists[index].removeTrack(track)
+            self.playlists[index].trackCount = self.playlists[index].tracks.count
         }
 
         // Save to database
@@ -134,13 +135,12 @@ extension PlaylistManager {
                 // Get the updated playlist from main thread
                 let updatedPlaylist = await MainActor.run { self.playlists[index] }
                 try await dbManager.savePlaylistAsync(updatedPlaylist)
-                Logger.info("Removed track from playlist")
             }
         } catch {
             Logger.error("Failed to save playlist: \(error)")
-            // Revert change on main thread
             await MainActor.run {
                 self.playlists[index].addTrack(track)
+                self.playlists[index].trackCount = self.playlists[index].tracks.count
             }
         }
     }
@@ -154,20 +154,70 @@ extension PlaylistManager {
             return
         }
         
-        // Add tracks that don't already exist
-        for track in tracks {
-            if !playlists[index].tracks.contains(where: { $0.id == track.id }) {
-                playlists[index].addTrack(track)
+        await MainActor.run {
+            let existingTrackIds = Set(self.playlists[index].tracks.compactMap { $0.trackId })
+            let newTracks = tracks.filter { track in
+                guard let trackId = track.trackId else { return false }
+                return !existingTrackIds.contains(trackId)
             }
+            
+            // Batch append all new tracks
+            self.playlists[index].tracks.append(contentsOf: newTracks)
+            
+            // Update metadata
+            self.playlists[index].dateModified = Date()
+            self.playlists[index].trackCount = self.playlists[index].tracks.count
+            
+            Logger.info("Added \(newTracks.count) tracks to playlist '\(self.playlists[index].name)'")
         }
         
-        // Save to database
+        let updatedPlaylist = await MainActor.run { self.playlists[index] }
         do {
             if let dbManager = libraryManager?.databaseManager {
-                try await dbManager.savePlaylistAsync(playlists[index])
+                try await dbManager.savePlaylistAsync(updatedPlaylist)
+                Logger.info("Saved playlist with \(updatedPlaylist.trackCount) tracks to database")
             }
         } catch {
             Logger.error("Failed to save playlist after adding tracks: \(error)")
+        }
+    }
+    
+    /// Remove multiple tracks from a playlist efficiently
+    func removeTracksFromPlaylist(tracks: [Track], playlistID: UUID) async {
+        guard let index = playlists.firstIndex(where: { $0.id == playlistID }),
+              playlists[index].type == .regular,
+              playlists[index].isContentEditable else {
+            Logger.warning("Cannot remove tracks from this playlist")
+            return
+        }
+        
+        // Update the playlist on main thread
+        await MainActor.run {
+            // Create a Set of track IDs to remove for efficient lookup
+            let trackIdsToRemove = Set(tracks.compactMap { $0.trackId })
+            
+            // Remove all matching tracks in one go
+            self.playlists[index].tracks.removeAll { track in
+                guard let trackId = track.trackId else { return false }
+                return trackIdsToRemove.contains(trackId)
+            }
+            
+            // Update metadata
+            self.playlists[index].dateModified = Date()
+            self.playlists[index].trackCount = self.playlists[index].tracks.count
+            
+            Logger.info("Removed \(tracks.count) tracks from playlist '\(self.playlists[index].name)'")
+        }
+        
+        // Save to database in background (single write)
+        let updatedPlaylist = await MainActor.run { self.playlists[index] }
+        do {
+            if let dbManager = libraryManager?.databaseManager {
+                try await dbManager.savePlaylistAsync(updatedPlaylist)
+                Logger.info("Saved playlist with \(updatedPlaylist.trackCount) tracks to database")
+            }
+        } catch {
+            Logger.error("Failed to save playlist after removing tracks: \(error)")
         }
     }
     

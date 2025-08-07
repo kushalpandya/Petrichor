@@ -11,8 +11,8 @@ struct AddSongsToPlaylistSheet: View {
     @EnvironmentObject var playlistManager: PlaylistManager
 
     @State private var searchText = ""
-    @State private var selectedTracks: Set<UUID> = []
-    @State private var tracksToRemove: Set<UUID> = []
+    @State private var selectedTracks: Set<Int64> = []
+    @State private var tracksToRemove: Set<Int64> = []
     @State private var sortOrder: SortOrder = .title
     @State private var searchResults: [Track] = []
     @State private var isSearching = false
@@ -64,9 +64,9 @@ struct AddSongsToPlaylistSheet: View {
                 List(visibleTracks, id: \.id) { track in
                     TrackSelectionRow(
                         track: track,
-                        isSelected: selectedTracks.contains(track.id),
+                        isSelected: track.trackId != nil && selectedTracks.contains(track.trackId!),
                         isAlreadyInPlaylist: track.trackId != nil && playlistTrackDatabaseIDs.contains(track.trackId!),
-                        isMarkedForRemoval: tracksToRemove.contains(track.id)
+                        isMarkedForRemoval: track.trackId != nil && tracksToRemove.contains(track.trackId!)
                     ) {
                         toggleTrackSelection(track)
                     }
@@ -278,20 +278,46 @@ struct AddSongsToPlaylistSheet: View {
     }
 
     private var allSelectableTracksSelected: Bool {
-        let selectableTracks = visibleTracks.filter { track in
+        let notInPlaylistTracks = visibleTracks.filter { track in
             guard let trackId = track.trackId else { return true }
             return !playlistTrackDatabaseIDs.contains(trackId)
         }
-        return !selectableTracks.isEmpty && selectableTracks.allSatisfy { selectedTracks.contains($0.id) }
+        let inPlaylistTracks = visibleTracks.filter { track in
+            guard let trackId = track.trackId else { return false }
+            return playlistTrackDatabaseIDs.contains(trackId)
+        }
+        
+        let allNotInPlaylistSelected = notInPlaylistTracks.allSatisfy { track in
+            track.trackId != nil && selectedTracks.contains(track.trackId!)
+        }
+        let allInPlaylistMarked = inPlaylistTracks.allSatisfy { track in
+            track.trackId != nil && tracksToRemove.contains(track.trackId!)
+        }
+        
+        return !visibleTracks.isEmpty && allNotInPlaylistSelected && allInPlaylistMarked
     }
 
     private var someSelectableTracksSelected: Bool {
-        let selectableTracks = visibleTracks.filter { track in
+        let notInPlaylistTracks = visibleTracks.filter { track in
             guard let trackId = track.trackId else { return true }
             return !playlistTrackDatabaseIDs.contains(trackId)
         }
-        let selectedCount = selectableTracks.filter { selectedTracks.contains($0.id) }.count
-        return selectedCount > 0 && selectedCount < selectableTracks.count
+        let inPlaylistTracks = visibleTracks.filter { track in
+            guard let trackId = track.trackId else { return false }
+            return playlistTrackDatabaseIDs.contains(trackId)
+        }
+        
+        let selectedNotInPlaylist = notInPlaylistTracks.filter { track in
+            track.trackId != nil && selectedTracks.contains(track.trackId!)
+        }.count
+        let markedInPlaylist = inPlaylistTracks.filter { track in
+            track.trackId != nil && tracksToRemove.contains(track.trackId!)
+        }.count
+        
+        let totalSelected = selectedNotInPlaylist + markedInPlaylist
+        let totalTracks = visibleTracks.count
+        
+        return totalSelected > 0 && totalSelected < totalTracks
     }
 
     private var selectAllCheckboxImage: String {
@@ -371,76 +397,103 @@ struct AddSongsToPlaylistSheet: View {
     // MARK: - Actions
 
     private func toggleSelectAll() {
-        let selectableTracks = visibleTracks.filter { track in
+        let inPlaylistTracks = visibleTracks.filter { track in
+            guard let trackId = track.trackId else { return false }
+            return playlistTrackDatabaseIDs.contains(trackId)
+        }
+        
+        let notInPlaylistTracks = visibleTracks.filter { track in
             guard let trackId = track.trackId else { return true }
             return !playlistTrackDatabaseIDs.contains(trackId)
         }
-
-        if allSelectableTracksSelected {
-            // Deselect all
-            for track in selectableTracks {
-                selectedTracks.remove(track.id)
+        
+        // Check if all tracks (both in and not in playlist) are selected/marked
+        let allNotInPlaylistSelected = notInPlaylistTracks.allSatisfy { track in
+            track.trackId != nil && selectedTracks.contains(track.trackId!)
+        }
+        let allInPlaylistMarked = inPlaylistTracks.allSatisfy { track in
+            track.trackId != nil && tracksToRemove.contains(track.trackId!)
+        }
+        
+        if allNotInPlaylistSelected && allInPlaylistMarked {
+            // Everything is selected/marked - deselect all
+            for track in notInPlaylistTracks {
+                if let trackId = track.trackId {
+                    selectedTracks.remove(trackId)
+                }
+            }
+            for track in inPlaylistTracks {
+                if let trackId = track.trackId {
+                    tracksToRemove.remove(trackId)
+                }
             }
         } else {
-            // Select all
-            for track in selectableTracks {
-                selectedTracks.insert(track.id)
+            // Not everything is selected - select all
+            for track in notInPlaylistTracks {
+                if let trackId = track.trackId {
+                    selectedTracks.insert(trackId)
+                }
+            }
+            for track in inPlaylistTracks {
+                if let trackId = track.trackId {
+                    tracksToRemove.insert(trackId)
+                }
             }
         }
     }
 
     private func toggleTrackSelection(_ track: Track) {
-        let isInPlaylist = track.trackId != nil && playlistTrackDatabaseIDs.contains(track.trackId!)
-
+        guard let trackId = track.trackId else { return }
+        
+        let isInPlaylist = playlistTrackDatabaseIDs.contains(trackId)
+        
         if isInPlaylist {
-            // Track is in playlist - toggle removal
-            if tracksToRemove.contains(track.id) {
-                tracksToRemove.remove(track.id)
+            if tracksToRemove.contains(trackId) {
+                tracksToRemove.remove(trackId)
             } else {
-                tracksToRemove.insert(track.id)
+                tracksToRemove.insert(trackId)
             }
         } else {
-            // Track not in playlist - toggle addition
-            if selectedTracks.contains(track.id) {
-                selectedTracks.remove(track.id)
+            if selectedTracks.contains(trackId) {
+                selectedTracks.remove(trackId)
             } else {
-                selectedTracks.insert(track.id)
+                selectedTracks.insert(trackId)
             }
         }
     }
 
     private func applyChanges() {
-        // Collect tracks to add from search results instead of libraryManager.tracks
-        var tracksToAdd: [Track] = []
-        for trackId in selectedTracks {
-            if let track = searchResults.first(where: { $0.id == trackId }) {
-                tracksToAdd.append(track)
-            }
-        }
-
-        // Collect tracks to remove from search results
-        var tracksToRemoveList: [Track] = []
-        for trackId in tracksToRemove {
-            if let track = searchResults.first(where: { $0.id == trackId }) {
-                tracksToRemoveList.append(track)
-            }
-        }
-
-        // Apply operations
-        for track in tracksToAdd {
-            playlistManager.addTrackToPlaylist(track: track, playlistID: playlist.id)
-        }
-
-        for track in tracksToRemoveList {
-            playlistManager.removeTrackFromPlaylist(track: track, playlistID: playlist.id)
-        }
-
-        // Clean up before dismissing
+        let trackIdsToAdd = Array(selectedTracks)
+        let trackIdsToRemove = Array(tracksToRemove)
+        let targetPlaylistId = playlist.id
+        
         searchResults = []
         selectedTracks = []
         tracksToRemove = []
-        
         dismiss()
+        
+        Task<Void, Never> {
+            // Fetch tracks from database
+            var tracksToAdd = libraryManager.databaseManager.getTracks(byIds: trackIdsToAdd)
+            var tracksToRemoveList = libraryManager.databaseManager.getTracks(byIds: trackIdsToRemove)
+            
+            // Populate album artwork
+            libraryManager.databaseManager.populateAlbumArtworkForTracks(&tracksToAdd)
+            libraryManager.databaseManager.populateAlbumArtworkForTracks(&tracksToRemoveList)
+            
+            if !tracksToAdd.isEmpty {
+                await playlistManager.addTracksToPlaylist(tracks: tracksToAdd, playlistID: targetPlaylistId)
+            }
+            
+            if !tracksToRemoveList.isEmpty {
+                await playlistManager.removeTracksFromPlaylist(tracks: tracksToRemoveList, playlistID: targetPlaylistId)
+            }
+            
+            let totalChanges = tracksToAdd.count + tracksToRemoveList.count
+            if totalChanges > 0 {
+                Logger.info("Successfully updated playlist: added \(tracksToAdd.count), removed \(tracksToRemoveList.count) tracks")
+            }
+        }
     }
 
     private func performSearch() {
