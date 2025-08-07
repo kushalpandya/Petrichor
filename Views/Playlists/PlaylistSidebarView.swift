@@ -6,6 +6,8 @@ struct PlaylistSidebarView: View {
     @State private var showingCreatePlaylist = false
     @State private var newPlaylistName = ""
     @State private var selectedSidebarItem: PlaylistSidebarItem?
+    @State private var playlistToDelete: Playlist?
+    @State private var showingDeleteConfirmation = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -17,6 +19,24 @@ struct PlaylistSidebarView: View {
         }
         .sheet(isPresented: $showingCreatePlaylist) {
             createPlaylistSheet
+        }
+        .alert("Delete Playlist", isPresented: $showingDeleteConfirmation) {
+            Button("Cancel", role: .cancel) {
+                playlistToDelete = nil
+            }
+            Button("Delete", role: .destructive) {
+                if let playlist = playlistToDelete {
+                    playlistManager.deletePlaylist(playlist)
+                    if selectedPlaylist?.id == playlist.id {
+                        selectedPlaylist = nil
+                    }
+                    playlistToDelete = nil
+                }
+            }
+        } message: {
+            if let playlist = playlistToDelete {
+                Text("Are you sure you want to delete \"\(playlist.name)\"? This action cannot be undone.")
+            }
         }
         .onAppear {
             updateSelectedSidebarItem()
@@ -88,10 +108,11 @@ struct PlaylistSidebarView: View {
         
         if playlist.isUserEditable {
             items.append(.divider)
-            items.append(.button(title: "Rename") {}) // Action handled by SidebarView
+            items.append(.button(title: "Rename") {})
             items.append(.divider)
             items.append(.button(title: "Delete", role: .destructive) {
-                playlistManager.deletePlaylist(playlist)
+                playlistToDelete = playlist
+                showingDeleteConfirmation = true
             })
         }
         
