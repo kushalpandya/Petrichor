@@ -40,8 +40,21 @@ class FolderNode: Identifiable, ObservableObject {
 
     // Helper to get all tracks in this folder (immediate only)
     func getImmediateTracks(using libraryManager: LibraryManager) -> [Track] {
-        libraryManager.tracks.filter { track in
-            track.url.deletingLastPathComponent() == self.url
+        let allTracks: [Track]
+        
+        if let dbFolder = databaseFolder {
+            allTracks = libraryManager.getTracksInFolder(dbFolder)
+        } else {
+            guard let parentFolder = libraryManager.folders.first(where: {
+                self.url.path.starts(with: $0.url.path)
+            }) else {
+                return []
+            }
+            allTracks = libraryManager.getTracksInFolder(parentFolder)
+        }
+        
+        return allTracks.filter { track in
+            track.url.deletingLastPathComponent().path == self.url.path
         }
     }
 }
