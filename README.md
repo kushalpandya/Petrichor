@@ -36,18 +36,18 @@
 - Pin _anything_ (almost!) to the sidebar for quick access to your favorite music.
 - Navigate easily: right-click a track to go to its album, artist, year, etc.
 - Native macOS integration with menubar and dock playback controls, plus dark mode support.
-- Search quickly through large libraries containing thousands of songs.
+- Works with well large libraries containing thousands of songs.
 
 💡 **Tip**: Petrichor relies heavily on tracks having good metadata for all its features to work well.
 
-### ⌛ Planned features
+### ⌛ Upcoming Features
 
-- Smart playlists with user-configurable conditional filters
+- ~~Automatic in-app updates~~
 - Audio Equalizer
-- Extra file format support (eg; Opus & OGG)
+- Better file format support (eg; Opus & OGG)
 - AirPlay 2 casting support
 - Miniplayer and full-screen modes
-- Automatic in-app updates
+- Smart playlists with user-configurable conditional filters
 - Online album & artist information fetching
 - ... and much more!
 
@@ -78,16 +78,6 @@ _P.S. once stable release is ready, I'll publish it on official Homebrew repo._
 - Open the `.dmg` and drag the app icon into the Applications folder.
 - In Applications, right-click **Petrichor > Open**.
 
-#### Troubleshooting
-
-If you're unable to the app, that is because app is not notarized using paid
-Apple developer account, you can still run it by bypassing Gatekeeper once;
-
-- Right-clicking `.dmg` and selecting Open, same step for app itself once moved to Applications folder.
-  - If you're unable to open the dmg file, run `xattr -cr ~/path/to/Petrichor-<version>-Universal.dmg`
-    (replace with actual file name and path).
-- If that too doesn't work, do `xattr -dr com.apple.quarantine /Applications/Petrichor.app`.
-
 ### 📷 Screenshots
 
 <div align="center">
@@ -110,11 +100,11 @@ itch and learn Swift and macOS app development along the way!
 
 ### Implementation Overview
 
-- Built entirely with Swift and SwiftUI for the best macOS integration.
-- Once folders are added, the app scans them and populates a SQLite database using [GRDB](https://github.com/groue/GRDB.swift/).
-- Petrichor does **not** alter your music files, it only reads from the directories you add.
-- Tracks searching is powered by [SQLite FTS5](https://www.sqlite.org/fts5.html) with fall-back to in-memory search.
-- Playback is powered by [AVFoundation](https://developer.apple.com/av-foundation/).
+- Built with Swift and SwiftUI with some parts in AppKit for the best macOS integration.
+- Once folders containing music files are added, the app scans them, extracts required metadata, and populates the SQLite database.
+- The app does **not** alter your music files, it only reads from the directories you add.
+- Tracks searching is handled by [SQLite FTS5](https://www.sqlite.org/fts5.html).
+- Playback is handled by [AVFoundation](https://developer.apple.com/av-foundation/).
 
 <details>
 <summary>View Database Schema</summary>
@@ -321,7 +311,12 @@ erDiagram
 
 </details>
 
-### Setup
+#### Dependencies
+
+- [GRDB.swift](https://github.com/groue/GRDB.swift/)
+- [Sparkle](https://github.com/sparkle-project/Sparkle)
+
+### Development Setup
 
 - Make sure you’re running macOS 14 or later.
 - Install [Xcode](https://developer.apple.com/xcode/).
@@ -332,9 +327,3 @@ erDiagram
 ## 📝 License
 
 [MIT](LICENSE)
-
-## 🙏 Credits
-
-- [Paul Hudson](https://www.youtube.com/@twostraws) for creating all those Swift tutorials!
-- [create-dmg](https://github.com/sindresorhus/create-dmg) by awesome [Sindre Sorhus](https://sindresorhus.com/)!
-- [Claude by Anthropic](https://claude.ai/) for being a peer-programmer for this project!
