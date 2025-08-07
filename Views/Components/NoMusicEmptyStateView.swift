@@ -174,8 +174,7 @@ struct NoMusicEmptyStateView: View {
 
     private var scanningProgressContent: some View {
         VStack(spacing: 20) {
-            // Use our new scanning animation
-            ScanningAnimation()
+            ActivityAnimation(size: .large)
 
             VStack(spacing: 8) {
                 Text("Scanning Music Library")

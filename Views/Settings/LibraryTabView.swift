@@ -169,20 +169,18 @@ struct LibraryTabView: View {
                 RoundedRectangle(cornerRadius: 6)
                     .fill(Color.black.opacity(0.5))
                 
-                // Content container matching NoMusicEmptyStateView style
                 VStack(spacing: 20) {
-                    // Use the same ScanningAnimation component
-                    ScanningAnimation(size: 60, lineWidth: 3)
+                    ActivityAnimation(size: .medium)
                     
                     VStack(spacing: 8) {
                         Text("Refreshing Library")
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.primary) // Use primary color for proper light/dark mode
+                            .foregroundColor(.primary)
                         
                         Text(libraryManager.scanStatusMessage.isEmpty ?
-                             "Discovering your music..." : libraryManager.scanStatusMessage)
+                             "Refreshing Library..." : libraryManager.scanStatusMessage)
                             .font(.system(size: 12))
-                            .foregroundColor(.secondary) // Use secondary color
+                            .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                             .lineLimit(2)
                             .frame(maxWidth: 250, minHeight: 32)

@@ -211,7 +211,7 @@ struct NotificationTray: View {
     
     private var tooltipText: String {
         if manager.isActivityInProgress {
-            return manager.activityMessage.isEmpty ? "Background activity..." : manager.activityMessage
+            return manager.activityMessage.isEmpty ? "Refreshing Library..." : manager.activityMessage
         } else if hasNotifications {
             return "\(manager.messages.count) notification\(manager.messages.count == 1 ? "" : "s")"
         }
@@ -222,19 +222,8 @@ struct NotificationTray: View {
     
     @ViewBuilder
     private var activityIndicator: some View {
-        ZStack {
-            RotatingProgressView(
-                size: 16,
-                lineWidth: 2,
-                color: NSColor(Color.accentColor)
-            )
-            .frame(width: 16, height: 16)
-            
-            Image(systemName: Icons.musicNote)
-                .font(.system(size: 8, weight: .bold))
-                .foregroundColor(.accentColor)
-        }
-        .frame(width: 24, height: 24)
+        ActivityAnimation(size: .small)
+            .frame(width: 25, height: 25)
     }
 }
 
