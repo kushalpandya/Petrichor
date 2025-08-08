@@ -83,6 +83,7 @@ private struct ActivityAnimationRepresentable: NSViewRepresentable {
             context.coordinator.iconLayer = iconLayer
         }
         
+        // Only start animations if actually animating
         if isAnimating {
             startAnimations(progressLayer: progressLayer, iconLayer: context.coordinator.iconLayer)
         }
@@ -109,6 +110,11 @@ private struct ActivityAnimationRepresentable: NSViewRepresentable {
     class Coordinator {
         var progressLayer: CAShapeLayer?
         var iconLayer: CALayer?
+        
+        deinit {
+            progressLayer?.removeAllAnimations()
+            iconLayer?.removeAllAnimations()
+        }
     }
 }
 
@@ -213,6 +219,9 @@ private extension ActivityAnimationRepresentable {
     // MARK: - Animations
     
     func startAnimations(progressLayer: CAShapeLayer, iconLayer: CALayer?) {
+        progressLayer.removeAllAnimations()
+        iconLayer?.removeAllAnimations()
+        
         let rotationAnimation = CABasicAnimation(keyPath: "transform.rotation.z")
         rotationAnimation.fromValue = 0
         rotationAnimation.toValue = 2 * Double.pi
@@ -231,6 +240,7 @@ private extension ActivityAnimationRepresentable {
             scaleAnimation.duration = 2.0
             scaleAnimation.repeatCount = .infinity
             scaleAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            scaleAnimation.isRemovedOnCompletion = false
             
             let opacityAnimation = CAKeyframeAnimation(keyPath: "opacity")
             opacityAnimation.values = [0.7, 1.0, 0.7]
@@ -238,6 +248,7 @@ private extension ActivityAnimationRepresentable {
             opacityAnimation.duration = 1.5
             opacityAnimation.repeatCount = .infinity
             opacityAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            opacityAnimation.isRemovedOnCompletion = false
             
             iconLayer.add(scaleAnimation, forKey: "scale")
             iconLayer.add(opacityAnimation, forKey: "opacity")
@@ -245,12 +256,12 @@ private extension ActivityAnimationRepresentable {
     }
     
     func stopAnimations(progressLayer: CAShapeLayer, iconLayer: CALayer?) {
-        progressLayer.removeAnimation(forKey: "rotation")
+        progressLayer.removeAllAnimations()
+        iconLayer?.removeAllAnimations()
         
-        if let iconLayer = iconLayer {
-            iconLayer.removeAnimation(forKey: "scale")
-            iconLayer.removeAnimation(forKey: "opacity")
-        }
+        progressLayer.transform = CATransform3DIdentity
+        iconLayer?.transform = CATransform3DIdentity
+        iconLayer?.opacity = 1.0
     }
 }
 

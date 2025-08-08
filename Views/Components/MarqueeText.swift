@@ -1,143 +1,256 @@
 import SwiftUI
+import AppKit
 
 struct MarqueeText: View {
     let text: String
     let font: Font
     let color: Color
-
-    @State private var textSize: CGSize = .zero
-    @State private var containerWidth: CGFloat = 0
-
-    private var shouldAnimate: Bool {
-        textSize.width > containerWidth
+    let containerWidth: CGFloat
+    
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var needsAnimation = false
+    
+    init(text: String, font: Font = .system(size: 13), color: Color = .primary, containerWidth: CGFloat = .infinity) {
+        self.text = text
+        self.font = font
+        self.color = color
+        self.containerWidth = containerWidth
     }
-
+    
     var body: some View {
         GeometryReader { geometry in
-            ZStack(alignment: .leading) {
-                Text(text)
-                    .font(font)
-                    .foregroundColor(.clear)
-                    .lineLimit(1)
-                    .fixedSize()
-                    .background(
-                        GeometryReader { textGeometry in
-                            Color.clear
-                                .onAppear {
-                                    textSize = textGeometry.size
-                                    containerWidth = geometry.size.width
-                                }
-                                .onChange(of: text) { _, _ in
-                                    textSize = textGeometry.size
-                                }
-                        }
-                    )
+            MarqueeTextRepresentable(
+                text: text,
+                font: font,
+                color: color,
+                containerWidth: geometry.size.width,
+                isActive: scenePhase == .active
+            )
+        }
+        .frame(height: font == .system(size: 12) ? 16 : font == .system(size: 11) ? 14 : 18)
+    }
+}
 
-                if shouldAnimate {
-                    MarqueeAnimatedText(
-                        text: text,
-                        font: font,
-                        color: color,
-                        textWidth: textSize.width,
-                        containerWidth: containerWidth
-                    )
-                } else {
-                    Text(text)
-                        .font(font)
-                        .foregroundColor(color)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                }
-            }
-            .frame(width: geometry.size.width, alignment: .leading)
-            .clipped()
-            .onChange(of: geometry.size.width) { _, newWidth in
-                containerWidth = newWidth
-            }
+// MARK: - NSViewRepresentable for Core Animation
+
+private struct MarqueeTextRepresentable: NSViewRepresentable {
+    let text: String
+    let font: Font
+    let color: Color
+    let containerWidth: CGFloat
+    let isActive: Bool
+    
+    func makeNSView(context: Context) -> MarqueeNSView {
+        let view = MarqueeNSView()
+        view.configure(text: text, font: font, color: color, containerWidth: containerWidth)
+        return view
+    }
+    
+    func updateNSView(_ nsView: MarqueeNSView, context: Context) {
+        nsView.configure(text: text, font: font, color: color, containerWidth: containerWidth)
+        
+        if isActive {
+            nsView.startAnimationIfNeeded()
+        } else {
+            nsView.stopAnimation()
         }
     }
 }
 
-private struct MarqueeAnimatedText: View {
-    let text: String
-    let font: Font
-    let color: Color
-    let textWidth: CGFloat
-    let containerWidth: CGFloat
+// MARK: - Custom NSView with CALayer Animation
 
-    @State private var offset: CGFloat = 0
-    @State private var animationWorkItem: DispatchWorkItem?
-    @State private var direction: AnimationDirection = .forward
+private class MarqueeNSView: NSView {
+    private var textLayer: CATextLayer?
+    private var containerLayer: CALayer?
+    private var currentText: String = ""
+    private var textWidth: CGFloat = 0
+    private var containerWidth: CGFloat = 0
+    private var isAnimating = false
     
-    private enum AnimationDirection {
-        case forward, backward
-    }
-
-    private var maxOffset: CGFloat {
-        max(0, textWidth - containerWidth + 10)
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        setupLayers()
     }
     
-    private var animationDuration: Double {
-        let baseSpeed = 15.0
-        return Double(maxOffset) / baseSpeed
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupLayers()
     }
-
-    var body: some View {
-        Text(text)
-            .font(font)
-            .foregroundColor(color)
-            .lineLimit(1)
-            .fixedSize()
-            .offset(x: offset)
-            .onAppear {
-                startAnimation()
-            }
-            .onDisappear {
-                stopAnimation()
-            }
-            .onChange(of: text) { _, _ in
-                stopAnimation()
-                offset = 0
-                direction = .forward
-                startAnimation()
-            }
+    
+    private func setupLayers() {
+        wantsLayer = true
+        
+        containerLayer = CALayer()
+        containerLayer?.masksToBounds = true
+        layer?.addSublayer(containerLayer!)
+        
+        textLayer = CATextLayer()
+        textLayer?.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0
+        textLayer?.alignmentMode = .left
+        containerLayer?.addSublayer(textLayer!)
     }
-
-    private func startAnimation() {
-        animationWorkItem?.cancel()
+    
+    func configure(text: String, font: Font, color: Color, containerWidth: CGFloat) {
+        guard let textLayer = textLayer, let containerLayer = containerLayer else { return }
         
-        guard maxOffset > 0 else { return }
+        let textChanged = currentText != text
+        currentText = text
+        self.containerWidth = containerWidth
         
-        animationWorkItem = DispatchWorkItem { [self] in
-            animateBackAndForth()
+        let nsFont = NSFont.systemFont(ofSize: fontSizeFromFont(font))
+        
+        let attributes: [NSAttributedString.Key: Any] = [.font: nsFont]
+        let textSize = (text as NSString).size(withAttributes: attributes)
+        textWidth = textSize.width
+        
+        containerLayer.frame = CGRect(x: 0, y: 0, width: containerWidth, height: textSize.height)
+        
+        textLayer.string = text
+        textLayer.font = nsFont
+        textLayer.fontSize = nsFont.pointSize
+        textLayer.foregroundColor = NSColor(color).cgColor
+        textLayer.frame = CGRect(x: 0, y: 0, width: textWidth, height: textSize.height)
+        
+        if textChanged {
+            stopAnimation()
+            startAnimationIfNeeded()
         }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: animationWorkItem!)
     }
     
-    private func animateBackAndForth() {
-        let targetOffset = direction == .forward ? -maxOffset : 0
-        let duration = direction == .forward ? animationDuration : animationDuration
+    func startAnimationIfNeeded() {
+        guard textWidth > containerWidth, !isAnimating else { return }
         
-        withAnimation(.linear(duration: duration)) {
-            offset = targetOffset
+        isAnimating = true
+        addScrollAnimation()
+    }
+    
+    func stopAnimation() {
+        textLayer?.removeAllAnimations()
+        textLayer?.position = CGPoint(x: textWidth / 2, y: textLayer?.position.y ?? 0)
+        isAnimating = false
+    }
+    
+    private func addScrollAnimation() {
+        guard let textLayer = textLayer else { return }
+        
+        textLayer.removeAllAnimations()
+        
+        let scrollDistance = textWidth - containerWidth + 20
+        let animationDuration: CFTimeInterval = Double(scrollDistance) / 20.0
+        
+        let animation = CAKeyframeAnimation(keyPath: "position.x")
+        
+        let startX = textWidth / 2
+        let endX = -scrollDistance + textWidth / 2
+        
+        animation.values = [
+            startX,
+            startX,
+            endX,
+            endX,
+            startX,
+            startX
+        ]
+        
+        animation.keyTimes = [
+            0.0,
+            0.1,
+            0.45,
+            0.55,
+            0.9,
+            1.0
+        ]
+        
+        animation.timingFunctions = [
+            CAMediaTimingFunction(name: .linear),
+            CAMediaTimingFunction(name: .easeInEaseOut),
+            CAMediaTimingFunction(name: .linear),
+            CAMediaTimingFunction(name: .easeInEaseOut),
+            CAMediaTimingFunction(name: .linear)
+        ]
+        
+        animation.duration = (animationDuration * 2) + 2.0
+        animation.repeatCount = .infinity
+        animation.isRemovedOnCompletion = false
+        
+        textLayer.add(animation, forKey: "marqueeAnimation")
+    }
+    
+    private func fontSizeFromFont(_ font: Font) -> CGFloat {
+        if font == .system(size: 11) {
+            return 11
+        } else if font == .system(size: 12) {
+            return 12
+        } else if font == .system(size: 13) {
+            return 13
+        } else if font == .system(size: 14) {
+            return 14
+        } else {
+            return 13
         }
+    }
+    
+    override func layout() {
+        super.layout()
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.5) {
-            direction = direction == .forward ? .backward : .forward
+        if let containerLayer = containerLayer {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
             
-            if animationWorkItem != nil {
-                animateBackAndForth()
-            }
+            containerLayer.frame = bounds
+            
+            CATransaction.commit()
         }
     }
-    
-    private func stopAnimation() {
-        animationWorkItem?.cancel()
-        animationWorkItem = nil
-        withAnimation(.none) {
-            offset = 0
-        }
-        direction = .forward
+}
+
+// MARK: - Preview
+
+#Preview("Short Text") {
+    MarqueeText(
+        text: "Short Text",
+        font: .system(size: 14),
+        color: .primary
+    )
+    .frame(width: 200)
+    .padding()
+    .background(Color.gray.opacity(0.1))
+}
+
+#Preview("Long Text") {
+    MarqueeText(
+        text: "This is a very long text that should scroll back and forth continuously",
+        font: .system(size: 14),
+        color: .primary
+    )
+    .frame(width: 200)
+    .padding()
+    .background(Color.gray.opacity(0.1))
+}
+
+#Preview("Multiple Marquees") {
+    VStack(spacing: 20) {
+        MarqueeText(
+            text: "Artist Name That Is Really Long And Keeps Going",
+            font: .system(size: 13),
+            color: .primary
+        )
+        .frame(width: 150)
+        
+        MarqueeText(
+            text: "Album Title That Goes On Forever And Ever And Ever",
+            font: .system(size: 12),
+            color: .secondary
+        )
+        .frame(width: 150)
+        
+        MarqueeText(
+            text: "Short",
+            font: .system(size: 11),
+            color: .secondary
+        )
+        .frame(width: 150)
     }
+    .padding()
+    .background(Color.gray.opacity(0.1))
 }
