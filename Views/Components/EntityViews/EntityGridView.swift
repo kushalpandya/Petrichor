@@ -164,20 +164,15 @@ private struct EntityGridItem<T: Entity>: View {
         artworkLoadTask?.cancel()
 
         artworkLoadTask = Task {
-            // Small delay to prioritize scrolling
             try? await Task.sleep(nanoseconds: TimeConstants.fiftyMilliseconds)
 
             guard !Task.isCancelled else { return }
 
-            if let data = entity.artworkData,
+            if let data = entity.artworkLarge,
                let image = NSImage(data: data) {
-                // Resize image to appropriate size for grid
-                let targetSize = NSSize(width: itemWidth * 2, height: itemWidth * 2) // 2x for retina
-                let thumbnailImage = image.resized(to: targetSize)
-
                 await MainActor.run {
                     guard !Task.isCancelled else { return }
-                    self.artworkImage = thumbnailImage
+                    self.artworkImage = image
                 }
             }
         }

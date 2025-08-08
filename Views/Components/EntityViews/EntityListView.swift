@@ -147,19 +147,15 @@ private struct EntityListRow<T: Entity>: View {
         artworkLoadTask?.cancel()
 
         artworkLoadTask = Task {
-            // Small delay to prioritize scrolling
             try? await Task.sleep(nanoseconds: TimeConstants.fiftyMilliseconds)
 
             guard !Task.isCancelled else { return }
 
-            if let data = entity.artworkData,
+            if let data = entity.artworkMedium,
                let image = NSImage(data: data) {
-                // Resize image to thumbnail size to save memory
-                let thumbnailImage = image.resized(to: NSSize(width: 96, height: 96))
-
                 await MainActor.run {
                     guard !Task.isCancelled else { return }
-                    self.artworkImage = thumbnailImage
+                    self.artworkImage = image
                 }
             }
         }

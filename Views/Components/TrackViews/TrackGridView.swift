@@ -230,7 +230,7 @@ private struct TrackGridItem: View {
 
             guard !Task.isCancelled else { return }
 
-            if let artworkData = track.artworkData {
+            if let artworkData = track.albumArtworkLarge {
                 // Load image in background
                 let image = await loadImage(from: artworkData)
 

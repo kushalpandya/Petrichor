@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 
 // MARK: - Entity Protocol
 protocol Entity: Identifiable {
@@ -7,6 +8,8 @@ protocol Entity: Identifiable {
     var subtitle: String? { get }
     var trackCount: Int { get }
     var artworkData: Data? { get }
+    var artworkMedium: Data? { get }
+    var artworkLarge: Data? { get }
 }
 
 // MARK: - Artist Entity
@@ -16,22 +19,53 @@ struct ArtistEntity: Entity {
     let tracks: [Track]
     let trackCount: Int
     let artworkData: Data?
+    static var artworkCache = NSCache<NSString, NSData>()
 
     var subtitle: String? {
         "\(trackCount) \(trackCount == 1 ? "song" : "songs")"
     }
+    
+    var artworkMedium: Data? {
+        guard let original = artworkData else { return nil }
+        
+        let cacheKey = "\(id.uuidString)-medium" as NSString
+        if let cached = ArtistEntity.artworkCache.object(forKey: cacheKey) {
+            return cached as Data
+        }
+        
+        if let jpegData = ImageResizer.resizeImage(from: original, to: ImageResizer.Size.medium) {
+            ArtistEntity.artworkCache.setObject(jpegData as NSData, forKey: cacheKey)
+            return jpegData
+        }
+        return nil
+    }
+    
+    var artworkLarge: Data? {
+        guard let original = artworkData else { return nil }
+        
+        let cacheKey = "\(id.uuidString)-large" as NSString
+        if let cached = ArtistEntity.artworkCache.object(forKey: cacheKey) {
+            return cached as Data
+        }
+        
+        if let jpegData = ImageResizer.resizeImage(from: original, to: ImageResizer.Size.large) {
+            ArtistEntity.artworkCache.setObject(jpegData as NSData, forKey: cacheKey)
+            return jpegData
+        }
+        return nil
+    }
 
-    // Original initializer
     init(name: String, tracks: [Track]) {
         let namespace = UUID(uuidString: "6BA7B810-9DAD-11D1-80B4-00C04FD430C8")!
         self.id = UUID(name: name.lowercased(), namespace: namespace)
         self.name = name
         self.tracks = tracks
         self.trackCount = tracks.count
-        self.artworkData = tracks.first { $0.artworkData != nil }?.artworkData
+        
+        let trackWithArt = tracks.first { $0.albumArtworkData != nil }
+        self.artworkData = trackWithArt?.albumArtworkData
     }
 
-    // New lightweight initializer
     init(name: String, trackCount: Int, artworkData: Data? = nil) {
         let namespace = UUID(uuidString: "6BA7B810-9DAD-11D1-80B4-00C04FD430C8")!
         self.id = UUID(name: name.lowercased(), namespace: namespace)
@@ -53,9 +87,40 @@ struct AlbumEntity: Entity {
     let year: String?
     let duration: Double?
     let artistName: String?
+    static var artworkCache = NSCache<NSString, NSData>()
 
     var subtitle: String? {
         year
+    }
+    
+    var artworkMedium: Data? {
+        guard let original = artworkData else { return nil }
+        
+        let cacheKey = "\(id.uuidString)-medium" as NSString
+        if let cached = AlbumEntity.artworkCache.object(forKey: cacheKey) {
+            return cached as Data
+        }
+        
+        if let jpegData = ImageResizer.resizeImage(from: original, to: ImageResizer.Size.medium) {
+            AlbumEntity.artworkCache.setObject(jpegData as NSData, forKey: cacheKey)
+            return jpegData
+        }
+        return nil
+    }
+    
+    var artworkLarge: Data? {
+        guard let original = artworkData else { return nil }
+        
+        let cacheKey = "\(id.uuidString)-large" as NSString
+        if let cached = AlbumEntity.artworkCache.object(forKey: cacheKey) {
+            return cached as Data
+        }
+        
+        if let jpegData = ImageResizer.resizeImage(from: original, to: ImageResizer.Size.large) {
+            AlbumEntity.artworkCache.setObject(jpegData as NSData, forKey: cacheKey)
+            return jpegData
+        }
+        return nil
     }
 
     init(name: String, tracks: [Track]) {
@@ -64,21 +129,20 @@ struct AlbumEntity: Entity {
         self.name = name
         self.tracks = tracks
         self.trackCount = tracks.count
-        self.artworkData = tracks.first { $0.artworkData != nil }?.artworkData
         self.albumId = nil
         self.year = nil
         self.duration = nil
         self.artistName = nil
+
+        let trackWithArt = tracks.first { $0.albumArtworkData != nil }
+        self.artworkData = trackWithArt?.albumArtworkData
     }
 
     init(name: String, trackCount: Int, artworkData: Data? = nil, albumId: Int64? = nil, year: String? = nil, duration: Double? = nil, artistName: String? = nil) {
-        // If we have an albumId, use it for a truly unique ID
         if let albumId = albumId {
-            // Create a deterministic UUID from the album ID
             let uuidString = String(format: "00000000-0000-0000-0000-%012d", albumId)
             self.id = UUID(uuidString: uuidString) ?? UUID()
         } else {
-            // Fallback to name-based UUID
             let namespace = UUID(uuidString: "6BA7B811-9DAD-11D1-80B4-00C04FD430C8")!
             self.id = UUID(name: name.lowercased(), namespace: namespace)
         }
@@ -93,11 +157,10 @@ struct AlbumEntity: Entity {
     }
 }
 
-// MARK: - UUID Extension for Name-based UUIDs
+// MARK: - UUID Extension
+
 extension UUID {
     init(name: String, namespace: UUID) {
-        // Use Foundation's UUID(uuidString:) with a hash for now
-        // In a real implementation, you'd use proper UUID v5 generation
         let combined = "\(namespace.uuidString)-\(name)"
         let hash = combined.hashValue
         let uuidString = String(

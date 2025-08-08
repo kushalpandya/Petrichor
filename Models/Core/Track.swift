@@ -1,5 +1,6 @@
 import Foundation
 import GRDB
+import AppKit
 
 struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord {
     let id = UUID()
@@ -39,8 +40,78 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
     // Album reference (for artwork lookup)
     var albumId: Int64?
     
-    // Transient property for album artwork (populated separately)
+    // Transient properties for album artwork (populated separately)
     var albumArtworkData: Data?
+    private static var artworkCache = NSCache<NSString, NSData>()
+    
+    var albumArtworkSmall: Data? {
+        get {
+            guard let original = albumArtworkData else { return nil }
+            
+            let cacheKey = "\(id.uuidString)-small" as NSString
+            if let cached = Track.artworkCache.object(forKey: cacheKey) {
+                return cached as Data
+            }
+            
+            if let jpegData = ImageResizer.resizeImage(from: original, to: ImageResizer.Size.small) {
+                Track.artworkCache.setObject(jpegData as NSData, forKey: cacheKey)
+                return jpegData
+            }
+            return nil
+        }
+        set {
+            let cacheKey = "\(id.uuidString)-small" as NSString
+            if let data = newValue {
+                Track.artworkCache.setObject(data as NSData, forKey: cacheKey)
+            }
+        }
+    }
+
+    var albumArtworkMedium: Data? {
+        get {
+            guard let original = albumArtworkData else { return nil }
+            
+            let cacheKey = "\(id.uuidString)-medium" as NSString
+            if let cached = Track.artworkCache.object(forKey: cacheKey) {
+                return cached as Data
+            }
+            
+            if let jpegData = ImageResizer.resizeImage(from: original, to: ImageResizer.Size.medium) {
+                Track.artworkCache.setObject(jpegData as NSData, forKey: cacheKey)
+                return jpegData
+            }
+            return nil
+        }
+        set {
+            let cacheKey = "\(id.uuidString)-medium" as NSString
+            if let data = newValue {
+                Track.artworkCache.setObject(data as NSData, forKey: cacheKey)
+            }
+        }
+    }
+
+    var albumArtworkLarge: Data? {
+        get {
+            guard let original = albumArtworkData else { return nil }
+            
+            let cacheKey = "\(id.uuidString)-large" as NSString
+            if let cached = Track.artworkCache.object(forKey: cacheKey) {
+                return cached as Data
+            }
+            
+            if let jpegData = ImageResizer.resizeImage(from: original, to: ImageResizer.Size.large) {
+                Track.artworkCache.setObject(jpegData as NSData, forKey: cacheKey)
+                return jpegData
+            }
+            return nil
+        }
+        set {
+            let cacheKey = "\(id.uuidString)-large" as NSString
+            if let data = newValue {
+                Track.artworkCache.setObject(data as NSData, forKey: cacheKey)
+            }
+        }
+    }
     
     // MARK: - Initialization
     
@@ -203,7 +274,6 @@ extension Track {
     
     /// Computed property for artwork
     var artworkData: Data? {
-        // Only return album artwork since track artwork is not stored in lightweight model
         albumArtworkData
     }
     

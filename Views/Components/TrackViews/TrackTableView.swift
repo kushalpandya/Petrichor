@@ -1100,7 +1100,7 @@ struct TrackTableTitleCell: View {
 
     // Use the track's existing artwork data directly
     private var artworkImage: NSImage? {
-        if let data = track.artworkData {
+        if let data = track.albumArtworkSmall {
             return NSImage(data: data)
         }
         return nil

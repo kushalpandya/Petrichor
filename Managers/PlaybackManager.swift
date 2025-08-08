@@ -61,7 +61,7 @@ class PlaybackManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
         tempTrack.title = uiState.trackTitle
         tempTrack.artist = uiState.trackArtist
         tempTrack.album = uiState.trackAlbum
-        tempTrack.albumArtworkData = uiState.artworkData
+        tempTrack.albumArtworkMedium = uiState.artworkData
         tempTrack.duration = uiState.trackDuration
         tempTrack.isMetadataLoaded = true
 

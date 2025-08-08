@@ -252,15 +252,10 @@ private struct TrackListRow: View {
     private func loadArtwork() async {
         guard artworkImage == nil else { return }
 
-        await withCheckedContinuation { continuation in
-            Task {
-                if let artworkData = track.artworkData,
-                   let image = NSImage(data: artworkData) {
-                    await MainActor.run {
-                        self.artworkImage = image
-                    }
-                }
-                continuation.resume()
+        if let artworkData = track.albumArtworkMedium,
+           let image = NSImage(data: artworkData) {
+            await MainActor.run {
+                self.artworkImage = image
             }
         }
     }
