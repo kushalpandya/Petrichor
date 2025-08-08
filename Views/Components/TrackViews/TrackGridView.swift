@@ -6,65 +6,74 @@ struct TrackGridView: View {
     let contextMenuItems: (Track) -> [ContextMenuItem]
 
     @EnvironmentObject var playbackManager: PlaybackManager
-    @State private var gridWidth: CGFloat = 0
-    @State private var visibleRange: Range<Int> = 0..<0
+    @State private var hoveredTrackID: UUID?
+    @State private var isScrolling = false
+    @State private var scrollWorkItem: DispatchWorkItem?
 
-    private let itemWidth: CGFloat = 180
-    private let itemHeight: CGFloat = 240
-    private let spacing: CGFloat = 16
-
-    private var columns: Int {
-        max(1, Int((gridWidth + spacing) / (itemWidth + spacing)))
-    }
-
-    private var gridColumns: [GridItem] {
-        Array(repeating: GridItem(.fixed(itemWidth), spacing: spacing), count: columns)
-    }
+    private let columns = [
+        GridItem(.adaptive(minimum: 160, maximum: 200), spacing: 16)
+    ]
 
     var body: some View {
-        GeometryReader { geometry in
-            ScrollViewReader { _ in
-                ScrollView {
-                    LazyVGrid(columns: gridColumns, spacing: spacing) {
-                        ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
-                            TrackGridItem(
-                                track: track
-                            ) {
-                                    let isCurrentTrack = playbackManager.currentTrack?.url.path == track.url.path
-                                    if !isCurrentTrack {
-                                        onPlayTrack(track)
-                                    }
-                            }
-                            .frame(width: itemWidth, height: itemHeight)
-                            .contextMenu {
-                                TrackContextMenuContent(items: contextMenuItems(track))
-                            }
-                            .id(track.id)
-                            .onAppear {
-                                updateVisibleRange(index: index)
-                            }
-                        }
-                    }
-                    .padding()
-                }
-                .background(Color.clear)
-                .onAppear {
-                    gridWidth = geometry.size.width - 32
-                }
-                .onChange(of: geometry.size.width) { _, newWidth in
-                    gridWidth = newWidth - 32
-                }
+        scrollViewContent
+            .coordinateSpace(name: "scroll")
+            .onPreferenceChange(ScrollOffsetPreferenceKey.self) { _ in
+                handleScrollChange()
             }
+    }
+
+    private var scrollViewContent: some View {
+        ScrollView {
+            gridContent
+                .background(scrollDetector)
         }
     }
 
-    private func updateVisibleRange(index: Int) {
-        // Track visible range for potential future optimizations
-        if visibleRange.isEmpty {
-            visibleRange = index..<(index + 1)
-        } else {
-            visibleRange = min(visibleRange.lowerBound, index)..<max(visibleRange.upperBound, index + 1)
+    private var gridContent: some View {
+        LazyVGrid(columns: columns, spacing: 16) {
+            ForEach(Array(tracks.enumerated()), id: \.element.id) { _, track in
+                gridItem(for: track)
+            }
         }
+        .padding()
+    }
+
+    private func gridItem(for track: Track) -> some View {
+        TrackGridItem(
+            track: track
+        ) {
+            let isCurrentTrack = playbackManager.currentTrack?.url.path == track.url.path
+            if !isCurrentTrack {
+                onPlayTrack(track)
+            }
+        }
+        .contextMenu {
+            TrackContextMenuContent(items: contextMenuItems(track))
+        }
+        .id(track.id)
+        .allowsHitTesting(!isScrolling)
+    }
+
+    private var scrollDetector: some View {
+        GeometryReader { geometry in
+            Color.clear.preference(
+                key: ScrollOffsetPreferenceKey.self,
+                value: geometry.frame(in: .named("scroll")).origin.y
+            )
+        }
+    }
+
+    private func handleScrollChange() {
+        isScrolling = true
+        hoveredTrackID = nil
+        
+        scrollWorkItem?.cancel()
+        
+        scrollWorkItem = DispatchWorkItem {
+            isScrolling = false
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: scrollWorkItem!)
     }
 }
 
@@ -250,5 +259,12 @@ private struct TrackGridItem: View {
                 continuation.resume(returning: image)
             }
         }
+    }
+}
+
+private struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }

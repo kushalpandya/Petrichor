@@ -7,6 +7,8 @@ struct TrackListView: View {
 
     @EnvironmentObject var playbackManager: PlaybackManager
     @State private var hoveredTrackID: UUID?
+    @State private var isScrolling = false
+    @State private var scrollWorkItem: DispatchWorkItem?
 
     var body: some View {
         ScrollView {
@@ -14,7 +16,7 @@ struct TrackListView: View {
                 ForEach(Array(tracks.enumerated()), id: \.element.id) { _, track in
                     TrackListRow(
                         track: track,
-                        isHovered: hoveredTrackID == track.id,
+                        isHovered: isScrolling ? false : (hoveredTrackID == track.id),
                         onPlay: {
                             let isCurrentTrack = playbackManager.currentTrack?.url.path == track.url.path
                             if !isCurrentTrack {
@@ -22,7 +24,9 @@ struct TrackListView: View {
                             }
                         },
                         onHover: { isHovered in
-                            hoveredTrackID = isHovered ? track.id : nil
+                            if !isScrolling {
+                                hoveredTrackID = isHovered ? track.id : nil
+                            }
                         }
                     )
                     .contextMenu {
@@ -32,7 +36,32 @@ struct TrackListView: View {
                 }
             }
             .padding(5)
+            .background(
+                GeometryReader { geometry in
+                    Color.clear.preference(
+                        key: ScrollOffsetPreferenceKey.self,
+                        value: geometry.frame(in: .named("scroll")).origin.y
+                    )
+                }
+            )
         }
+        .coordinateSpace(name: "scroll")
+        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { _ in
+            handleScrollChange()
+        }
+    }
+    
+    private func handleScrollChange() {
+        isScrolling = true
+        hoveredTrackID = nil
+        
+        scrollWorkItem?.cancel()
+        
+        scrollWorkItem = DispatchWorkItem {
+            isScrolling = false
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: scrollWorkItem!)
     }
 }
 
@@ -77,7 +106,7 @@ private struct TrackListRow: View {
                 Button(action: handlePlayButtonTap) {
                     Image(systemName: playButtonIcon)
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.primary)  // Changed from playButtonColor
+                        .foregroundColor(.primary)
                 }
                 .buttonStyle(.plain)
                 .transition(.scale.combined(with: .opacity))
@@ -265,5 +294,12 @@ private struct TrackListRow: View {
         let minutes = totalSeconds / 60
         let remainingSeconds = totalSeconds % 60
         return String(format: StringFormat.mmss, minutes, remainingSeconds)
+    }
+}
+
+private struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
