@@ -137,18 +137,41 @@ class LibraryManager: ObservableObject {
     func loadLibraryCategories() {
         guard !libraryCategoriesLoaded else { return }
         
-        Logger.info("Loading library categories into cache")
+        Logger.info("Loading library categories")
+        let startTime = Date()
         
-        // Load all categories in parallel for better performance
-        let categories = LibraryFilterType.allCases
-        
-        for category in categories {
-            let items = getLibraryFilterItemsFromDatabase(for: category)
-            cachedLibraryCategories[category] = items
+        Task.detached(priority: .userInitiated) {
+            let categories = LibraryFilterType.allCases
+            let results = await withTaskGroup(
+                of: (LibraryFilterType, [LibraryFilterItem]).self,
+                returning: [LibraryFilterType: [LibraryFilterItem]].self
+            ) { group in
+                for category in categories {
+                    group.addTask { [weak self] in
+                        guard let self = self else { return (category, []) }
+                        
+                        let items = self.getLibraryFilterItemsFromDatabase(for: category)
+                        return (category, items)
+                    }
+                }
+                
+                var collectedResults: [LibraryFilterType: [LibraryFilterItem]] = [:]
+                for await (category, items) in group {
+                    collectedResults[category] = items
+                }
+                return collectedResults
+            }
+            
+            await MainActor.run {
+                for (category, items) in results {
+                    self.cachedLibraryCategories[category] = items
+                }
+                self.libraryCategoriesLoaded = true
+                
+                let elapsed = Date().timeIntervalSince(startTime)
+                Logger.info("Loaded library categories in \(String(format: "%.2f", elapsed))s: \(self.cachedLibraryCategories.values.map { $0.count }) items total")
+            }
         }
-        
-        libraryCategoriesLoaded = true
-        Logger.info("Loaded library categories: \(cachedLibraryCategories.values.map { $0.count }) items total")
     }
 
     /// Refresh library categories cache
