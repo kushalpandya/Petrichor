@@ -398,6 +398,13 @@ extension DatabaseManager {
         try db.createIndexIfNotExists(name: "idx_tracks_primary_track_id", table: "tracks", columns: ["primary_track_id"])
         try db.createIndexIfNotExists(name: "idx_tracks_is_duplicate", table: "tracks", columns: ["is_duplicate"])
         try db.createIndexIfNotExists(name: "idx_tracks_duplicate_group_id", table: "tracks", columns: ["duplicate_group_id"])
+        
+        // Composite indices for duplicate-aware category queries
+        try db.createIndexIfNotExists(name: "idx_tracks_duplicate_artist", table: "tracks", columns: ["is_duplicate", "artist"])
+        try db.createIndexIfNotExists(name: "idx_tracks_duplicate_album_artist", table: "tracks", columns: ["is_duplicate", "album_artist"])
+        try db.createIndexIfNotExists(name: "idx_tracks_duplicate_composer", table: "tracks", columns: ["is_duplicate", "composer"])
+        try db.createIndexIfNotExists(name: "idx_tracks_duplicate_genre", table: "tracks", columns: ["is_duplicate", "genre"])
+        try db.createIndexIfNotExists(name: "idx_tracks_duplicate_year", table: "tracks", columns: ["is_duplicate", "year"])
 
         // Artists table indices
         try db.createIndexIfNotExists(name: "idx_artists_normalized_name_unique", table: "artists", columns: ["normalized_name"], unique: true)
@@ -410,6 +417,9 @@ extension DatabaseManager {
         // Album artists junction table indices
         try db.createIndexIfNotExists(name: "idx_album_artists_album_id", table: "album_artists", columns: ["album_id"])
         try db.createIndexIfNotExists(name: "idx_album_artists_artist_id", table: "album_artists", columns: ["artist_id"])
+        
+        // Cmposite index for primary artist lookups
+        try db.createIndexIfNotExists(name: "idx_album_artists_primary", table: "album_artists", columns: ["role", "position", "album_id", "artist_id"])
 
         // Playlist tracks index
         try db.createIndexIfNotExists(name: "idx_playlist_tracks_playlist_id", table: "playlist_tracks", columns: ["playlist_id"])
@@ -417,6 +427,9 @@ extension DatabaseManager {
         // Junction table indices
         try db.createIndexIfNotExists(name: "idx_track_artists_artist_id", table: "track_artists", columns: ["artist_id"])
         try db.createIndexIfNotExists(name: "idx_track_artists_track_id", table: "track_artists", columns: ["track_id"])
+        
+        // Composite index for role-based queries
+        try db.createIndexIfNotExists(name: "idx_track_artists_role_artist", table: "track_artists", columns: ["role", "artist_id", "track_id"])
         try db.createIndexIfNotExists(name: "idx_track_genres_genre_id", table: "track_genres", columns: ["genre_id"])
         
         // Pinned items indices
