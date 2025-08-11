@@ -182,6 +182,11 @@ struct LibrarySidebarView: View {
     }
 
     private func handleItemSelection(_ item: LibrarySidebarItem) {
+        if selectedSidebarItem?.id == item.id &&
+           selectedFilterItem?.name == item.filterName {
+            return
+        }
+        
         // Update the selected sidebar item
         selectedSidebarItem = item
 
