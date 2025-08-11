@@ -61,9 +61,7 @@ struct TabbedButtons<Item: TabbedItem>: View {
                     isDisabled: isDisabled
                 ) {
                     if !isDisabled {
-                        withAnimation(.easeInOut(duration: AnimationConstants.transformDuration)) {
-                            selection = item
-                        }
+                        selection = item
                     }
                 }
             }

@@ -66,12 +66,16 @@ struct TrackDetailView: View {
         }
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
-            loadFullTrack()
+            if fullTrack == nil {
+                loadFullTrack()
+            }
         }
-        .onChange(of: track.id) {
-            isLoading = true
-            fullTrack = nil
-            loadFullTrack()
+        .onChange(of: track.id) { oldId, newId in
+            if oldId != newId {
+                isLoading = true
+                fullTrack = nil
+                loadFullTrack()
+            }
         }
     }
     
