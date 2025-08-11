@@ -86,10 +86,6 @@ struct LibraryTabView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Watched Folders")
                     .font(.system(size: 14, weight: .semibold))
-
-                Text("\(libraryManager.folders.count) folders • \(libraryManager.tracks.count) tracks")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
             }
 
             Spacer()
@@ -106,7 +102,8 @@ struct LibraryTabView: View {
             .buttonStyle(.borderedProminent)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.top, -20)
+        .padding(.bottom, 10)
     }
 
     private var foldersList: some View {
@@ -157,6 +154,11 @@ struct LibraryTabView: View {
             .background(Color(NSColor.textBackgroundColor).opacity(0.5))
             .cornerRadius(6)
             .overlay(refreshOverlay)
+            
+            Text("\(libraryManager.folders.count) folders • \(libraryManager.totalTrackCount) tracks")
+                .font(.footnote)
+                .foregroundColor(.secondary)
+                .padding(.vertical, 6)
         }
         .padding(.horizontal, 35)
     }
@@ -211,8 +213,8 @@ struct LibraryTabView: View {
                             .font(.system(size: 13, weight: .medium))
                     }
                     .foregroundColor(.primary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
                     .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
@@ -226,11 +228,11 @@ struct LibraryTabView: View {
                             .font(.system(size: 13, weight: .medium))
                     }
                     .foregroundColor(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
                     .frame(maxWidth: .infinity)
                     .background(Color.red)
-                    .cornerRadius(6)
+                    .cornerRadius(5)
                 }
                 .buttonStyle(.plain)
             }
@@ -246,8 +248,8 @@ struct LibraryTabView: View {
                 }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 16)
+        .padding(.horizontal, 34)
+        .padding(.vertical, 10)
     }
 
     // MARK: - Folder Row
