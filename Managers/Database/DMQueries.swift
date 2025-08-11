@@ -72,8 +72,8 @@ extension DatabaseManager {
     func getDiscoverTracks(limit: Int = 50, excludeTrackIds: Set<Int64> = []) -> [Track] {
         do {
             return try dbQueue.read { db in
-                // First try to get unplayed tracks
-                var query = applyDuplicateFilter(Track.all())
+                var query = Track.all()
+                    .filter(Track.Columns.isDuplicate == false)  // Always exclude duplicates
                     .filter(Track.Columns.playCount == 0)
                 
                 if !excludeTrackIds.isEmpty {
@@ -92,7 +92,8 @@ extension DatabaseManager {
                     let existingIds = Set(tracks.compactMap { $0.trackId })
                         .union(excludeTrackIds)
                     
-                    let additionalTracks = try applyDuplicateFilter(Track.all())
+                    let additionalTracks = try Track.all()
+                        .filter(Track.Columns.isDuplicate == false)
                         .filter(!existingIds.contains(Track.Columns.trackId))
                         .order(
                             Track.Columns.lastPlayedDate.asc,
