@@ -39,6 +39,23 @@ struct DatabaseMigrator {
             Logger.info("Added shasum_hash column to folders table")
         }
         
+        migrator.registerMigration("v3_add_category_query_indices") { db in
+            // Composite index for track_artists queries (role + artist_id for faster joins)
+            try db.createIndexIfNotExists(name: "idx_track_artists_role_artist", table: "track_artists", columns: ["role", "artist_id", "track_id"])
+            
+            // Composite indices for duplicate-aware queries
+            try db.createIndexIfNotExists(name: "idx_tracks_duplicate_artist", table: "tracks", columns: ["is_duplicate", "artist"])
+            try db.createIndexIfNotExists(name: "idx_tracks_duplicate_album_artist", table: "tracks", columns: ["is_duplicate", "album_artist"])
+            try db.createIndexIfNotExists(name: "idx_tracks_duplicate_composer", table: "tracks", columns: ["is_duplicate", "composer"])
+            try db.createIndexIfNotExists(name: "idx_tracks_duplicate_genre", table: "tracks", columns: ["is_duplicate", "genre"])
+            try db.createIndexIfNotExists(name: "idx_tracks_duplicate_year", table: "tracks", columns: ["is_duplicate", "year"])
+            
+            // Composite index for album_artists primary artist lookups
+            try db.createIndexIfNotExists(name: "idx_album_artists_primary", table: "album_artists", columns: ["role", "position", "album_id", "artist_id"])
+            
+            Logger.info("v3_add_category_query_indices migration complete")
+        }
+
         // MARK: - Future Migrations
         // Add new migrations here as: migrator.registerMigration("v2_description") { db in ... }
         

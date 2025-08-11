@@ -348,9 +348,16 @@ extension DatabaseManager {
                     return []
                 }
 
-                // Get all tracks for this artist (any role)
+                let role: String = switch filterType {
+                case .artists: "artist"
+                case .albumArtists: "album_artist"
+                case .composers: "composer"
+                default: "artist"
+                }
+
                 let trackIds = try TrackArtist
                     .filter(TrackArtist.Columns.artistId == artistId)
+                    .filter(TrackArtist.Columns.role == role)
                     .select(TrackArtist.Columns.trackId, as: Int64.self)
                     .fetchAll(db)
 
@@ -366,107 +373,26 @@ extension DatabaseManager {
 
     // MARK: - Entity Queries (for Home tab)
 
-    /// Get all artist entities without loading tracks
-    func getArtistEntities() -> [ArtistEntity] {
-        do {
-            return try dbQueue.read { db in
-                let artists = try Artist
-                    .filter(Artist.Columns.totalTracks > 0)
-                    .order(Artist.Columns.sortName)
-                    .fetchAll(db)
-
-                return artists.map { artist in
-                    ArtistEntity(
-                        name: artist.name,
-                        trackCount: artist.totalTracks,
-                        artworkData: artist.artworkData
-                    )
-                }
-            }
-        } catch {
-            Logger.error("Failed to get artist entities: \(error)")
-            return []
-        }
-    }
-
-    /// Get all album entities without loading tracks
-    func getAlbumEntities() -> [AlbumEntity] {
-        do {
-            return try dbQueue.read { db in
-                let albums = try Album
-                    .filter(Album.Columns.totalTracks > 0)
-                    .order(Album.Columns.sortTitle)
-                    .fetchAll(db)
-                
-                return try albums.map { album in
-                    let albumId = album.id ?? 0
-                    
-                    // Calculate total duration for this album
-                    let totalDuration = try Track
-                        .filter(Track.Columns.albumId == albumId)
-                        .filter(Track.Columns.isDuplicate == false)
-                        .select(sum(Track.Columns.duration))
-                        .fetchOne(db) ?? 0.0
-
-                    // Fetch primary artist name for this album (if any)
-                    let primaryArtistName: String? = try AlbumArtist
-                        .filter(AlbumArtist.Columns.albumId == albumId)
-                        .filter(AlbumArtist.Columns.role == "primary")
-                        .order(AlbumArtist.Columns.position)
-                        .fetchOne(db)
-                        .flatMap { albumArtist in
-                            try Artist
-                                .filter(Artist.Columns.id == albumArtist.artistId)
-                                .fetchOne(db)
-                        }?
-                        .name
-
-                    return AlbumEntity(
-                        name: album.title,
-                        trackCount: album.totalTracks ?? 0,
-                        artworkData: album.artworkData,
-                        albumId: album.id,
-                        year: album.releaseYear.map { String($0) } ?? "",
-                        duration: totalDuration,
-                        artistName: primaryArtistName
-                    )
-                }
-            }
-        } catch {
-            Logger.error("Failed to get album entities: \(error)")
-            return []
-        }
-    }
-
-    /// Get tracks for a specific artist entity
+    /// Get tracks for an artist entity
     func getTracksForArtistEntity(_ artistName: String) -> [Track] {
         do {
-            // First fetch the tracks
             var tracks = try dbQueue.read { db in
-                // First find the artist
                 let normalizedName = ArtistParser.normalizeArtistName(artistName)
-                guard let artist = try Artist
-                    .filter((Artist.Columns.name == artistName) || (Artist.Columns.normalizedName == normalizedName))
-                    .fetchOne(db),
-                    let artistId = artist.id else {
-                    return [Track]()
-                }
                 
-                // Get all track IDs for this artist
-                let trackIds = try TrackArtist
-                    .filter(TrackArtist.Columns.artistId == artistId)
-                    .select(TrackArtist.Columns.trackId, as: Int64.self)
-                    .fetchAll(db)
+                let sql = """
+                    SELECT DISTINCT t.*
+                    FROM tracks t
+                    INNER JOIN track_artists ta ON t.id = ta.track_id
+                    INNER JOIN artists a ON ta.artist_id = a.id
+                    WHERE (a.name = ? OR a.normalized_name = ?)
+                        AND t.is_duplicate = 0
+                    ORDER BY t.album, t.track_number
+                """
                 
-                // Fetch the tracks
-                return try applyDuplicateFilter(Track.all())
-                    .filter(trackIds.contains(Track.Columns.trackId))
-                    .order(Track.Columns.album, Track.Columns.trackNumber)
-                    .fetchAll(db)
+                return try Track.fetchAll(db, sql: sql, arguments: [artistName, normalizedName])
             }
             
             populateAlbumArtworkForTracks(&tracks)
-            
             return tracks
         } catch {
             Logger.error("Failed to get tracks for artist entity: \(error)")
@@ -474,44 +400,32 @@ extension DatabaseManager {
         }
     }
 
-    /// Get tracks for a specific album entity using album ID
+    /// Get tracks for an album entity
     func getTracksForAlbumEntity(_ albumEntity: AlbumEntity) -> [Track] {
         do {
-            // First fetch the tracks
             var tracks = try dbQueue.read { db in
-                // If we have the album ID, use it directly
                 if let albumId = albumEntity.albumId {
-                    return try applyDuplicateFilter(Track.all())
+                    return try Track
                         .filter(Track.Columns.albumId == albumId)
-                        .order(Track.Columns.discNumber, Track.Columns.trackNumber)
+                        .filter(Track.Columns.isDuplicate == false)
+                        .order(Track.Columns.discNumber ?? 1, Track.Columns.trackNumber ?? 0)
                         .fetchAll(db)
                 } else {
-                    // Fallback to name-based search if no album ID is present
-                    let normalizedTitle = albumEntity.name.lowercased()
-                        .replacingOccurrences(of: " - ", with: " ")
-                        .replacingOccurrences(of: "  ", with: " ")
-                        .replacingOccurrences(of: "the ", with: "")
-                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    var query = Track
+                        .filter(Track.Columns.album == albumEntity.name)
+                        .filter(Track.Columns.isDuplicate == false)
                     
-                    // Find album by normalized title only (not by artist anymore)
-                    guard let album = try Album
-                        .filter(Album.Columns.normalizedTitle == normalizedTitle)
-                        .fetchOne(db),
-                          let albumId = album.id else {
-                        Logger.warning("No album found for entity: \(albumEntity.name)")
-                        return [Track]()
+                    if let artistName = albumEntity.artistName {
+                        query = query.filter(Track.Columns.albumArtist == artistName)
                     }
                     
-                    // Get tracks for this album
-                    return try applyDuplicateFilter(Track.all())
-                        .filter(Track.Columns.albumId == albumId)
-                        .order(Track.Columns.discNumber, Track.Columns.trackNumber)
+                    return try query
+                        .order(Track.Columns.discNumber ?? 1, Track.Columns.trackNumber ?? 0)
                         .fetchAll(db)
                 }
             }
-
-            populateAlbumArtworkForTracks(&tracks)
             
+            populateAlbumArtworkForTracks(&tracks)
             return tracks
         } catch {
             Logger.error("Failed to get tracks for album entity: \(error)")
@@ -548,351 +462,6 @@ extension DatabaseManager {
     }
 
     // MARK: - Library Filter Items
-
-    /// Get artist filter items with counts
-    func getArtistFilterItems() -> [LibraryFilterItem] {
-        do {
-            return try dbQueue.read { db in
-                let artists = try Artist
-                    .order(Artist.Columns.sortName)
-                    .fetchAll(db)
-
-                var items: [LibraryFilterItem] = []
-
-                for artist in artists {
-                    guard let artistId = artist.id else { continue }
-
-                    // Get track IDs for this artist
-                    let trackIds = try TrackArtist
-                        .filter(TrackArtist.Columns.artistId == artistId)
-                        .filter(TrackArtist.Columns.role == TrackArtist.Role.artist)
-                        .select(TrackArtist.Columns.trackId, as: Int64.self)
-                        .distinct()
-                        .fetchAll(db)
-
-                    // Count only non-duplicate tracks if preference is set
-                    let trackCount = try applyDuplicateFilter(Track.all())
-                        .filter(trackIds.contains(Track.Columns.trackId))
-                        .fetchCount(db)
-
-                    if trackCount > 0 {
-                        items.append(LibraryFilterItem(
-                            name: artist.name,
-                            count: trackCount,
-                            filterType: .artists
-                        ))
-                    }
-                }
-
-                // Add unknown placeholder if needed
-                let unknownCount = try applyDuplicateFilter(Track.all())
-                    .filter(Track.Columns.artist == "Unknown Artist")
-                    .fetchCount(db)
-
-                if unknownCount > 0 {
-                    items.append(LibraryFilterItem(
-                        name: "Unknown Artist",
-                        count: unknownCount,
-                        filterType: .artists
-                    ))
-                }
-
-                return items
-            }
-        } catch {
-            Logger.error("Failed to get artist filter items: \(error)")
-            return []
-        }
-    }
-
-    /// Get album artist filter items with counts
-    func getAlbumArtistFilterItems() -> [LibraryFilterItem] {
-        do {
-            return try dbQueue.read { db in
-                let artists = try Artist
-                    .order(Artist.Columns.sortName)
-                    .fetchAll(db)
-
-                var items: [LibraryFilterItem] = []
-
-                for artist in artists {
-                    guard let artistId = artist.id else { continue }
-                    
-                    // Get track IDs for this album-artist
-                    let trackIds = try TrackArtist
-                        .filter(TrackArtist.Columns.artistId == artistId)
-                        .filter(TrackArtist.Columns.role == TrackArtist.Role.albumArtist)
-                        .select(TrackArtist.Columns.trackId, as: Int64.self)
-                        .distinct()
-                        .fetchAll(db)
-
-                    // Count only non-duplicate tracks if preference is set
-                    let trackCount = try applyDuplicateFilter(Track.all())
-                        .filter(trackIds.contains(Track.Columns.trackId))
-                        .fetchCount(db)
-
-                    if trackCount > 0 {
-                        items.append(LibraryFilterItem(
-                            name: artist.name,
-                            count: trackCount,
-                            filterType: .albumArtists
-                        ))
-                    }
-                }
-
-                // Add unknown placeholder if needed
-                let unknownCount = try applyDuplicateFilter(Track.all())
-                    .filter(Track.Columns.albumArtist == "Unknown Album Artist")
-                    .fetchCount(db)
-
-                if unknownCount > 0 {
-                    items.append(LibraryFilterItem(
-                        name: "Unknown Album Artist",
-                        count: unknownCount,
-                        filterType: .albumArtists
-                    ))
-                }
-
-                return items
-            }
-        } catch {
-            Logger.error("Failed to get album artist filter items: \(error)")
-            return []
-        }
-    }
-
-    /// Get composer filter items with counts
-    func getComposerFilterItems() -> [LibraryFilterItem] {
-        do {
-            return try dbQueue.read { db in
-                let composers = try Artist
-                    .order(Artist.Columns.sortName)
-                    .fetchAll(db)
-
-                var items: [LibraryFilterItem] = []
-
-                for composer in composers {
-                    guard let composerId = composer.id else { continue }
-                    
-                    // Get track IDs for this composer
-                    let trackIds = try TrackArtist
-                        .filter(TrackArtist.Columns.artistId == composerId)
-                        .filter(TrackArtist.Columns.role == TrackArtist.Role.composer)
-                        .select(TrackArtist.Columns.trackId, as: Int64.self)
-                        .distinct()
-                        .fetchAll(db)
-
-                    // Count only non-duplicate tracks if preference is set
-                    let trackCount = try applyDuplicateFilter(Track.all())
-                        .filter(trackIds.contains(Track.Columns.trackId))
-                        .fetchCount(db)
-
-                    if trackCount > 0 {
-                        items.append(LibraryFilterItem(
-                            name: composer.name,
-                            count: trackCount,
-                            filterType: .composers
-                        ))
-                    }
-                }
-
-                // Add unknown placeholder if needed
-                let unknownCount = try applyDuplicateFilter(Track.all())
-                    .filter(Track.Columns.composer == "Unknown Composer")
-                    .fetchCount(db)
-
-                if unknownCount > 0 {
-                    items.append(LibraryFilterItem(
-                        name: "Unknown Composer",
-                        count: unknownCount,
-                        filterType: .composers
-                    ))
-                }
-
-                return items
-            }
-        } catch {
-            Logger.error("Failed to get composer filter items: \(error)")
-            return []
-        }
-    }
-
-    /// Get album filter items with counts
-    func getAlbumFilterItems() -> [LibraryFilterItem] {
-        do {
-            return try dbQueue.read { db in
-                let albums = try Album
-                    .order(Album.Columns.sortTitle)
-                    .fetchAll(db)
-
-                var items: [LibraryFilterItem] = []
-
-                for album in albums {
-                    guard let albumId = album.id else { continue }
-
-                    let trackCount = try applyDuplicateFilter(Track.all())
-                        .filter(Track.Columns.albumId == albumId)
-                        .fetchCount(db)
-
-                    if trackCount > 0 {
-                        items.append(LibraryFilterItem(
-                            name: album.title,
-                            count: trackCount,
-                            filterType: .albums
-                        ))
-                    }
-                }
-
-                // Add unknown album if needed
-                let unknownCount = try applyDuplicateFilter(Track.all())
-                    .filter(Track.Columns.album == "Unknown Album")
-                    .filter(Track.Columns.albumId == nil)
-                    .fetchCount(db)
-
-                if unknownCount > 0 {
-                    items.append(LibraryFilterItem(
-                        name: "Unknown Album",
-                        count: unknownCount,
-                        filterType: .albums
-                    ))
-                }
-
-                return items
-            }
-        } catch {
-            Logger.error("Failed to get album filter items: \(error)")
-            return []
-        }
-    }
-
-    /// Get genre filter items with counts
-    func getGenreFilterItems() -> [LibraryFilterItem] {
-        do {
-            return try dbQueue.read { db in
-                let genres = try Genre
-                    .order(Genre.Columns.name)
-                    .fetchAll(db)
-
-                var items: [LibraryFilterItem] = []
-
-                for genre in genres {
-                    guard let genreId = genre.id else { continue }
-
-                    // Get track IDs for this genre
-                    let trackIds = try TrackGenre
-                        .filter(TrackGenre.Columns.genreId == genreId)
-                        .select(TrackGenre.Columns.trackId, as: Int64.self)
-                        .distinct()
-                        .fetchAll(db)
-
-                    // Count only non-duplicate tracks if preference is set
-                    let trackCount = try applyDuplicateFilter(Track.all())
-                        .filter(trackIds.contains(Track.Columns.trackId))
-                        .fetchCount(db)
-
-                    if trackCount > 0 {
-                        items.append(LibraryFilterItem(
-                            name: genre.name,
-                            count: trackCount,
-                            filterType: .genres
-                        ))
-                    }
-                }
-
-                // Add unknown genre if needed
-                let unknownCount = try applyDuplicateFilter(Track.all())
-                    .filter(Track.Columns.genre == "Unknown Genre")
-                    .fetchCount(db)
-
-                if unknownCount > 0 {
-                    items.append(LibraryFilterItem(
-                        name: "Unknown Genre",
-                        count: unknownCount,
-                        filterType: .genres
-                    ))
-                }
-
-                return items
-            }
-        } catch {
-            Logger.error("Failed to get genre filter items: \(error)")
-            return []
-        }
-    }
-    
-    /// Get decade filter items with counts
-    func getDecadeFilterItems() -> [LibraryFilterItem] {
-        do {
-            return try dbQueue.read { db in
-                // Get all tracks with valid years
-                let tracks = try applyDuplicateFilter(Track.all())
-                    .filter(Track.Columns.year != "")
-                    .filter(Track.Columns.year != "Unknown Year")
-                    .fetchAll(db)
-                
-                // Group by decade
-                var decadeCounts: [String: Int] = [:]
-                
-                for track in tracks {
-                    // Parse year to get decade
-                    if let yearInt = Int(track.year.prefix(4)) {
-                        let decade = (yearInt / 10) * 10
-                        let decadeString = "\(decade)s"
-                        decadeCounts[decadeString, default: 0] += 1
-                    }
-                }
-                
-                // Convert to LibraryFilterItems and sort by decade (descending)
-                let items = decadeCounts.map { decade, count in
-                    LibraryFilterItem(name: decade, count: count, filterType: .decades)
-                }.sorted { item1, item2 in
-                    // Extract decade year for proper numeric sorting
-                    let decade1 = Int(item1.name.dropLast()) ?? 0
-                    let decade2 = Int(item2.name.dropLast()) ?? 0
-                    return decade1 > decade2
-                }
-                
-                return items
-            }
-        } catch {
-            Logger.error("Failed to get decade filter items: \(error)")
-            return []
-        }
-    }
-
-    /// Get year filter items with counts
-    func getYearFilterItems() -> [LibraryFilterItem] {
-        do {
-            return try dbQueue.read { db in
-                let years = try applyDuplicateFilter(Track.all())
-                    .select(Track.Columns.year, as: String.self)
-                    .filter(Track.Columns.year != "")
-                    .filter(Track.Columns.year != "Unknown Year")
-                    .distinct()
-                    .order(Track.Columns.year.desc)
-                    .fetchAll(db)
-
-                var items: [LibraryFilterItem] = []
-
-                for year in years {
-                    let count = try applyDuplicateFilter(Track.all())
-                        .filter(Track.Columns.year == year)
-                        .fetchCount(db)
-
-                    items.append(LibraryFilterItem(
-                        name: year,
-                        count: count,
-                        filterType: .years
-                    ))
-                }
-
-                return items
-            }
-        } catch {
-            Logger.error("Failed to get year filter items: \(error)")
-            return []
-        }
-    }
 
     func getAllTracks() -> [Track] {
         do {
