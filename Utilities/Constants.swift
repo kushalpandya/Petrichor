@@ -89,6 +89,11 @@ enum About {
 
 enum AudioFormat {
     static let supportedExtensions = ["mp3", "m4a", "wav", "aac", "aiff", "flac"]
+    static let unsupportedExtensions = [
+        "ogg", "opus", "wma", "ape", "mpc", "wv", "tta",
+        "dsf", "dff", "m4b", "m4p", "ra", "ram", "au", "amr",
+        "ac3", "dts", "spx", "oga", "mod", "it", "s3m", "xm"
+    ]
     
     static var supportedFormatsDisplay: String {
         supportedExtensions
@@ -98,6 +103,10 @@ enum AudioFormat {
     
     static func isSupported(_ fileExtension: String) -> Bool {
         supportedExtensions.contains(fileExtension.lowercased())
+    }
+    
+    static func isNotSupported(_ fileExtension: String) -> Bool {
+        unsupportedExtensions.contains(fileExtension.lowercased())
     }
 }
 

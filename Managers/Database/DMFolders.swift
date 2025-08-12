@@ -310,6 +310,7 @@ extension DatabaseManager {
         actor ScanState {
             var processedCount = 0
             var failedFiles: [(url: URL, error: Error)] = []
+            var skippedFiles: [(url: URL, extension: String)] = []
             
             func incrementProcessed(by count: Int) {
                 processedCount += count
@@ -319,8 +320,13 @@ extension DatabaseManager {
                 failedFiles.append(contentsOf: files)
             }
             
+            func addSkippedFiles(_ files: [(url: URL, extension: String)]) {
+                skippedFiles.append(contentsOf: files)
+            }
+            
             func getProcessedCount() -> Int { processedCount }
             func getFailedFiles() -> [(url: URL, error: Error)] { failedFiles }
+            func getSkippedFiles() -> [(url: URL, extension: String)] { skippedFiles }
         }
         
         let scanState = ScanState()
@@ -334,12 +340,25 @@ extension DatabaseManager {
         var scannedPaths = Set<URL>()
 
         // Process enumerator synchronously
+        var unsupportedFiles: [(url: URL, extension: String)] = []
+
         while let fileURL = enumerator.nextObject() as? URL {
             let fileExtension = fileURL.pathExtension.lowercased()
+            
+            // Skip files without extensions
+            guard !fileExtension.isEmpty else { continue }
+            
             if supportedExtensions.contains(fileExtension) {
                 musicFiles.append(fileURL)
                 scannedPaths.insert(fileURL)
+            } else if AudioFormat.isNotSupported(fileExtension) {
+                unsupportedFiles.append((url: fileURL, extension: fileExtension))
+                Logger.info("Skipped unsupported audio file: \(fileURL.lastPathComponent) (.\(fileExtension))")
             }
+        }
+
+        if !unsupportedFiles.isEmpty {
+            await scanState.addSkippedFiles(unsupportedFiles)
         }
 
         // Now we can safely use these in async context
@@ -423,6 +442,7 @@ extension DatabaseManager {
         // Get final counts
         let processedCount = await scanState.getProcessedCount()
         let failedFiles = await scanState.getFailedFiles()
+        let skippedFiles = await scanState.getSkippedFiles()
 
         // Report results
         if !failedFiles.isEmpty {
@@ -434,7 +454,25 @@ extension DatabaseManager {
             }
         }
         
-        Logger.info("Completed scanning folder \(folder.name): \(processedCount) processed, \(failedFiles.count) failed")
+        // Report skipped files
+        if !skippedFiles.isEmpty {
+            let extensionCounts = Dictionary(grouping: skippedFiles) { $0.extension }
+                .mapValues { $0.count }
+                .sorted { $0.value > $1.value }
+            
+            let topExtensions = extensionCounts.prefix(3)
+                .map { ".\($0.key.uppercased()) (\($0.value))" }
+                .joined(separator: ", ")
+            
+            await MainActor.run {
+                let message = skippedFiles.count == 1
+                    ? "1 file skipped in '\(folder.name)' - unsupported format"
+                    : "\(skippedFiles.count) files skipped in '\(folder.name)' - unsupported formats: \(topExtensions)"
+                NotificationManager.shared.addMessage(.warning, message)
+            }
+        }
+        
+        Logger.info("Completed scanning folder \(folder.name): \(processedCount) processed, \(failedFiles.count) failed, \(skippedFiles.count) skipped")
     }
 
     func updateFolderTrackCount(_ folder: Folder) async throws {
