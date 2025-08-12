@@ -76,6 +76,39 @@ struct TrackContextMenuContent: View {
     }
 }
 
+// MARK: - Async Track Artwork Loading
+
+extension View {
+    /// Load track artwork asynchronously with optional delay
+    func loadTrackArtworkAsync(
+        from data: Data?,
+        into imageBinding: Binding<NSImage?>,
+        delay: UInt64 = TimeConstants.fiftyMilliseconds
+    ) async {
+        guard imageBinding.wrappedValue == nil, let data = data else { return }
+        
+        if delay > 0 {
+            try? await Task.sleep(nanoseconds: delay)
+            guard !Task.isCancelled else { return }
+        }
+        
+        let image = await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let image = NSImage(data: data)
+                continuation.resume(returning: image)
+            }
+        }
+        
+        guard !Task.isCancelled else { return }
+        
+        if let image = image {
+            await MainActor.run {
+                imageBinding.wrappedValue = image
+            }
+        }
+    }
+}
+
 // MARK: - Preview
 #Preview("List View") {
     let sampleTracks = (0..<5).map { i in

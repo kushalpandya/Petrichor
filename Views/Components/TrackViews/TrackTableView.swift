@@ -986,24 +986,22 @@ struct TrackTableView: NSViewRepresentable {
 
         func updateBackgroundColor(animated: Bool = true) {
             let color: NSColor
-
+            
             if coordinator?.hoveredRow == row {
                 color = NSColor.selectedContentBackgroundColor.withAlphaComponent(0.15)
             } else {
                 color = NSColor.clear
             }
-
+            
+            CATransaction.begin()
             if animated {
-                CATransaction.begin()
-                CATransaction.setAnimationDuration(
-                    coordinator?.hoveredRow == row ? AnimationDuration.quickDuration : AnimationDuration.standardDuration
-                )
-                CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeInEaseOut))
-                backgroundLayer?.backgroundColor = color.cgColor
-                CATransaction.commit()
+                CATransaction.setAnimationDuration(0.08)
+                CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeOut))
             } else {
-                backgroundLayer?.backgroundColor = color.cgColor
+                CATransaction.setDisableActions(true)
             }
+            backgroundLayer?.backgroundColor = color.cgColor
+            CATransaction.commit()
         }
 
         override var isSelected: Bool {
@@ -1097,14 +1095,7 @@ struct TrackTableView: NSViewRepresentable {
 struct TrackTableTitleCell: View {
     let track: Track
     @ObservedObject var playbackManager: PlaybackManager
-
-    // Use the track's existing artwork data directly
-    private var artworkImage: NSImage? {
-        if let data = track.albumArtworkSmall {
-            return NSImage(data: data)
-        }
-        return nil
-    }
+    @State private var artworkImage: NSImage?
 
     private var isCurrentTrack: Bool {
         guard let currentTrack = playbackManager.currentTrack else { return false }
@@ -1144,6 +1135,14 @@ struct TrackTableTitleCell: View {
         }
         .padding(.horizontal, 8)
         .frame(height: 44)
+        .task {
+            await loadTrackArtworkAsync(
+                from: track.albumArtworkMedium,
+                into: $artworkImage,
+                delay: 0
+            )
+        }
+        .onDisappear { artworkImage = nil }
     }
 
     private var textColor: Color {

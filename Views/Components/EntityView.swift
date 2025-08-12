@@ -61,6 +61,41 @@ extension NSImage {
     }
 }
 
+// MARK: - Async Entity Artwork Loading
+
+extension View {
+    func loadEntityArtworkAsync(
+        from data: Data?,
+        into binding: Binding<NSImage?>,
+        with task: Binding<Task<Void, Never>?>
+    ) {
+        task.wrappedValue?.cancel()
+        
+        guard let data = data else { return }
+        
+        task.wrappedValue = Task {
+            try? await Task.sleep(nanoseconds: TimeConstants.fiftyMilliseconds)
+            
+            guard !Task.isCancelled else { return }
+            
+            let image = await withCheckedContinuation { continuation in
+                DispatchQueue.global(qos: .userInitiated).async {
+                    let image = NSImage(data: data)
+                    continuation.resume(returning: image)
+                }
+            }
+            
+            guard !Task.isCancelled else { return }
+            
+            if let image = image {
+                await MainActor.run {
+                    binding.wrappedValue = image
+                }
+            }
+        }
+    }
+}
+
 // MARK: - Preview
 
 #Preview("Artist List") {

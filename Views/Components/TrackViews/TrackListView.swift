@@ -146,7 +146,13 @@ private struct TrackListRow: View {
                 loadingArtwork
             }
         }
-        .task { await loadArtwork() }
+        .task {
+            await loadTrackArtworkAsync(
+                from: track.albumArtworkMedium,
+                into: $artworkImage,
+                delay: 0
+            )
+        }
         .onDisappear { artworkImage = nil }
     }
 
@@ -275,17 +281,6 @@ private struct TrackListRow: View {
             playbackManager.togglePlayPause()
         } else {
             onPlay()
-        }
-    }
-
-    private func loadArtwork() async {
-        guard artworkImage == nil else { return }
-
-        if let artworkData = track.albumArtworkMedium,
-           let image = NSImage(data: artworkData) {
-            await MainActor.run {
-                self.artworkImage = image
-            }
         }
     }
 

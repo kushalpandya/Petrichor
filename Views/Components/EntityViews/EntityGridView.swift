@@ -161,21 +161,11 @@ private struct EntityGridItem<T: Entity>: View {
     }
 
     private func loadArtworkAsync() {
-        artworkLoadTask?.cancel()
-
-        artworkLoadTask = Task {
-            try? await Task.sleep(nanoseconds: TimeConstants.fiftyMilliseconds)
-
-            guard !Task.isCancelled else { return }
-
-            if let data = entity.artworkLarge,
-               let image = NSImage(data: data) {
-                await MainActor.run {
-                    guard !Task.isCancelled else { return }
-                    self.artworkImage = image
-                }
-            }
-        }
+        loadEntityArtworkAsync(
+            from: entity.artworkLarge,
+            into: $artworkImage,
+            with: $artworkLoadTask
+        )
     }
 }
 

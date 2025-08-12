@@ -85,7 +85,6 @@ private struct TrackGridItem: View {
     @EnvironmentObject var playbackManager: PlaybackManager
     @State private var isHovered = false
     @State private var artworkImage: NSImage?
-    @State private var artworkLoadTask: Task<Void, Never>?
 
     private var isCurrentTrack: Bool {
         guard let currentTrack = playbackManager.currentTrack else { return false }
@@ -112,16 +111,14 @@ private struct TrackGridItem: View {
                 isHovered = hovering
             }
         }
-        .onAppear {
-            loadArtworkIfNeeded()
+        .task {
+            await loadTrackArtworkAsync(
+                from: track.albumArtworkLarge,
+                into: $artworkImage,
+                delay: TimeConstants.oneHundredMilliseconds
+            )
         }
-        .onDisappear {
-            // Cancel artwork loading if view disappears
-            artworkLoadTask?.cancel()
-            artworkLoadTask = nil
-            // Clear artwork to free memory when off-screen
-            artworkImage = nil
-        }
+        .onDisappear { artworkImage = nil }
     }
 
     // MARK: - Subviews
@@ -226,39 +223,6 @@ private struct TrackGridItem: View {
                 (isHovered ? Color(NSColor.selectedContentBackgroundColor).opacity(0.15) : Color.clear)
             )
             .animation(.easeInOut(duration: 0.1), value: isHovered)
-    }
-
-    // MARK: - Artwork Loading
-
-    private func loadArtworkIfNeeded() {
-        guard artworkImage == nil, artworkLoadTask == nil else { return }
-
-        artworkLoadTask = Task { @MainActor in
-            // Small delay to prevent loading during fast scrolling
-            try? await Task.sleep(nanoseconds: TimeConstants.oneFiftyMilliseconds) // 150ms
-
-            guard !Task.isCancelled else { return }
-
-            if let artworkData = track.albumArtworkLarge {
-                // Load image in background
-                let image = await loadImage(from: artworkData)
-
-                guard !Task.isCancelled else { return }
-
-                artworkImage = image
-            }
-
-            artworkLoadTask = nil
-        }
-    }
-
-    private func loadImage(from data: Data) async -> NSImage? {
-        await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                let image = NSImage(data: data)
-                continuation.resume(returning: image)
-            }
-        }
     }
 }
 
