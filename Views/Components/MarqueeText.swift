@@ -66,6 +66,7 @@ private class MarqueeNSView: NSView {
     private var textWidth: CGFloat = 0
     private var containerWidth: CGFloat = 0
     private var isAnimating = false
+    private var textColor: Color = .primary
     
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -95,6 +96,7 @@ private class MarqueeNSView: NSView {
         
         let textChanged = currentText != text
         currentText = text
+        self.textColor = color
         self.containerWidth = containerWidth
         
         let nsFont = NSFont.systemFont(ofSize: fontSizeFromFont(font))
@@ -108,7 +110,7 @@ private class MarqueeNSView: NSView {
         textLayer.string = text
         textLayer.font = nsFont
         textLayer.fontSize = nsFont.pointSize
-        textLayer.foregroundColor = NSColor(color).cgColor
+        textLayer.foregroundColor = textForegroundColor(for: color)
         textLayer.frame = CGRect(x: 0, y: 0, width: textWidth, height: textSize.height)
         
         if textChanged {
@@ -190,6 +192,21 @@ private class MarqueeNSView: NSView {
         }
     }
     
+    private func textForegroundColor(for color: Color) -> CGColor {
+        let resolvedColor: NSColor
+        switch color {
+        case Color.primary:
+            resolvedColor = NSColor.labelColor
+        case Color.secondary:
+            resolvedColor = NSColor.secondaryLabelColor
+        case Color.secondary.opacity(0.8):
+            resolvedColor = NSColor.secondaryLabelColor.withAlphaComponent(0.8)
+        default:
+            resolvedColor = NSColor(color)
+        }
+        return resolvedColor.cgColor
+    }
+    
     override func layout() {
         super.layout()
         
@@ -201,6 +218,12 @@ private class MarqueeNSView: NSView {
             
             CATransaction.commit()
         }
+    }
+    
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        
+        textLayer?.foregroundColor = textForegroundColor(for: textColor)
     }
 }
 

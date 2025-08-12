@@ -222,7 +222,7 @@ struct PlayerView: View {
             MarqueeText(
                 text: playbackManager.currentTrack?.album ?? "",
                 font: .system(size: 11),
-                color: .secondary.opacity(0.8)
+                color: .secondary
             )
             .frame(height: 14)
             .frame(maxWidth: .infinity, alignment: .leading)
