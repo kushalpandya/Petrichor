@@ -127,14 +127,37 @@ private struct TrackGridItem: View {
     private var artworkSection: some View {
         ZStack {
             artworkView
-
-            if isHovered || isCurrentTrack {
-                playOverlay
-                    .transition(.opacity)
+            
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.black.opacity(isHovered || isCurrentTrack ? 0.4 : 0))
+            
+            Button(action: {
+                if isCurrentTrack {
+                    playbackManager.togglePlayPause()
+                } else {
+                    onPlay()
+                }
+            }) {
+                Image(systemName: isPlaying ? Icons.pauseFill : Icons.playFill)
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundColor(.white)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(Color.black.opacity(0.6)))
             }
-
+            .buttonStyle(.borderless)
+            .opacity(isHovered || isCurrentTrack ? 1 : 0)
+            .allowsHitTesting(isHovered || isCurrentTrack)
+            
             if isCurrentTrack && isPlaying {
-                playingIndicatorOverlay
+                VStack {
+                    HStack {
+                        Spacer()
+                        PlayingIndicator()
+                            .padding(.top, 8)
+                            .padding(.trailing, 8)
+                    }
+                    Spacer()
+                }
             }
         }
         .frame(width: 160, height: 160)
@@ -159,57 +182,27 @@ private struct TrackGridItem: View {
         }
     }
 
-    private var playOverlay: some View {
-        RoundedRectangle(cornerRadius: 8)
-            .fill(Color.black.opacity(0.4))
-            .overlay(
-                Button(action: {
-                    if isCurrentTrack {
-                        playbackManager.togglePlayPause()
-                    } else {
-                        onPlay()
-                    }
-                }) {
-                    Image(systemName: isPlaying ? Icons.pauseFill : Icons.playFill)
-                        .font(.system(size: 24, weight: .medium))
-                        .foregroundColor(.white)
-                        .frame(width: 44, height: 44)
-                        .background(Circle().fill(Color.black.opacity(0.6)))
-                }
-                .buttonStyle(.borderless)
-            )
-    }
-
-    private var playingIndicatorOverlay: some View {
-        VStack {
-            HStack {
-                Spacer()
-                PlayingIndicator()
-                    .padding(.top, 8)
-                    .padding(.trailing, 8)
-            }
-            Spacer()
-        }
-    }
-
     private var trackInfoSection: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(track.title)
                 .font(.system(size: 14, weight: isCurrentTrack ? .medium : .regular))
                 .foregroundColor(isCurrentTrack ? .accentColor : .primary)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .help(track.title)
 
             Text(track.artist)
                 .font(.system(size: 12))
                 .foregroundColor(.secondary)
                 .lineLimit(1)
+                .help(track.artist)
 
             if !track.album.isEmpty && track.album != "Unknown Album" {
                 Text(track.album)
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
                     .lineLimit(1)
+                    .help(track.album)
             }
         }
         .frame(width: 160, alignment: .leading)
