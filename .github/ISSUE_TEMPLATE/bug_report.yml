@@ -1,0 +1,90 @@
+name: Bug Report
+description: Report a bug in Petrichor
+title: "Bug: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug
+      placeholder: "The app freezes when adding large folders..."
+    validations:
+      required: true
+      
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      placeholder: |
+        1. Go to Settings > Library
+        2. Add a folder with 10,000+ tracks
+        3. App freezes
+    validations:
+      required: true
+      
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      placeholder: "Should scan the folder with progress indicator"
+    validations:
+      required: true
+      
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Is the app crashing?
+      description: If yes, we'll need crash logs
+      options:
+        - "No - Just unexpected behavior"
+        - "Yes - App crashes/quits unexpectedly"
+    validations:
+      required: true
+      
+  - type: input
+    id: version
+    attributes:
+      label: Petrichor Version
+      description: Check About window for version
+      placeholder: "v1.0.0-beta.3"
+    validations:
+      required: true
+      
+  - type: dropdown
+    id: macos
+    attributes:
+      label: macOS Version
+      description: Petrichor requires macOS 14.0 or higher
+      options:
+        - macOS 26 (Tahoe)
+        - macOS 15 (Sequoia)
+        - macOS 14 (Sonoma)
+    validations:
+      required: true
+      
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        **For regular bugs - attach app logs:**
+        - **If app is running:** Settings → About → App Data (opens Finder with Logs folder)
+        - **If app won't launch:** Navigate to `~/Library/Containers/org.Petrichor/Data/Library/Application Support/org.Petrichor/Logs/`
+        
+        **For crashes - also include crash logs:**
+        - Open Console app → Crash Reports → Find Petrichor crash logs
+        - Or navigate to `~/Library/Logs/DiagnosticReports/` and find Petrichor crash reports
+        
+        Attach relevant files or paste error messages here.
+      render: shell
+      
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues to avoid duplicates
+          required: true
+        - label: I'm running macOS 14.0 or higher
+          required: true

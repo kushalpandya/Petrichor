@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & Discussions
+    url: https://github.com/kushalpandya/Petrichor/discussions
+    about: For general questions, help, and discussions
+  - name: Wiki & Documentation
+    url: https://github.com/kushalpandya/Petrichor/wiki
+    about: Check the wiki for guides and documentation
