@@ -11,6 +11,12 @@ struct LibraryTabView: View {
     @State private var stableRefreshButtonState = false
     @State private var scanningStateTimer: Timer?
     @StateObject private var notificationManager = NotificationManager.shared
+    
+    private var isLibraryUpdateInProgress: Bool {
+        libraryManager.isScanning ||
+        notificationManager.isActivityInProgress ||
+        stableScanningState
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -93,13 +99,15 @@ struct LibraryTabView: View {
             Button(action: { libraryManager.refreshLibrary() }) {
                 Label("Refresh Library", systemImage: "arrow.clockwise")
             }
-            .disabled(stableRefreshButtonState)
             .help("Scan for new files and update metadata")
+            .disabled(isLibraryUpdateInProgress)
 
             Button(action: { libraryManager.addFolder() }) {
                 Label("Add Folder", systemImage: "plus")
             }
             .buttonStyle(.borderedProminent)
+            .help("Add a folder to library")
+            .disabled(isLibraryUpdateInProgress)
         }
         .padding(.horizontal, 16)
         .padding(.top, -20)
@@ -116,7 +124,7 @@ struct LibraryTabView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.regular)
-                .disabled(libraryManager.folders.isEmpty)
+                .disabled(libraryManager.folders.isEmpty || isLibraryUpdateInProgress)
 
                 if isSelectMode {
                     Text("\(selectedFolderIDs.count) selected")
@@ -219,6 +227,7 @@ struct LibraryTabView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.regular)
+                .disabled(isLibraryUpdateInProgress)
 
                 Button(action: { showingResetConfirmation = true }) {
                     HStack(spacing: 6) {
@@ -235,6 +244,7 @@ struct LibraryTabView: View {
                     .cornerRadius(5)
                 }
                 .buttonStyle(.plain)
+                .disabled(isLibraryUpdateInProgress)
             }
 
             // Status info
