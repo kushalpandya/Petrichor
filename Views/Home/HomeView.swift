@@ -154,15 +154,17 @@ struct HomeView: View {
                 title: "Discover",
                 trackCount: sortedDiscoverTracks.count
             ) {
-                // Sort button
-                Button(action: { trackListSortAscending.toggle() }) {
-                    Image(Icons.sortIcon(for: trackListSortAscending))
-                        .renderingMode(.template)
-                        .scaleEffect(0.8)
+                if viewType != .table {
+                    // Sort button
+                    Button(action: { trackListSortAscending.toggle() }) {
+                        Image(Icons.sortIcon(for: trackListSortAscending))
+                            .renderingMode(.template)
+                            .scaleEffect(0.8)
+                    }
+                    .buttonStyle(.borderless)
+                    .hoverEffect(scale: 1.1)
+                    .help("Sort tracks \(trackListSortAscending ? "ascending" : "descending")")
                 }
-                .buttonStyle(.borderless)
-                .hoverEffect(scale: 1.1)
-                .help("Sort tracks \(trackListSortAscending ? "ascending" : "descending")")
             }
             
             Divider()
@@ -226,15 +228,17 @@ struct HomeView: View {
                 title: "All Tracks",
                 trackCount: sortedTracks.count
             ) {
-                // Sort button
-                Button(action: { trackListSortAscending.toggle() }) {
-                    Image(Icons.sortIcon(for: trackListSortAscending))
-                        .renderingMode(.template)
-                        .scaleEffect(0.8)
+                if viewType != .table {
+                    // Sort button
+                    Button(action: { trackListSortAscending.toggle() }) {
+                        Image(Icons.sortIcon(for: trackListSortAscending))
+                            .renderingMode(.template)
+                            .scaleEffect(0.8)
+                    }
+                    .buttonStyle(.borderless)
+                    .hoverEffect(scale: 1.1)
+                    .help("Sort tracks \(trackListSortAscending ? "ascending" : "descending")")
                 }
-                .buttonStyle(.borderless)
-                .hoverEffect(scale: 1.1)
-                .help("Sort tracks \(trackListSortAscending ? "ascending" : "descending")")
             }
             
             Divider()
