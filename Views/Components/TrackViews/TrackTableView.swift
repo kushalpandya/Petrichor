@@ -136,6 +136,7 @@ struct TrackTableView: NSViewRepresentable {
         // Always update these properties
         context.coordinator.columnVisibility = columnManager.columnVisibility
         context.coordinator.playbackManager = playbackManager
+        context.coordinator.playlistID = playlistID
 
         // Update column visibility
         updateColumnVisibility(tableView: tableView)
@@ -349,7 +350,7 @@ struct TrackTableView: NSViewRepresentable {
         var sortedTracks: [Track] = []
         var hoveredRow: Int?
         var isPlaying: Bool = false
-        let playlistID: UUID?
+        var playlistID: UUID?
         let playlistSortManager = PlaylistSortManager.shared
         let onPlayTrack: (Track) -> Void
         var playbackManager: PlaybackManager
@@ -710,20 +711,16 @@ struct TrackTableView: NSViewRepresentable {
             // Clear hover state immediately when scrolling starts
             if let previousHoveredRow = hoveredRow {
                 hoveredRow = nil
-                lastHoveredRow = nil
-
-                // Update the row to remove hover effects and play button
+                
+                // Update the row to remove hover effects
                 if let tableView = hostTableView {
-                    // Update the entire row to clear hover background
-                    if let rowView = tableView.rowView(atRow: previousHoveredRow, makeIfNecessary: false) as? HoverableTableRowView {
-                        rowView.updateBackgroundColor(animated: false)
-                    }
-
-                    // Update the play/pause cell
+                    // Update play/pause column for the previously hovered row
                     let playPauseColumnIndex = tableView.column(withIdentifier: NSUserInterfaceItemIdentifier("playPause"))
-                    if playPauseColumnIndex >= 0 {
-                        tableView.reloadData(forRowIndexes: IndexSet(integer: previousHoveredRow),
-                                            columnIndexes: IndexSet(integer: playPauseColumnIndex))
+                    if playPauseColumnIndex >= 0 && previousHoveredRow < tableView.numberOfRows {
+                        tableView.reloadData(
+                            forRowIndexes: IndexSet(integer: previousHoveredRow),
+                            columnIndexes: IndexSet(integer: playPauseColumnIndex)
+                        )
                     }
                 }
             }
@@ -949,65 +946,24 @@ struct TrackTableView: NSViewRepresentable {
         weak var coordinator: TrackTableView.Coordinator?
         var row: Int = -1
         private var trackingArea: NSTrackingArea?
-        private var backgroundLayer: CALayer?
 
         override init(frame frameRect: NSRect) {
             super.init(frame: frameRect)
-            setupBackgroundLayer()
         }
 
         required init?(coder: NSCoder) {
             super.init(coder: coder)
-            setupBackgroundLayer()
         }
 
-        private func setupBackgroundLayer() {
-            wantsLayer = true
-
-            // Create a background layer for smooth animations
-            backgroundLayer = CALayer()
-            backgroundLayer?.frame = bounds
-            backgroundLayer?.backgroundColor = NSColor.clear.cgColor
-            layer?.insertSublayer(backgroundLayer!, at: 0)
-        }
-
-        override func layout() {
-            super.layout()
-            backgroundLayer?.frame = bounds
-        }
-
-        override func drawBackground(in dirtyRect: NSRect) {
-            // Don't draw anything here - we'll use the layer instead
-        }
-
-        override func drawSelection(in dirtyRect: NSRect) {
-            // Don't draw selection - leave empty
-        }
-
-        func updateBackgroundColor(animated: Bool = true) {
-            let color: NSColor
+        private func isMouseOverThisRow() -> Bool {
+            guard let window = window,
+                  let tableView = superview as? NSTableView else { return false }
             
-            if coordinator?.hoveredRow == row {
-                color = NSColor.selectedContentBackgroundColor.withAlphaComponent(0.15)
-            } else {
-                color = NSColor.clear
-            }
+            let mouseLocation = window.mouseLocationOutsideOfEventStream
+            let localPoint = tableView.convert(mouseLocation, from: nil)
+            let mouseRow = tableView.row(at: localPoint)
             
-            CATransaction.begin()
-            if animated {
-                CATransaction.setAnimationDuration(0.08)
-                CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeOut))
-            } else {
-                CATransaction.setDisableActions(true)
-            }
-            backgroundLayer?.backgroundColor = color.cgColor
-            CATransaction.commit()
-        }
-
-        override var isSelected: Bool {
-            didSet {
-                updateBackgroundColor(animated: true)
-            }
+            return mouseRow == row
         }
 
         override func updateTrackingAreas() {
@@ -1023,75 +979,63 @@ struct TrackTableView: NSViewRepresentable {
         }
 
         override func mouseEntered(with event: NSEvent) {
-            // Get current mouse location
-            let currentMouseLocation = NSEvent.mouseLocation
+            guard let tableView = superview as? NSTableView,
+                  row >= 0,
+                  row < tableView.numberOfRows else {
+                return
+            }
             
-            // Check if mouse actually moved (not just content scrolling under cursor)
-            let mouseActuallyMoved = abs(currentMouseLocation.x - (coordinator?.lastMouseLocation.x ?? 0)) > 1 ||
-                                    abs(currentMouseLocation.y - (coordinator?.lastMouseLocation.y ?? 0)) > 1
+            guard isMouseOverThisRow() else { return }
             
-            guard mouseActuallyMoved else { return }
+            _ = coordinator?.hoveredRow
             
-            // Update last mouse location
-            coordinator?.lastMouseLocation = currentMouseLocation
+            coordinator?.hoveredRow = nil
             
-            // Clear any previous hover state before setting new one
-            if let previousHoveredRow = coordinator?.hoveredRow,
-               previousHoveredRow != row,
-               let tableView = superview as? NSTableView {
-                // Force clear the previous hovered row
-                coordinator?.hoveredRow = nil
-                
-                // Update the previous row's play/pause cell
-                let playPauseColumnIndex = tableView.column(withIdentifier: NSUserInterfaceItemIdentifier("playPause"))
-                if playPauseColumnIndex >= 0 {
-                    tableView.reloadData(
-                        forRowIndexes: IndexSet(integer: previousHoveredRow),
-                        columnIndexes: IndexSet(integer: playPauseColumnIndex)
-                    )
-                }
-                
-                // Update the previous row's background
-                if let previousRowView = tableView.rowView(atRow: previousHoveredRow, makeIfNecessary: false) as? HoverableTableRowView {
-                    previousRowView.updateBackgroundColor(animated: false)
+            let visibleRange = tableView.rows(in: tableView.visibleRect)
+            let playPauseColumnIndex = tableView.column(withIdentifier: NSUserInterfaceItemIdentifier("playPause"))
+            
+            for visibleRow in visibleRange.location..<(visibleRange.location + visibleRange.length) {
+                if visibleRow != row {
+                    // Update play button for this visible row
+                    if playPauseColumnIndex >= 0 {
+                        tableView.reloadData(
+                            forRowIndexes: IndexSet(integer: visibleRow),
+                            columnIndexes: IndexSet(integer: playPauseColumnIndex)
+                        )
+                    }
                 }
             }
             
-            // Now set the new hover state
             coordinator?.hoveredRow = row
-            updateBackgroundColor(animated: true)
             
-            if let tableView = superview as? NSTableView {
-                // Force update of the play/pause cell for this row
-                let playPauseColumnIndex = tableView.column(withIdentifier: NSUserInterfaceItemIdentifier("playPause"))
-                if playPauseColumnIndex >= 0 {
-                    tableView.reloadData(
-                        forRowIndexes: IndexSet(integer: row),
-                        columnIndexes: IndexSet(integer: playPauseColumnIndex)
-                    )
-                }
+            if playPauseColumnIndex >= 0 {
+                tableView.reloadData(
+                    forRowIndexes: IndexSet(integer: row),
+                    columnIndexes: IndexSet(integer: playPauseColumnIndex)
+                )
             }
         }
 
         override func mouseExited(with event: NSEvent) {
             if coordinator?.hoveredRow == row {
                 coordinator?.hoveredRow = nil
-            }
-            updateBackgroundColor(animated: true)
-
-            if let tableView = superview as? NSTableView {
-                // Force update of the play/pause cell when hover exits
-                let playPauseColumnIndex = tableView.column(withIdentifier: NSUserInterfaceItemIdentifier("playPause"))
-                if playPauseColumnIndex >= 0 {
-                    tableView.reloadData(forRowIndexes: IndexSet(integer: row),
-                                        columnIndexes: IndexSet(integer: playPauseColumnIndex))
+                
+                // Update play button
+                if let tableView = superview as? NSTableView,
+                   row >= 0 && row < tableView.numberOfRows {
+                    let playPauseColumnIndex = tableView.column(withIdentifier: NSUserInterfaceItemIdentifier("playPause"))
+                    if playPauseColumnIndex >= 0 {
+                        tableView.reloadData(
+                            forRowIndexes: IndexSet(integer: row),
+                            columnIndexes: IndexSet(integer: playPauseColumnIndex)
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-// Native version of title cell
 struct TrackTableTitleCell: View {
     let track: Track
     @ObservedObject var playbackManager: PlaybackManager
@@ -1135,22 +1079,21 @@ struct TrackTableTitleCell: View {
         }
         .padding(.horizontal, 8)
         .frame(height: 44)
-        .task {
+        .task(id: track.id) {
+            artworkImage = nil
+
             await loadTrackArtworkAsync(
                 from: track.albumArtworkMedium,
                 into: $artworkImage,
                 delay: 0
             )
         }
-        .onDisappear { artworkImage = nil }
     }
 
     private var textColor: Color {
         if isCurrentTrack && isPlaying {
-            // Accent color when playing but not selected
             return .accentColor
         } else {
-            // Default color
             return .primary
         }
     }
@@ -1191,7 +1134,6 @@ struct PlayPauseCell: View {
                 .buttonStyle(.plain)
                 .frame(width: 32, height: 32)
             } else if isPlaying {
-                // Show playing indicator only when actually playing
                 PlayingIndicator()
                     .frame(width: 16)
             }

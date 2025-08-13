@@ -146,7 +146,7 @@ private struct TrackListRow: View {
                 loadingArtwork
             }
         }
-        .task {
+        .task(id: track.id) {
             await loadTrackArtworkAsync(
                 from: track.albumArtworkMedium,
                 into: $artworkImage,

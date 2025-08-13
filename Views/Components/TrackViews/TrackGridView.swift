@@ -111,7 +111,7 @@ private struct TrackGridItem: View {
                 isHovered = hovering
             }
         }
-        .task {
+        .task(id: track.id) {
             await loadTrackArtworkAsync(
                 from: track.albumArtworkLarge,
                 into: $artworkImage,
