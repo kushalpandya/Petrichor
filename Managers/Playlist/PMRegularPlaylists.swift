@@ -8,9 +8,34 @@
 import Foundation
 
 extension PlaylistManager {
+    func showCreatePlaylistModal(with track: Track? = nil) {
+        trackToAddToNewPlaylist = track
+        newPlaylistName = ""
+        showingCreatePlaylistModal = true
+    }
+    
+    func createPlaylistFromModal() {
+        guard !newPlaylistName.isEmpty else { return }
+        
+        let tracks = trackToAddToNewPlaylist != nil ? [trackToAddToNewPlaylist!] : []
+        _ = createPlaylist(name: newPlaylistName, tracks: tracks)
+        
+        // Reset modal state
+        newPlaylistName = ""
+        trackToAddToNewPlaylist = nil
+        showingCreatePlaylistModal = false
+    }
+    
+    func cancelCreatePlaylistModal() {
+        newPlaylistName = ""
+        trackToAddToNewPlaylist = nil
+        showingCreatePlaylistModal = false
+    }
+    
     /// Create a new basic playlist
     func createPlaylist(name: String, tracks: [Track] = []) -> Playlist {
-        let newPlaylist = Playlist(name: name, tracks: tracks)
+        var newPlaylist = Playlist(name: name, tracks: tracks)
+        newPlaylist.trackCount = tracks.count
         playlists.append(newPlaylist)
         
         // Save to database

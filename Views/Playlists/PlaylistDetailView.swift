@@ -8,9 +8,6 @@ struct PlaylistDetailView: View {
     @EnvironmentObject var playlistManager: PlaylistManager
     @StateObject private var playlistSortManager = PlaylistSortManager.shared
     @State private var selectedTrackID: UUID?
-    @State private var showingCreatePlaylistWithTrack = false
-    @State private var trackToAddToNewPlaylist: Track?
-    @State private var newPlaylistName = ""
     @State private var showingAddSongs = false
 
     // Convenience initializer for when you have a Playlist object
@@ -42,20 +39,11 @@ struct PlaylistDetailView: View {
             .sheet(isPresented: $showingAddSongs) {
                 AddSongsToPlaylistSheet(playlist: playlist)
             }
-            .sheet(isPresented: $showingCreatePlaylistWithTrack) {
-                createPlaylistSheet
-            }
             .onChange(of: playlistID) {
                 selectedTrackID = nil
             }
             .onChange(of: playlist.dateModified) {
                 loadPlaylistTracksIfNeeded()
-            }
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("CreatePlaylistWithTrack"))) { notification in
-                if let track = notification.userInfo?["track"] as? Track {
-                    trackToAddToNewPlaylist = track
-                    showingCreatePlaylistWithTrack = true
-                }
             }
             .onAppear {
                 loadPlaylistTracksIfNeeded()
@@ -295,50 +283,6 @@ struct PlaylistDetailView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(NSColor.textBackgroundColor))
-    }
-
-    // MARK: - Create Playlist Sheet
-
-    private var createPlaylistSheet: some View {
-        VStack(spacing: 20) {
-            Text("New Playlist")
-                .font(.headline)
-
-            TextField("Playlist Name", text: $newPlaylistName)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 250)
-
-            if let track = trackToAddToNewPlaylist {
-                Text("Will add: \(track.title)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            HStack(spacing: 12) {
-                Button("Cancel") {
-                    newPlaylistName = ""
-                    trackToAddToNewPlaylist = nil
-                    showingCreatePlaylistWithTrack = false
-                }
-                .keyboardShortcut(.escape)
-
-                Button("Create") {
-                    if !newPlaylistName.isEmpty, let track = trackToAddToNewPlaylist {
-                        _ = playlistManager.createPlaylist(
-                            name: newPlaylistName,
-                            tracks: [track]
-                        )
-                        newPlaylistName = ""
-                        trackToAddToNewPlaylist = nil
-                        showingCreatePlaylistWithTrack = false
-                    }
-                }
-                .keyboardShortcut(.return)
-                .disabled(newPlaylistName.isEmpty)
-            }
-        }
-        .padding(30)
-        .frame(width: 350)
     }
 
     // MARK: - Helper Properties

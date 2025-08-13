@@ -186,11 +186,7 @@ enum TrackContextMenu {
         
         // Create new playlist item
         playlistItems.append(.button(title: "New Playlist...") {
-            NotificationCenter.default.post(
-                name: NSNotification.Name("CreatePlaylistWithTrack"),
-                object: nil,
-                userInfo: ["track": track]
-            )
+            playlistManager.showCreatePlaylistModal(with: track)
         })
         
         // Add to existing playlists - optimize the containment check

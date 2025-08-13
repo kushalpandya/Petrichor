@@ -98,6 +98,16 @@ struct ContentView: View {
             SettingsView()
                 .environmentObject(libraryManager)
         }
+        .sheet(isPresented: $playlistManager.showingCreatePlaylistModal) {
+            CreatePlaylistSheet(
+                isPresented: $playlistManager.showingCreatePlaylistModal,
+                playlistName: $playlistManager.newPlaylistName,
+                trackToAdd: playlistManager.trackToAddToNewPlaylist
+            ) {
+                playlistManager.createPlaylistFromModal()
+            }
+            .environmentObject(playlistManager)
+        }
     }
 
     // MARK: - View Components
@@ -315,6 +325,55 @@ extension View {
             }
     }
 }
+
+// MARK: - Create Playlist Sheet
+
+struct CreatePlaylistSheet: View {
+    @EnvironmentObject var playlistManager: PlaylistManager
+    @Binding var isPresented: Bool
+    @Binding var playlistName: String
+    let trackToAdd: Track?
+    let onCreate: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("New Playlist")
+                .font(.headline)
+
+            TextField("Playlist Name", text: $playlistName)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 250)
+                .onSubmit {
+                    if !playlistName.isEmpty {
+                        onCreate()
+                    }
+                }
+
+            if let track = trackToAdd {
+                Text("Will add: \(track.title)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            HStack(spacing: 12) {
+                Button("Cancel") {
+                    playlistName = ""
+                    isPresented = false
+                }
+                .keyboardShortcut(.escape)
+
+                Button("Create") {
+                    onCreate()
+                }
+                .keyboardShortcut(.return)
+                .disabled(playlistName.isEmpty)
+            }
+        }
+        .padding(30)
+        .frame(width: 350)
+    }
+}
+
 // MARK: - Window Accessor
 
 struct WindowAccessor: NSViewRepresentable {

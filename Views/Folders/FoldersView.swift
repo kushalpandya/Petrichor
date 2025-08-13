@@ -10,9 +10,6 @@ struct FoldersView: View {
     @State private var showingRemoveFolderAlert = false
     @State private var folderTracks: [Track] = []
     @State private var isLoadingTracks = false
-    @State private var showingCreatePlaylistWithTrack = false
-    @State private var trackToAddToNewPlaylist: Track?
-    @State private var newPlaylistName = ""
 
     @AppStorage("trackListSortAscending")
     private var trackListSortAscending: Bool = true
@@ -21,7 +18,6 @@ struct FoldersView: View {
 
     var body: some View {
         if libraryManager.folders.isEmpty {
-            // Show unified empty state when no folders exist
             NoMusicEmptyStateView(context: .mainWindow)
         } else {
             PersistentSplitView(
@@ -32,15 +28,6 @@ struct FoldersView: View {
                     folderTracksView
                 }
             )
-            .sheet(isPresented: $showingCreatePlaylistWithTrack) {
-                createPlaylistSheet
-            }
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("CreatePlaylistWithTrack"))) { notification in
-                if let track = notification.userInfo?["track"] as? Track {
-                    trackToAddToNewPlaylist = track
-                    showingCreatePlaylistWithTrack = true
-                }
-            }
         }
     }
 
@@ -48,9 +35,6 @@ struct FoldersView: View {
 
     private var foldersSidebar: some View {
         FoldersSidebarView(selectedNode: $selectedFolderNode)
-            .onAppear {
-                handleHierarchicalSidebarAppear()
-            }
             .onChange(of: selectedFolderNode) { _, newNode in
                 handleFolderNodeSelection(newNode)
             }
@@ -201,50 +185,6 @@ struct FoldersView: View {
         .padding()
     }
 
-    // MARK: - Create Playlist Sheet
-
-    private var createPlaylistSheet: some View {
-        VStack(spacing: 20) {
-            Text("New Playlist")
-                .font(.headline)
-
-            TextField("Playlist Name", text: $newPlaylistName)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 250)
-
-            if let track = trackToAddToNewPlaylist {
-                Text("Will add: \(track.title)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            HStack(spacing: 12) {
-                Button("Cancel") {
-                    newPlaylistName = ""
-                    trackToAddToNewPlaylist = nil
-                    showingCreatePlaylistWithTrack = false
-                }
-                .keyboardShortcut(.escape)
-
-                Button("Create") {
-                    if !newPlaylistName.isEmpty, let track = trackToAddToNewPlaylist {
-                        _ = playlistManager.createPlaylist(
-                            name: newPlaylistName,
-                            tracks: [track]
-                        )
-                        newPlaylistName = ""
-                        trackToAddToNewPlaylist = nil
-                        showingCreatePlaylistWithTrack = false
-                    }
-                }
-                .keyboardShortcut(.return)
-                .disabled(newPlaylistName.isEmpty)
-            }
-        }
-        .padding(30)
-        .frame(width: 350)
-    }
-
     // MARK: - Helper Methods
 
     private func refreshFolder(_ folder: Folder) {
@@ -252,11 +192,6 @@ struct FoldersView: View {
     }
 
     // MARK: - Hierarchical Sidebar Helper Methods
-
-    private func handleHierarchicalSidebarAppear() {
-        // Select first folder node if none selected
-        // This will be handled by HierarchicalFolderSidebarView itself
-    }
 
     private func handleFolderNodeSelection(_ node: FolderNode?) {
         guard let node = node else {

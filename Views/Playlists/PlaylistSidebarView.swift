@@ -122,33 +122,14 @@ struct PlaylistSidebarView: View {
     // MARK: - Create Playlist Sheet
 
     private var createPlaylistSheet: some View {
-        VStack(spacing: 20) {
-            Text("New Playlist")
-                .font(.headline)
-
-            TextField("Playlist Name", text: $newPlaylistName)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 250)
-                .onSubmit {
-                    createPlaylist()
-                }
-
-            HStack(spacing: 12) {
-                Button("Cancel") {
-                    newPlaylistName = ""
-                    showingCreatePlaylist = false
-                }
-                .keyboardShortcut(.escape)
-
-                Button("Create") {
-                    createPlaylist()
-                }
-                .keyboardShortcut(.return)
-                .disabled(newPlaylistName.isEmpty)
-            }
+        CreatePlaylistSheet(
+            isPresented: $showingCreatePlaylist,
+            playlistName: $newPlaylistName,
+            trackToAdd: nil
+        ) {
+            createPlaylist()
         }
-        .padding(20)
-        .frame(width: 300)
+        .environmentObject(playlistManager)
     }
 
     private func createPlaylist() {

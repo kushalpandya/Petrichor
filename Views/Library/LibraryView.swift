@@ -16,9 +16,6 @@ struct LibraryView: View {
     
     @State private var selectedTrackID: UUID?
     @State private var selectedFilterItem: LibraryFilterItem?
-    @State private var showingCreatePlaylistWithTrack = false
-    @State private var trackToAddToNewPlaylist: Track?
-    @State private var newPlaylistName = ""
     @State private var cachedFilteredTracks: [Track] = []
     @State private var pendingSearchText: String?
     @State private var isViewReady = false
@@ -82,17 +79,8 @@ struct LibraryView: View {
                 .onChange(of: libraryManager.globalSearchText) {
                     updateFilteredTracks()
                 }
-                .sheet(isPresented: $showingCreatePlaylistWithTrack) {
-                    createPlaylistSheet
-                }
                 .onReceive(NotificationCenter.default.publisher(for: .libraryDataDidChange)) { _ in
                     updateFilteredTracks()
-                }
-                .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("CreatePlaylistWithTrack"))) { notification in
-                    if let track = notification.userInfo?["track"] as? Track {
-                        trackToAddToNewPlaylist = track
-                        showingCreatePlaylistWithTrack = true
-                    }
                 }
             }
         }
@@ -268,50 +256,6 @@ struct LibraryView: View {
             playlistManager: playlistManager,
             currentContext: .library
         )
-    }
-
-    // MARK: - Create Playlist Sheet
-
-    private var createPlaylistSheet: some View {
-        VStack(spacing: 20) {
-            Text("New Playlist")
-                .font(.headline)
-
-            TextField("Playlist Name", text: $newPlaylistName)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 250)
-
-            if let track = trackToAddToNewPlaylist {
-                Text("Will add: \(track.title)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            HStack(spacing: 12) {
-                Button("Cancel") {
-                    newPlaylistName = ""
-                    trackToAddToNewPlaylist = nil
-                    showingCreatePlaylistWithTrack = false
-                }
-                .keyboardShortcut(.escape)
-
-                Button("Create") {
-                    if !newPlaylistName.isEmpty, let track = trackToAddToNewPlaylist {
-                        _ = playlistManager.createPlaylist(
-                            name: newPlaylistName,
-                            tracks: [track]
-                        )
-                        newPlaylistName = ""
-                        trackToAddToNewPlaylist = nil
-                        showingCreatePlaylistWithTrack = false
-                    }
-                }
-                .keyboardShortcut(.return)
-                .disabled(newPlaylistName.isEmpty)
-            }
-        }
-        .padding(30)
-        .frame(width: 350)
     }
 }
 
