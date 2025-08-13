@@ -226,6 +226,7 @@ extension LibraryManager {
             
             // Reload the library
             await MainActor.run { [weak self] in
+                self?.refreshLibraryCategories()
                 self?.loadMusicLibrary()
                 self?.updateSearchResults()
                 self?.updateTotalCounts()
