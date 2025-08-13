@@ -3,19 +3,19 @@
 <div>
 <h3>Petrichor</h3>
 <p>An offline music player for macOS</p>
-<a href="https://github.com/kushalpandya/Petrichor/releases"><img src=".github/assets/macos_download.png" width="140" alt="Download for macOS"/></a>
+<a href="https://github.com/kushalpandya/Petrichor/releases/latest"><img src=".github/assets/macos_download.png" width="140" alt="Download for macOS"/></a>
 </div>
 
 <br/><br/>
 
 <div align="center">
 <a href="https://github.com/kushalpandya/Petrichor/releases"><img alt="GitHub Downloads (all assets, all releases)" src="https://img.shields.io/github/downloads/kushalpandya/Petrichor/total?label=Downloads&style=flat-square&color=ba68c8"></a>
-<a href="https://github.com/kushalpandya/Petrichor/actions/workflows/ci.yml"><img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/kushalpandya/Petrichor/ci.yml?label=Build&style=flat-square"></a>
+<a href="https://github.com/kushalpandya/Petrichor/actions/workflows/ci.yml"><img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/kushalpandya/Petrichor/ci.yml?label=CI&style=flat-square"></a>
 <a href="https://github.com/kushalpandya/Petrichor/blob/main/LICENSE"><img alt="GitHub License" src="https://img.shields.io/github/license/kushalpandya/Petrichor?label=License&style=flat-square&color=ffa726"></a>
 <a href="https://github.com/kushalpandya/Petrichor/"><img src="https://img.shields.io/badge/platform-macOS-blue.svg?label=Platform&style=flat-square&logo=apple" alt="Platform"/></a>
 <br/>
 <br/>
-<a href="https://github.com/kushalpandya/Petrichor/releases"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/kushalpandya/Petrichor?label=Latest Release&style=flat-square&color=26a69a"></a>
+<a href="https://github.com/kushalpandya/Petrichor/releases/latest"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/kushalpandya/Petrichor?display_name=release&style=flat-square&label=Latest%20Release&color=26a69a"></a>
 
 <br/>
 <br/>
