@@ -295,27 +295,19 @@ struct EntityDetailView: View {
     // MARK: - Methods
     
     private func loadTracks() {
-        Task {
-            await MainActor.run {
-                isLoading = true
-            }
-            
-            // Fetch tracks based on entity type
-            let fetchedTracks: [Track]
-            if entity is ArtistEntity {
-                fetchedTracks = libraryManager.databaseManager.getTracksForArtistEntity(entity.name)
-            } else if let albumEntity = entity as? AlbumEntity {
-                // Pass the entire album entity instead of just name and artist
-                fetchedTracks = libraryManager.databaseManager.getTracksForAlbumEntity(albumEntity)
-            } else {
-                fetchedTracks = []
-            }
-            
-            await MainActor.run {
-                self.tracks = fetchedTracks
-                self.isLoading = false
-            }
+        isLoading = true
+        
+        let fetchedTracks: [Track]
+        if entity is ArtistEntity {
+            fetchedTracks = libraryManager.databaseManager.getTracksForArtistEntity(entity.name)
+        } else if let albumEntity = entity as? AlbumEntity {
+            fetchedTracks = libraryManager.databaseManager.getTracksForAlbumEntity(albumEntity)
+        } else {
+            fetchedTracks = []
         }
+        
+        self.tracks = fetchedTracks
+        self.isLoading = false
     }
     
     private func pinEntity() {

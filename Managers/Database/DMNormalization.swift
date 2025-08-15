@@ -316,105 +316,63 @@ extension DatabaseManager {
         try updateAlbumStats(in: db)
     }
 
-    private func updateArtistStats(in db: Database) throws {
-        // First, collect all the stats in memory
-        struct ArtistStats {
-            let id: Int64
-            let trackCount: Int
-            let albumCount: Int
+    /// Update artist stats - for one artist or all if artistId is nil
+    func updateArtistStats(artistId: Int64? = nil, in db: Database) throws {
+        let artistIds: [Int64]
+        
+        if let specificId = artistId {
+            artistIds = [specificId]
+        } else {
+            artistIds = try Artist
+                .select(Artist.Columns.id, as: Int64.self)
+                .fetchAll(db)
         }
-
-        // Get all artist IDs
-        let artistIds = try Artist
-            .select(Artist.Columns.id, as: Int64.self)
-            .fetchAll(db)
-
-        // Collect stats for all artists
-        var statsToUpdate: [ArtistStats] = []
-
-        for artistId in artistIds {
-            let trackCount = try TrackArtist
+        
+        for id in artistIds {
+            guard let artist = try Artist.fetchOne(db, key: id) else { continue }
+            
+            artist.totalTracks = try TrackArtist
                 .joining(required: TrackArtist.track.filter(Track.Columns.isDuplicate == false))
-                .filter(TrackArtist.Columns.artistId == artistId)
+                .filter(TrackArtist.Columns.artistId == id)
+                .filter(TrackArtist.Columns.role == TrackArtist.Role.artist)
                 .select(TrackArtist.Columns.trackId, as: Int64.self)
                 .distinct()
                 .fetchCount(db)
 
-            let albumCount = try AlbumArtist
-                .filter(AlbumArtist.Columns.artistId == artistId)
+            artist.totalAlbums = try AlbumArtist
+                .filter(AlbumArtist.Columns.artistId == id)
                 .select(AlbumArtist.Columns.albumId, as: Int64.self)
                 .distinct()
                 .fetchCount(db)
 
-            statsToUpdate.append(ArtistStats(
-                id: artistId,
-                trackCount: trackCount,
-                albumCount: albumCount
-            ))
-        }
-
-        // Batch update using GRDB's updateAll
-        let currentTime = Date()
-        for stats in statsToUpdate {
-            try db.execute(
-                sql: "UPDATE artists SET total_tracks = ?, total_albums = ?, updated_at = ? WHERE id = ?",
-                arguments: [stats.trackCount, stats.albumCount, currentTime, stats.id]
-            )
+            artist.updatedAt = Date()
+            try artist.update(db)
         }
     }
 
-    private func updateAlbumStats(in db: Database) throws {
-        let albumStats = try Row.fetchAll(db, sql: """
-            SELECT album_id, COUNT(*) as track_count
-            FROM tracks
-            WHERE album_id IS NOT NULL AND is_duplicate = 0
-            GROUP BY album_id
-        """)
-
-        // Batch update
-        let currentTime = Date()
-        for stat in albumStats {
-            let albumId: Int64 = stat["album_id"]
-            let trackCount: Int = stat["track_count"]
-
-            try db.execute(
-                sql: "UPDATE albums SET total_tracks = ?, updated_at = ? WHERE id = ?",
-                arguments: [trackCount, currentTime, albumId]
-            )
+    /// Update album stats - for one album or all if albumId is nil
+    func updateAlbumStats(albumId: Int64? = nil, in db: Database) throws {
+        let albumIds: [Int64]
+        
+        if let specificId = albumId {
+            albumIds = [specificId]
+        } else {
+            albumIds = try Album
+                .select(Album.Columns.id, as: Int64.self)
+                .fetchAll(db)
         }
-    }
+        
+        for id in albumIds {
+            guard let album = try Album.fetchOne(db, key: id) else { continue }
+            
+            album.totalTracks = try Track
+                .filter(Track.Columns.albumId == id)
+                .filter(Track.Columns.isDuplicate == false)
+                .fetchCount(db)
 
-    func updateStatsForArtist(_ artistId: Int64, in db: Database) throws {
-        guard let artist = try Artist.fetchOne(db, key: artistId) else { return }
-
-        artist.totalTracks = try TrackArtist
-            .joining(required: TrackArtist.track.filter(Track.Columns.isDuplicate == false))
-            .filter(TrackArtist.Columns.artistId == artistId)
-            .select(TrackArtist.Columns.trackId, as: Int64.self)
-            .distinct()
-            .fetchCount(db)
-
-        // Count albums through album_artists table
-        artist.totalAlbums = try AlbumArtist
-            .filter(AlbumArtist.Columns.artistId == artistId)
-            .select(AlbumArtist.Columns.albumId, as: Int64.self)
-            .distinct()
-            .fetchCount(db)
-
-        artist.updatedAt = Date()
-        try artist.update(db)
-    }
-
-    func updateStatsForAlbum(_ albumId: Int64, in db: Database) throws {
-        guard let album = try Album.fetchOne(db, key: albumId) else { return }
-
-        album.totalTracks = try Track
-            .filter(Track.Columns.albumId == albumId)
-            .filter(Track.Columns.isDuplicate == false)
-            .fetchCount(db)
-
-        album.updatedAt = Date()
-        try album.update(db)
+            album.updatedAt = Date()
+            try album.update(db)
+        }
     }
 
     // MARK: - Query Methods for Normalized Data

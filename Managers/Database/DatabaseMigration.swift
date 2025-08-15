@@ -53,7 +53,38 @@ struct DatabaseMigrator {
             // Composite index for album_artists primary artist lookups
             try db.createIndexIfNotExists(name: "idx_album_artists_primary", table: "album_artists", columns: ["role", "position", "album_id", "artist_id"])
             
-            Logger.info("v3_add_category_query_indices migration complete")
+            // Entity query optimization indices
+            try db.createIndexIfNotExists(name: "idx_artists_name_normalized", table: "artists", columns: ["name", "normalized_name"])
+            try db.createIndexIfNotExists(name: "idx_tracks_album_id_duplicate", table: "tracks", columns: ["album_id", "is_duplicate", "disc_number", "track_number"])
+            try db.createIndexIfNotExists(name: "idx_tracks_album_name_artist", table: "tracks", columns: ["album", "album_artist", "is_duplicate", "disc_number", "track_number"])
+            
+            Logger.info("Created all indices")
+            
+            // Recalculate artist track counts with updated scope
+            Logger.info("Recalculating artist track counts with updated scope...")
+            
+            let artistIds = try Artist
+                .select(Artist.Columns.id, as: Int64.self)
+                .fetchAll(db)
+            
+            var updatedCount = 0
+            for artistId in artistIds {
+                let trackCount = try TrackArtist
+                    .joining(required: TrackArtist.track.filter(Track.Columns.isDuplicate == false))
+                    .filter(TrackArtist.Columns.artistId == artistId)
+                    .filter(TrackArtist.Columns.role == TrackArtist.Role.artist)
+                    .select(TrackArtist.Columns.trackId, as: Int64.self)
+                    .distinct()
+                    .fetchCount(db)
+                
+                try db.execute(
+                    sql: "UPDATE artists SET total_tracks = ? WHERE id = ?",
+                    arguments: [trackCount, artistId]
+                )
+                updatedCount += 1
+            }
+            
+            Logger.info("v3_add_category_query_indices migration completed")
         }
 
         // MARK: - Future Migrations

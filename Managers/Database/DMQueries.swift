@@ -380,17 +380,26 @@ extension DatabaseManager {
             var tracks = try dbQueue.read { db in
                 let normalizedName = ArtistParser.normalizeArtistName(artistName)
                 
-                let sql = """
-                    SELECT DISTINCT t.*
-                    FROM tracks t
-                    INNER JOIN track_artists ta ON t.id = ta.track_id
-                    INNER JOIN artists a ON ta.artist_id = a.id
-                    WHERE (a.name = ? OR a.normalized_name = ?)
-                        AND t.is_duplicate = 0
-                    ORDER BY t.album, t.track_number
-                """
+                guard let artistId = try Artist
+                    .filter((Artist.Columns.name == artistName) || (Artist.Columns.normalizedName == normalizedName))
+                    .fetchOne(db)?.id else {
+                    return [Track]()
+                }
                 
-                return try Track.fetchAll(db, sql: sql, arguments: [artistName, normalizedName])
+                let trackIds = try TrackArtist
+                    .filter(TrackArtist.Columns.artistId == artistId)
+                    .filter(TrackArtist.Columns.role == TrackArtist.Role.artist)
+                    .select(TrackArtist.Columns.trackId, as: Int64.self)
+                    .fetchAll(db)
+                
+                var query = Track.all()
+                    .filter(trackIds.contains(Track.Columns.trackId))
+                
+                query = applyDuplicateFilter(query)
+                
+                return try query
+                    .order(Track.Columns.album, Track.Columns.discNumber ?? 1, Track.Columns.trackNumber ?? 0)
+                    .fetchAll(db)
             }
             
             populateAlbumArtworkForTracks(&tracks)
@@ -406,19 +415,23 @@ extension DatabaseManager {
         do {
             var tracks = try dbQueue.read { db in
                 if let albumId = albumEntity.albumId {
-                    return try Track
+                    var query = Track.all()
                         .filter(Track.Columns.albumId == albumId)
-                        .filter(Track.Columns.isDuplicate == false)
+                    
+                    query = applyDuplicateFilter(query)
+                    
+                    return try query
                         .order(Track.Columns.discNumber ?? 1, Track.Columns.trackNumber ?? 0)
                         .fetchAll(db)
                 } else {
-                    var query = Track
+                    var query = Track.all()
                         .filter(Track.Columns.album == albumEntity.name)
-                        .filter(Track.Columns.isDuplicate == false)
                     
                     if let artistName = albumEntity.artistName {
                         query = query.filter(Track.Columns.albumArtist == artistName)
                     }
+                    
+                    query = applyDuplicateFilter(query)
                     
                     return try query
                         .order(Track.Columns.discNumber ?? 1, Track.Columns.trackNumber ?? 0)
