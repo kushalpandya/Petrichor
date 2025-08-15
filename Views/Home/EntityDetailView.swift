@@ -52,6 +52,11 @@ struct EntityDetailView: View {
         .onAppear {
             loadTracks()
         }
+        .onChange(of: entity.id) { oldValue, newValue in
+            if oldValue != newValue {
+                loadTracks()
+            }
+        }
     }
     
     // MARK: - Header
