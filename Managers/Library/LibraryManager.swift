@@ -296,9 +296,15 @@ class LibraryManager: ObservableObject {
     private func autoScanIntervalDidChange(_ notification: Notification) {
         let newInterval = autoScanInterval
 
-        // Store the current interval to compare
         struct LastInterval {
             static var value: AutoScanInterval?
+            static var initialized = false
+        }
+
+        if !LastInterval.initialized {
+            LastInterval.value = newInterval
+            LastInterval.initialized = true
+            return
         }
 
         // Only proceed if the interval actually changed

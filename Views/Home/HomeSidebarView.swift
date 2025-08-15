@@ -138,42 +138,27 @@ struct HomeSidebarView: View {
     }
     
     private func updatePinnedItemTrackCounts() async {
-        await withTaskGroup(of: (Int64?, Int).self) { group in
-            for pinnedItem in libraryManager.pinnedItems {
-                group.addTask {
-                    let trackCount: Int
-                    switch pinnedItem.itemType {
-                    case .library:
-                        trackCount = self.libraryManager.getTracksForPinnedItem(pinnedItem).count
-                    case .playlist:
-                        if let playlistId = pinnedItem.playlistId,
-                           let playlist = self.playlistManager.playlists.first(where: { $0.id == playlistId }) {
-                            if playlist.type == .smart && playlist.trackCount == 0 {
-                                trackCount = await self.libraryManager.databaseManager.getSmartPlaylistTrackCount(playlist)
-                            } else {
-                                trackCount = playlist.trackCount
-                            }
-                        } else {
-                            trackCount = 0
+        // Don't update if we have no pinned items
+        guard !libraryManager.pinnedItems.isEmpty else { return }
+        
+        // Create a single batch query for all library pinned items
+        let pinnedItemCounts = await libraryManager.databaseManager.getTrackCountForPinnedItems(libraryManager.pinnedItems)
+        
+        // Update the UI on main thread
+        await MainActor.run {
+            for (pinnedId, trackCount) in pinnedItemCounts {
+                if pinnedItemTrackCounts[pinnedId] != trackCount {
+                    pinnedItemTrackCounts[pinnedId] = trackCount
+                    
+                    // Update the corresponding item in allItems
+                    if let index = allItems.firstIndex(where: {
+                        if case .pinned(let item) = $0.source {
+                            return item.id == pinnedId
                         }
-                    }
-                    return (pinnedItem.id, trackCount)
-                }
-            }
-            
-            for await (pinnedId, trackCount) in group {
-                if let pinnedId = pinnedId, pinnedItemTrackCounts[pinnedId] != trackCount {
-                    await MainActor.run {
-                        pinnedItemTrackCounts[pinnedId] = trackCount
-                        if let index = allItems.firstIndex(where: {
-                            if case .pinned(let item) = $0.source {
-                                return item.id == pinnedId
-                            }
-                            return false
-                        }) {
-                            if let pinnedItem = libraryManager.pinnedItems.first(where: { $0.id == pinnedId }) {
-                                allItems[index] = HomeSidebarItem(pinnedItem: pinnedItem, trackCount: trackCount)
-                            }
+                        return false
+                    }) {
+                        if let pinnedItem = libraryManager.pinnedItems.first(where: { $0.id == pinnedId }) {
+                            allItems[index] = HomeSidebarItem(pinnedItem: pinnedItem, trackCount: trackCount)
                         }
                     }
                 }
