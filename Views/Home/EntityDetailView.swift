@@ -207,7 +207,7 @@ struct EntityDetailView: View {
             .buttonStyle(.bordered)
             .help(isPinned ? "Remove from Home" : "Pin to Home")
             
-            Button(action: playEntity) {
+            Button(action: { playEntity() }) {
                 HStack(spacing: iconTextSpacing) {
                     Image(systemName: Icons.playFill)
                         .font(.system(size: iconSize))
@@ -220,7 +220,7 @@ struct EntityDetailView: View {
             .buttonStyle(.borderedProminent)
             .disabled(tracks.isEmpty)
             
-            Button(action: shuffleEntity) {
+            Button(action: { playEntity(shuffle: true) }) {
                 HStack(spacing: iconTextSpacing) {
                     Image(systemName: Icons.shuffleFill)
                         .font(.system(size: iconSize))
@@ -325,29 +325,32 @@ struct EntityDetailView: View {
     }
     
     private func playTrack(_ track: Track) {
-        // Use the playTrack method with context tracks
         playlistManager.playTrack(track, fromTracks: sortedTracks)
         selectedTrackID = track.id
     }
 
-    private func playEntity() {
+    private func playEntity(shuffle: Bool = false) {
         guard !sortedTracks.isEmpty else { return }
-        // Play the first track with all tracks as context
-        playlistManager.playTrack(sortedTracks[0], fromTracks: sortedTracks)
-        selectedTrackID = sortedTracks[0].id
-    }
-
-    private func shuffleEntity() {
-        guard !sortedTracks.isEmpty else { return }
-        // Enable shuffle first
-        if !playlistManager.isShuffleEnabled {
-            playlistManager.toggleShuffle()
-        }
-        // Play the first track with all tracks as context
-        playlistManager.playTrack(sortedTracks[0], fromTracks: sortedTracks)
-        // The selected track ID should be the first track in the shuffled queue
-        if let firstTrack = playlistManager.currentQueue.first {
-            selectedTrackID = firstTrack.id
+        
+        if viewType == .table {
+            NotificationCenter.default.post(
+                name: .playEntityTracks,
+                object: nil,
+                userInfo: ["shuffle": shuffle]
+            )
+        } else {
+            // For list/grid views, play directly
+            playlistManager.isShuffleEnabled = shuffle
+            
+            var tracksForPlayback = sortedTracks
+            if shuffle {
+                tracksForPlayback.shuffle()
+            }
+            
+            if let firstTrack = tracksForPlayback.first {
+                playlistManager.playTrack(firstTrack, fromTracks: tracksForPlayback)
+                selectedTrackID = firstTrack.id
+            }
         }
     }
 }

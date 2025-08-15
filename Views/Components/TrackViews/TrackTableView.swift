@@ -22,6 +22,11 @@ class ContextMenuHeaderView: NSTableHeaderView {
     }
 }
 
+extension Notification.Name {
+    static let playEntityTracks = Notification.Name("playEntityTracks")
+    static let playPlaylistTracks = Notification.Name("playPlaylistTracks")
+}
+
 struct TrackTableView: NSViewRepresentable {
     let tracks: [Track]
     let playlistID: UUID?
@@ -404,6 +409,24 @@ struct TrackTableView: NSViewRepresentable {
                     self?.updatePlayingIndicator()
                 }
                 .store(in: &cancellables)
+            
+            if playlistID == nil {
+                // Entity view notifications
+                NotificationCenter.default.addObserver(
+                    self,
+                    selector: #selector(handlePlayEntityNotification(_:)),
+                    name: .playEntityTracks,
+                    object: nil
+                )
+            } else {
+                // Playlist view notifications
+                NotificationCenter.default.addObserver(
+                    self,
+                    selector: #selector(handlePlayPlaylistNotification(_:)),
+                    name: .playPlaylistTracks,
+                    object: nil
+                )
+            }
         }
 
         deinit {
@@ -938,6 +961,46 @@ struct TrackTableView: NSViewRepresentable {
                 if let tableColumn = tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(column.identifier)) {
                     tableColumn.isHidden = !columnManager.isVisible(column)
                 }
+            }
+        }
+        
+        @objc
+        private func handlePlayEntityNotification(_ notification: Notification) {
+            guard !sortedTracks.isEmpty else { return }
+            
+            let shuffle = notification.userInfo?["shuffle"] as? Bool ?? false
+            playlistManager.isShuffleEnabled = shuffle
+            
+            var tracksForPlayback = sortedTracks
+            if shuffle {
+                tracksForPlayback.shuffle()
+            }
+            
+            if let firstTrack = tracksForPlayback.first {
+                playlistManager.playTrack(firstTrack, fromTracks: tracksForPlayback)
+                playlistManager.currentQueueSource = .library
+            }
+        }
+
+        @objc
+        private func handlePlayPlaylistNotification(_ notification: Notification) {
+            guard let notificationPlaylistID = notification.userInfo?["playlistID"] as? UUID,
+                  notificationPlaylistID == playlistID,
+                  !sortedTracks.isEmpty,
+                  let playlist = playlistManager.playlists.first(where: { $0.id == playlistID }) else { return }
+            
+            let shuffle = notification.userInfo?["shuffle"] as? Bool ?? false
+            playlistManager.isShuffleEnabled = shuffle
+            
+            var tracksForPlayback = sortedTracks
+            if shuffle {
+                tracksForPlayback.shuffle()
+            }
+            
+            if let firstTrack = tracksForPlayback.first {
+                playlistManager.playTrack(firstTrack, fromTracks: tracksForPlayback)
+                playlistManager.currentPlaylist = playlist
+                playlistManager.currentQueueSource = .playlist
             }
         }
     }

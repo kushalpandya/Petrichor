@@ -157,7 +157,7 @@ struct PlaylistDetailView: View {
             .buttonStyle(.bordered)
             .help(isPinned ? "Remove from Home" : "Pin to Home")
             
-            Button(action: playPlaylist) {
+            Button(action: { playPlaylist() }) {
                 HStack(spacing: iconTextSpacing) {
                     Image(systemName: Icons.playFill)
                         .font(.system(size: iconSize))
@@ -170,7 +170,7 @@ struct PlaylistDetailView: View {
             .buttonStyle(.borderedProminent)
             .disabled(playlist?.trackCount == 0)
 
-            Button(action: shufflePlaylist) {
+            Button(action: { playPlaylist(shuffle: true) }) {
                 HStack(spacing: iconTextSpacing) {
                     Image(systemName: Icons.shuffleFill)
                         .font(.system(size: iconSize))
@@ -362,15 +362,30 @@ struct PlaylistDetailView: View {
         }
     }
 
-    private func playPlaylist() {
+    private func playPlaylist(shuffle: Bool = false) {
         guard let playlist = playlist, !playlist.tracks.isEmpty else { return }
-        playlistManager.playTrackFromPlaylist(playlist, at: 0)
-    }
-
-    private func shufflePlaylist() {
-        guard let playlist = playlist, !playlist.tracks.isEmpty else { return }
-        playlistManager.toggleShuffle()
-        playlistManager.playTrackFromPlaylist(playlist, at: 0)
+        guard !sortedTracks.isEmpty else { return }
+        
+        if viewType == .table {
+            NotificationCenter.default.post(
+                name: .playPlaylistTracks,
+                object: nil,
+                userInfo: ["playlistID": playlist.id, "shuffle": shuffle]
+            )
+        } else {
+            playlistManager.isShuffleEnabled = shuffle
+            
+            var tracksForPlayback = sortedTracks
+            if shuffle {
+                tracksForPlayback.shuffle()
+            }
+            
+            if let firstTrack = tracksForPlayback.first {
+                playlistManager.playTrack(firstTrack, fromTracks: tracksForPlayback)
+                playlistManager.currentPlaylist = playlist
+                playlistManager.currentQueueSource = .playlist
+            }
+        }
     }
     
     private func pinPlaylist() {
