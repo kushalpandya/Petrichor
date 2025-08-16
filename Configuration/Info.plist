@@ -45,5 +45,7 @@
     <string>https://kushalpandya.github.io/Petrichor/appcast.xml</string>
     <key>SUEnableAutomaticChecks</key>
     <true/>
+    <key>SUEnableInstallerLauncherService</key>
+    <true/>
 </dict>
 </plist>
