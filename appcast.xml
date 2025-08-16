@@ -5,6 +5,48 @@
         <description>Updates for Petrichor</description>
         <language>en</language>
         <item>
+            <title>Version 1.0.0-beta-4</title>
+            <pubDate>Sat, 16 Aug 2025 18:20:44 +0000</pubDate>
+            <sparkle:version>1.0.0-beta-4</sparkle:version>
+            <sparkle:shortVersionString>1.0.0-beta-4</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.0.0-beta-4/Petrichor-1.0.0-beta-4-Universal.dmg"
+                length="9435475"
+                type="application/octet-stream" />
+            <description><![CDATA[
+                <h2>Features</h2>
+                <ul>
+                    <li>Refine Library settings UI</li>
+                    <li>Log skipped audio files and notify user about it</li>
+                </ul>
+                <h2>Fixes</h2>
+                <ul>
+                    <li>Optimize album-art size for different list layouts</li>
+                    <li>Optimize list scroll performance</li>
+                    <li>Optimize animations to have reduced CPU usage on idle</li>
+                    <li>Optimize DB queries to speed up launch & interactions</li>
+                    <li>Always ignore duplicates for Discover recommendations</li>
+                    <li>Ignore taps on already selected item in Library sidebar</li>
+                    <li>Prevent redrawing Track details sidebar on tab switching</li>
+                    <li>Fix Artwork loading logic to improve scroll performance</li>
+                    <li>Fix Grid item height by preventing multiline titles</li>
+                    <li>Fix marquee text color for dark mode state changes</li>
+                    <li>Unify playlist creation to handle different flows efficiently</li>
+                    <li>Disable Library action buttons while scanning is active</li>
+                    <li>Refresh library category cache on folder updates</li>
+                    <li>Hide sort button in tracks list headers for Table layout</li>
+                    <li>Fix track views to handle playback and scrolling correctly</li>
+                    <li>Fix tracks not loading correctly for pinned artists or albums</li>
+                    <li>Improve pinned items load performance and artists computation</li>
+                    <li>Fix Play and Shuffle button behavior on Entity & Playlist views</li>
+                    <li>Fix pinned item count query to prevent app lockups</li>
+                    <li>Fix Sparkle config for sandboxed app setup</li>
+                </ul>
+                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.0.0-beta-3...v1.0.0-beta-4">Full Changelog</a></p>
+            ]]></description>
+        </item>
+        <item>
             <title>Version 1.0.0-beta-3</title>
             <pubDate>Thu, 07 Aug 2025 20:27:38 -0400</pubDate>
             <sparkle:version>1.0.0-beta-3</sparkle:version>
