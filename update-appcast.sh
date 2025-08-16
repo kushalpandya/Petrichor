@@ -48,7 +48,7 @@ print(data.get('body', ''))
 ")
 
 # Convert GitHub timestamp to RFC 822 format
-RFC_DATE=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$RELEASE_DATE" "+%a, %d %b %Y %H:%M:%S %z" 2>/dev/null)
+RFC_DATE=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$RELEASE_DATE" "+%a, %d %b %Y %H:%M:%S +0000" 2>/dev/null)
 if [ -z "$RFC_DATE" ]; then
     # Fallback for different date format
     RFC_DATE=$(date -R)
