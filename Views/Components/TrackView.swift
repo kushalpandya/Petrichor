@@ -26,7 +26,7 @@ struct TrackView: View {
                 contextMenuItems: contextMenuItems
             )
         case .table:
-            TrackTableView(
+            TrackTableSwiftUIView(
                 tracks: tracks,
                 playlistID: playlistID,
                 onPlayTrack: onPlayTrack,
