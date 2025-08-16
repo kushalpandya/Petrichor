@@ -22,11 +22,6 @@ class ContextMenuHeaderView: NSTableHeaderView {
     }
 }
 
-extension Notification.Name {
-    static let playEntityTracks = Notification.Name("playEntityTracks")
-    static let playPlaylistTracks = Notification.Name("playPlaylistTracks")
-}
-
 struct TrackTableView: NSViewRepresentable {
     let tracks: [Track]
     let playlistID: UUID?
