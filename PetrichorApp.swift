@@ -194,7 +194,7 @@ struct PetrichorApp: App {
                 appCoordinator.playbackManager.seekTo(time: newTime)
             }
         }
-        .keyboardShortcut(.rightArrow, modifiers: [])
+        .keyboardShortcut(.rightArrow, modifiers: [.command, .shift])
         .disabled(appCoordinator.playbackManager.currentTrack == nil)
     }
     
@@ -208,7 +208,7 @@ struct PetrichorApp: App {
                 appCoordinator.playbackManager.seekTo(time: newTime)
             }
         }
-        .keyboardShortcut(.leftArrow, modifiers: [])
+        .keyboardShortcut(.leftArrow, modifiers: [.command, .shift])
         .disabled(appCoordinator.playbackManager.currentTrack == nil)
     }
     
@@ -223,7 +223,7 @@ struct PetrichorApp: App {
             let newVolume = min(appCoordinator.playbackManager.volume + 0.05, 1.0)
             appCoordinator.playbackManager.setVolume(newVolume)
         }
-        .keyboardShortcut(.upArrow, modifiers: [])
+        .keyboardShortcut(.upArrow, modifiers: .command)
     }
     
     private func volumeDownMenuItem() -> some View {
@@ -231,7 +231,7 @@ struct PetrichorApp: App {
             let newVolume = max(appCoordinator.playbackManager.volume - 0.05, 0.0)
             appCoordinator.playbackManager.setVolume(newVolume)
         }
-        .keyboardShortcut(.downArrow, modifiers: [])
+        .keyboardShortcut(.downArrow, modifiers: .command)
     }
     
     // MARK: - View Menu Commands
