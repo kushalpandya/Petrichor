@@ -110,7 +110,6 @@ struct LibraryTabView: View {
             .disabled(isLibraryUpdateInProgress)
         }
         .padding(.horizontal, 16)
-        .padding(.top, -20)
         .padding(.bottom, 10)
     }
 
