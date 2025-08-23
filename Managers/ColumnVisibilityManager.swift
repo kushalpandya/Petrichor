@@ -21,9 +21,16 @@ class ColumnVisibilityManager: ObservableObject {
             saveColumnOrder()
         }
     }
+    
+    @Published var columnWidths: [String: CGFloat] = [:] {
+        didSet {
+            saveColumnWidths()
+        }
+    }
 
     private let columnVisibilityKey = "trackTableColumnVisibility"
     private let columnOrderKey = "trackTableColumnOrder"
+    private let columnWidthsKey = "trackTableColumnWidths"
 
     private init() {
         // Load from UserDefaults on init
@@ -31,14 +38,16 @@ class ColumnVisibilityManager: ObservableObject {
            let decoded = try? JSONDecoder().decode(TrackTableColumnVisibility.self, from: data) {
             self.columnVisibility = decoded
         } else {
-            // Use default visibility settings
             self.columnVisibility = TrackTableColumnVisibility()
         }
         self.columnOrder = UserDefaults.standard.array(forKey: columnOrderKey) as? [String]
+
+        if let widths = UserDefaults.standard.dictionary(forKey: columnWidthsKey) as? [String: CGFloat] {
+            self.columnWidths = widths
+        }
     }
 
     private func saveColumnVisibility() {
-        // Save to UserDefaults whenever it changes
         if let encoded = try? JSONEncoder().encode(columnVisibility) {
             UserDefaults.standard.set(encoded, forKey: columnVisibilityKey)
         }
@@ -51,7 +60,11 @@ class ColumnVisibilityManager: ObservableObject {
             UserDefaults.standard.removeObject(forKey: columnOrderKey)
         }
     }
-
+    
+    private func saveColumnWidths() {
+        UserDefaults.standard.set(columnWidths, forKey: columnWidthsKey)
+    }
+    
     func toggleVisibility(_ column: TrackTableColumn) {
         columnVisibility.toggleVisibility(column)
     }
@@ -66,5 +79,13 @@ class ColumnVisibilityManager: ObservableObject {
     
     func updateColumnOrder(_ order: [String]) {
         columnOrder = order
+    }
+    
+    func setColumnWidth(_ columnId: String, width: CGFloat) {
+        columnWidths[columnId] = width
+    }
+    
+    func getColumnWidth(_ columnId: String) -> CGFloat? {
+        columnWidths[columnId]
     }
 }

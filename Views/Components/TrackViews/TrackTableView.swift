@@ -283,39 +283,61 @@ struct TrackTableView: NSViewRepresentable {
             switch column {
             case .special(.title):
                 tableColumn.sortDescriptorPrototype = NSSortDescriptor(key: "title", ascending: true)
-                tableColumn.width = 300
-                tableColumn.minWidth = 150
-
             case .special(.duration):
                 tableColumn.sortDescriptorPrototype = NSSortDescriptor(key: "duration", ascending: true)
-                tableColumn.width = 70
-                tableColumn.minWidth = 50
-                
             case .special(.trackNumber):
                 tableColumn.sortDescriptorPrototype = NSSortDescriptor(key: "trackNumber", ascending: true)
-                tableColumn.width = 30
-                tableColumn.minWidth = 40
-
             case .libraryFilter(let filterType):
                 let sortKey = filterType.databaseColumn
                 tableColumn.sortDescriptorPrototype = NSSortDescriptor(key: sortKey, ascending: true)
+            }
 
+            switch column {
+            case .special(.title):
+                tableColumn.minWidth = 150
+            case .special(.duration):
+                tableColumn.minWidth = 50
+            case .special(.trackNumber):
+                tableColumn.minWidth = 40
+            case .libraryFilter(let filterType):
                 switch filterType {
                 case .artists, .albums:
-                    tableColumn.width = 200
                     tableColumn.minWidth = 100
                 case .albumArtists, .composers:
-                    tableColumn.width = 150
                     tableColumn.minWidth = 100
                 case .genres:
-                    tableColumn.width = 120
                     tableColumn.minWidth = 80
                 case .decades:
-                    tableColumn.width = 80
                     tableColumn.minWidth = 60
                 case .years:
-                    tableColumn.width = 60
                     tableColumn.minWidth = 50
+                }
+            }
+
+            if let savedWidth = columnManager.getColumnWidth(column.identifier) {
+                tableColumn.width = savedWidth
+            } else {
+                // Default widths
+                switch column {
+                case .special(.title):
+                    tableColumn.width = 300
+                case .special(.duration):
+                    tableColumn.width = 70
+                case .special(.trackNumber):
+                    tableColumn.width = 30
+                case .libraryFilter(let filterType):
+                    switch filterType {
+                    case .artists, .albums:
+                        tableColumn.width = 200
+                    case .albumArtists, .composers:
+                        tableColumn.width = 150
+                    case .genres:
+                        tableColumn.width = 120
+                    case .decades:
+                        tableColumn.width = 80
+                    case .years:
+                        tableColumn.width = 60
+                    }
                 }
             }
 
@@ -688,6 +710,17 @@ struct TrackTableView: NSViewRepresentable {
                 .compactMap { $0.identifier.rawValue }
             
             columnManager.updateColumnOrder(columnOrder)
+        }
+        
+        func tableViewColumnDidResize(_ notification: Notification) {
+            guard let tableColumn = notification.userInfo?["NSTableColumn"] as? NSTableColumn else { return }
+            
+            let columnId = tableColumn.identifier.rawValue
+            if columnId != "playPause" {
+                DispatchQueue.main.async { [weak self] in
+                    self?.columnManager.setColumnWidth(columnId, width: tableColumn.width)
+                }
+            }
         }
 
         func handleContextMenu(for event: NSEvent, in tableView: NSTableView) -> NSMenu? {
