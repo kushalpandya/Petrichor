@@ -211,6 +211,7 @@ struct PlaylistDetailView: View {
                     viewType: viewType,
                     selectedTrackID: $selectedTrackID,
                     playlistID: playlistID,
+                    entityID: nil,
                     onPlayTrack: { track in
                         if let playlist = playlist,
                            let index = playlist.tracks.firstIndex(of: track) {

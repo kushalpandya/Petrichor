@@ -34,6 +34,7 @@ struct EntityDetailView: View {
                     viewType: viewType,
                     selectedTrackID: $selectedTrackID,
                     playlistID: nil,
+                    entityID: entity.id,
                     onPlayTrack: { track in
                         playTrack(track)
                     },
@@ -335,8 +336,11 @@ struct EntityDetailView: View {
         if viewType == .table {
             NotificationCenter.default.post(
                 name: .playEntityTracks,
-                object: nil,
-                userInfo: ["shuffle": shuffle]
+                object: entity,
+                userInfo: [
+                    "shuffle": shuffle,
+                    "entityId": entity.id.uuidString
+                ]
             )
         } else {
             // For list/grid views, play directly

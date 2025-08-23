@@ -60,6 +60,7 @@ struct HomeView: View {
                                     }
                                 case .pinned:
                                     pinnedItemTracksView
+                                        .id(selectedSidebarItem?.id)
                                 }
                             } else {
                                 emptySelectionView
@@ -190,6 +191,7 @@ struct HomeView: View {
                     viewType: viewType,
                     selectedTrackID: $selectedTrackID,
                     playlistID: nil,
+                    entityID: nil,
                     onPlayTrack: { track in
                         playlistManager.playTrack(track, fromTracks: sortedDiscoverTracks)
                         playlistManager.currentQueueSource = .library
@@ -265,6 +267,7 @@ struct HomeView: View {
                     viewType: viewType,
                     selectedTrackID: $selectedTrackID,
                     playlistID: nil,
+                    entityID: nil,
                     onPlayTrack: { track in
                         playlistManager.playTrack(track, fromTracks: sortedTracks)
                         playlistManager.currentQueueSource = .library
@@ -505,6 +508,7 @@ struct HomeView: View {
                             viewType: viewType,
                             selectedTrackID: $selectedTrackID,
                             playlistID: nil,
+                            entityID: nil,
                             onPlayTrack: { track in
                                 playlistManager.playTrack(track, fromTracks: sortedTracks)
                                 playlistManager.currentQueueSource = .library

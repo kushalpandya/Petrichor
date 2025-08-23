@@ -30,6 +30,7 @@ extension Notification.Name {
 struct TrackTableView: NSViewRepresentable {
     let tracks: [Track]
     let playlistID: UUID?
+    let entityID: UUID?
     let onPlayTrack: (Track) -> Void
     let contextMenuItems: (Track) -> [ContextMenuItem]
 
@@ -222,6 +223,7 @@ struct TrackTableView: NSViewRepresentable {
         Coordinator(
             tracks: tracks,
             playlistID: playlistID,
+            entityID: entityID,
             onPlayTrack: onPlayTrack,
             playbackManager: playbackManager,
             playlistManager: playlistManager,
@@ -370,6 +372,7 @@ struct TrackTableView: NSViewRepresentable {
         var hoveredRow: Int?
         var isPlaying: Bool = false
         var playlistID: UUID?
+        let entityID: UUID?
         let playlistSortManager = PlaylistSortManager.shared
         let onPlayTrack: (Track) -> Void
         var playbackManager: PlaybackManager
@@ -392,6 +395,7 @@ struct TrackTableView: NSViewRepresentable {
         init(
             tracks: [Track],
             playlistID: UUID?,
+            entityID: UUID?,
             onPlayTrack: @escaping (Track) -> Void,
             playbackManager: PlaybackManager,
             playlistManager: PlaylistManager,
@@ -401,6 +405,7 @@ struct TrackTableView: NSViewRepresentable {
             self.tracks = tracks
             self.sortedTracks = tracks
             self.playlistID = playlistID
+            self.entityID = entityID
             self.onPlayTrack = onPlayTrack
             self.playbackManager = playbackManager
             self.playlistManager = playlistManager
@@ -424,7 +429,7 @@ struct TrackTableView: NSViewRepresentable {
                 }
                 .store(in: &cancellables)
             
-            if playlistID == nil {
+            if entityID != nil {
                 // Entity view notifications
                 NotificationCenter.default.addObserver(
                     self,
@@ -432,7 +437,7 @@ struct TrackTableView: NSViewRepresentable {
                     name: .playEntityTracks,
                     object: nil
                 )
-            } else {
+            } else if playlistID != nil {
                 // Playlist view notifications
                 NotificationCenter.default.addObserver(
                     self,
@@ -475,7 +480,6 @@ struct TrackTableView: NSViewRepresentable {
 
             guard let columnID = tableColumn?.identifier.rawValue else { return nil }
 
-            // Handle play/pause column
             // Handle play/pause column
             if columnID == "playPause" {
                 let identifier = NSUserInterfaceItemIdentifier("PlayPauseCell")
@@ -980,7 +984,9 @@ struct TrackTableView: NSViewRepresentable {
         
         @objc
         private func handlePlayEntityNotification(_ notification: Notification) {
-            guard !sortedTracks.isEmpty else { return }
+            guard !sortedTracks.isEmpty,
+              let notificationEntityId = notification.userInfo?["entityId"] as? String,
+              entityID?.uuidString == notificationEntityId else { return }
             
             let shuffle = notification.userInfo?["shuffle"] as? Bool ?? false
             playlistManager.isShuffleEnabled = shuffle

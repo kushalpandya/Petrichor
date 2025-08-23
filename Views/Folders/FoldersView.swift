@@ -134,6 +134,7 @@ struct FoldersView: View {
             viewType: viewType,
             selectedTrackID: $selectedTrackID,
             playlistID: nil,
+            entityID: nil,
             onPlayTrack: { track in
                 if selectedFolderNode != nil {
                     // For hierarchical view, we need to play from the track list

@@ -109,6 +109,7 @@ struct LibraryView: View {
                     viewType: viewType,
                     selectedTrackID: $selectedTrackID,
                     playlistID: nil,
+                    entityID: nil,
                     onPlayTrack: { track in
                         playlistManager.playTrack(track, fromTracks: cachedFilteredTracks)
                         playlistManager.currentQueueSource = .library

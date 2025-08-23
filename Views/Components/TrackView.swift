@@ -6,6 +6,7 @@ struct TrackView: View {
     let viewType: LibraryViewType
     @Binding var selectedTrackID: UUID?
     let playlistID: UUID?
+    let entityID: UUID?
     let onPlayTrack: (Track) -> Void
     let contextMenuItems: (Track) -> [ContextMenuItem]
 
@@ -29,6 +30,7 @@ struct TrackView: View {
             TrackTableView(
                 tracks: tracks,
                 playlistID: playlistID,
+                entityID: entityID,
                 onPlayTrack: onPlayTrack,
                 contextMenuItems: contextMenuItems
             )
@@ -126,6 +128,7 @@ extension View {
         viewType: .list,
         selectedTrackID: .constant(nil),
         playlistID: nil,
+        entityID: nil,
         onPlayTrack: { track in
             Logger.debugPrint("Playing \(track.title)")
         },
@@ -151,6 +154,7 @@ extension View {
         viewType: .grid,
         selectedTrackID: .constant(nil),
         playlistID: nil,
+        entityID: nil,
         onPlayTrack: { track in
             Logger.debugPrint("Playing \(track.title)")
         },
@@ -178,6 +182,7 @@ extension View {
         viewType: .table,
         selectedTrackID: .constant(nil),
         playlistID: nil,
+        entityID: nil,
         onPlayTrack: { track in
             Logger.debugPrint("Playing \(track.title)")
         },
@@ -205,6 +210,7 @@ extension View {
         viewType: .table,
         selectedTrackID: .constant(nil),
         playlistID: nil,
+        entityID: nil,
         onPlayTrack: { track in
             Logger.debugPrint("Playing \(track.title)")
         },
