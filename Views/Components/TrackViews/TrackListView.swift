@@ -7,61 +7,81 @@ struct TrackListView: View {
 
     @EnvironmentObject var playbackManager: PlaybackManager
     @State private var hoveredTrackID: UUID?
-    @State private var isScrolling = false
-    @State private var scrollWorkItem: DispatchWorkItem?
+    @State private var hoverWorkItem: DispatchWorkItem?
 
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: 0, pinnedViews: []) {
-                ForEach(Array(tracks.enumerated()), id: \.element.id) { _, track in
-                    TrackListRow(
-                        track: track,
-                        isHovered: isScrolling ? false : (hoveredTrackID == track.id),
-                        onPlay: {
-                            let isCurrentTrack = playbackManager.currentTrack?.url.path == track.url.path
-                            if !isCurrentTrack {
-                                onPlayTrack(track)
+        Group {
+            if tracks.count < ViewDefaults.listBufferSize {
+                List {
+                    ForEach(tracks, id: \.id) { track in
+                        TrackListRow(
+                            track: track,
+                            isHovered: hoveredTrackID == track.id,
+                            onPlay: {
+                                let isCurrentTrack = playbackManager.currentTrack?.url.path == track.url.path
+                                if !isCurrentTrack {
+                                    onPlayTrack(track)
+                                }
+                            },
+                            onHover: { isHovered in
+                                handleHover(for: track, isHovered: isHovered)
                             }
-                        },
-                        onHover: { isHovered in
-                            if !isScrolling {
-                                hoveredTrackID = isHovered ? track.id : nil
-                            }
+                        )
+                        .listRowInsets(EdgeInsets(top: 0, leading: -2, bottom: 0, trailing: -2))
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                        .contextMenu {
+                            TrackContextMenuContent(items: contextMenuItems(track))
                         }
-                    )
-                    .contextMenu {
-                        TrackContextMenuContent(items: contextMenuItems(track))
                     }
-                    .id(track.id)
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .padding(.top, 5)
+                .padding(.horizontal, 0)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0, pinnedViews: []) {
+                        ForEach(tracks, id: \.id) { track in
+                            TrackListRow(
+                                track: track,
+                                isHovered: hoveredTrackID == track.id,
+                                onPlay: {
+                                    let isCurrentTrack = playbackManager.currentTrack?.url.path == track.url.path
+                                    if !isCurrentTrack {
+                                        onPlayTrack(track)
+                                    }
+                                },
+                                onHover: { isHovered in
+                                    hoveredTrackID = isHovered ? track.id : nil
+                                }
+                            )
+                            .contextMenu {
+                                TrackContextMenuContent(items: contextMenuItems(track))
+                            }
+                            .id(track.id)
+                        }
+                    }
+                    .padding(5)
                 }
             }
-            .padding(5)
-            .background(
-                GeometryReader { geometry in
-                    Color.clear.preference(
-                        key: ScrollOffsetPreferenceKey.self,
-                        value: geometry.frame(in: .named("scroll")).origin.y
-                    )
-                }
-            )
-        }
-        .coordinateSpace(name: "scroll")
-        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { _ in
-            handleScrollChange()
         }
     }
     
-    private func handleScrollChange() {
-        isScrolling = true
-        hoveredTrackID = nil
+    private func handleHover(for track: Track, isHovered: Bool) {
+        hoverWorkItem?.cancel()
         
-        scrollWorkItem?.cancel()
-        
-        scrollWorkItem = DispatchWorkItem {
-            isScrolling = false
+        if isHovered {
+            hoveredTrackID = track.id
+        } else {
+            let trackID = track.id
+            hoverWorkItem = DispatchWorkItem {
+                if hoveredTrackID == trackID {
+                    hoveredTrackID = nil
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: hoverWorkItem!)
         }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: scrollWorkItem!)
     }
 }
 
@@ -117,8 +137,7 @@ private struct TrackListRow: View {
             }
         }
         .frame(width: 40, height: 40)
-        .animation(.easeInOut(duration: AnimationDuration.standardDuration), value: shouldShowPlayButton)
-        .animation(.easeInOut(duration: AnimationDuration.standardDuration), value: isPlaying)
+        .animation(.easeInOut(duration: AnimationDuration.standardDuration), value: isHovered)
     }
 
     private var trackContent: some View {
@@ -150,7 +169,7 @@ private struct TrackListRow: View {
             await loadTrackArtworkAsync(
                 from: track.albumArtworkMedium,
                 into: $artworkImage,
-                delay: 0
+                delay: TimeConstants.oneHundredMilliseconds
             )
         }
         .onDisappear { artworkImage = nil }
@@ -191,35 +210,29 @@ private struct TrackListRow: View {
     }
 
     private var detailsLabel: some View {
-        HStack(spacing: 4) {
-            Text(track.artist)
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
-                .lineLimit(1)
-                .redacted(reason: track.isMetadataLoaded ? [] : .placeholder)
+        let components = buildDetailComponents()
+        
+        return Text(components)
+            .font(.system(size: 12))
+            .foregroundColor(.secondary)
+            .lineLimit(1)
+            .redacted(reason: track.isMetadataLoaded ? [] : .placeholder)
+    }
 
-            if shouldShowAlbum {
-                Text("•")
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
-
-                Text(track.album)
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-                    .redacted(reason: track.isMetadataLoaded ? [] : .placeholder)
-            }
-
-            if shouldShowYear {
-                Text("•")
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
-
-                Text(track.year)
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
-            }
+    private func buildDetailComponents() -> String {
+        var parts: [String] = []
+        
+        parts.append(track.artist)
+        
+        if shouldShowAlbum {
+            parts.append(track.album)
         }
+        
+        if shouldShowYear {
+            parts.append(track.year)
+        }
+        
+        return parts.joined(separator: " • ")
     }
 
     private var durationLabel: some View {
@@ -233,7 +246,6 @@ private struct TrackListRow: View {
     private var backgroundView: some View {
         RoundedRectangle(cornerRadius: 6)
             .fill(backgroundColor)
-            .animation(.easeInOut(duration: 0.1), value: isHovered)
     }
 
     // MARK: - Helper Properties
@@ -289,12 +301,5 @@ private struct TrackListRow: View {
         let minutes = totalSeconds / 60
         let remainingSeconds = totalSeconds % 60
         return String(format: StringFormat.mmss, minutes, remainingSeconds)
-    }
-}
-
-private struct ScrollOffsetPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
     }
 }

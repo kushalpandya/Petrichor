@@ -156,7 +156,7 @@ struct TrackTableView: NSViewRepresentable {
         // Check if the playing track changed
         let playingTrackChanged = previousPlayingPath != currentPlayingPath
 
-        if playingTrackChanged || playbackStateChanged || hoveredRowChanged || !tracksChanged {
+        if playingTrackChanged || playbackStateChanged || hoveredRowChanged {
             // Update hover state tracking
             context.coordinator.lastHoveredRow = context.coordinator.hoveredRow
 
@@ -192,6 +192,12 @@ struct TrackTableView: NSViewRepresentable {
                 if let newHoveredRow = context.coordinator.hoveredRow {
                     updateRowView(at: newHoveredRow, in: tableView)
                 }
+            }
+        }
+        
+        if tracksChanged && currentPlayingPath != nil {
+            if let newIndex = context.coordinator.sortedTracks.firstIndex(where: { $0.url.path == currentPlayingPath }) {
+                updateRowView(at: newIndex, in: tableView)
             }
         }
 
@@ -317,14 +323,22 @@ struct TrackTableView: NSViewRepresentable {
     }
 
     private func updateColumnVisibility(tableView: NSTableView) {
+        var visibilityChanged = false
+
         for column in TrackTableColumn.allColumns {
             if let tableColumn = tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(column.identifier)) {
-                tableColumn.isHidden = !columnManager.columnVisibility.isVisible(column)
+                let shouldBeHidden = !columnManager.columnVisibility.isVisible(column)
+                if tableColumn.isHidden != shouldBeHidden {
+                    tableColumn.isHidden = shouldBeHidden
+                    visibilityChanged = true
+                }
             }
         }
 
-        DispatchQueue.main.async {
-            self.redistributeColumnWidths(tableView: tableView)
+        if visibilityChanged {
+            DispatchQueue.main.async {
+                self.redistributeColumnWidths(tableView: tableView)
+            }
         }
     }
 
@@ -1050,28 +1064,19 @@ struct TrackTableView: NSViewRepresentable {
             
             guard isMouseOverThisRow() else { return }
             
-            _ = coordinator?.hoveredRow
-            
-            coordinator?.hoveredRow = nil
-            
-            let visibleRange = tableView.rows(in: tableView.visibleRect)
-            let playPauseColumnIndex = tableView.column(withIdentifier: NSUserInterfaceItemIdentifier("playPause"))
-            
-            for visibleRow in visibleRange.location..<(visibleRange.location + visibleRange.length) {
-                if visibleRow != row {
-                    // Update play button for this visible row
-                    if playPauseColumnIndex >= 0 {
-                        tableView.reloadData(
-                            forRowIndexes: IndexSet(integer: visibleRow),
-                            columnIndexes: IndexSet(integer: playPauseColumnIndex)
-                        )
-                    }
-                }
-            }
-            
+            let previousHoveredRow = coordinator?.hoveredRow
             coordinator?.hoveredRow = row
             
+            let playPauseColumnIndex = tableView.column(withIdentifier: NSUserInterfaceItemIdentifier("playPause"))
+            
             if playPauseColumnIndex >= 0 {
+                if let previousRow = previousHoveredRow, previousRow != row {
+                    tableView.reloadData(
+                        forRowIndexes: IndexSet(integer: previousRow),
+                        columnIndexes: IndexSet(integer: playPauseColumnIndex)
+                    )
+                }
+                
                 tableView.reloadData(
                     forRowIndexes: IndexSet(integer: row),
                     columnIndexes: IndexSet(integer: playPauseColumnIndex)
@@ -1148,7 +1153,7 @@ struct TrackTableTitleCell: View {
             await loadTrackArtworkAsync(
                 from: track.albumArtworkMedium,
                 into: $artworkImage,
-                delay: 0
+                delay: TimeConstants.oneHundredMilliseconds
             )
         }
     }

@@ -6,30 +6,77 @@ struct EntityListView<T: Entity>: View {
     let contextMenuItems: (T) -> [ContextMenuItem]
 
     @State private var hoveredEntityID: UUID?
+    @State private var hoverWorkItem: DispatchWorkItem?
 
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: 0, pinnedViews: []) {
-                ForEach(entities) { entity in
-                    EntityListRow(
-                        entity: entity,
-                        isHovered: hoveredEntityID == entity.id,
-                        onSelect: {
-                            onSelectEntity(entity)
-                        },
-                        onHover: { isHovered in
-                            hoveredEntityID = isHovered ? entity.id : nil
-                        }
-                    )
-                    .contextMenu {
-                        ForEach(contextMenuItems(entity), id: \.id) { item in
-                            contextMenuItem(item)
+        Group {
+            if entities.count < ViewDefaults.listBufferSize {
+                List {
+                    ForEach(entities) { entity in
+                        EntityListRow(
+                            entity: entity,
+                            isHovered: hoveredEntityID == entity.id,
+                            onSelect: {
+                                onSelectEntity(entity)
+                            },
+                            onHover: { isHovered in
+                                handleHover(for: entity, isHovered: isHovered)
+                            }
+                        )
+                        .listRowInsets(EdgeInsets(top: 0, leading: -2, bottom: 0, trailing: -2))
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                        .contextMenu {
+                            ForEach(contextMenuItems(entity), id: \.id) { item in
+                                contextMenuItem(item)
+                            }
                         }
                     }
-                    .id(entity.id)
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .padding(.top, 5)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0, pinnedViews: []) {
+                        ForEach(entities) { entity in
+                            EntityListRow(
+                                entity: entity,
+                                isHovered: hoveredEntityID == entity.id,
+                                onSelect: {
+                                    onSelectEntity(entity)
+                                },
+                                onHover: { isHovered in
+                                    hoveredEntityID = isHovered ? entity.id : nil
+                                }
+                            )
+                            .contextMenu {
+                                ForEach(contextMenuItems(entity), id: \.id) { item in
+                                    contextMenuItem(item)
+                                }
+                            }
+                            .id(entity.id)
+                        }
+                    }
+                    .padding(5)
                 }
             }
-            .padding(5)
+        }
+    }
+    
+    private func handleHover(for entity: T, isHovered: Bool) {
+        hoverWorkItem?.cancel()
+        
+        if isHovered {
+            hoveredEntityID = entity.id
+        } else {
+            let entityID = entity.id
+            hoverWorkItem = DispatchWorkItem {
+                if hoveredEntityID == entityID {
+                    hoveredEntityID = nil
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: hoverWorkItem!)
         }
     }
 
@@ -140,7 +187,6 @@ private struct EntityListRow<T: Entity>: View {
     private var backgroundView: some View {
         RoundedRectangle(cornerRadius: 6)
             .fill(isHovered ? Color(NSColor.selectedContentBackgroundColor).opacity(0.15) : Color.clear)
-            .animation(.easeInOut(duration: 0.15), value: isHovered)
     }
 
     private func loadArtworkAsync() {

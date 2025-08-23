@@ -130,7 +130,14 @@ enum AlbumArtFormat {
     }
 }
 
+// MARK: - View Defaults
+
+enum ViewDefaults {
+    static let listBufferSize: Int = 1000
+}
+
 // MARK: - String Formats
+
 enum StringFormat {
     static let hhmmss: String = "%d:%02d:%02d"
     static let mmss: String = "%d:%02d"
