@@ -5,6 +5,35 @@
         <description>Updates for Petrichor</description>
         <language>en</language>
         <item>
+            <title>Version 1.0.0</title>
+            <pubDate>Sun, 24 Aug 2025 03:28:23 -0400</pubDate>
+            <sparkle:version>100</sparkle:version>
+            <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.0.0/Petrichor-1.0.0-Universal.dmg"
+                sparkle:edSignature="Vu7teZU4Hj6S5nlsOTnCXTfkEOgB/HwHxMMdpGJV/4lW/dx76OtKLKRlJssDcRZTesx5J/hu0CrjEua02qO0Dw=="
+                length="9466886"
+                type="application/octet-stream"
+            />
+            <description><![CDATA[
+                <h1>🎉 First Stable Release is Here! 🎉</h1>
+                <p>After months of testing across 8 builds (4 alphas and 4 betas), Petrichor reaches its first stable release, incorporating a lot bug fixes via internal testing and community feedback!</p>
+                <h2>Features</h2>
+                <ul>
+                    <li>Add modifiers to arrow-key Playback shortcuts</li>
+                </ul>
+                <h2>Fixes</h2>
+                <ul>
+                    <li>Fix Settings sheet height & Library settings contents placement</li>
+                    <li>Simplify view computation to have better performance</li>
+                    <li>Fix entity playback when layout is changed to table</li>
+                    <li>Remember column widths in Table view</li>
+                </ul>
+                <p><a href="https://github.com/kushalpandya/Petrichor/releases/tag/v1.0.0">See Release Notes</a></p>
+            ]]></description>
+        </item>
+        <item>
             <title>Version 1.0.0-beta-4</title>
             <pubDate>Sat, 16 Aug 2025 18:20:44 +0000</pubDate>
             <sparkle:version>1.0.0-beta-4</sparkle:version>
