@@ -196,7 +196,9 @@ create_installer() {
     info "Archiving for $display_name..."
     run_build archive "$error_log" "$arch" \
         -archivePath "$archive_path" \
-        -destination "platform=macOS"
+        -destination "platform=macOS" \
+        MARKETING_VERSION="$VERSION" \
+        CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
     
     if [ ! -d "$archive_path" ]; then
         error "Archive failed for $display_name! Check $error_log for details"
@@ -467,11 +469,36 @@ if [ -z "$VERSION" ]; then
     fi
 fi
 
+# Determine build number from version
+if [[ "$VERSION" == *"beta"* ]]; then
+    # For beta versions, use build number 1-99
+    # Extract beta number if present (e.g., 1.0.0-beta-4 becomes 4)
+    if [[ "$VERSION" =~ beta-([0-9]+) ]]; then
+        BUILD_NUMBER="${BASH_REMATCH[1]}"
+    else
+        BUILD_NUMBER="1"
+    fi
+    log "Beta version detected, using build number: $BUILD_NUMBER"
+elif [[ "$VERSION" == "dev"* ]]; then
+    # For dev versions, use build 1
+    BUILD_NUMBER="1"
+    log "Development version, using build number: $BUILD_NUMBER"
+else
+    # For stable versions, use formula: major * 100 + minor * 10 + patch
+    # Remove any 'v' prefix and extract numbers
+    CLEAN_VERSION="${VERSION#v}"
+    IFS='.' read -r major minor patch <<< "$CLEAN_VERSION"
+    # Default to 0 if patch is empty
+    patch=${patch:-0}
+    BUILD_NUMBER="$((major * 100 + minor * 10 + patch))"
+    log "Stable version detected, calculated build number: $BUILD_NUMBER"
+fi
+
 # Setup paths
 BUILD_DIR="build"
 
 # Prepare build directory
-log "Building $APP_NAME version $VERSION"
+log "Building $APP_NAME version $VERSION (Build $BUILD_NUMBER)"
 rm -rf "$BUILD_DIR" && mkdir -p "$BUILD_DIR"
 
 # Build based on selected options
@@ -488,6 +515,7 @@ echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━
 for dmg in "$BUILD_DIR"/*.dmg; do
     if [ -f "$dmg" ]; then
         echo -e "📦 $(basename "$dmg")"
+        echo -e "   📱 Version: ${GREEN}$VERSION${NC} (Build ${GREEN}$BUILD_NUMBER${NC})"
         echo -e "   📏 Size: ${GREEN}$(du -h "$dmg" | cut -f1)${NC}"
         echo -e "   📋 SHA256: ${GREEN}$(cat "$dmg.sha256" | awk '{print $1}')${NC}"
         if [ "$BYPASS_NOTARY" = true ]; then
