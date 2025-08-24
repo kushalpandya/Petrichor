@@ -10,6 +10,7 @@ TEMP_DIR=$(mktemp -d)
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Cleanup on exit
@@ -31,13 +32,31 @@ fi
 
 echo "📦 Latest release: $VERSION"
 
+# Calculate build number based on version
+if [[ "$VERSION" == *"beta"* ]]; then
+    # For beta versions, extract beta number
+    if [[ "$VERSION" =~ beta-([0-9]+) ]]; then
+        BUILD_NUMBER="${BASH_REMATCH[1]}"
+    else
+        BUILD_NUMBER="1"
+    fi
+    echo "   Beta version detected, build number: $BUILD_NUMBER"
+else
+    # For stable versions, use formula: major * 100 + minor * 10 + patch
+    CLEAN_VERSION="${VERSION#v}"
+    IFS='.' read -r major minor patch <<< "$CLEAN_VERSION"
+    patch=${patch:-0}
+    BUILD_NUMBER="$((major * 100 + minor * 10 + patch))"
+    echo "   Stable version detected, build number: $BUILD_NUMBER"
+fi
+
 # Check if version already exists in appcast
-if grep -q "<sparkle:version>$VERSION</sparkle:version>" "$APPCAST_FILE" 2>/dev/null; then
-    echo -e "${GREEN}✅ Appcast is already up to date with version $VERSION${NC}"
+if grep -q "<sparkle:version>$BUILD_NUMBER</sparkle:version>" "$APPCAST_FILE" 2>/dev/null; then
+    echo -e "${GREEN}✅ Appcast is already up to date with version $VERSION (build $BUILD_NUMBER)${NC}"
     exit 0
 fi
 
-echo -e "${YELLOW}🆕 New version detected: $VERSION${NC}"
+echo -e "${YELLOW}🆕 New version detected: $VERSION (build $BUILD_NUMBER)${NC}"
 
 # Extract release details
 RELEASE_DATE=$(echo "$LATEST_RELEASE" | grep -o '"published_at": *"[^"]*"' | cut -d'"' -f4)
@@ -48,10 +67,10 @@ print(data.get('body', ''))
 ")
 
 # Convert GitHub timestamp to RFC 822 format
-RFC_DATE=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$RELEASE_DATE" "+%a, %d %b %Y %H:%M:%S +0000" 2>/dev/null)
+RFC_DATE=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$RELEASE_DATE" "+%a, %d %b %Y %H:%M:%S %z" 2>/dev/null)
 if [ -z "$RFC_DATE" ]; then
-    # Fallback for different date format
-    RFC_DATE=$(date -R)
+    # Fallback for different date format or Linux
+    RFC_DATE=$(date -R 2>/dev/null || date "+%a, %d %b %Y %H:%M:%S %z")
     echo -e "${YELLOW}⚠️  Warning: Could not parse release date, using current date${NC}"
 fi
 
@@ -81,7 +100,7 @@ if ! curl -L -# -o "$DMG_FILE" "$DMG_URL"; then
 fi
 
 # Get file size in bytes
-FILE_SIZE=$(stat -f%z "$DMG_FILE")
+FILE_SIZE=$(stat -f%z "$DMG_FILE" 2>/dev/null || stat -c%s "$DMG_FILE" 2>/dev/null)
 echo "📏 DMG size: $FILE_SIZE bytes"
 
 # Convert markdown release notes to HTML
@@ -110,7 +129,7 @@ for line in content.split('\n'):
     elif line.startswith('**Full Changelog**:'):
         # Extract URL
         url_match = re.search(r'https://[^\s]+', line)
-        if url_match and current_items:
+        if url_match:
             current_items.append(f'<a href=\"{url_match.group()}\">Full Changelog</a>')
 
 if current_section and current_items:
@@ -137,18 +156,43 @@ for section, items in sections:
 print('\\n'.join(html_parts))
 ")
 
+# Check for EdDSA signature
+echo ""
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${BLUE}📝 Sparkle EdDSA Signature Required${NC}"
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+echo "To sign your DMG for Sparkle updates, run:"
+echo ""
+echo -e "${GREEN}./sign_update \"$DMG_FILE\"${NC}"
+echo ""
+echo "Or if sign_update is in Sparkle's bin folder:"
+echo -e "${GREEN}~/path/to/Sparkle/bin/sign_update \"$DMG_FILE\"${NC}"
+echo ""
+echo "This will output something like:"
+echo 'sparkle:edSignature="MEUCIQCxxxxxxxx..."'
+echo ""
+read -p "Please enter the EdDSA signature (or press Enter to skip): " ED_SIGNATURE
+
+# Clean up the signature input (remove sparkle:edSignature= prefix if present)
+if [[ "$ED_SIGNATURE" == sparkle:edSignature=* ]]; then
+    ED_SIGNATURE=$(echo "$ED_SIGNATURE" | sed 's/sparkle:edSignature="//' | sed 's/"$//')
+fi
+
 # Create new item XML
 NEW_ITEM=$(cat <<EOF
         <item>
             <title>Version $VERSION</title>
             <pubDate>$RFC_DATE</pubDate>
-            <sparkle:version>$VERSION</sparkle:version>
+            <sparkle:version>$BUILD_NUMBER</sparkle:version>
             <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <enclosure
-                url="https://github.com/$REPO_OWNER/$REPO_NAME/releases/download/v$VERSION/Petrichor-$VERSION-Universal.dmg"
+                url="$DMG_URL"$([ -n "$ED_SIGNATURE" ] && echo "
+                sparkle:edSignature=\"$ED_SIGNATURE\"")
                 length="$FILE_SIZE"
-                type="application/octet-stream" />
+                type="application/octet-stream"
+            />
             <description><![CDATA[
                 $RELEASE_HTML
             ]]></description>
@@ -176,9 +220,9 @@ EOF_HEADER
     # Add the new item
     echo "$NEW_ITEM"
     
-    # If backup exists, add any existing items (except duplicates of the same version)
+    # If backup exists, add any existing items (except duplicates of the same build number)
     if [ -f "${APPCAST_FILE}.bak" ]; then
-        # Extract existing items, skipping any with the same version
+        # Extract existing items, skipping any with the same build number
         in_item=false
         skip_item=false
         while IFS= read -r line; do
@@ -188,7 +232,7 @@ EOF_HEADER
             elif [ "$in_item" = true ]; then
                 item_content="$item_content
 $line"
-                if echo "$line" | grep -q "<sparkle:version>$VERSION</sparkle:version>"; then
+                if echo "$line" | grep -q "<sparkle:version>$BUILD_NUMBER</sparkle:version>"; then
                     skip_item=true
                 fi
                 if echo "$line" | grep -q "</item>"; then
@@ -218,9 +262,24 @@ if [ -f "${APPCAST_FILE}.bak" ]; then
     rm "${APPCAST_FILE}.bak"
 fi
 
-echo -e "${GREEN}✅ Successfully updated appcast.xml with version $VERSION${NC}"
+echo ""
+echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${GREEN}✅ Successfully updated appcast.xml${NC}"
+echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+echo "Summary:"
+echo "  • Version: $VERSION"
+echo "  • Build: $BUILD_NUMBER"
+echo "  • DMG Size: $FILE_SIZE bytes"
+if [ -n "$ED_SIGNATURE" ]; then
+    echo "  • Signed: ✓"
+else
+    echo -e "  • Signed: ${YELLOW}⚠️  No signature provided (updates may fail for sandboxed apps)${NC}"
+fi
 echo ""
 echo "Next steps:"
 echo "1. Review: git diff appcast.xml"
 echo "2. Commit: git add appcast.xml && git commit -m \"Update appcast for v$VERSION\""
 echo "3. Push:   git push origin gh-pages"
+echo ""
+echo "Your beta users will receive the update automatically!"
