@@ -91,9 +91,9 @@ brew install --cask petrichor
 ### Motivation
 
 I have a large collection of music files that I’ve gathered over the years, and I missed having a good offline
-music player on macOS. I used [Swinsian](https://swinsian.com/) (great app, by the way!), but it hasn't been
-updated in years. I also missed features commonly found in streaming apps; so I built Petrichor to scratch that
-itch and learn Swift and macOS app development along the way!
+music player on macOS. I've used several free and paid options but I missed the simplicity and features commonly
+found in streaming apps; so I built Petrichor to scratch that itch and learn Swift and macOS app development
+along the way!
 
 ### Implementation Overview
 
