@@ -61,24 +61,19 @@
 
 #### Homebrew (recommended)
 
-While Petrichor is still in alpha/beta stage, it is available to install through
-my personal Homebrew tap.
-
 ```
-# Add the tap
-brew tap kushalpandya/tap
-
-# Install Petrichor
 brew install --cask petrichor
 ```
-
-_P.S. once stable release is ready, I'll publish it on official Homebrew repo._
 
 #### Manually
 
 - Go to [Releases](https://github.com/kushalpandya/Petrichor/releases) and download the latest `.dmg`.
-- Open the `.dmg` and drag the app icon into the Applications folder.
+- Open the it and drag the app icon into the Applications folder.
 - In Applications, right-click **Petrichor > Open**.
+
+### 🚀 Get Started
+
+[Petrichor User Guide](https://github.com/kushalpandya/Petrichor/wiki)
 
 ### 📷 Screenshots
 
