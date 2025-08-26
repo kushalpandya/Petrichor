@@ -162,7 +162,8 @@ enum TimeConstants {
     static let oneHundredMilliseconds: UInt64 = 100_000_000
     static let oneFiftyMilliseconds: UInt64 = 150_000_000
     static let stateSaveTimerDuration: Double = 30.0
-    static let playbackProgressTimerDuration: Double = 5.0
+    static let playbackProgressTimerDuration: Double = 10.0
+    static let pauseHibernationThreshold: TimeInterval = 5 * 60
 }
 
 // MARK: - Database Constants
