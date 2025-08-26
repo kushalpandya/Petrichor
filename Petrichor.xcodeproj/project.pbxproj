@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		55830A192E5E436300966A03 /* AudioStreaming in Frameworks */ = {isa = PBXBuildFile; productRef = 55830A182E5E436300966A03 /* AudioStreaming */; };
 		5590877F2DE0C078009E7719 /* PetrichorApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5590877E2DE0C078009E7719 /* PetrichorApp.swift */; };
 		55B0DEC12DE3A58400A41ED9 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 55B0DEC02DE3A58400A41ED9 /* GRDB */; };
 		55D673CF2E42CEA50095A358 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 55D673CE2E42CEA50095A358 /* Sparkle */; };
@@ -81,6 +82,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				55830A192E5E436300966A03 /* AudioStreaming in Frameworks */,
 				55B0DEC12DE3A58400A41ED9 /* GRDB in Frameworks */,
 				55D673CF2E42CEA50095A358 /* Sparkle in Frameworks */,
 			);
@@ -136,6 +138,7 @@
 			packageProductDependencies = (
 				55B0DEC02DE3A58400A41ED9 /* GRDB */,
 				55D673CE2E42CEA50095A358 /* Sparkle */,
+				55830A182E5E436300966A03 /* AudioStreaming */,
 			);
 			productName = Petrichor;
 			productReference = 550F4A0E2DB45B1A005F794E /* Petrichor.app */;
@@ -168,6 +171,7 @@
 			packageReferences = (
 				55B0DEBF2DE3A58400A41ED9 /* XCRemoteSwiftPackageReference "GRDB" */,
 				55D673CD2E42CEA50095A358 /* XCRemoteSwiftPackageReference "Sparkle" */,
+				55830A172E5E436300966A03 /* XCRemoteSwiftPackageReference "AudioStreaming" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 550F4A052DB45B1A005F794E;
@@ -411,6 +415,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		55830A172E5E436300966A03 /* XCRemoteSwiftPackageReference "AudioStreaming" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/dimitris-c/AudioStreaming";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.2.8;
+			};
+		};
 		55B0DEBF2DE3A58400A41ED9 /* XCRemoteSwiftPackageReference "GRDB" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/groue/GRDB.swift";
@@ -430,6 +442,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		55830A182E5E436300966A03 /* AudioStreaming */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 55830A172E5E436300966A03 /* XCRemoteSwiftPackageReference "AudioStreaming" */;
+			productName = AudioStreaming;
+		};
 		55B0DEC02DE3A58400A41ED9 /* GRDB */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 55B0DEBF2DE3A58400A41ED9 /* XCRemoteSwiftPackageReference "GRDB" */;

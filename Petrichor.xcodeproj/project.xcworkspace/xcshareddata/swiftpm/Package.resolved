@@ -1,6 +1,15 @@
 {
-  "originHash" : "23611ae21d62ab2ee131c4a9c2cc14b3126c0cd46fd543225a6f4bfe4990eae9",
+  "originHash" : "88b206529384e04f938ff2182ec3c8eacdc34c129b5cc9d8afeb57147669163c",
   "pins" : [
+    {
+      "identity" : "audiostreaming",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/dimitris-c/AudioStreaming",
+      "state" : {
+        "revision" : "4d9bb98aed4c4a3962fb31d4f7bb44c6696610de",
+        "version" : "1.2.8"
+      }
+    },
     {
       "identity" : "grdb.swift",
       "kind" : "remoteSourceControl",
