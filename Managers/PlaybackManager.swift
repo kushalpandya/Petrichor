@@ -8,7 +8,7 @@
 import AVFoundation
 import Foundation
 
-class PlaybackManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
+class PlaybackManagerOld: NSObject, ObservableObject, AVAudioPlayerDelegate {
     @Published var currentTrack: Track?
     @Published var isPlaying: Bool = false {
         didSet {
