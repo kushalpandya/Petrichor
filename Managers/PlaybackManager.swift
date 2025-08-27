@@ -315,7 +315,7 @@ class PlaybackManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
                 Error: \(error.localizedDescription)
                 """)
 
-            let errorMessage = FolderUtils.getMessageForError(
+            let errorMessage = FilesystemUtils.getMessageForError(
                 error,
                 context: "play track",
                 path: fullTrack.url.path

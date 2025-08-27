@@ -1,7 +1,7 @@
 import Foundation
 import AVFoundation
 
-enum FolderUtils {
+enum FilesystemUtils {
     /// Computes a hash for audio files in a folder using `shasum -a 256`, with a timeout failsafe.
     /// - Parameters:
     ///   - folderURL: Folder to scan

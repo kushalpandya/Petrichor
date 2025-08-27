@@ -276,7 +276,7 @@ extension LibraryManager {
         
         for folder in folders {
             // Step 1: Check modification timestamp
-            let timestampChanged = FolderUtils.modificationTimestampChanged(
+            let timestampChanged = FilesystemUtils.modificationTimestampChanged(
                 for: folder.url,
                 comparedTo: folder.dateUpdated
             )
@@ -298,7 +298,7 @@ extension LibraryManager {
             }
             
             // Calculate current hash
-            if let currentHash = await FolderUtils.getHashAsync(for: folder.url) {
+            if let currentHash = await FilesystemUtils.getHashAsync(for: folder.url) {
                 if currentHash != storedHash {
                     Logger.info("Folder \(folder.name): Content changed (hash mismatch), marking for refresh")
                     foldersToRefresh.append(folder)

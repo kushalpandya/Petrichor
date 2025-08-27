@@ -35,7 +35,7 @@ extension DatabaseManager {
         // Calculate hashes for all folders
         var mutableHashMap: [URL: String] = [:]
         for url in urls {
-            if let hash = await FolderUtils.getHashAsync(for: url) {
+            if let hash = await FilesystemUtils.getHashAsync(for: url) {
                 mutableHashMap[url] = hash
             }
         }
@@ -203,7 +203,7 @@ extension DatabaseManager {
         
         guard let folder = folderData else { return }
         
-        let hash = await FolderUtils.getHashAsync(for: folder.url)
+        let hash = await FilesystemUtils.getHashAsync(for: folder.url)
         
         try await dbQueue.write { db in
             guard var folder = try Folder.fetchOne(db, key: folderId) else { return }
