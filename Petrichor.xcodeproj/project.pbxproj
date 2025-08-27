@@ -328,7 +328,7 @@
 				CODE_SIGN_ENTITLEMENTS = Configuration/Petrichor.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 999;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = B53W6J5RWK;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -361,7 +361,7 @@
 				CODE_SIGN_ENTITLEMENTS = Configuration/Petrichor.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 100;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=macosx*]" = B53W6J5RWK;
