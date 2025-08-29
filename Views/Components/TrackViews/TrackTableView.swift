@@ -271,9 +271,9 @@ struct TrackTableView: NSViewRepresentable {
             let tableColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(column.identifier))
 
             if case .special(.trackNumber) = column {
-                tableColumn.title = "#"
+                tableColumn.title = "  #"
             } else {
-                tableColumn.title = column.displayName
+                tableColumn.title = "  \(column.displayName)"
             }
 
             // Set resizing mask to allow user resizing
