@@ -24,7 +24,7 @@
 
 </div>
 
-<hr>
+---
 
 ## Summary
 
@@ -59,17 +59,17 @@
 
 ### ⚙️ Installation
 
-#### Homebrew (recommended)
-
-```
-brew install --cask petrichor
-```
-
 #### Manually
 
 - Go to [Releases](https://github.com/kushalpandya/Petrichor/releases) and download the latest `.dmg`.
 - Open the it and drag the app icon into the Applications folder.
 - In Applications, right-click **Petrichor > Open**.
+
+#### Homebrew
+
+```
+brew install --cask petrichor
+```
 
 ### 🚀 Get Started
 
