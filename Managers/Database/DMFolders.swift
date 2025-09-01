@@ -126,6 +126,7 @@ extension DatabaseManager {
                 await MainActor.run {
                     self.isScanning = true
                     self.scanStatusMessage = "Refreshing \(folder.name)..."
+                    NotificationManager.shared.startActivity("Refreshing \(folder.name)...")
                 }
 
                 // Log the current state
@@ -147,12 +148,14 @@ extension DatabaseManager {
                 await MainActor.run {
                     self.isScanning = false
                     self.scanStatusMessage = ""
+                    NotificationManager.shared.stopActivity()
                     completion(.success(()))
                 }
             } catch {
                 await MainActor.run {
                     self.isScanning = false
                     self.scanStatusMessage = ""
+                    NotificationManager.shared.stopActivity()
                     completion(.failure(error))
                     Logger.error("Failed to refresh folder \(folder.name): \(error)")
                     NotificationManager.shared.addMessage(.error, "Failed to refresh folder \(folder.name)")
@@ -365,8 +368,8 @@ extension DatabaseManager {
         let totalFiles = musicFiles.count
         let foundPaths = scannedPaths
 
-        // Identify tracks to remove (files that no longer exist)
-        let tracksToRemove = existingTracks.filter { !foundPaths.contains($0.url) }
+        let foundPathStrings = Set(foundPaths.map { $0.path })
+        let tracksToRemove = existingTracks.filter { !foundPathStrings.contains($0.url.path) }
         let trackIdsToRemove = tracksToRemove.compactMap { $0.id }
         
         // Remove tracks and clean up orphaned metadata
