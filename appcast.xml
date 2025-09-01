@@ -5,6 +5,29 @@
         <description>Updates for Petrichor</description>
         <language>en</language>
         <item>
+            <title>Version 1.0.1</title>
+            <pubDate>Mon, 01 Sep 2025 16:51:21 -0400</pubDate>
+            <sparkle:version>101</sparkle:version>
+            <sparkle:shortVersionString>1.0.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.0.1/Petrichor-1.0.1-Universal.dmg"
+                sparkle:edSignature="Gdp8sdygkXAoHZ1AaMz8Vp6bkHN1hnB8iWU+jdDnNACUwpfl7SSTvlwV/S55qlivkbQZ2bHNfJP74THtnpo7BQ=="
+                length="9463006"
+                type="application/octet-stream"
+            />
+            <description><![CDATA[
+                <h2>Fixes</h2>
+                <ul>
+                    <li>Fix Table view column title positioning</li>
+                    <li>Fix track & entity views to prevent performance degradation</li>
+                    <li>Improve main window toolbar items positioning</li>
+                    <li>Fix single folder refresh action to work reliably</li>
+                </ul>
+                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.0.0...v1.0.1">Full Changelog</a></p>
+            ]]></description>
+        </item>
+        <item>
             <title>Version 1.0.0</title>
             <pubDate>Sun, 24 Aug 2025 03:28:23 -0400</pubDate>
             <sparkle:version>100</sparkle:version>
