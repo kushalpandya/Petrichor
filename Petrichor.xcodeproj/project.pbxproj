@@ -31,6 +31,11 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		555A7BBD2E65FF88009F4922 /* Core */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Core;
+			sourceTree = "<group>";
+		};
 		559087A32DE0C09C009E7719 /* Application */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Application;
@@ -96,6 +101,7 @@
 				559087AA2DE0C0A2009E7719 /* Managers */,
 				559087B72DE0C0A5009E7719 /* Models */,
 				559087D82DE0C0A6009E7719 /* Views */,
+				555A7BBD2E65FF88009F4922 /* Core */,
 				55F38A7E2DF8F2F30028843B /* Utilities */,
 				55F38A822DF8F2FC0028843B /* Configuration */,
 				55F38A842DF8F2FE0028843B /* Resources */,
@@ -124,6 +130,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
+				555A7BBD2E65FF88009F4922 /* Core */,
 				559087A32DE0C09C009E7719 /* Application */,
 				559087AA2DE0C0A2009E7719 /* Managers */,
 				559087B72DE0C0A5009E7719 /* Models */,
