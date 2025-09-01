@@ -19,8 +19,8 @@ enum ImageResizer {
     
     /// Common sizes used in the app
     enum Size {
-        static let small = NSSize(width: 60, height: 60)    // Table view
-        static let medium = NSSize(width: 80, height: 80)    // List view
-        static let large = NSSize(width: 320, height: 320)   // Grid view
+        static let small = NSSize(width: ViewDefaults.tableArtworkSize * 2, height: ViewDefaults.tableArtworkSize * 2)    // Table view (2x retina)
+        static let medium = NSSize(width: ViewDefaults.listArtworkSize * 2, height: ViewDefaults.listArtworkSize * 2)     // List view (2x retina)
+        static let large = NSSize(width: ViewDefaults.gridArtworkSize * 2, height: ViewDefaults.gridArtworkSize * 2)      // Grid view (2x retina)
     }
 }

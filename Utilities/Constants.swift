@@ -133,7 +133,9 @@ enum AlbumArtFormat {
 // MARK: - View Defaults
 
 enum ViewDefaults {
-    static let listBufferSize: Int = 1000
+    static let tableArtworkSize: CGFloat = 30
+    static let listArtworkSize: CGFloat = 40
+    static let gridArtworkSize: CGFloat = 160
 }
 
 // MARK: - String Formats

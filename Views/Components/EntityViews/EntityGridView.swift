@@ -6,10 +6,11 @@ struct EntityGridView<T: Entity>: View {
     let contextMenuItems: (T) -> [ContextMenuItem]
 
     @State private var hoveredEntityID: UUID?
-    @State private var hoverWorkItem: DispatchWorkItem?
+    @State private var isScrolling = false
+    @State private var scrollWorkItem: DispatchWorkItem?
 
     private let columns = [
-        GridItem(.adaptive(minimum: 160, maximum: 200), spacing: 16)
+        GridItem(.adaptive(minimum: ViewDefaults.gridArtworkSize, maximum: 200), spacing: 16)
     ]
 
     var body: some View {
@@ -18,12 +19,15 @@ struct EntityGridView<T: Entity>: View {
                 ForEach(entities) { entity in
                     EntityGridItem(
                         entity: entity,
-                        isHovered: hoveredEntityID == entity.id,
+                        isHovered: isScrolling ? false : (hoveredEntityID == entity.id),
+                        isScrolling: isScrolling,
                         onSelect: {
                             onSelectEntity(entity)
                         },
                         onHover: { isHovered in
-                            handleHover(for: entity, isHovered: isHovered)
+                            if !isScrolling {
+                                hoveredEntityID = isHovered ? entity.id : nil
+                            }
                         }
                     )
                     .contextMenu {
@@ -36,23 +40,32 @@ struct EntityGridView<T: Entity>: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 6)
+            .background(
+                GeometryReader { geometry in
+                    Color.clear.preference(
+                        key: ScrollOffsetPreferenceKey.self,
+                        value: geometry.frame(in: .named("scroll")).origin.y
+                    )
+                }
+            )
+        }
+        .coordinateSpace(name: "scroll")
+        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { _ in
+            handleScrollChange()
         }
     }
     
-    private func handleHover(for entity: T, isHovered: Bool) {
-        hoverWorkItem?.cancel()
+    private func handleScrollChange() {
+        isScrolling = true
+        hoveredEntityID = nil
         
-        if isHovered {
-            hoveredEntityID = entity.id
-        } else {
-            let entityID = entity.id
-            hoverWorkItem = DispatchWorkItem {
-                if hoveredEntityID == entityID {
-                    hoveredEntityID = nil
-                }
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: hoverWorkItem!)
+        scrollWorkItem?.cancel()
+        
+        scrollWorkItem = DispatchWorkItem {
+            isScrolling = false
         }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: scrollWorkItem!)
     }
 
     @ViewBuilder
@@ -78,11 +91,11 @@ struct EntityGridView<T: Entity>: View {
 private struct EntityGridItem<T: Entity>: View {
     let entity: T
     let isHovered: Bool
+    let isScrolling: Bool
     let onSelect: () -> Void
     let onHover: (Bool) -> Void
 
     @State private var artworkImage: NSImage?
-    @State private var artworkLoadTask: Task<Void, Never>?
 
     var body: some View {
         VStack(spacing: 8) {
@@ -94,6 +107,7 @@ private struct EntityGridItem<T: Entity>: View {
         .contentShape(Rectangle())
         .onTapGesture(perform: onSelect)
         .onHover(perform: onHover)
+        .animation(.easeInOut(duration: AnimationDuration.quickDuration), value: isHovered)
     }
     
     @ViewBuilder
@@ -107,7 +121,7 @@ private struct EntityGridItem<T: Entity>: View {
                 Image(nsImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: 160, height: 160)
+                    .frame(width: ViewDefaults.gridArtworkSize, height: ViewDefaults.gridArtworkSize)
                     .clipped()
                     .cornerRadius(8)
             } else {
@@ -125,13 +139,11 @@ private struct EntityGridItem<T: Entity>: View {
                 }
             }
         }
-        .frame(width: 160, height: 160)
+        .frame(width: ViewDefaults.gridArtworkSize, height: ViewDefaults.gridArtworkSize)
         .task(id: entity.id) {
-            await loadArtworkAsync()
+            await loadEntityArtwork()
         }
         .onDisappear {
-            artworkLoadTask?.cancel()
-            artworkLoadTask = nil
             artworkImage = nil
         }
     }
@@ -159,58 +171,31 @@ private struct EntityGridItem<T: Entity>: View {
                     .lineLimit(1)
             }
         }
-        .frame(width: 160, alignment: .leading)
+        .frame(width: ViewDefaults.gridArtworkSize, alignment: .leading)
     }
 
     private var backgroundView: some View {
         RoundedRectangle(cornerRadius: 10)
             .fill(isHovered ? Color(NSColor.selectedContentBackgroundColor).opacity(0.15) : Color.clear)
-            .animation(.easeInOut(duration: 0.15), value: isHovered)
+            .animation(.easeInOut(duration: AnimationDuration.quickDuration), value: isHovered)
     }
 
-    private func loadArtworkAsync() async {
-        loadEntityArtworkAsync(
+    private func loadEntityArtwork() async {
+        let delay = isScrolling ? TimeConstants.oneFiftyMilliseconds : TimeConstants.fiftyMilliseconds
+        
+        await loadEntityArtworkAsync(
             from: entity.artworkLarge,
             into: $artworkImage,
-            with: $artworkLoadTask
+            delay: delay
         )
     }
 }
 
-// MARK: - Preview
+// MARK: - Supporting Types
 
-#Preview("Artist Grid") {
-    let artists = [
-        ArtistEntity(name: "The Beatles", trackCount: 25),
-        ArtistEntity(name: "Pink Floyd", trackCount: 18),
-        ArtistEntity(name: "Led Zeppelin", trackCount: 22),
-        ArtistEntity(name: "Queen", trackCount: 30)
-    ]
-
-    EntityGridView(
-        entities: artists,
-        onSelectEntity: { artist in
-            Logger.debugPrint("Selected: \(artist.name)")
-        },
-        contextMenuItems: { _ in [] }
-    )
-    .frame(height: 600)
-}
-
-#Preview("Album Grid") {
-    let albums = [
-        AlbumEntity(name: "Abbey Road", trackCount: 17, year: "1969", duration: 2832),
-        AlbumEntity(name: "The Dark Side of the Moon", trackCount: 10, year: "1973", duration: 2580),
-        AlbumEntity(name: "Led Zeppelin IV", trackCount: 8, year: "1971", duration: 2556),
-        AlbumEntity(name: "A Night at the Opera", trackCount: 12, year: "1975", duration: 2628)
-    ]
-
-    EntityGridView(
-        entities: albums,
-        onSelectEntity: { album in
-            Logger.debugPrint("Selected: \(album.name)")
-        },
-        contextMenuItems: { _ in [] }
-    )
-    .frame(height: 600)
+private struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
 }

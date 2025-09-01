@@ -7,10 +7,11 @@ struct TrackGridView: View {
 
     @EnvironmentObject var playbackManager: PlaybackManager
     @State private var hoveredTrackID: UUID?
-    @State private var hoverWorkItem: DispatchWorkItem?
+    @State private var isScrolling = false
+    @State private var scrollWorkItem: DispatchWorkItem?
 
     private let columns = [
-        GridItem(.adaptive(minimum: 160, maximum: 200), spacing: 16)
+        GridItem(.adaptive(minimum: ViewDefaults.gridArtworkSize, maximum: 200), spacing: 16)
     ]
 
     var body: some View {
@@ -19,7 +20,8 @@ struct TrackGridView: View {
                 ForEach(tracks, id: \.id) { track in
                     TrackGridItem(
                         track: track,
-                        isHovered: hoveredTrackID == track.id,
+                        isHovered: isScrolling ? false : (hoveredTrackID == track.id),
+                        isScrolling: isScrolling,
                         onPlay: {
                             let isCurrentTrack = playbackManager.currentTrack?.url.path == track.url.path
                             if !isCurrentTrack {
@@ -27,7 +29,9 @@ struct TrackGridView: View {
                             }
                         },
                         onHover: { isHovered in
-                            handleHover(for: track, isHovered: isHovered)
+                            if !isScrolling {
+                                hoveredTrackID = isHovered ? track.id : nil
+                            }
                         }
                     )
                     .contextMenu {
@@ -38,30 +42,40 @@ struct TrackGridView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 6)
+            .background(
+                GeometryReader { geometry in
+                    Color.clear.preference(
+                        key: ScrollOffsetPreferenceKey.self,
+                        value: geometry.frame(in: .named("scroll")).origin.y
+                    )
+                }
+            )
+        }
+        .coordinateSpace(name: "scroll")
+        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { _ in
+            handleScrollChange()
         }
     }
     
-    private func handleHover(for track: Track, isHovered: Bool) {
-        hoverWorkItem?.cancel()
+    private func handleScrollChange() {
+        isScrolling = true
+        hoveredTrackID = nil
         
-        if isHovered {
-            hoveredTrackID = track.id
-        } else {
-            let trackID = track.id
-            hoverWorkItem = DispatchWorkItem {
-                if hoveredTrackID == trackID {
-                    hoveredTrackID = nil
-                }
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: hoverWorkItem!)
+        scrollWorkItem?.cancel()
+        
+        scrollWorkItem = DispatchWorkItem {
+            isScrolling = false
         }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: scrollWorkItem!)
     }
 }
 
-// MARK: - Track Grid Item (Optimized)
+// MARK: - Track Grid Item
 private struct TrackGridItem: View {
     let track: Track
     let isHovered: Bool
+    let isScrolling: Bool
     let onPlay: () -> Void
     let onHover: (Bool) -> Void
 
@@ -89,6 +103,7 @@ private struct TrackGridItem: View {
             onPlay()
         }
         .onHover(perform: onHover)
+        .animation(.easeInOut(duration: AnimationDuration.quickDuration), value: isHovered)
     }
 
     // MARK: - Subviews
@@ -129,8 +144,7 @@ private struct TrackGridItem: View {
                 }
             }
         }
-        .frame(width: 160, height: 160)
-        .animation(.easeInOut(duration: 0.2), value: isHovered)
+        .frame(width: ViewDefaults.gridArtworkSize, height: ViewDefaults.gridArtworkSize)
     }
 
     private var artworkView: some View {
@@ -139,12 +153,12 @@ private struct TrackGridItem: View {
                 Image(nsImage: artworkImage)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: 160, height: 160)
+                    .frame(width: ViewDefaults.gridArtworkSize, height: ViewDefaults.gridArtworkSize)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
             } else {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color.gray.opacity(0.2))
-                    .frame(width: 160, height: 160)
+                    .frame(width: ViewDefaults.gridArtworkSize, height: ViewDefaults.gridArtworkSize)
                     .overlay(
                         Image(systemName: Icons.musicNote)
                             .font(.system(size: 32))
@@ -153,11 +167,7 @@ private struct TrackGridItem: View {
             }
         }
         .task(id: track.id) {
-            await loadTrackArtworkAsync(
-                from: track.albumArtworkLarge,
-                into: $artworkImage,
-                delay: TimeConstants.oneHundredMilliseconds
-            )
+            await loadArtwork()
         }
         .onDisappear {
             artworkImage = nil
@@ -187,7 +197,7 @@ private struct TrackGridItem: View {
                     .help(track.album)
             }
         }
-        .frame(width: 160, alignment: .leading)
+        .frame(width: ViewDefaults.gridArtworkSize, alignment: .leading)
     }
 
     private var backgroundView: some View {
@@ -197,5 +207,27 @@ private struct TrackGridItem: View {
                 (isHovered ? Color(NSColor.selectedContentBackgroundColor).opacity(0.08) : Color.clear) :
                 (isHovered ? Color(NSColor.selectedContentBackgroundColor).opacity(0.15) : Color.clear)
             )
+            .animation(.easeInOut(duration: AnimationDuration.quickDuration), value: isHovered)
+    }
+    
+    private func loadArtwork() async {
+        guard artworkImage == nil else { return }
+        
+        let delay = isScrolling ? TimeConstants.oneFiftyMilliseconds : TimeConstants.fiftyMilliseconds
+        
+        await loadTrackArtworkAsync(
+            from: track.albumArtworkLarge,
+            into: $artworkImage,
+            delay: delay
+        )
+    }
+}
+
+// MARK: - Supporting Types
+
+private struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }

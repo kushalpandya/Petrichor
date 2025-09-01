@@ -1164,12 +1164,12 @@ struct TrackTableTitleCell: View {
                 Image(nsImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: 30, height: 30)
+                    .frame(width: ViewDefaults.tableArtworkSize, height: ViewDefaults.tableArtworkSize)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
             } else {
                 RoundedRectangle(cornerRadius: 4)
                     .fill(Color.gray.opacity(0.2))
-                    .frame(width: 30, height: 30)
+                    .frame(width: ViewDefaults.tableArtworkSize, height: ViewDefaults.tableArtworkSize)
                     .overlay(
                         Image(systemName: Icons.musicNote)
                             .font(.system(size: 12))

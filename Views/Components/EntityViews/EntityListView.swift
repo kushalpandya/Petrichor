@@ -6,78 +6,61 @@ struct EntityListView<T: Entity>: View {
     let contextMenuItems: (T) -> [ContextMenuItem]
 
     @State private var hoveredEntityID: UUID?
-    @State private var hoverWorkItem: DispatchWorkItem?
+    @State private var isScrolling = false
+    @State private var scrollWorkItem: DispatchWorkItem?
 
     var body: some View {
-        Group {
-            if entities.count < ViewDefaults.listBufferSize {
-                List {
-                    ForEach(entities) { entity in
-                        EntityListRow(
-                            entity: entity,
-                            isHovered: hoveredEntityID == entity.id,
-                            onSelect: {
-                                onSelectEntity(entity)
-                            },
-                            onHover: { isHovered in
-                                handleHover(for: entity, isHovered: isHovered)
-                            }
-                        )
-                        .listRowInsets(EdgeInsets(top: 0, leading: -2, bottom: 0, trailing: -2))
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-                        .contextMenu {
-                            ForEach(contextMenuItems(entity), id: \.id) { item in
-                                contextMenuItem(item)
+        ScrollView {
+            LazyVStack(spacing: 0, pinnedViews: []) {
+                ForEach(entities) { entity in
+                    EntityListRow(
+                        entity: entity,
+                        isHovered: isScrolling ? false : (hoveredEntityID == entity.id),
+                        isScrolling: isScrolling,
+                        onSelect: {
+                            onSelectEntity(entity)
+                        },
+                        onHover: { isHovered in
+                            if !isScrolling {
+                                hoveredEntityID = isHovered ? entity.id : nil
                             }
                         }
-                    }
-                }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
-                .padding(.top, 5)
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 0, pinnedViews: []) {
-                        ForEach(entities) { entity in
-                            EntityListRow(
-                                entity: entity,
-                                isHovered: hoveredEntityID == entity.id,
-                                onSelect: {
-                                    onSelectEntity(entity)
-                                },
-                                onHover: { isHovered in
-                                    hoveredEntityID = isHovered ? entity.id : nil
-                                }
-                            )
-                            .contextMenu {
-                                ForEach(contextMenuItems(entity), id: \.id) { item in
-                                    contextMenuItem(item)
-                                }
-                            }
-                            .id(entity.id)
+                    )
+                    .contextMenu {
+                        ForEach(contextMenuItems(entity), id: \.id) { item in
+                            contextMenuItem(item)
                         }
                     }
-                    .padding(5)
+                    .id(entity.id)
                 }
             }
+            .padding(5)
+            .background(
+                GeometryReader { geometry in
+                    Color.clear.preference(
+                        key: ScrollOffsetPreferenceKey.self,
+                        value: geometry.frame(in: .named("scroll")).origin.y
+                    )
+                }
+            )
+        }
+        .coordinateSpace(name: "scroll")
+        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { _ in
+            handleScrollChange()
         }
     }
     
-    private func handleHover(for entity: T, isHovered: Bool) {
-        hoverWorkItem?.cancel()
+    private func handleScrollChange() {
+        isScrolling = true
+        hoveredEntityID = nil
         
-        if isHovered {
-            hoveredEntityID = entity.id
-        } else {
-            let entityID = entity.id
-            hoverWorkItem = DispatchWorkItem {
-                if hoveredEntityID == entityID {
-                    hoveredEntityID = nil
-                }
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: hoverWorkItem!)
+        scrollWorkItem?.cancel()
+        
+        scrollWorkItem = DispatchWorkItem {
+            isScrolling = false
         }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: scrollWorkItem!)
     }
 
     @ViewBuilder
@@ -103,11 +86,11 @@ struct EntityListView<T: Entity>: View {
 private struct EntityListRow<T: Entity>: View {
     let entity: T
     let isHovered: Bool
+    let isScrolling: Bool
     let onSelect: () -> Void
     let onHover: (Bool) -> Void
 
     @State private var artworkImage: NSImage?
-    @State private var artworkLoadTask: Task<Void, Never>?
 
     var body: some View {
         HStack(spacing: 12) {
@@ -115,13 +98,13 @@ private struct EntityListRow<T: Entity>: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 6)
                     .fill(Color.gray.opacity(0.2))
-                    .frame(width: 48, height: 48)
+                    .frame(width: ViewDefaults.listArtworkSize, height: ViewDefaults.listArtworkSize)
 
                 if let image = artworkImage {
                     Image(nsImage: image)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
-                        .frame(width: 48, height: 48)
+                        .frame(width: ViewDefaults.listArtworkSize, height: ViewDefaults.listArtworkSize)
                         .clipped()
                         .cornerRadius(6)
                 } else {
@@ -129,6 +112,12 @@ private struct EntityListRow<T: Entity>: View {
                         .font(.system(size: 20))
                         .foregroundColor(.gray)
                 }
+            }
+            .task(id: entity.id) {
+                await loadEntityArtwork()
+            }
+            .onDisappear {
+                artworkImage = nil
             }
 
             // Content
@@ -172,29 +161,32 @@ private struct EntityListRow<T: Entity>: View {
         .contentShape(Rectangle())
         .onTapGesture(perform: onSelect)
         .onHover(perform: onHover)
-        .animation(.easeInOut(duration: 0.15), value: isHovered)
-        .onAppear {
-            loadArtworkAsync()
-        }
-        .onDisappear {
-            // Cancel loading task and clear image to free memory
-            artworkLoadTask?.cancel()
-            artworkLoadTask = nil
-            artworkImage = nil
-        }
+        .animation(.easeInOut(duration: AnimationDuration.quickDuration), value: isHovered)
     }
 
     private var backgroundView: some View {
         RoundedRectangle(cornerRadius: 6)
             .fill(isHovered ? Color(NSColor.selectedContentBackgroundColor).opacity(0.15) : Color.clear)
+            .animation(.easeInOut(duration: AnimationDuration.quickDuration), value: isHovered)
     }
-
-    private func loadArtworkAsync() {
-        loadEntityArtworkAsync(
+    
+    private func loadEntityArtwork() async {
+        let delay = isScrolling ? TimeConstants.oneFiftyMilliseconds : TimeConstants.fiftyMilliseconds
+        
+        await loadEntityArtworkAsync(
             from: entity.artworkMedium,
             into: $artworkImage,
-            with: $artworkLoadTask
+            delay: delay
         )
+    }
+}
+
+// MARK: - Supporting Types
+
+private struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 

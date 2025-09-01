@@ -7,81 +7,62 @@ struct TrackListView: View {
 
     @EnvironmentObject var playbackManager: PlaybackManager
     @State private var hoveredTrackID: UUID?
-    @State private var hoverWorkItem: DispatchWorkItem?
+    @State private var isScrolling = false
+    @State private var scrollWorkItem: DispatchWorkItem?
 
     var body: some View {
-        Group {
-            if tracks.count < ViewDefaults.listBufferSize {
-                List {
-                    ForEach(tracks, id: \.id) { track in
-                        TrackListRow(
-                            track: track,
-                            isHovered: hoveredTrackID == track.id,
-                            onPlay: {
-                                let isCurrentTrack = playbackManager.currentTrack?.url.path == track.url.path
-                                if !isCurrentTrack {
-                                    onPlayTrack(track)
-                                }
-                            },
-                            onHover: { isHovered in
-                                handleHover(for: track, isHovered: isHovered)
+        ScrollView {
+            LazyVStack(spacing: 0, pinnedViews: []) {
+                ForEach(tracks, id: \.id) { track in
+                    TrackListRow(
+                        track: track,
+                        isHovered: isScrolling ? false : (hoveredTrackID == track.id),
+                        isScrolling: isScrolling,
+                        onPlay: {
+                            let isCurrentTrack = playbackManager.currentTrack?.url.path == track.url.path
+                            if !isCurrentTrack {
+                                onPlayTrack(track)
                             }
-                        )
-                        .listRowInsets(EdgeInsets(top: 0, leading: -2, bottom: 0, trailing: -2))
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-                        .contextMenu {
-                            TrackContextMenuContent(items: contextMenuItems(track))
-                        }
-                    }
-                }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
-                .padding(.top, 5)
-                .padding(.horizontal, 0)
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 0, pinnedViews: []) {
-                        ForEach(tracks, id: \.id) { track in
-                            TrackListRow(
-                                track: track,
-                                isHovered: hoveredTrackID == track.id,
-                                onPlay: {
-                                    let isCurrentTrack = playbackManager.currentTrack?.url.path == track.url.path
-                                    if !isCurrentTrack {
-                                        onPlayTrack(track)
-                                    }
-                                },
-                                onHover: { isHovered in
-                                    hoveredTrackID = isHovered ? track.id : nil
-                                }
-                            )
-                            .contextMenu {
-                                TrackContextMenuContent(items: contextMenuItems(track))
+                        },
+                        onHover: { isHovered in
+                            if !isScrolling {
+                                hoveredTrackID = isHovered ? track.id : nil
                             }
-                            .id(track.id)
                         }
+                    )
+                    .contextMenu {
+                        TrackContextMenuContent(items: contextMenuItems(track))
                     }
-                    .padding(5)
+                    .id(track.id)
                 }
             }
+            .padding(5)
+            .background(
+                GeometryReader { geometry in
+                    Color.clear.preference(
+                        key: ScrollOffsetPreferenceKey.self,
+                        value: geometry.frame(in: .named("scroll")).origin.y
+                    )
+                }
+            )
+        }
+        .coordinateSpace(name: "scroll")
+        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { _ in
+            handleScrollChange()
         }
     }
     
-    private func handleHover(for track: Track, isHovered: Bool) {
-        hoverWorkItem?.cancel()
+    private func handleScrollChange() {
+        isScrolling = true
+        hoveredTrackID = nil
         
-        if isHovered {
-            hoveredTrackID = track.id
-        } else {
-            let trackID = track.id
-            hoverWorkItem = DispatchWorkItem {
-                if hoveredTrackID == trackID {
-                    hoveredTrackID = nil
-                }
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: hoverWorkItem!)
+        scrollWorkItem?.cancel()
+        
+        scrollWorkItem = DispatchWorkItem {
+            isScrolling = false
         }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: scrollWorkItem!)
     }
 }
 
@@ -89,6 +70,7 @@ struct TrackListView: View {
 private struct TrackListRow: View {
     let track: Track
     let isHovered: Bool
+    let isScrolling: Bool
     let onPlay: () -> Void
     let onHover: (Bool) -> Void
 
@@ -136,8 +118,8 @@ private struct TrackListRow: View {
                     .transition(.scale.combined(with: .opacity))
             }
         }
-        .frame(width: 40, height: 40)
-        .animation(.easeInOut(duration: AnimationDuration.standardDuration), value: isHovered)
+        .frame(width: ViewDefaults.listArtworkSize, height: ViewDefaults.listArtworkSize)
+        .animation(.easeInOut(duration: AnimationDuration.standardDuration), value: shouldShowPlayButton)
     }
 
     private var trackContent: some View {
@@ -166,19 +148,25 @@ private struct TrackListRow: View {
             }
         }
         .task(id: track.id) {
+            guard artworkImage == nil else { return }
+            
+            let delay = isScrolling ? TimeConstants.oneFiftyMilliseconds : TimeConstants.fiftyMilliseconds
+            
             await loadTrackArtworkAsync(
                 from: track.albumArtworkMedium,
                 into: $artworkImage,
-                delay: TimeConstants.oneHundredMilliseconds
+                delay: delay
             )
         }
-        .onDisappear { artworkImage = nil }
+        .onDisappear {
+            artworkImage = nil
+        }
     }
 
     private var placeholderArtwork: some View {
         RoundedRectangle(cornerRadius: 4)
             .fill(Color.gray.opacity(0.2))
-            .frame(width: 40, height: 40)
+            .frame(width: ViewDefaults.listArtworkSize, height: ViewDefaults.listArtworkSize)
             .overlay(
                 Image(systemName: Icons.musicNote)
                     .font(.system(size: 16))
@@ -189,7 +177,7 @@ private struct TrackListRow: View {
     private var loadingArtwork: some View {
         ProgressView()
             .scaleEffect(0.5)
-            .frame(width: 40, height: 40)
+            .frame(width: ViewDefaults.listArtworkSize, height: ViewDefaults.listArtworkSize)
             .background(Color.gray.opacity(0.1))
             .cornerRadius(4)
     }
@@ -210,29 +198,35 @@ private struct TrackListRow: View {
     }
 
     private var detailsLabel: some View {
-        let components = buildDetailComponents()
-        
-        return Text(components)
-            .font(.system(size: 12))
-            .foregroundColor(.secondary)
-            .lineLimit(1)
-            .redacted(reason: track.isMetadataLoaded ? [] : .placeholder)
-    }
+        HStack(spacing: 4) {
+            Text(track.artist)
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+                .redacted(reason: track.isMetadataLoaded ? [] : .placeholder)
 
-    private func buildDetailComponents() -> String {
-        var parts: [String] = []
-        
-        parts.append(track.artist)
-        
-        if shouldShowAlbum {
-            parts.append(track.album)
+            if shouldShowAlbum {
+                Text("•")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+
+                Text(track.album)
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .redacted(reason: track.isMetadataLoaded ? [] : .placeholder)
+            }
+
+            if shouldShowYear {
+                Text("•")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+
+                Text(track.year)
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+            }
         }
-        
-        if shouldShowYear {
-            parts.append(track.year)
-        }
-        
-        return parts.joined(separator: " • ")
     }
 
     private var durationLabel: some View {
@@ -246,6 +240,7 @@ private struct TrackListRow: View {
     private var backgroundView: some View {
         RoundedRectangle(cornerRadius: 6)
             .fill(backgroundColor)
+            .animation(.easeInOut(duration: AnimationDuration.quickDuration), value: isHovered)
     }
 
     // MARK: - Helper Properties
@@ -262,10 +257,6 @@ private struct TrackListRow: View {
             return isPlaying ? Icons.pauseFill : Icons.playFill
         }
         return Icons.playFill
-    }
-
-    private var playButtonColor: Color {
-        isCurrentTrack ? .accentColor : .primary
     }
 
     private var backgroundColor: Color {
@@ -301,5 +292,14 @@ private struct TrackListRow: View {
         let minutes = totalSeconds / 60
         let remainingSeconds = totalSeconds % 60
         return String(format: StringFormat.mmss, minutes, remainingSeconds)
+    }
+}
+
+// MARK: - Supporting Types
+
+private struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
