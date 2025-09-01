@@ -217,7 +217,7 @@ struct ContentView: View {
             )
         }
 
-        ToolbarItem(placement: .primaryAction) {
+        ToolbarItem(placement: .confirmationAction) {
             HStack(alignment: .center, spacing: 8) {
                 NotificationTray()
                     .frame(width: 24, height: 24)
