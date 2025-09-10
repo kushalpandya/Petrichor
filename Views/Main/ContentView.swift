@@ -4,12 +4,6 @@ struct ContentView: View {
     @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var libraryManager: LibraryManager
     @EnvironmentObject var playlistManager: PlaylistManager
-
-    @AppStorage("globalViewType")
-    private var globalViewType: LibraryViewType = .table
-    
-    @AppStorage("entityViewType")
-    private var entityViewType: LibraryViewType = .grid
     
     @AppStorage("rightSidebarSplitPosition")
     private var splitPosition: Double = 200
@@ -26,34 +20,11 @@ struct ContentView: View {
     @State private var pendingLibraryFilter: LibraryFilterRequest?
     @State private var windowDelegate = WindowDelegate()
     @State private var isSettingsHovered = false
-    @State private var homeShowingEntities: Bool = false
+    @State private var shouldFocusSearch = false
 
     var body: some View {
         VStack(spacing: 0) {
-            // Persistent Contextual Toolbar - always present when we have music
-            if !libraryManager.folders.isEmpty {
-                ContextualToolbar(
-                    viewType: Binding(
-                        get: {
-                            if selectedTab == .home && homeShowingEntities {
-                                return entityViewType
-                            }
-                            return globalViewType
-                        },
-                        set: { newValue in
-                            if selectedTab == .home && homeShowingEntities {
-                                entityViewType = newValue
-                            } else {
-                                globalViewType = newValue
-                            }
-                        }
-                    ),
-                    disableTableView: selectedTab == .home && homeShowingEntities
-                )
-                .frame(height: 40)
-                Divider()
-            }
-
+            Divider()
             // Main Content Area with Queue
             mainContentArea
 
@@ -63,6 +34,7 @@ struct ContentView: View {
         .frame(minWidth: 1000, minHeight: 600)
         .onAppear(perform: handleOnAppear)
         .contentViewNotificationHandlers(
+            shouldFocusSearch: $shouldFocusSearch,
             showingSettings: $showingSettings,
             selectedTab: $selectedTab,
             libraryManager: libraryManager,
@@ -127,26 +99,25 @@ struct ContentView: View {
 
     private var sectionContent: some View {
         ZStack {
-            HomeView(isShowingEntities: $homeShowingEntities)
+            HomeView(isShowingEntities: .constant(false))
                 .opacity(selectedTab == .home ? 1 : 0)
                 .allowsHitTesting(selectedTab == .home)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             LibraryView(
-                viewType: globalViewType,
                 pendingFilter: $pendingLibraryFilter
             )
             .opacity(selectedTab == .library ? 1 : 0)
             .allowsHitTesting(selectedTab == .library)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            PlaylistsView(viewType: globalViewType)
+            PlaylistsView()
                 .opacity(selectedTab == .playlists ? 1 : 0)
                 .allowsHitTesting(selectedTab == .playlists)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             if showFoldersTab == true {
-                FoldersView(viewType: globalViewType)
+                FoldersView()
                     .opacity(selectedTab == .folders ? 1 : 0)
                     .allowsHitTesting(selectedTab == .folders)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -185,6 +156,8 @@ struct ContentView: View {
     @ViewBuilder
     private var playerControls: some View {
         if !libraryManager.folders.isEmpty {
+            Divider()
+
             PlayerView(showingQueue: Binding(
                 get: { showingQueue },
                 set: { newValue in
@@ -199,7 +172,6 @@ struct ContentView: View {
                 }
             ))
             .frame(height: 90)
-            .background(Color(NSColor.windowBackgroundColor))
             .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
@@ -216,12 +188,26 @@ struct ContentView: View {
                 isDisabled: libraryManager.folders.isEmpty
             )
         }
-
+        
+        // Do not remove this spacer, it allows
+        // for pushing toolbar items below to the
+        // right-edge of window frame on macOS 14.x
+        ToolbarItem { Spacer() }
+        
         ToolbarItem(placement: .confirmationAction) {
-            HStack(alignment: .center, spacing: 8) {
+            HStack(spacing: 8) {
                 NotificationTray()
                     .frame(width: 24, height: 24)
 
+                SearchInputField(
+                    text: $libraryManager.globalSearchText,
+                    placeholder: "Search",
+                    fontSize: 12,
+                    width: 280,
+                    shouldFocus: shouldFocusSearch
+                )
+                .frame(width: 280)
+                
                 settingsButton
             }
         }
@@ -253,6 +239,10 @@ struct ContentView: View {
     private func handleOnAppear() {
         if let coordinator = AppCoordinator.shared {
             showingQueue = coordinator.isQueueVisible
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            NSApp.keyWindow?.makeFirstResponder(nil)
         }
     }
 
@@ -290,6 +280,7 @@ struct ContentView: View {
 
 extension View {
     func contentViewNotificationHandlers(
+        shouldFocusSearch: Binding<Bool>,
         showingSettings: Binding<Bool>,
         selectedTab: Binding<Sections>,
         libraryManager: LibraryManager,
@@ -297,6 +288,9 @@ extension View {
         showTrackDetail: @escaping (Track) -> Void
     ) -> some View {
         self
+            .onReceive(NotificationCenter.default.publisher(for: .focusSearchField)) { _ in
+                shouldFocusSearch.wrappedValue.toggle()
+            }
             .onReceive(NotificationCenter.default.publisher(for: .goToLibraryFilter)) { notification in
                 if let filterType = notification.userInfo?["filterType"] as? LibraryFilterType,
                    let filterValue = notification.userInfo?["filterValue"] as? String {

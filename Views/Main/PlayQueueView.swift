@@ -32,7 +32,6 @@ struct PlayQueueView: View {
             Text("Are you sure you want to clear the entire queue? This will stop playback.")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
             // Delay animations until after the sidebar has slid in
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -140,7 +139,6 @@ struct PlayQueueView: View {
                 .padding(.top, 5)
                 .padding(.horizontal, 8)
             }
-            .background(Color(NSColor.textBackgroundColor))
             .onChange(of: playlistManager.currentQueueIndex) { _, newIndex in
                 handleQueueIndexChange(newIndex: newIndex, proxy: proxy)
             }

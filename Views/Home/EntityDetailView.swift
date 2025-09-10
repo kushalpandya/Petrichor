@@ -1,11 +1,7 @@
 import SwiftUI
 
 struct EntityDetailView: View {
-    @AppStorage("trackListSortAscending")
-    private var trackListSortAscending = true
-
     let entity: any Entity
-    let viewType: LibraryViewType
     let onBack: (() -> Void)?
     
     @EnvironmentObject var playbackManager: PlaybackManager
@@ -16,12 +12,15 @@ struct EntityDetailView: View {
     @State private var isLoading = true
     @State private var isBackButtonHovered = false
     
+    @AppStorage("trackTableRowSize")
+    private var trackTableRowSize: TableRowSize = .expanded
+
+    @State private var trackTableSortOrder = [KeyPathComparator(\Track.title)]
+    
     var body: some View {
         VStack(spacing: 0) {
             // Header with back button
             entityHeader
-            
-            Divider()
             
             // Track list
             if isLoading {
@@ -30,8 +29,7 @@ struct EntityDetailView: View {
                 emptyView
             } else {
                 TrackView(
-                    tracks: sortedTracks,
-                    viewType: viewType,
+                    tracks: tracks,
                     selectedTrackID: $selectedTrackID,
                     playlistID: nil,
                     entityID: entity.id,
@@ -47,7 +45,6 @@ struct EntityDetailView: View {
                         )
                     }
                 )
-                .background(Color(NSColor.textBackgroundColor))
             }
         }
         .onAppear {
@@ -63,7 +60,7 @@ struct EntityDetailView: View {
     // MARK: - Header
     
     private var entityHeader: some View {
-        PlaylistHeader {
+        EntityHeader {
             HStack(alignment: .top, spacing: 20) {
                 // Back button
                 if let onBack = onBack {
@@ -103,28 +100,16 @@ struct EntityDetailView: View {
                 Spacer()
             }
         }
+        .background(.regularMaterial)
         .overlay(alignment: .bottomTrailing) {
             HStack(spacing: 12) {
-                // Sort button for list/grid views
-                if viewType != .table {
-                    Button(action: { trackListSortAscending.toggle() }) {
-                        Image(Icons.sortIcon(for: trackListSortAscending))
-                            .renderingMode(.template)
-                            .scaleEffect(0.8)
-                    }
-                    .buttonStyle(.borderless)
-                    .hoverEffect(scale: 1.1)
-                    .help("Sort tracks \(trackListSortAscending ? "descending" : "ascending")")
-                }
+                TrackTableOptionsDropdown(
+                    sortOrder: $trackTableSortOrder,
+                    tableRowSize: $trackTableRowSize
+                )
             }
             .padding([.bottom, .trailing], 12)
         }
-    }
-    
-    private var sortedTracks: [Track] {
-        trackListSortAscending
-            ? tracks.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
-            : tracks.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedDescending }
     }
     
     private var entityArtwork: some View {
@@ -326,36 +311,21 @@ struct EntityDetailView: View {
     }
     
     private func playTrack(_ track: Track) {
-        playlistManager.playTrack(track, fromTracks: sortedTracks)
+        playlistManager.playTrack(track, fromTracks: tracks)
         selectedTrackID = track.id
     }
 
     private func playEntity(shuffle: Bool = false) {
-        guard !sortedTracks.isEmpty else { return }
+        guard !tracks.isEmpty else { return }
         
-        if viewType == .table {
-            NotificationCenter.default.post(
-                name: .playEntityTracks,
-                object: entity,
-                userInfo: [
-                    "shuffle": shuffle,
-                    "entityId": entity.id.uuidString
-                ]
-            )
-        } else {
-            // For list/grid views, play directly
-            playlistManager.isShuffleEnabled = shuffle
-            
-            var tracksForPlayback = sortedTracks
-            if shuffle {
-                tracksForPlayback.shuffle()
-            }
-            
-            if let firstTrack = tracksForPlayback.first {
-                playlistManager.playTrack(firstTrack, fromTracks: tracksForPlayback)
-                selectedTrackID = firstTrack.id
-            }
-        }
+        NotificationCenter.default.post(
+            name: .playEntityTracks,
+            object: entity,
+            userInfo: [
+                "shuffle": shuffle,
+                "entityId": entity.id.uuidString
+            ]
+        )
     }
 }
 
@@ -366,7 +336,6 @@ struct EntityDetailView: View {
     
     return EntityDetailView(
         entity: artist,
-        viewType: .list
     ) { Logger.debugPrint("Back tapped") }
     .environmentObject(LibraryManager())
     .environmentObject(PlaybackManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
@@ -379,7 +348,6 @@ struct EntityDetailView: View {
     
     return EntityDetailView(
         entity: album,
-        viewType: .grid
     ) { Logger.debugPrint("Back tapped") }
     .environmentObject(LibraryManager())
     .environmentObject(PlaybackManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))

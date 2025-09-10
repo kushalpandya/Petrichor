@@ -158,7 +158,7 @@ struct LibraryTabView: View {
                 .padding(.vertical, 6)
             }
             .frame(height: 350)
-            .background(Color(NSColor.textBackgroundColor).opacity(0.5))
+            .background(Color.secondary.opacity(0.08))
             .cornerRadius(6)
             .overlay(refreshOverlay)
             
@@ -176,7 +176,7 @@ struct LibraryTabView: View {
             ZStack {
                 // Semi-transparent background
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.black.opacity(0.5))
+                    .fill(Color.black.opacity(0.2))
                 
                 VStack(spacing: 20) {
                     ActivityAnimation(size: .medium)
@@ -199,7 +199,7 @@ struct LibraryTabView: View {
                 .padding(.horizontal, 40)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(NSColor.controlBackgroundColor))
+                        .fill(.thickMaterial)
                         .shadow(color: .black.opacity(0.2), radius: 10)
                 )
             }

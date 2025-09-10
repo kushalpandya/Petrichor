@@ -1,19 +1,19 @@
 import Foundation
 
 enum TableRowSize: String, CaseIterable, Codable {
-    case cozy
+    case expanded
     case compact
     
     var displayName: String {
         switch self {
-        case .cozy: return "Cozy"
+        case .expanded: return "Expanded"
         case .compact: return "Compact"
         }
     }
     
     var rowHeight: CGFloat {
         switch self {
-        case .cozy: return ViewDefaults.listArtworkSize + 16
+        case .expanded: return ViewDefaults.listArtworkSize + 16
         case .compact: return 28
         }
     }

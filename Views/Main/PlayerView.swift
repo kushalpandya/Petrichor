@@ -91,7 +91,6 @@ struct PlayerView: View {
                 previousVolume = oldValue > 0.01 ? oldValue : 0.7
             }
         }
-        .background(Color.clear)
     }
     
     // MARK: - UI Timer Management
@@ -106,17 +105,17 @@ struct PlayerView: View {
         playbackStartOffset = playbackManager.actualCurrentTime
         displayTime = playbackStartOffset
         
-        // Create a timer that updates the UI every second for accurate display
+        // Create a timer that updates the UI every second
         uiTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
             updateDisplayTime()
         }
-        uiTimer?.tolerance = 0.1 // Small tolerance for consistent updates
+        uiTimer?.tolerance = 0.1
     }
     
     private func stopUITimer() {
         uiTimer?.invalidate()
         uiTimer = nil
-        syncDisplayTime() // Sync with actual player time when stopping
+        syncDisplayTime()
     }
     
     private func updateDisplayTime() {

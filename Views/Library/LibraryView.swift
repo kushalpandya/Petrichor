@@ -11,17 +11,16 @@ struct LibraryView: View {
     @AppStorage("sidebarSplitPosition")
     private var splitPosition: Double = 200
     
-    @AppStorage("trackListSortAscending")
-    private var trackListSortAscending: Bool = true
+    @AppStorage("trackTableRowSize")
+    private var trackTableRowSize: TableRowSize = .expanded
     
     @State private var selectedTrackID: UUID?
     @State private var selectedFilterItem: LibraryFilterItem?
     @State private var cachedFilteredTracks: [Track] = []
     @State private var pendingSearchText: String?
     @State private var isViewReady = false
+    @State private var trackTableSortOrder = [KeyPathComparator(\Track.title)]
     @Binding var pendingFilter: LibraryFilterRequest?
-
-    let viewType: LibraryViewType
 
     var body: some View {
         VStack {
@@ -64,9 +63,6 @@ struct LibraryView: View {
                 .onChange(of: libraryManager.totalTrackCount) {
                     updateFilteredTracks()
                 }
-                .onChange(of: trackListSortAscending) {
-                    updateFilteredTracks()
-                }
                 .onChange(of: pendingFilter) { _, newValue in
                     if let request = newValue {
                         pendingFilter = nil
@@ -86,8 +82,7 @@ struct LibraryView: View {
         }
     }
 
-    init(viewType: LibraryViewType, pendingFilter: Binding<LibraryFilterRequest?> = .constant(nil)) {
-        self.viewType = viewType
+    init(pendingFilter: Binding<LibraryFilterRequest?> = .constant(nil)) {
         self._pendingFilter = pendingFilter
     }
 
@@ -96,7 +91,11 @@ struct LibraryView: View {
     private var tracksListView: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
-            tracksListHeader
+            TrackListHeaderWithOptions(
+                title: headerTitle,
+                sortOrder: $trackTableSortOrder,
+                tableRowSize: $trackTableRowSize
+            )
 
             Divider()
 
@@ -106,7 +105,6 @@ struct LibraryView: View {
             } else {
                 TrackView(
                     tracks: cachedFilteredTracks,
-                    viewType: viewType,
                     selectedTrackID: $selectedTrackID,
                     playlistID: nil,
                     entityID: nil,
@@ -129,33 +127,6 @@ struct LibraryView: View {
     }
 
     // MARK: - Tracks List Header
-
-    private var tracksListHeader: some View {
-        Group {
-            if viewType == .table {
-                TrackListHeader(
-                    title: headerTitle,
-                    trackCount: cachedFilteredTracks.count
-                ) {
-                    EmptyView()
-                }
-            } else {
-                TrackListHeader(
-                    title: headerTitle,
-                    trackCount: cachedFilteredTracks.count
-                ) {
-                    Button(action: { trackListSortAscending.toggle() }) {
-                        Image(Icons.sortIcon(for: trackListSortAscending))
-                            .renderingMode(.template)
-                            .scaleEffect(0.8)
-                    }
-                    .buttonStyle(.borderless)
-                    .hoverEffect(scale: 1.1)
-                    .help("Sort tracks \(trackListSortAscending ? "descending" : "ascending")")
-                }
-            }
-        }
-    }
 
     private var headerTitle: String {
         if !libraryManager.globalSearchText.isEmpty {
@@ -206,10 +177,7 @@ struct LibraryView: View {
     // MARK: - Filtering Tracks Helper
 
     private func updateFilteredTracks() {
-        // If we have a global search, use database FTS search
         if !libraryManager.globalSearchText.isEmpty {
-            // searchResults should already be populated by updateSearchResults()
-            // which uses database FTS search
             var tracks = libraryManager.searchResults
             
             // Apply sidebar filter if present
@@ -219,32 +187,21 @@ struct LibraryView: View {
                 }
             }
             
-            cachedFilteredTracks = sortTracks(tracks)
+            cachedFilteredTracks = tracks
         } else {
-            // No global search - load only what's needed based on selection
             if let filterItem = selectedFilterItem {
                 if filterItem.isAllItem {
-                    // "All" item selected during search - we shouldn't get here with our new logic
                     cachedFilteredTracks = []
                 } else {
                     // Load tracks for specific filter from database
                     var tracks = libraryManager.getTracksBy(filterType: selectedFilterType, value: filterItem.name)
                     // Populate album artwork for the tracks
                     libraryManager.databaseManager.populateAlbumArtworkForTracks(&tracks)
-                    cachedFilteredTracks = sortTracks(tracks)
+                    cachedFilteredTracks = tracks
                 }
             } else {
                 cachedFilteredTracks = []
             }
-        }
-    }
-
-    private func sortTracks(_ tracks: [Track]) -> [Track] {
-        tracks.sorted { track1, track2 in
-            let comparison = track1.title.localizedCaseInsensitiveCompare(track2.title)
-            return trackListSortAscending ?
-                comparison == .orderedAscending :
-                comparison == .orderedDescending
         }
     }
 
@@ -261,7 +218,7 @@ struct LibraryView: View {
 }
 
 #Preview {
-    LibraryView(viewType: .list)
+    LibraryView()
         .environmentObject({
             let coordinator = AppCoordinator()
             return coordinator.playbackManager

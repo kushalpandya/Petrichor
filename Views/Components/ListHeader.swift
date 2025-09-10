@@ -16,7 +16,7 @@ struct ListHeaderStyle: ViewModifier {
             .padding(padding)
             .frame(maxWidth: .infinity)
             .frame(height: height)
-            .background(Color(NSColor.windowBackgroundColor))
+            .background(Color(NSColor.clear))
     }
 }
 
@@ -78,7 +78,21 @@ struct PlaylistHeader<Content: View>: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 20)
             .frame(maxWidth: .infinity)
-            .background(Color(NSColor.windowBackgroundColor))
+    }
+}
+
+struct EntityHeader<Content: View>: View {
+    let content: () -> Content
+
+    init(@ViewBuilder content: @escaping () -> Content) {
+        self.content = content
+    }
+
+    var body: some View {
+        content()
+            .padding(.horizontal, 20)
+            .padding(.vertical, 20)
+            .frame(maxWidth: .infinity)
     }
 }
 
@@ -131,6 +145,46 @@ struct TrackListHeader<Trailing: View>: View {
                 Text("\(trackCount) tracks")
                     .headerSubtitleStyle()
             }
+        }
+    }
+}
+
+struct TrackListHeaderWithOptions: View {
+    let title: String
+    let subtitle: String?
+    @Binding var sortOrder: [KeyPathComparator<Track>]
+    @Binding var tableRowSize: TableRowSize
+
+    init(
+        title: String,
+        subtitle: String? = nil,
+        sortOrder: Binding<[KeyPathComparator<Track>]>,
+        tableRowSize: Binding<TableRowSize>
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self._sortOrder = sortOrder
+        self._tableRowSize = tableRowSize
+    }
+
+    var body: some View {
+        ListHeader {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .headerTitleStyle()
+
+                if let subtitle = subtitle {
+                    Text(subtitle)
+                        .headerSubtitleStyle()
+                }
+            }
+
+            Spacer()
+
+            TrackTableOptionsDropdown(
+                sortOrder: $sortOrder,
+                tableRowSize: $tableRowSize
+            )
         }
     }
 }

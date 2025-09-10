@@ -6,17 +6,20 @@ struct SearchInputField: NSViewRepresentable {
     var placeholder: String
     var fontSize: CGFloat
     var width: CGFloat?
+    var shouldFocus: Bool = false
     
     init(
         text: Binding<String>,
         placeholder: String = "Search...",
         fontSize: CGFloat = 12,
-        width: CGFloat? = nil
+        width: CGFloat? = nil,
+        shouldFocus: Bool = false
     ) {
         self._text = text
         self.placeholder = placeholder
         self.fontSize = fontSize
         self.width = width
+        self.shouldFocus = shouldFocus
     }
     
     func makeNSView(context: Context) -> NSSearchField {
@@ -37,6 +40,15 @@ struct SearchInputField: NSViewRepresentable {
         nsView.stringValue = text
         nsView.placeholderString = placeholder
         
+        if shouldFocus != context.coordinator.lastFocusState {
+            context.coordinator.lastFocusState = shouldFocus
+            if shouldFocus {
+                DispatchQueue.main.async {
+                    nsView.window?.makeFirstResponder(nsView)
+                }
+            }
+        }
+        
         // Handle focus resignation
         if context.coordinator.shouldResignFirstResponder {
             nsView.window?.makeFirstResponder(nil)
@@ -51,6 +63,7 @@ struct SearchInputField: NSViewRepresentable {
     class Coordinator: NSObject, NSSearchFieldDelegate {
         var parent: SearchInputField
         var shouldResignFirstResponder = false
+        var lastFocusState = false
         
         init(_ parent: SearchInputField) {
             self.parent = parent

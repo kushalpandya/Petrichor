@@ -23,17 +23,11 @@ enum SplitViewConstants {
     static let rightSidebarMinWidth: CGFloat = 300
     static let rightSidebarMaxWidth: CGFloat = 500
 
-    // Divider properties
-    static let dividerWidth: CGFloat = 1
-    static let dividerHoverWidth: CGFloat = 8
-    static let dividerZIndex: Double = 10
-
     // Colors
-    static let dividerColor = Color(NSColor.separatorColor)
     static let backgroundColor = Color(NSColor.controlBackgroundColor)
 }
 
-// MARK: - Enhanced Persistent Split View
+// MARK: - Simple Persistent Split View
 
 struct PersistentSplitView<Left: View, Center: View, Right: View>: View {
     let type: SplitViewType
@@ -46,22 +40,7 @@ struct PersistentSplitView<Left: View, Center: View, Right: View>: View {
 
     @State private var leftWidth: CGFloat
     @State private var rightWidth: CGFloat
-
-    // Create bindings to UserDefaults
-    private var leftStorageBinding: Binding<Double> {
-        Binding(
-            get: { UserDefaults.standard.double(forKey: storageKeyLeft) },
-            set: { UserDefaults.standard.set($0, forKey: storageKeyLeft) }
-        )
-    }
-
-    private var rightStorageBinding: Binding<Double>? {
-        guard let key = storageKeyRight else { return nil }
-        return Binding(
-            get: { UserDefaults.standard.double(forKey: key) },
-            set: { UserDefaults.standard.set($0, forKey: key) }
-        )
-    }
+    @State private var isRightSidebarVisible: Bool
 
     // MARK: - Initializers
 
@@ -78,10 +57,10 @@ struct PersistentSplitView<Left: View, Center: View, Right: View>: View {
         self.center = main
         self.right = { EmptyView() }
 
-        // Initialize with stored value or default
         let storedValue = UserDefaults.standard.double(forKey: leftStorageKey)
         self._leftWidth = State(initialValue: storedValue > 0 ? CGFloat(storedValue) : SplitViewConstants.leftSidebarDefaultWidth)
         self._rightWidth = State(initialValue: 0)
+        self._isRightSidebarVisible = State(initialValue: false)
     }
 
     // Right sidebar only
@@ -97,10 +76,10 @@ struct PersistentSplitView<Left: View, Center: View, Right: View>: View {
         self.center = main
         self.right = right
 
-        // Initialize with stored value or default
         let storedValue = UserDefaults.standard.double(forKey: rightStorageKey)
         self._leftWidth = State(initialValue: 0)
         self._rightWidth = State(initialValue: storedValue > 0 ? CGFloat(storedValue) : SplitViewConstants.rightSidebarDefaultWidth)
+        self._isRightSidebarVisible = State(initialValue: true)
     }
 
     // Both sidebars
@@ -118,11 +97,11 @@ struct PersistentSplitView<Left: View, Center: View, Right: View>: View {
         self.center = center
         self.right = right
 
-        // Initialize with stored values or defaults
         let leftStored = UserDefaults.standard.double(forKey: leftStorageKey)
         let rightStored = UserDefaults.standard.double(forKey: rightStorageKey)
         self._leftWidth = State(initialValue: leftStored > 0 ? CGFloat(leftStored) : SplitViewConstants.leftSidebarDefaultWidth)
         self._rightWidth = State(initialValue: rightStored > 0 ? CGFloat(rightStored) : SplitViewConstants.rightSidebarDefaultWidth)
+        self._isRightSidebarVisible = State(initialValue: true)
     }
 
     var body: some View {
@@ -132,6 +111,7 @@ struct PersistentSplitView<Left: View, Center: View, Right: View>: View {
                 left()
                     .frame(width: leftWidth)
                     .frame(maxHeight: .infinity)
+                    .layoutPriority(1)
 
                 SplitDivider(
                     splitWidth: $leftWidth,
@@ -145,12 +125,12 @@ struct PersistentSplitView<Left: View, Center: View, Right: View>: View {
             // Center content
             center()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .layoutPriority(0)
 
-            // Right sidebar
-            if type == .rightOnly || type == .both {
+            if (type == .rightOnly || type == .both) && hasRightContent() {
                 SplitDivider(
                     splitWidth: $rightWidth,
-                    minWidth: SplitViewConstants.rightSidebarMinWidth,
+                    minWidth: 0, // Allow collapsing to 0
                     maxWidth: SplitViewConstants.rightSidebarMaxWidth,
                     isLeading: false
                 ) {
@@ -162,38 +142,37 @@ struct PersistentSplitView<Left: View, Center: View, Right: View>: View {
                 right()
                     .frame(width: rightWidth)
                     .frame(maxHeight: .infinity)
+                    .layoutPriority(1)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(SplitViewConstants.backgroundColor)
         .onAppear {
             updateWidthsFromStorage()
         }
-        .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
-            updateWidthsFromStorage()
-        }
+    }
+    
+    private func hasRightContent() -> Bool {
+        !(Right.self == EmptyView.self)
     }
 
     private func updateWidthsFromStorage() {
-        // Update left width if needed
         if type == .leftOnly || type == .both {
             let storedLeft = UserDefaults.standard.double(forKey: storageKeyLeft)
-            if storedLeft > 0 && abs(leftWidth - CGFloat(storedLeft)) > 1 {
+            if storedLeft > 0 {
                 leftWidth = CGFloat(storedLeft)
             }
         }
 
-        // Update right width if needed
         if let key = storageKeyRight, type == .rightOnly || type == .both {
             let storedRight = UserDefaults.standard.double(forKey: key)
-            if storedRight > 0 && abs(rightWidth - CGFloat(storedRight)) > 1 {
+            if storedRight > 0 {
                 rightWidth = CGFloat(storedRight)
             }
         }
     }
 }
 
-// MARK: - Split Divider Component
+// MARK: - Split Divider Component (simplified)
 
 private struct SplitDivider: View {
     @Binding var splitWidth: CGFloat
@@ -220,12 +199,12 @@ private struct SplitDivider: View {
 
     var body: some View {
         Rectangle()
-            .fill(SplitViewConstants.dividerColor)
+            .fill(Color(NSColor.separatorColor))
             .frame(width: 1)
             .overlay(
                 Rectangle()
                     .fill(Color.clear)
-                    .frame(width: SplitViewConstants.dividerHoverWidth)
+                    .frame(width: 8)
                     .contentShape(Rectangle())
                     .onHover { hovering in
                         isHovering = hovering
@@ -243,76 +222,9 @@ private struct SplitDivider: View {
                                 splitWidth = min(max(minWidth, newWidth), maxWidth)
                             }
                             .onEnded { _ in
-                                DispatchQueue.main.async {
-                                    onDragEnded()
-                                }
+                                onDragEnded()
                             }
                     )
             )
     }
-}
-
-// MARK: - Preview Helpers
-
-#Preview("Left Sidebar Only") {
-    PersistentSplitView(
-        left: {
-            VStack {
-                Text("Left Sidebar")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.blue.opacity(0.1))
-            }
-        },
-        main: {
-            Text("Main Content")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.green.opacity(0.1))
-        }
-    )
-    .frame(width: 800, height: 600)
-}
-
-#Preview("Right Sidebar Only") {
-    PersistentSplitView(
-        main: {
-            Text("Main Content")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.green.opacity(0.1))
-        },
-        right: {
-            VStack {
-                Text("Right Sidebar")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.purple.opacity(0.1))
-            }
-        }
-    )
-    .frame(width: 800, height: 600)
-}
-
-#Preview("Both Sidebars") {
-    PersistentSplitView(
-        leftStorageKey: "previewLeftSplit",
-        rightStorageKey: "previewRightSplit",
-        left: {
-            VStack {
-                Text("Left Sidebar")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.blue.opacity(0.1))
-            }
-        },
-        center: {
-            Text("Main Content")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.green.opacity(0.1))
-        },
-        right: {
-            VStack {
-                Text("Right Sidebar")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.purple.opacity(0.1))
-            }
-        }
-    )
-    .frame(width: 1000, height: 600)
 }

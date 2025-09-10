@@ -3,33 +3,15 @@ import SwiftUI
 // MARK: - Entity View
 struct EntityView<T: Entity>: View {
     let entities: [T]
-    let viewType: LibraryViewType
     let onSelectEntity: (T) -> Void
     let contextMenuItems: (T) -> [ContextMenuItem]
 
     var body: some View {
-        switch viewType {
-        case .list:
-            EntityListView(
-                entities: entities,
-                onSelectEntity: onSelectEntity,
-                contextMenuItems: contextMenuItems
-            )
-        case .grid:
-            EntityGridView(
-                entities: entities,
-                onSelectEntity: onSelectEntity,
-                contextMenuItems: contextMenuItems
-            )
-        case .table:
-            // Table view doesn't make sense for artists/albums
-            // Fall back to list view
-            EntityListView(
-                entities: entities,
-                onSelectEntity: onSelectEntity,
-                contextMenuItems: contextMenuItems
-            )
-        }
+        EntityGridView(
+            entities: entities,
+            onSelectEntity: onSelectEntity,
+            contextMenuItems: contextMenuItems
+        )
     }
 }
 
@@ -94,24 +76,6 @@ extension View {
 }
 
 // MARK: - Preview
-
-#Preview("Artist List") {
-    let artists = [
-        ArtistEntity(name: "Artist 0", trackCount: 4),
-        ArtistEntity(name: "Artist 1", trackCount: 7),
-        ArtistEntity(name: "Artist 2", trackCount: 3)
-    ]
-
-    EntityView(
-        entities: artists,
-        viewType: .list,
-        onSelectEntity: { artist in
-            Logger.debugPrint("Selected: \(artist.name)")
-        },
-        contextMenuItems: { _ in [] }
-    )
-    .frame(height: 400)
-}
 
 #Preview("Album Grid") {
     let albums = [

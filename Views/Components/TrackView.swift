@@ -3,38 +3,28 @@ import SwiftUI
 // MARK: - Track View
 struct TrackView: View {
     let tracks: [Track]
-    let viewType: LibraryViewType
     @Binding var selectedTrackID: UUID?
     let playlistID: UUID?
     let entityID: UUID?
     let onPlayTrack: (Track) -> Void
     let contextMenuItems: (Track) -> [ContextMenuItem]
-
+    
+    @State private var sortOrder = [KeyPathComparator(\Track.title)]
     @EnvironmentObject var playbackManager: PlaybackManager
+    
+    @AppStorage("trackTableRowSize")
+    private var tableRowSize: TableRowSize = .expanded
 
     var body: some View {
-        switch viewType {
-        case .list:
-            TrackListView(
-                tracks: tracks,
-                onPlayTrack: onPlayTrack,
-                contextMenuItems: contextMenuItems
-            )
-        case .grid:
-            TrackGridView(
-                tracks: tracks,
-                onPlayTrack: onPlayTrack,
-                contextMenuItems: contextMenuItems
-            )
-        case .table:
-            TrackTableSwiftUIView(
-                tracks: tracks,
-                playlistID: playlistID,
-                entityID: entityID,
-                onPlayTrack: onPlayTrack,
-                contextMenuItems: contextMenuItems
-            )
-        }
+        TrackTableView(
+            tracks: tracks,
+            playlistID: playlistID,
+            entityID: entityID,
+            onPlayTrack: onPlayTrack,
+            contextMenuItems: contextMenuItems,
+            sortOrder: $sortOrder,
+            tableRowSize: $tableRowSize
+        )
     }
 }
 
@@ -111,15 +101,8 @@ extension View {
     }
 }
 
-// MARK: - Playback Notifications from Entity/Playlist views
-
-extension Notification.Name {
-    static let playEntityTracks = Notification.Name("playEntityTracks")
-    static let playPlaylistTracks = Notification.Name("playPlaylistTracks")
-}
-
 // MARK: - Preview
-#Preview("List View") {
+#Preview("Tracks View") {
     let sampleTracks = (0..<5).map { i in
         var track = Track(url: URL(fileURLWithPath: "/path/to/sample\(i).mp3"))
         track.title = "Sample Song \(i)"
@@ -132,7 +115,6 @@ extension Notification.Name {
 
     TrackView(
         tracks: sampleTracks,
-        viewType: .list,
         selectedTrackID: .constant(nil),
         playlistID: nil,
         entityID: nil,
@@ -145,61 +127,7 @@ extension Notification.Name {
     .environmentObject(PlaybackManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
 }
 
-#Preview("Grid View") {
-    let sampleTracks = (0..<6).map { i in
-        var track = Track(url: URL(fileURLWithPath: "/path/to/sample\(i).mp3"))
-        track.title = "Sample Song \(i)"
-        track.artist = "Sample Artist"
-        track.album = "Sample Album"
-        track.duration = 180.0
-        track.isMetadataLoaded = true
-        return track
-    }
-
-    TrackView(
-        tracks: sampleTracks,
-        viewType: .grid,
-        selectedTrackID: .constant(nil),
-        playlistID: nil,
-        entityID: nil,
-        onPlayTrack: { track in
-            Logger.debugPrint("Playing \(track.title)")
-        },
-        contextMenuItems: { _ in [] }
-    )
-    .frame(height: 600)
-    .environmentObject(PlaybackManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
-}
-
-#Preview("Table View") {
-    let sampleTracks = (0..<10).map { i in
-        var track = Track(url: URL(fileURLWithPath: "/path/to/sample\(i).mp3"))
-        track.title = "Sample Song \(i)"
-        track.artist = "Sample Artist \(i % 3)"
-        track.album = "Sample Album \(i % 2)"
-        track.genre = "Sample Genre"
-        track.year = "202\(i % 10)"
-        track.duration = Double(180 + i * 10)
-        track.isMetadataLoaded = true
-        return track
-    }
-
-    TrackView(
-        tracks: sampleTracks,
-        viewType: .table,
-        selectedTrackID: .constant(nil),
-        playlistID: nil,
-        entityID: nil,
-        onPlayTrack: { track in
-            Logger.debugPrint("Playing \(track.title)")
-        },
-        contextMenuItems: { _ in [] }
-    )
-    .frame(height: 600)
-    .environmentObject(PlaybackManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
-}
-
-#Preview("Table View with Playlist") {
+#Preview("Tracks View with Playlist") {
     let sampleTracks = (0..<10).map { i in
         var track = Track(url: URL(fileURLWithPath: "/path/to/sample\(i).mp3"))
         track.title = "Playlist Song \(i)"
@@ -214,7 +142,6 @@ extension Notification.Name {
 
     TrackView(
         tracks: sampleTracks,
-        viewType: .table,
         selectedTrackID: .constant(nil),
         playlistID: nil,
         entityID: nil,

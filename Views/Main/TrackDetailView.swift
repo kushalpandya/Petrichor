@@ -64,7 +64,6 @@ struct TrackDetailView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
             if fullTrack == nil {
                 loadFullTrack()

@@ -1,9 +1,5 @@
 import SwiftUI
 
-extension Notification.Name {
-    static let goToLibraryFilter = Notification.Name("GoToLibraryFilter")
-}
-
 enum TrackContextMenu {
     static func createMenuItems(
         for track: Track,
