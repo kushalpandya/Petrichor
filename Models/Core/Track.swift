@@ -44,6 +44,10 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
     var albumArtworkData: Data?
     private static var artworkCache = NSCache<NSString, NSData>()
     
+    var filename: String {
+        url.lastPathComponent
+    }
+    
     var albumArtworkSmall: Data? {
         get {
             guard let original = albumArtworkData else { return nil }

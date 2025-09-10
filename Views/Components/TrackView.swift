@@ -27,7 +27,7 @@ struct TrackView: View {
                 contextMenuItems: contextMenuItems
             )
         case .table:
-            TrackTableView(
+            TrackTableSwiftUIView(
                 tracks: tracks,
                 playlistID: playlistID,
                 entityID: entityID,
@@ -109,6 +109,13 @@ extension View {
             }
         }
     }
+}
+
+// MARK: - Playback Notifications from Entity/Playlist views
+
+extension Notification.Name {
+    static let playEntityTracks = Notification.Name("playEntityTracks")
+    static let playPlaylistTracks = Notification.Name("playPlaylistTracks")
 }
 
 // MARK: - Preview
