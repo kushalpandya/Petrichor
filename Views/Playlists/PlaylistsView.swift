@@ -1,8 +1,6 @@
 import SwiftUI
 
 struct PlaylistsView: View {
-    let viewType: LibraryViewType
-
     @EnvironmentObject var playlistManager: PlaylistManager
     @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var libraryManager: LibraryManager
@@ -23,7 +21,7 @@ struct PlaylistsView: View {
                 main: {
                     VStack(spacing: 0) {
                         if let playlist = selectedPlaylist {
-                            PlaylistDetailView(playlistID: playlist.id, viewType: viewType)
+                            PlaylistDetailView(playlistID: playlist.id)
                         } else {
                             emptySelectionView
                         }
@@ -63,26 +61,11 @@ struct PlaylistsView: View {
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(NSColor.textBackgroundColor))
     }
 }
 
-#Preview("List View") {
-    PlaylistsView(viewType: .list)
-        .environmentObject({
-            let manager = PlaylistManager()
-            return manager
-        }())
-        .environmentObject({
-            let coordinator = AppCoordinator()
-            return coordinator.playbackManager
-        }())
-        .environmentObject(LibraryManager())
-        .frame(width: 800, height: 600)
-}
-
-#Preview("Grid View") {
-    PlaylistsView(viewType: .grid)
+#Preview("Playlist View") {
+    PlaylistsView()
         .environmentObject({
             let manager = PlaylistManager()
             return manager

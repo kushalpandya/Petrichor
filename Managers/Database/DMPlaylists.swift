@@ -13,6 +13,14 @@ extension DatabaseManager {
             // Save the playlist using GRDB's save method
             try playlist.save(db)
             
+            // Get existing dateAdded values before deleting
+            let existingDateAdded: [Int64: Date] = try PlaylistTrack
+                .filter(PlaylistTrack.Columns.playlistId == playlist.id.uuidString)
+                .fetchAll(db)
+                .reduce(into: [:]) { dict, playlistTrack in
+                    dict[playlistTrack.trackId] = playlistTrack.dateAdded
+                }
+            
             // Delete existing track associations
             try PlaylistTrack
                 .filter(PlaylistTrack.Columns.playlistId == playlist.id.uuidString)
@@ -26,17 +34,21 @@ extension DatabaseManager {
                 Logger.info("Saving \(playlist.tracks.count) tracks for playlist '\(playlist.name)'")
                 
                 // Create all PlaylistTrack objects at once
-                let playlistTracks = playlist.tracks.enumerated().compactMap { index, track -> PlaylistTrack? in
+                let playlistTracks = playlist.tracks.enumerated().compactMap { index, track -> PlaylistTrack?
+                    in
                     guard let trackId = track.trackId else {
                         Logger.warning("Track '\(track.title)' has no database ID, skipping")
                         return nil
                     }
                     
+                    // Use existing dateAdded if available, otherwise use current time for new tracks
+                    let dateAdded = existingDateAdded[trackId] ?? Date()
+                    
                     return PlaylistTrack(
                         playlistId: playlist.id.uuidString,
                         trackId: trackId,
                         position: index,
-                        dateAdded: Date()
+                        dateAdded: dateAdded
                     )
                 }
                 
@@ -45,13 +57,6 @@ extension DatabaseManager {
                     try PlaylistTrack.insertMany(playlistTracks, db: db)
                     Logger.info("Batch inserted \(playlistTracks.count) tracks to playlist")
                 }
-                
-                // Verify the save
-                let savedCount = try PlaylistTrack
-                    .filter(PlaylistTrack.Columns.playlistId == playlist.id.uuidString)
-                    .fetchCount(db)
-                
-                Logger.info("Verified \(savedCount) tracks saved for playlist in database")
             }
         }
     }
@@ -241,7 +246,7 @@ extension DatabaseManager {
     func loadTracksForPlaylist(_ playlistId: UUID) -> [Track] {
         do {
             return try dbQueue.read { db in
-                // Get playlist tracks in order
+                // Get playlist tracks in order with their dateAdded
                 let playlistTracks = try PlaylistTrack
                     .filter(PlaylistTrack.Columns.playlistId == playlistId.uuidString)
                     .order(PlaylistTrack.Columns.position)
@@ -258,7 +263,7 @@ extension DatabaseManager {
                     .filter(trackIds.contains(Track.Columns.trackId))
                     .fetchAll(db)
                 
-                // Create a dictionary for quick lookup
+                // Create dictionaries for quick lookup
                 var trackDict: [Int64: Track] = [:]
                 for track in tracks {
                     if let trackId = track.trackId {
@@ -266,16 +271,17 @@ extension DatabaseManager {
                     }
                 }
                 
-                // Sort tracks according to playlist order
-                let sortedTracks = playlistTracks.compactMap { playlistTrack in
-                    trackDict[playlistTrack.trackId]
+                var sortedTracks: [Track] = []
+                for playlistTrack in playlistTracks {
+                    if var track = trackDict[playlistTrack.trackId] {
+                        track.dateAdded = playlistTrack.dateAdded
+                        sortedTracks.append(track)
+                    }
                 }
                 
-                // Populate album artwork for the tracks
-                var finalTracks = sortedTracks
-                try populateAlbumArtworkForTracks(&finalTracks, db: db)
+                try populateAlbumArtworkForTracks(&sortedTracks, db: db)
                 
-                return finalTracks
+                return sortedTracks
             }
         } catch {
             Logger.error("Failed to load tracks for playlist \(playlistId): \(error)")

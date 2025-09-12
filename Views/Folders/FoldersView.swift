@@ -10,11 +10,10 @@ struct FoldersView: View {
     @State private var showingRemoveFolderAlert = false
     @State private var folderTracks: [Track] = []
     @State private var isLoadingTracks = false
+    @State private var trackTableSortOrder = [KeyPathComparator(\Track.title)]
 
-    @AppStorage("trackListSortAscending")
-    private var trackListSortAscending: Bool = true
-
-    let viewType: LibraryViewType
+    @AppStorage("trackTableRowSize")
+    private var trackTableRowSize: TableRowSize = .expanded
 
     var body: some View {
         if libraryManager.folders.isEmpty {
@@ -38,12 +37,6 @@ struct FoldersView: View {
             .onChange(of: selectedFolderNode) { _, newNode in
                 handleFolderNodeSelection(newNode)
             }
-            .onChange(of: trackListSortAscending) {
-                // Re-sort the current folder tracks when sort direction changes
-                if let node = selectedFolderNode {
-                    loadTracksForFolderNode(node)
-                }
-            }
     }
 
     // MARK: - Folder Tracks View
@@ -61,28 +54,11 @@ struct FoldersView: View {
     @ViewBuilder
     private var folderTracksHeader: some View {
         if let node = selectedFolderNode {
-            if viewType == .table {
-                TrackListHeader(
-                    title: node.name,
-                    trackCount: folderTracks.count
-                ) {
-                    EmptyView()
-                }
-            } else {
-                TrackListHeader(
-                    title: node.name,
-                    trackCount: folderTracks.count
-                ) {
-                    Button(action: { trackListSortAscending.toggle() }) {
-                        Image(Icons.sortIcon(for: trackListSortAscending))
-                            .renderingMode(.template)
-                            .scaleEffect(0.8)
-                    }
-                    .buttonStyle(.borderless)
-                    .hoverEffect(scale: 1.1)
-                    .help("Sort tracks \(trackListSortAscending ? "descending" : "ascending")")
-                }
-            }
+            TrackListHeaderWithOptions(
+                title: node.name,
+                sortOrder: $trackTableSortOrder,
+                tableRowSize: $trackTableRowSize
+            )
         } else {
             TrackListHeader(title: "Select a Folder", trackCount: 0)
         }
@@ -131,7 +107,6 @@ struct FoldersView: View {
     private var trackListView: some View {
         TrackView(
             tracks: folderTracks,
-            viewType: viewType,
             selectedTrackID: $selectedTrackID,
             playlistID: nil,
             entityID: nil,
@@ -209,23 +184,15 @@ struct FoldersView: View {
         // Get immediate tracks for this folder node
         let tracks = node.getImmediateTracks(using: libraryManager)
 
-        // Sort tracks based on current sort direction
-        let sortedTracks = tracks.sorted { track1, track2 in
-            let comparison = track1.title.localizedCaseInsensitiveCompare(track2.title)
-            return trackListSortAscending ?
-                comparison == .orderedAscending :
-                comparison == .orderedDescending
-        }
-
         DispatchQueue.main.async {
-            self.folderTracks = sortedTracks
+            self.folderTracks = tracks
             self.isLoadingTracks = false
         }
     }
 }
 
 #Preview {
-    FoldersView(viewType: .list)
+    FoldersView()
         .environmentObject({
             let coordinator = AppCoordinator()
             return coordinator.playbackManager

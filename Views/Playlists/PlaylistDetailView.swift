@@ -2,24 +2,25 @@ import SwiftUI
 
 struct PlaylistDetailView: View {
     let playlistID: UUID
-    let viewType: LibraryViewType
 
     @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var playlistManager: PlaylistManager
-    @StateObject private var playlistSortManager = PlaylistSortManager.shared
     @State private var selectedTrackID: UUID?
     @State private var showingAddSongs = false
+    
+    @AppStorage("trackTableRowSize")
+    private var trackTableRowSize: TableRowSize = .expanded
+    
+    @State private var playlistSortOrder = [KeyPathComparator(\Track.title)]
 
     // Convenience initializer for when you have a Playlist object
-    init(playlist: Playlist, viewType: LibraryViewType) {
+    init(playlist: Playlist) {
         self.playlistID = playlist.id
-        self.viewType = viewType
     }
 
     // Standard initializer with playlist ID
-    init(playlistID: UUID, viewType: LibraryViewType) {
+    init(playlistID: UUID) {
         self.playlistID = playlistID
-        self.viewType = viewType
     }
 
     // Get the current playlist from the manager
@@ -75,9 +76,10 @@ struct PlaylistDetailView: View {
             }
             .overlay(alignment: .bottomTrailing) {
                 HStack(spacing: 12) {
-                    PlaylistSortDropdown(
-                        playlistID: playlistID,
-                        viewType: viewType
+                    TrackTableOptionsDropdown(
+                        sortOrder: $playlistSortOrder,
+                        tableRowSize: $trackTableRowSize,
+                        playlistID: playlistID
                     )
                 }
                 .padding([.bottom, .trailing], 12)
@@ -207,8 +209,7 @@ struct PlaylistDetailView: View {
                 emptyPlaylistView
             } else {
                 TrackView(
-                    tracks: sortedTracks,
-                    viewType: viewType,
+                    tracks: playlist!.tracks,
                     selectedTrackID: $selectedTrackID,
                     playlistID: playlistID,
                     entityID: nil,
@@ -232,7 +233,6 @@ struct PlaylistDetailView: View {
                         }
                     }
                 )
-                .background(Color(NSColor.textBackgroundColor))
             }
         }
     }
@@ -266,7 +266,6 @@ struct PlaylistDetailView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding()
-            .background(Color(NSColor.textBackgroundColor))
         }
     }
 
@@ -283,7 +282,6 @@ struct PlaylistDetailView: View {
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(NSColor.textBackgroundColor))
     }
 
     // MARK: - Helper Properties
@@ -320,32 +318,6 @@ struct PlaylistDetailView: View {
     private var isPinned: Bool {
         playlistManager.isPlaylistPinned(playlist ?? Playlist(name: "", tracks: []))
     }
-    
-    private var sortedTracks: [Track] {
-        guard let playlist = playlist else { return [] }
-        
-        let sortCriteria = playlistSortManager.getSortCriteria(for: playlistID)
-        let isAscending = playlistSortManager.getSortAscending(for: playlistID)
-        
-        switch sortCriteria {
-        case .dateAdded:
-            // For date added, we need to maintain the playlist order
-            // In ascending order, first added (position 0) comes first
-            // In descending order, last added comes first
-            return isAscending ? playlist.tracks : playlist.tracks.reversed()
-            
-        case .title:
-            return playlist.tracks.sorted { track1, track2 in
-                let comparison = track1.title.localizedCaseInsensitiveCompare(track2.title)
-                return isAscending ? comparison == .orderedAscending : comparison == .orderedDescending
-            }
-            
-        case .custom:
-            // For custom sorting (table view column sorting),
-            // we'll handle this in the table view itself
-            return playlist.tracks
-        }
-    }
 
     // MARK: - Action Methods
     
@@ -365,28 +337,12 @@ struct PlaylistDetailView: View {
 
     private func playPlaylist(shuffle: Bool = false) {
         guard let playlist = playlist, !playlist.tracks.isEmpty else { return }
-        guard !sortedTracks.isEmpty else { return }
         
-        if viewType == .table {
-            NotificationCenter.default.post(
-                name: .playPlaylistTracks,
-                object: nil,
-                userInfo: ["playlistID": playlist.id, "shuffle": shuffle]
-            )
-        } else {
-            playlistManager.isShuffleEnabled = shuffle
-            
-            var tracksForPlayback = sortedTracks
-            if shuffle {
-                tracksForPlayback.shuffle()
-            }
-            
-            if let firstTrack = tracksForPlayback.first {
-                playlistManager.playTrack(firstTrack, fromTracks: tracksForPlayback)
-                playlistManager.currentPlaylist = playlist
-                playlistManager.currentQueueSource = .playlist
-            }
-        }
+        NotificationCenter.default.post(
+            name: .playPlaylistTracks,
+            object: nil,
+            userInfo: ["playlistID": playlist.id, "shuffle": shuffle]
+        )
     }
     
     private func pinPlaylist() {
@@ -407,7 +363,7 @@ struct PlaylistDetailView: View {
 #Preview("Regular Playlist") {
     let samplePlaylist = Playlist(name: "My Favorite Songs", tracks: [])
 
-    return PlaylistDetailView(playlist: samplePlaylist, viewType: .list)
+    return PlaylistDetailView(playlist: samplePlaylist)
         .environmentObject({
             let manager = PlaylistManager()
             manager.playlists = [samplePlaylist]
@@ -435,7 +391,7 @@ struct PlaylistDetailView: View {
         isUserEditable: false
     )
 
-    return PlaylistDetailView(playlist: smartPlaylist, viewType: .grid)
+    return PlaylistDetailView(playlist: smartPlaylist)
         .environmentObject({
             let manager = PlaylistManager()
             manager.playlists = [smartPlaylist]

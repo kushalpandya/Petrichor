@@ -71,7 +71,7 @@ struct TabbedButtons<Item: TabbedItem>: View {
             ZStack {
                 // Container background
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                    .fill(Color.clear)
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
                             .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
@@ -338,25 +338,6 @@ extension View {
 
 extension Sections: TabbedItem {
     var title: String { self.label }
-}
-
-extension LibraryViewType: TabbedItem {
-    var title: String { "" }
-    var icon: String {
-        switch self {
-        case .list: return "list.bullet"
-        case .grid: return "square.grid.2x2"
-        case .table: return "tablecells"
-        }
-    }
-
-    var tooltip: String? {
-        switch self {
-        case .list: return "List View"
-        case .grid: return "Grid View"
-        case .table: return "Table View"
-        }
-    }
 }
 
 extension SettingsView.SettingsTab: TabbedItem {

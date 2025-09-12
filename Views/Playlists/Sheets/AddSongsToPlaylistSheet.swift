@@ -74,7 +74,6 @@ struct AddSongsToPlaylistSheet: View {
                     .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
                 }
                 .listStyle(.plain)
-                .background(Color(NSColor.textBackgroundColor))
             }
 
             Divider()
@@ -134,7 +133,6 @@ struct AddSongsToPlaylistSheet: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(Color(NSColor.windowBackgroundColor))
     }
 
     private var sheetHeader: some View {
@@ -216,7 +214,6 @@ struct AddSongsToPlaylistSheet: View {
                 }
             }
             .padding(8)
-            .background(Color(NSColor.controlBackgroundColor))
             .cornerRadius(6)
             .frame(maxWidth: .infinity)
 
@@ -570,7 +567,6 @@ struct AddSongsToPlaylistSheet: View {
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(NSColor.textBackgroundColor))
     }
 
     private var loadingView: some View {
@@ -583,7 +579,6 @@ struct AddSongsToPlaylistSheet: View {
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(NSColor.textBackgroundColor))
     }
 
     private var noResultsView: some View {
@@ -609,7 +604,6 @@ struct AddSongsToPlaylistSheet: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(NSColor.textBackgroundColor))
     }
 }
 

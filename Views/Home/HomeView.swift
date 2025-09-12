@@ -5,25 +5,18 @@ struct HomeView: View {
     @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var playlistManager: PlaylistManager
     
-    @AppStorage("trackListSortAscending")
-    private var trackListSortAscending: Bool = true
-    
-    @AppStorage("globalViewType")
-    private var viewType: LibraryViewType = .table
-    
-    @AppStorage("entityViewType")
-    private var entityViewType: LibraryViewType = .grid
-    
     @AppStorage("entitySortAscending")
     private var entitySortAscending: Bool = true
 
     @AppStorage("albumSortByArtist")
     private var albumSortByArtist: Bool = false
     
+    @AppStorage("trackTableRowSize")
+    private var trackTableRowSize: TableRowSize = .expanded
+    
     @State private var selectedSidebarItem: HomeSidebarItem?
     @State private var selectedTrackID: UUID?
-    @State private var sortedDiscoverTracks: [Track] = []
-    @State private var sortedTracks: [Track] = []
+    @State private var pinnedItemTracks: [Track] = []
     @State private var sortedArtistEntities: [ArtistEntity] = []
     @State private var sortedAlbumEntities: [AlbumEntity] = []
     @State private var lastArtistCount: Int = 0
@@ -31,6 +24,7 @@ struct HomeView: View {
     @State private var selectedArtistEntity: ArtistEntity?
     @State private var selectedAlbumEntity: AlbumEntity?
     @State private var isShowingEntityDetail = false
+    @State private var trackTableSortOrder = [KeyPathComparator(\Track.title)]
     @Binding var isShowingEntities: Bool
     
     var body: some View {
@@ -71,13 +65,9 @@ struct HomeView: View {
                         
                         // Entity detail overlay
                         if isShowingEntityDetail {
-                            Color(NSColor.windowBackgroundColor)
-                                .ignoresSafeArea()
-                            
                             if let artist = selectedArtistEntity {
                                 EntityDetailView(
                                     entity: artist,
-                                    viewType: viewType
                                 ) {
                                     isShowingEntityDetail = false
                                     selectedArtistEntity = nil
@@ -86,7 +76,6 @@ struct HomeView: View {
                             } else if let album = selectedAlbumEntity {
                                 EntityDetailView(
                                     entity: album,
-                                    viewType: viewType
                                 ) {
                                     isShowingEntityDetail = false
                                     selectedAlbumEntity = nil
@@ -110,10 +99,8 @@ struct HomeView: View {
                         
                         // Load appropriate data
                         switch type {
-                        case .discover:
+                        case .discover, .tracks:
                             isShowingEntities = false
-                        case .tracks:
-                            sortAllTracks()
                         case .artists:
                             sortArtistEntities()
                         case .albums:
@@ -147,26 +134,13 @@ struct HomeView: View {
     
     // MARK: - Discover View
 
-    @ViewBuilder
     private var discoverView: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header
-            TrackListHeader(
+            TrackListHeaderWithOptions(
                 title: "Discover",
-                trackCount: sortedDiscoverTracks.count
-            ) {
-                if viewType != .table {
-                    // Sort button
-                    Button(action: { trackListSortAscending.toggle() }) {
-                        Image(Icons.sortIcon(for: trackListSortAscending))
-                            .renderingMode(.template)
-                            .scaleEffect(0.8)
-                    }
-                    .buttonStyle(.borderless)
-                    .hoverEffect(scale: 1.1)
-                    .help("Sort tracks \(trackListSortAscending ? "ascending" : "descending")")
-                }
-            }
+                sortOrder: $trackTableSortOrder,
+                tableRowSize: $trackTableRowSize
+            )
             
             Divider()
 
@@ -187,13 +161,12 @@ struct HomeView: View {
                 .padding()
             } else {
                 TrackView(
-                    tracks: sortedDiscoverTracks,
-                    viewType: viewType,
+                    tracks: libraryManager.discoverTracks,
                     selectedTrackID: $selectedTrackID,
                     playlistID: nil,
                     entityID: nil,
                     onPlayTrack: { track in
-                        playlistManager.playTrack(track, fromTracks: sortedDiscoverTracks)
+                        playlistManager.playTrack(track, fromTracks: libraryManager.discoverTracks)
                         playlistManager.currentQueueSource = .library
                     },
                     contextMenuItems: { track in
@@ -211,13 +184,6 @@ struct HomeView: View {
             if libraryManager.discoverTracks.isEmpty {
                 libraryManager.loadDiscoverTracks()
             }
-            sortDiscoverTracks()
-        }
-        .onChange(of: trackListSortAscending) {
-            sortDiscoverTracks()
-        }
-        .onChange(of: libraryManager.discoverTracks) {
-            sortDiscoverTracks()
         }
     }
     
@@ -226,22 +192,11 @@ struct HomeView: View {
     private var tracksView: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
-            TrackListHeader(
-                title: "All Tracks",
-                trackCount: sortedTracks.count
-            ) {
-                if viewType != .table {
-                    // Sort button
-                    Button(action: { trackListSortAscending.toggle() }) {
-                        Image(Icons.sortIcon(for: trackListSortAscending))
-                            .renderingMode(.template)
-                            .scaleEffect(0.8)
-                    }
-                    .buttonStyle(.borderless)
-                    .hoverEffect(scale: 1.1)
-                    .help("Sort tracks \(trackListSortAscending ? "ascending" : "descending")")
-                }
-            }
+            TrackListHeaderWithOptions(
+                title: "All tracks",
+                sortOrder: $trackTableSortOrder,
+                tableRowSize: $trackTableRowSize
+            )
             
             Divider()
             
@@ -258,18 +213,16 @@ struct HomeView: View {
                 .onAppear {
                     Task {
                         await libraryManager.loadAllTracks()
-                        sortAllTracks()
                     }
                 }
             } else {
                 TrackView(
-                    tracks: sortedTracks,
-                    viewType: viewType,
+                    tracks: libraryManager.tracks,
                     selectedTrackID: $selectedTrackID,
                     playlistID: nil,
                     entityID: nil,
                     onPlayTrack: { track in
-                        playlistManager.playTrack(track, fromTracks: sortedTracks)
+                        playlistManager.playTrack(track, fromTracks: libraryManager.tracks)
                         playlistManager.currentQueueSource = .library
                     },
                     contextMenuItems: { track in
@@ -282,12 +235,6 @@ struct HomeView: View {
                     }
                 )
             }
-        }
-        .onChange(of: libraryManager.tracks) {
-            sortAllTracks()
-        }
-        .onChange(of: trackListSortAscending) {
-            sortAllTracks()
         }
     }
     
@@ -321,7 +268,6 @@ struct HomeView: View {
             } else {
                 EntityView(
                     entities: sortedArtistEntities,
-                    viewType: entityViewType,
                     onSelectEntity: { artist in
                         selectedArtistEntity = artist
                         selectedAlbumEntity = nil
@@ -409,7 +355,6 @@ struct HomeView: View {
             } else {
                 EntityView(
                     entities: sortedAlbumEntities,
-                    viewType: entityViewType,
                     onSelectEntity: { album in
                         selectedAlbumEntity = album
                         selectedArtistEntity = nil
@@ -448,7 +393,7 @@ struct HomeView: View {
                    let playlistId = pinnedItem.playlistId,
                    let playlist = playlistManager.playlists.first(where: { $0.id == playlistId }) {
                     // Use PlaylistDetailView for playlists
-                    PlaylistDetailView(playlist: playlist, viewType: viewType)
+                    PlaylistDetailView(playlist: playlist)
                 }
                 // Check if it's an artist entity
                 else if pinnedItem.filterType == .artists,
@@ -456,7 +401,6 @@ struct HomeView: View {
                     // Use EntityDetailView for artist entity
                     EntityDetailView(
                         entity: artistEntity,
-                        viewType: viewType,
                         onBack: nil
                     )
                 }
@@ -466,31 +410,22 @@ struct HomeView: View {
                     // Use EntityDetailView for album entity
                     EntityDetailView(
                         entity: albumEntity,
-                        viewType: viewType,
                         onBack: nil
                     )
                 }
                 // For all other pinned items (genres, years, composers, etc.)
                 else {
                     // Regular track list header
-                    TrackListHeader(
+                    TrackListHeaderWithOptions(
                         title: pinnedItem.displayName,
-                        trackCount: sortedTracks.count
-                    ) {
-                        Button(action: { trackListSortAscending.toggle() }) {
-                            Image(Icons.sortIcon(for: trackListSortAscending))
-                                .renderingMode(.template)
-                                .scaleEffect(0.8)
-                        }
-                        .buttonStyle(.borderless)
-                        .hoverEffect(scale: 1.1)
-                        .help("Sort tracks \(trackListSortAscending ? "descending" : "ascending")")
-                    }
+                        sortOrder: $trackTableSortOrder,
+                        tableRowSize: $trackTableRowSize
+                    )
 
                     Divider()
 
                     // Track list
-                    if sortedTracks.isEmpty {
+                    if pinnedItemTracks.isEmpty {
                         VStack(spacing: 16) {
                             Image(systemName: "pin.slash")
                                 .font(.system(size: 48))
@@ -504,13 +439,12 @@ struct HomeView: View {
                         .background(Color(NSColor.textBackgroundColor))
                     } else {
                         TrackView(
-                            tracks: sortedTracks,
-                            viewType: viewType,
+                            tracks: pinnedItemTracks,
                             selectedTrackID: $selectedTrackID,
                             playlistID: nil,
                             entityID: nil,
                             onPlayTrack: { track in
-                                playlistManager.playTrack(track, fromTracks: sortedTracks)
+                                playlistManager.playTrack(track, fromTracks: pinnedItemTracks)
                                 playlistManager.currentQueueSource = .library
                             },
                             contextMenuItems: { track in
@@ -556,25 +490,6 @@ struct HomeView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(NSColor.textBackgroundColor))
-    }
-    
-    private func sortDiscoverTracks() {
-        sortedDiscoverTracks = trackListSortAscending
-            ? libraryManager.discoverTracks.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
-            : libraryManager.discoverTracks.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedDescending }
-    }
-    
-    private func sortAllTracks() {
-        if let selectedItem = selectedSidebarItem,
-           case .pinned(let pinnedItem) = selectedItem.source {
-            // If viewing a pinned item, sort those tracks
-            loadTracksForPinnedItem(pinnedItem)
-        } else {
-            // Otherwise sort all library tracks
-            sortedTracks = trackListSortAscending
-            ? libraryManager.tracks.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
-            : libraryManager.tracks.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedDescending }
-        }
     }
     
     private func sortArtistEntities() {
@@ -630,9 +545,7 @@ struct HomeView: View {
             tracks = playlistManager.getTracksForPinnedPlaylist(item)
         }
         
-        sortedTracks = trackListSortAscending
-        ? tracks.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
-        : tracks.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedDescending }
+        pinnedItemTracks = tracks
     }
     
     private func createAlbumContextMenuItems(for album: AlbumEntity) -> [ContextMenuItem] {

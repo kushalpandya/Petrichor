@@ -239,8 +239,16 @@ struct PetrichorApp: App {
     @CommandsBuilder
     private func viewMenuCommands() -> some Commands {
         CommandGroup(after: .toolbar) {
+            focusSearchMenuItem()
             foldersTabToggle()
         }
+    }
+    
+    private func focusSearchMenuItem() -> some View {
+        Button("Search Library") {
+            NotificationCenter.default.post(name: .focusSearchField, object: nil)
+        }
+        .keyboardShortcut("f", modifiers: .command)
     }
     
     private func foldersTabToggle() -> some View {

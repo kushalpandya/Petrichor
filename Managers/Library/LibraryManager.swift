@@ -9,10 +9,6 @@
 import Foundation
 import AppKit
 
-extension Notification.Name {
-    static let libraryDataDidChange = Notification.Name("LibraryDataDidChange")
-}
-
 class LibraryManager: ObservableObject {
     @Published var tracks: [Track] = []
     @Published var folders: [Folder] = []

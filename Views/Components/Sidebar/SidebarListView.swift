@@ -161,7 +161,6 @@ struct SidebarListView<Item: SidebarItem>: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
-        .background(Color(NSColor.windowBackgroundColor))
     }
 
     // MARK: - Context Menu Helper

@@ -81,8 +81,8 @@ enum About {
     static let appWiki = "https://github.com/kushalpandya/Petrichor/wiki"
     static let sponsor = "https://github.com/sponsors/kushalpandya"
     static let appPlaybackQueueLabel = "org.Petrichor.playback"
-    static let appVersion = "1.0.0"
-    static let appBuild = "1"
+    static let appVersion = "1.0.1"
+    static let appBuild = "101"
 }
 
 // MARK: - Audio File Formats
@@ -213,6 +213,20 @@ extension DefaultPlaylists {
         }
         return "Add some tracks to this playlist to get started"
     }
+}
+
+// MARK: - Global Event Notifications
+
+extension Notification.Name {
+    static let libraryDataDidChange = Notification.Name("LibraryDataDidChange")
+    static let goToLibraryFilter = Notification.Name("GoToLibraryFilter")
+    
+    static let playEntityTracks = Notification.Name("playEntityTracks")
+    static let playPlaylistTracks = Notification.Name("playPlaylistTracks")
+    static let trackTableSortChanged = Notification.Name("trackTableSortChanged")
+    static let trackTableRowSizeChanged = Notification.Name("trackTableRowSizeChanged")
+    
+    static let focusSearchField = Notification.Name("FocusSearchField")
 }
 
 // MARK: - Icon Helpers

@@ -107,7 +107,7 @@ struct GeneralTabView: View {
                 }
                 
                 HStack {
-                    Picker("Refresh Discover every", selection: $discoverUpdateInterval) {
+                    Picker("Refresh Discover", selection: $discoverUpdateInterval) {
                         ForEach(DiscoverUpdateInterval.allCases, id: \.self) { interval in
                             Text(interval.displayName).tag(interval)
                         }
