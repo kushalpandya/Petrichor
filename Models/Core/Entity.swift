@@ -157,6 +157,13 @@ struct AlbumEntity: Entity {
     }
 }
 
+// MARK: - Equatable Conformance
+extension AlbumEntity: Equatable {
+    static func == (lhs: AlbumEntity, rhs: AlbumEntity) -> Bool {
+        lhs.id == rhs.id
+    }
+}
+
 // MARK: - UUID Extension
 
 extension UUID {
