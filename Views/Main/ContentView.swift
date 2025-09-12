@@ -47,8 +47,7 @@ struct ContentView: View {
                                 globalViewType = newValue
                             }
                         }
-                    ),
-                    disableTableView: selectedTab == .home && homeShowingEntities
+                    )
                 )
                 .frame(height: 40)
                 Divider()

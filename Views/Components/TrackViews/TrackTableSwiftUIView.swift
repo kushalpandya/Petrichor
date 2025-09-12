@@ -544,7 +544,7 @@ extension Track {
         playlistID: nil,
         entityID: nil,
         onPlayTrack: { track in
-            print("Playing \(track.title)")
+            // Preview play handler
         },
         contextMenuItems: { _ in [] }
     )

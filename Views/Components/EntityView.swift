@@ -22,13 +22,41 @@ struct EntityView<T: Entity>: View {
                 contextMenuItems: contextMenuItems
             )
         case .table:
-            // Table view doesn't make sense for artists/albums
-            // Fall back to list view
-            EntityListView(
-                entities: entities,
-                onSelectEntity: onSelectEntity,
-                contextMenuItems: contextMenuItems
-            )
+            if let firstEntity = entities.first, firstEntity is AlbumEntity {
+                // Safe cast since we verified the first entity is AlbumEntity
+                if let albums = entities as? [AlbumEntity] {
+                    AlbumTableSwiftUIView(
+                        albums: albums,
+                        onSelectAlbum: { album in
+                            // AlbumEntity conforms to Entity (T), so this cast is safe
+                            if let entity = album as? T {
+                                onSelectEntity(entity)
+                            }
+                        },
+                        contextMenuItems: { album in
+                            // AlbumEntity conforms to Entity (T), so this cast is safe
+                            if let entity = album as? T {
+                                return contextMenuItems(entity)
+                            }
+                            return []
+                        }
+                    )
+                } else {
+                    // Fallback if casting fails (shouldn't happen given our check)
+                    EntityListView(
+                        entities: entities,
+                        onSelectEntity: onSelectEntity,
+                        contextMenuItems: contextMenuItems
+                    )
+                }
+            } else {
+                // For artists, fall back to list view for now
+                EntityListView(
+                    entities: entities,
+                    onSelectEntity: onSelectEntity,
+                    contextMenuItems: contextMenuItems
+                )
+            }
         }
     }
 }
