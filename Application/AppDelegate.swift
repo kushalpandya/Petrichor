@@ -12,6 +12,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     internal var updaterController: SPUStandardUpdaterController?
 
     func applicationWillFinishLaunching(_ notification: Notification) {
+        // Register UserDefaults with default settings
+        registerUserDefaultsDefaults()
+        
         // Apply color mode very early, before any windows are shown
         let colorMode = UserDefaults.standard.string(forKey: "colorMode") ?? "auto"
         
@@ -29,8 +32,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         // Check user preference for background running
         let closeToMenubar = UserDefaults.standard.bool(forKey: "closeToMenubar")
         
-        // If closeToMenubar is false, terminate when last window closes
-        // If closeToMenubar is true, keep running in background
+        // If closeToMenubar is true, keep running in background, otherwise terminate the app.
         return !closeToMenubar
     }
     
@@ -310,6 +312,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         AppCoordinator.shared?.playlistManager.playPreviousTrack()
     }
     
+    // MARK: - Helper Methods
+    
     private func removeUnwantedMenus() {
         guard let mainMenu = NSApp.mainMenu else { return }
         
@@ -334,5 +338,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                 viewSubmenu.removeItem(showAllTabs)
             }
         }
+    }
+    
+    private func registerUserDefaultsDefaults() {
+        let defaults: [String: Any] = [
+            "closeToMenubar": true,
+            "startAtLogin": false,
+            "hideDuplicateTracks": true,
+            "automaticUpdatesEnabled": true,
+            "autoScanInterval": "every60Minutes",
+            "colorMode": "auto",
+            "showFoldersTab": false,
+            "discoverUpdateInterval": "weekly",
+            "discoverTrackCount": 50
+        ]
+        
+        UserDefaults.standard.register(defaults: defaults)
     }
 }
