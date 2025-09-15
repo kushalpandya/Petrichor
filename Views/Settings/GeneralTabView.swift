@@ -96,7 +96,7 @@ struct GeneralTabView: View {
 
             Section("Library") {
                 HStack {
-                    Picker("Auto-scan library every", selection: $autoScanInterval) {
+                    Picker("Refresh added folders for changes", selection: $autoScanInterval) {
                         ForEach(AutoScanInterval.allCases, id: \.self) { interval in
                             Text(interval.displayName).tag(interval)
                         }
@@ -107,7 +107,7 @@ struct GeneralTabView: View {
                 }
                 
                 HStack {
-                    Picker("Refresh Discover", selection: $discoverUpdateInterval) {
+                    Picker("Refresh Discover tracks", selection: $discoverUpdateInterval) {
                         ForEach(DiscoverUpdateInterval.allCases, id: \.self) { interval in
                             Text(interval.displayName).tag(interval)
                         }
