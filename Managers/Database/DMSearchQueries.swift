@@ -9,11 +9,10 @@ import GRDB
 
 extension DatabaseManager {
     /// Search tracks using FTS5 for general search
-    func searchTracksUsingFTS(_ query: String) -> [Track] {
+    func searchTracksUsingFTS(_ searchText: String) -> [Track] {
         do {
             var tracks = try dbQueue.read { db in
-                let tokens = query.split(separator: " ").map { String($0) }
-                let prefixQuery = tokens.map { "\($0)*" }.joined(separator: " ")
+                let prefixQuery = buildFTS5Query(searchText)
                 
                 let matchingTrackIds = try Int64.fetchAll(db, sql: """
                     SELECT track_id
@@ -46,8 +45,7 @@ extension DatabaseManager {
         
         do {
             var tracks = try dbQueue.read { db in
-                let tokens = searchText.split(separator: " ").map { String($0) }
-                let prefixQuery = tokens.map { "\($0)*" }.joined(separator: " ")
+                let prefixQuery = buildFTS5Query(searchText)
                 
                 if excludingTrackIds.isEmpty {
                     // Simple case - no exclusions
@@ -128,6 +126,29 @@ extension DatabaseManager {
     }
     
     // MARK: - Helper Methods
+    
+    /// FTS query builder with support for handling special characters
+    private func buildFTS5Query(_ searchText: String) -> String {
+        let tokens = searchText.split(separator: " ").map { String($0) }
+        
+        let processedTokens = tokens.map { token -> String in
+            let tokenStr = String(token)
+            
+            let problematicChars = CharacterSet(charactersIn: "\"*^:()[]{}~-")
+            
+            if tokenStr.rangeOfCharacter(from: problematicChars) != nil {
+                let escaped = tokenStr.replacingOccurrences(of: "\"", with: "\"\"")
+                return "\"\(escaped)\""
+            } else if tokenStr.contains(".") {
+                let escaped = tokenStr.replacingOccurrences(of: "\"", with: "\"\"")
+                return "\"\(escaped)\" OR \"\(escaped)\"*"
+            } else {
+                return "\(tokenStr)*"
+            }
+        }
+        
+        return processedTokens.joined(separator: " AND ")
+    }
     
     /// Generate SQL placeholders for IN clause
     private func databaseQuestionMarks(count: Int) -> String {
