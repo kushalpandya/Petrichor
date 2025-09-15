@@ -29,7 +29,6 @@ struct TrackDetailView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let fullTrack = fullTrack {
-                // Content loaded - show full track details
                 ScrollView {
                     VStack(spacing: 24) {
                         // Album artwork
@@ -50,7 +49,6 @@ struct TrackDetailView: View {
                     .padding(20)
                 }
             } else {
-                // Error state - couldn't load full track
                 VStack(spacing: 16) {
                     Image(systemName: "exclamationmark.triangle")
                         .font(.system(size: 48))
@@ -136,7 +134,7 @@ struct TrackDetailView: View {
                     .frame(width: 250, height: 250)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
-                    .id(fullTrack.id) // Add stable identity
+                    .id(fullTrack.id)
             } else {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color.gray.opacity(0.2))

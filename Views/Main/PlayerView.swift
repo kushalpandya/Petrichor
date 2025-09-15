@@ -454,9 +454,7 @@ struct PlayerView: View {
 
     private var queueButton: some View {
         Button(action: {
-            withAnimation(.easeInOut(duration: 0.3)) {
-                showingQueue.toggle()
-            }
+            showingQueue.toggle()
         }) {
             Image(systemName: "list.bullet")
                 .font(.system(size: 16))

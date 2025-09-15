@@ -1236,7 +1236,9 @@ struct PlayPauseCell: View {
                 .buttonStyle(.plain)
                 .frame(width: 32, height: 32)
             } else if isPlaying {
-                PlayingIndicator()
+                Image(systemName: Icons.speakerWave3Fill)
+                    .font(.system(size: 12))
+                    .foregroundColor(.accentColor)
                     .frame(width: 16)
             }
         }

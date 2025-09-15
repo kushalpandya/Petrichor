@@ -33,10 +33,7 @@ struct PlayQueueView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
-            // Delay animations until after the sidebar has slid in
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                hasAppeared = true
-            }
+            hasAppeared = true
         }
         .onDisappear {
             hasAppeared = false
@@ -49,11 +46,9 @@ struct PlayQueueView: View {
         ListHeader {
             HStack(spacing: 12) {
                 Button(action: {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        showingQueue = false
-                        if let coordinator = AppCoordinator.shared {
-                            coordinator.isQueueVisible = showingQueue
-                        }
+                    showingQueue = false
+                    if let coordinator = AppCoordinator.shared {
+                        coordinator.isQueueVisible = showingQueue
                     }
                 }) {
                     Image(systemName: "xmark.circle.fill")
@@ -131,12 +126,25 @@ struct PlayQueueView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    ForEach(Array(playlistManager.currentQueue.enumerated()), id: \.element.id) { index, track in
+                    ForEach(0..<playlistManager.currentQueue.count, id: \.self) { index in
+                        let track = playlistManager.currentQueue[index]
+
                         queueRow(for: track, at: index)
                             .id(track.id)
+                            .background(
+                                VStack(spacing: 0) {
+                                    Spacer()
+                                    if index < playlistManager.currentQueue.count - 1 {
+                                        Rectangle()
+                                            .fill(Color(NSColor.separatorColor))
+                                            .frame(height: 0.5)
+                                            .padding(.horizontal, 10)
+                                    }
+                                }
+                            )
                     }
                 }
-                .padding(.top, 5)
+                .padding(.vertical, 5)
                 .padding(.horizontal, 8)
             }
             .onChange(of: playlistManager.currentQueueIndex) { _, newIndex in
@@ -159,9 +167,6 @@ struct PlayQueueView: View {
                 playlistManager.removeFromQueue(at: index)
         }
         .id(track.id)
-        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-        .listRowBackground(Color.clear)
-        .listRowSeparator(.hidden)
         .onDrag {
             self.draggedTrack = track
             return NSItemProvider(object: track.id.uuidString as NSString)
@@ -234,13 +239,10 @@ struct PlayQueueRow: View {
 
     private var positionIndicator: some View {
         ZStack {
-            if isCurrentTrack && isPlaying {
-                PlayingIndicator()
-                    .frame(width: 20)
-            } else if isCurrentTrack {
-                Image(systemName: "speaker.wave.2")
+            if isCurrentTrack || isPlaying {
+                Image(systemName: isPlaying ? Icons.playFill : Icons.pauseFill)
                     .font(.system(size: 12))
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(.white)
                     .frame(width: 20)
             } else {
                 Text("\(position + 1)")
@@ -257,14 +259,14 @@ struct PlayQueueRow: View {
     private var trackInfo: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(track.title)
-                .font(.system(size: 13, weight: isCurrentTrack ? .medium : .regular))
+                .font(.system(size: 13, weight: isCurrentTrack ? .semibold : .regular))
                 .lineLimit(1)
-                .foregroundColor(isCurrentTrack ? .accentColor : .primary)
+                .foregroundColor(isCurrentTrack ? .white : .primary)
 
             Text(track.artist)
                 .font(.system(size: 11))
                 .lineLimit(1)
-                .foregroundColor(.secondary)
+                .foregroundColor(isCurrentTrack ? .white : .secondary)
         }
     }
 
@@ -272,7 +274,7 @@ struct PlayQueueRow: View {
         HStack(spacing: 5) {
             Text(formatDuration(track.duration))
                 .font(.system(size: 11))
-                .foregroundColor(.secondary)
+                .foregroundColor(isCurrentTrack ? .white : .secondary)
                 .monospacedDigit()
 
             if isHovered && !isCurrentTrack {
@@ -293,17 +295,13 @@ struct PlayQueueRow: View {
 
     private var rowBackground: some View {
         RoundedRectangle(cornerRadius: 6)
-            .fill(backgroundColor)
-    }
-
-    private var backgroundColor: Color {
-        if isCurrentTrack {
-            return Color.accentColor.opacity(0.25)
-        } else if isHovered {
-            return Color.gray.opacity(0.05)
-        } else {
-            return Color.clear
-        }
+            .fill(isCurrentTrack ? Color.accentColor : Color.clear)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.accentColor.opacity(0.1))
+                    .opacity(isHovered && !isCurrentTrack ? 1.0 : 0.0)
+                    .animation(.easeInOut(duration: 0.15), value: isHovered)
+            )
     }
 
     // MARK: - Helper Methods

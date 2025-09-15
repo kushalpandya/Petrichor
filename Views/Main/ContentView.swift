@@ -131,25 +131,8 @@ struct ContentView: View {
     private var sidePanel: some View {
         if showingQueue {
             PlayQueueView(showingQueue: $showingQueue)
-                .transition(
-                    .asymmetric(
-                        insertion: .move(edge: .trailing),
-                        removal: .move(edge: .trailing)
-                    )
-                )
         } else if showingTrackDetail, let track = detailTrack {
             TrackDetailView(track: track, onClose: hideTrackDetail)
-                .mask(
-                    Rectangle()
-                        .opacity(showingTrackDetail ? 1 : 0)
-                        .animation(.easeInOut(duration: 0.3).delay(0.15), value: showingTrackDetail)
-                )
-                .transition(
-                    .asymmetric(
-                        insertion: .move(edge: .trailing),
-                        removal: .move(edge: .trailing)
-                    )
-                )
         }
     }
 
@@ -263,18 +246,14 @@ struct ContentView: View {
     // MARK: - Helper Methods
 
     private func showTrackDetail(for track: Track) {
-        withAnimation(.easeInOut(duration: 0.3)) {
-            showingQueue = false
-            detailTrack = track
-            showingTrackDetail = true
-        }
+        showingQueue = false
+        detailTrack = track
+        showingTrackDetail = true
     }
 
     private func hideTrackDetail() {
-        withAnimation(.easeInOut(duration: 0.3)) {
-            showingTrackDetail = false
-            detailTrack = nil
-        }
+        showingTrackDetail = false
+        detailTrack = nil
     }
 }
 
