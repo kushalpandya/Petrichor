@@ -135,8 +135,6 @@ struct GeneralTabView: View {
         }
         .formStyle(.grouped)
         .scrollDisabled(true)
-        .scrollContentBackground(.hidden)
-        .background(Color.clear)
         .padding(5)
         .onChange(of: colorMode) { _, newValue in
             updateAppearance(newValue)

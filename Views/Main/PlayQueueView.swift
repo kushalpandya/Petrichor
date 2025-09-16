@@ -11,12 +11,9 @@ struct PlayQueueView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
             queueHeader
-
             Divider()
 
-            // Queue content
             if playlistManager.currentQueue.isEmpty {
                 emptyQueueView
             } else {
@@ -32,12 +29,8 @@ struct PlayQueueView: View {
             Text("Are you sure you want to clear the entire queue? This will stop playback.")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear {
-            hasAppeared = true
-        }
-        .onDisappear {
-            hasAppeared = false
-        }
+        .onAppear { hasAppeared = true }
+        .onDisappear { hasAppeared = false }
     }
 
     // MARK: - Queue Header
@@ -47,22 +40,19 @@ struct PlayQueueView: View {
             HStack(spacing: 12) {
                 Button(action: {
                     showingQueue = false
-                    if let coordinator = AppCoordinator.shared {
-                        coordinator.isQueueVisible = showingQueue
-                    }
+                    AppCoordinator.shared?.isQueueVisible = showingQueue
                 }) {
-                    Image(systemName: "xmark.circle.fill")
+                    Image(systemName: Icons.xmarkCircleFill)
                         .font(.system(size: 16))
                         .foregroundColor(.secondary)
                 }
                 .buttonStyle(.plain)
-                
+
                 Text("Play Queue")
                     .headerTitleStyle()
             }
 
             Spacer()
-
             queueHeaderControls
         }
     }
@@ -80,7 +70,7 @@ struct PlayQueueView: View {
 
     private var clearQueueButton: some View {
         Button(action: { showingClearConfirmation = true }) {
-            Image(systemName: "trash")
+            Image(systemName: Icons.trash)
                 .font(.system(size: 14))
                 .foregroundColor(.secondary)
         }
@@ -88,23 +78,11 @@ struct PlayQueueView: View {
         .help("Clear Queue")
     }
 
-    // MARK: - Queue Content
-
-    private var queueContent: some View {
-        Group {
-            if playlistManager.currentQueue.isEmpty {
-                emptyQueueView
-            } else {
-                queueListView
-            }
-        }
-    }
-
     // MARK: - Empty Queue View
 
     private var emptyQueueView: some View {
         VStack(spacing: 16) {
-            Image(systemName: "music.note.list")
+            Image(systemName: Icons.musicNoteList)
                 .font(.system(size: 48))
                 .foregroundColor(.gray)
 
@@ -117,58 +95,40 @@ struct PlayQueueView: View {
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
     }
 
-    // MARK: - Queue List View
+    // MARK: - Queue List View (List-based)
 
     private var queueListView: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(0..<playlistManager.currentQueue.count, id: \.self) { index in
-                        let track = playlistManager.currentQueue[index]
-
-                        queueRow(for: track, at: index)
-                            .id(track.id)
-                            .background(
-                                VStack(spacing: 0) {
-                                    Spacer()
-                                    if index < playlistManager.currentQueue.count - 1 {
-                                        Rectangle()
-                                            .fill(Color(NSColor.separatorColor))
-                                            .frame(height: 0.5)
-                                            .padding(.horizontal, 10)
-                                    }
-                                }
-                            )
-                    }
-                }
-                .padding(.vertical, 5)
-                .padding(.horizontal, 8)
+        List {
+            ForEach(playlistManager.currentQueue, id: \.id) { track in
+                queueRow(for: track)
+                    .listRowInsets(.init(top: 0, leading: 0, bottom: 0, trailing: 0))
+                    .listRowSeparator(.hidden)
             }
-            .onChange(of: playlistManager.currentQueueIndex) { _, newIndex in
-                handleQueueIndexChange(newIndex: newIndex, proxy: proxy)
-            }
-            .onAppear {
-                scrollToCurrentTrack(proxy: proxy)
-            }
+            .onMove(perform: moveTracks)
         }
+        .listStyle(.plain)
+        .safeAreaPadding(.vertical, 6)
     }
 
-    private func queueRow(for track: Track, at index: Int) -> some View {
-        PlayQueueRow(
+    private func queueRow(for track: Track) -> some View {
+        // swiftlint:disable:next trailing_closure
+        let position = playlistManager.currentQueue.firstIndex(where: { $0.id == track.id }) ?? 0
+        let isLastItem = position == playlistManager.currentQueue.count - 1
+
+        return PlayQueueRow(
             track: track,
-            position: index,
-            isCurrentTrack: index == playlistManager.currentQueueIndex,
-            isPlaying: index == playlistManager.currentQueueIndex && playbackManager.isPlaying,
-            playlistManager: playlistManager
+            position: position,
+            isCurrentTrack: position == playlistManager.currentQueueIndex,
+            isPlaying: position == playlistManager.currentQueueIndex && playbackManager.isPlaying,
+            playlistManager: playlistManager,
+            isLastItem: isLastItem
         ) {
-                playlistManager.removeFromQueue(at: index)
+            playlistManager.removeFromQueue(at: position)
         }
-        .id(track.id)
         .onDrag {
-            self.draggedTrack = track
+            draggedTrack = track
             return NSItemProvider(object: track.id.uuidString as NSString)
         }
         .onDrop(of: [UTType.text], delegate: QueueDropDelegate(
@@ -179,22 +139,20 @@ struct PlayQueueView: View {
         ))
     }
 
-    // MARK: - Helper Methods
+    // MARK: - List move/delete helpers
 
-    private func handleQueueIndexChange(newIndex: Int, proxy: ScrollViewProxy) {
-        // Auto-scroll to current track only after initial appearance
-        if hasAppeared && newIndex >= 0 && newIndex < playlistManager.currentQueue.count {
-            withAnimation {
-                proxy.scrollTo(playlistManager.currentQueue[newIndex].id, anchor: .center)
-            }
+    private func moveTracks(from offsets: IndexSet, to destination: Int) {
+        let sortedOffsets = offsets.sorted(by: >)
+        
+        for offset in sortedOffsets {
+            let adjustedDestination = destination > offset ? destination - 1 : destination
+            playlistManager.moveInQueue(from: offset, to: adjustedDestination)
         }
     }
 
-    private func scrollToCurrentTrack(proxy: ScrollViewProxy) {
-        // Scroll to current track on appear
-        if playlistManager.currentQueueIndex >= 0 &&
-           playlistManager.currentQueueIndex < playlistManager.currentQueue.count {
-            proxy.scrollTo(playlistManager.currentQueue[playlistManager.currentQueueIndex].id, anchor: .center)
+    private func removeTracks(at offsets: IndexSet) {
+        for offset in offsets.sorted(by: >) {
+            playlistManager.removeFromQueue(at: offset)
         }
     }
 }
@@ -207,6 +165,7 @@ struct PlayQueueRow: View {
     let isCurrentTrack: Bool
     let isPlaying: Bool
     let playlistManager: PlaylistManager
+    let isLastItem: Bool
     let onRemove: () -> Void
 
     @State private var isHovered = false
@@ -214,28 +173,30 @@ struct PlayQueueRow: View {
     var body: some View {
         HStack(spacing: 8) {
             positionIndicator
-
             trackInfo
-
             Spacer()
-
             trackControls
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 6)
         .background(rowBackground)
         .contentShape(Rectangle())
+        .overlay(
+            isLastItem ? nil : Rectangle()
+                .frame(height: 0.5)
+                .foregroundColor(Color.secondary.opacity(0.3))
+                .padding(.horizontal, 14),
+            alignment: .bottom
+        )
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                isHovered = hovering
+            if hovering != isHovered {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    isHovered = hovering
+                }
             }
         }
-        .onTapGesture(count: 2) {
-            handleDoubleClick()
-        }
+        .onTapGesture(count: 2) { handleDoubleClick() }
     }
-
-    // MARK: - Row Components
 
     private var positionIndicator: some View {
         ZStack {
@@ -284,27 +245,30 @@ struct PlayQueueRow: View {
     }
 
     private var removeButton: some View {
-        Button(action: onRemove) {
-            Image(systemName: "xmark.circle.fill")
+        Button(action: {
+            playlistManager.removeFromQueue(at: position)
+        }) {
+            Image(systemName: Icons.xmarkCircleFill)
                 .font(.system(size: 14))
                 .foregroundColor(.secondary)
         }
+        .help("Remove from queue")
         .buttonStyle(.plain)
         .transition(.scale.combined(with: .opacity))
     }
 
     private var rowBackground: some View {
-        RoundedRectangle(cornerRadius: 6)
-            .fill(isCurrentTrack ? Color.accentColor : Color.clear)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.accentColor.opacity(0.1))
-                    .opacity(isHovered && !isCurrentTrack ? 1.0 : 0.0)
-                    .animation(.easeInOut(duration: 0.15), value: isHovered)
-            )
+        ZStack {
+            if isCurrentTrack {
+                Color.accentColor
+            } else if isHovered {
+                Color.accentColor.opacity(0.1)
+            } else {
+                Color.clear
+            }
+        }
+        .cornerRadius(6)
     }
-
-    // MARK: - Helper Methods
 
     private func formatDuration(_ seconds: Double) -> String {
         let minutes = Int(seconds) / 60
@@ -313,7 +277,6 @@ struct PlayQueueRow: View {
     }
 
     private func handleDoubleClick() {
-        // Double-click to play
         if !isCurrentTrack {
             playlistManager.playFromQueue(at: position)
         }
@@ -328,19 +291,15 @@ struct QueueDropDelegate: DropDelegate {
     @Binding var draggedTrack: Track?
     let playlistManager: PlaylistManager
 
-    func performDrop(info: DropInfo) -> Bool {
-        true
-    }
+    func performDrop(info: DropInfo) -> Bool { true }
 
     func dropEntered(info: DropInfo) {
         guard let draggedTrack = self.draggedTrack else { return }
-        
         if draggedTrack.id != track.id {
-            // swiftlint:disable:next all
+            // swiftlint:disable:next trailing_closure
             let from = tracks.firstIndex(where: { $0.id == draggedTrack.id }) ?? 0
+            // swiftlint:disable:next trailing_closure
             let to = tracks.firstIndex(where: { $0.id == track.id }) ?? 0
-            // swiftlint:disable:previous all
-            
             withAnimation(.default) {
                 playlistManager.moveInQueue(from: from, to: to)
             }
@@ -352,7 +311,7 @@ struct QueueDropDelegate: DropDelegate {
 
 #Preview {
     @Previewable @State var showingQueue = true
-    
+
     return PlayQueueView(showingQueue: $showingQueue)
         .environmentObject({
             let playbackManager = PlaybackManager(
@@ -363,7 +322,6 @@ struct QueueDropDelegate: DropDelegate {
         }())
         .environmentObject({
             let playlistManager = PlaylistManager()
-            // Add some sample tracks to the queue for preview
             let sampleTracks = (0..<5).map { i in
                 var track = Track(url: URL(fileURLWithPath: "/path/to/sample\(i).mp3"))
                 track.title = "Sample Song \(i)"
@@ -381,7 +339,7 @@ struct QueueDropDelegate: DropDelegate {
 
 #Preview("Empty Queue") {
     @Previewable @State var showingQueue = true
-    
+
     return PlayQueueView(showingQueue: $showingQueue)
         .environmentObject({
             let playbackManager = PlaybackManager(

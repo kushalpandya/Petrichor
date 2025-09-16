@@ -42,6 +42,7 @@ enum Icons {
     static let magnifyingGlass = "magnifyingglass"
     static let checkmarkSquareFill = "checkmark.square.fill"
     static let square = "square"
+    static let trash = "trash"
     static let infoCircle = "info.circle"
     static let plusCircle = "plus.circle"
     static let chartUptrendFill = "chart.line.uptrend.xyaxis.circle.fill"

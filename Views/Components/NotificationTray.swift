@@ -223,7 +223,6 @@ struct NotificationTray: View {
     @ViewBuilder
     private var activityIndicator: some View {
         ActivityAnimation(size: .small)
-            .frame(width: 25, height: 25)
     }
 }
 
