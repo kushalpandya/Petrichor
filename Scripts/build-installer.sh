@@ -469,6 +469,17 @@ if [ -z "$VERSION" ]; then
     fi
 fi
 
+# Calculate production build number from version string
+get_production_build_number() {
+    local version="$1"
+    # Remove any 'v' prefix and extract numbers
+    local clean_version="${version#v}"
+    IFS='.' read -r major minor patch <<< "$clean_version"
+    # Default to 0 if patch is empty
+    patch=${patch:-0}
+    echo "$((major * 100 + minor * 10 + patch))"
+}
+
 # Determine build number from version
 if [[ "$VERSION" == *"beta"* ]]; then
     # For beta versions, use build number 1-99
@@ -480,17 +491,19 @@ if [[ "$VERSION" == *"beta"* ]]; then
     fi
     log "Beta version detected, using build number: $BUILD_NUMBER"
 elif [[ "$VERSION" == "dev"* ]]; then
-    # For dev versions, use build 1
-    BUILD_NUMBER="1"
-    log "Development version, using build number: $BUILD_NUMBER"
+    # For dev versions, use last production build number
+    LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+    if [ -n "$LAST_TAG" ]; then
+        BUILD_NUMBER=$(get_production_build_number "$LAST_TAG")
+        log "Development version, using build number from tag $LAST_TAG: $BUILD_NUMBER"
+    else
+        # No tags found, fallback to build 1
+        BUILD_NUMBER="1"
+        log "Development version, no tags found, using build number: $BUILD_NUMBER"
+    fi
 else
-    # For stable versions, use formula: major * 100 + minor * 10 + patch
-    # Remove any 'v' prefix and extract numbers
-    CLEAN_VERSION="${VERSION#v}"
-    IFS='.' read -r major minor patch <<< "$CLEAN_VERSION"
-    # Default to 0 if patch is empty
-    patch=${patch:-0}
-    BUILD_NUMBER="$((major * 100 + minor * 10 + patch))"
+    # For stable versions, use production build number based on latest tag
+    BUILD_NUMBER=$(get_production_build_number "$VERSION")
     log "Stable version detected, calculated build number: $BUILD_NUMBER"
 fi
 
