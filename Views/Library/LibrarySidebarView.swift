@@ -59,26 +59,31 @@ struct LibrarySidebarView: View {
             updateFilteredItems()
         }
         .onChange(of: libraryManager.globalSearchText) { oldValue, newValue in
-            updateFilteredItems()
-            
-            // Handle transition between search and non-search modes
-            if oldValue.isEmpty && !newValue.isEmpty {
-                // Entering search mode - select "All" item
-                let totalCount = libraryManager.searchResults.count
-                let allItem = LibraryFilterItem.allItem(for: selectedFilterType, totalCount: totalCount)
-                selectedFilterItem = allItem
-                selectedSidebarItem = LibrarySidebarItem(allItemFor: selectedFilterType, count: totalCount)
-            } else if !oldValue.isEmpty && newValue.isEmpty {
-                // Exiting search mode - select first available item if current selection is "All"
-                if let currentSelection = selectedFilterItem, currentSelection.isAllItem {
-                    if !filteredItems.isEmpty {
-                        selectedFilterItem = filteredItems.first
-                        if let filterItem = selectedFilterItem {
-                            selectedSidebarItem = LibrarySidebarItem(filterItem: filterItem)
+            Task {
+                try? await Task.sleep(nanoseconds: TimeConstants.searchDebounceDuration)
+                await MainActor.run {
+                    updateFilteredItems()
+                    
+                    // Handle transition between search and non-search modes
+                    if oldValue.isEmpty && !newValue.isEmpty {
+                        // Entering search mode - select "All" item
+                        let totalCount = libraryManager.searchResults.count
+                        let allItem = LibraryFilterItem.allItem(for: selectedFilterType, totalCount: totalCount)
+                        selectedFilterItem = allItem
+                        selectedSidebarItem = LibrarySidebarItem(allItemFor: selectedFilterType, count: totalCount)
+                    } else if !oldValue.isEmpty && newValue.isEmpty {
+                        // Exiting search mode - select first available item if current selection is "All"
+                        if let currentSelection = selectedFilterItem, currentSelection.isAllItem {
+                            if !filteredItems.isEmpty {
+                                selectedFilterItem = filteredItems.first
+                                if let filterItem = selectedFilterItem {
+                                    selectedSidebarItem = LibrarySidebarItem(filterItem: filterItem)
+                                }
+                            } else {
+                                selectedFilterItem = nil
+                                selectedSidebarItem = nil
+                            }
                         }
-                    } else {
-                        selectedFilterItem = nil
-                        selectedSidebarItem = nil
                     }
                 }
             }

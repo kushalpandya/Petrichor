@@ -163,6 +163,7 @@ enum TimeConstants {
     static let fiftyMilliseconds: UInt64 = 50_000_000
     static let oneHundredMilliseconds: UInt64 = 100_000_000
     static let oneFiftyMilliseconds: UInt64 = 150_000_000
+    static let searchDebounceDuration: UInt64 = 350_000_000
     static let stateSaveTimerDuration: Double = 30.0
     static let playbackProgressTimerDuration: Double = 5.0
 }

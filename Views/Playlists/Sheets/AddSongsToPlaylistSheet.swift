@@ -520,7 +520,7 @@ struct AddSongsToPlaylistSheet: View {
         // Create new search task with debouncing
         searchTask = Task {
             // Debounce: wait 300ms
-            try? await Task.sleep(nanoseconds: 300_000_000)
+            try? await Task.sleep(nanoseconds: TimeConstants.searchDebounceDuration)
             
             // Check if task was cancelled
             guard !Task.isCancelled else { return }

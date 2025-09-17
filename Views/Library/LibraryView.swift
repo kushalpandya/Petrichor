@@ -18,6 +18,7 @@ struct LibraryView: View {
     @State private var selectedFilterItem: LibraryFilterItem?
     @State private var cachedFilteredTracks: [Track] = []
     @State private var pendingSearchText: String?
+    @State private var isLibrarySearchActive = false
     @State private var isViewReady = false
     @State private var trackTableSortOrder = [KeyPathComparator(\Track.title)]
     @Binding var pendingFilter: LibraryFilterRequest?
@@ -72,8 +73,15 @@ struct LibraryView: View {
                         }
                     }
                 }
-                .onChange(of: libraryManager.globalSearchText) {
-                    updateFilteredTracks()
+                .onChange(of: libraryManager.globalSearchText) { _, _ in
+                    isLibrarySearchActive = true
+                    Task {
+                        try? await Task.sleep(nanoseconds: TimeConstants.searchDebounceDuration)
+                        await MainActor.run {
+                            updateFilteredTracks()
+                            isLibrarySearchActive = false
+                        }
+                    }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .libraryDataDidChange)) { _ in
                     updateFilteredTracks()
@@ -100,7 +108,7 @@ struct LibraryView: View {
             Divider()
 
             // Tracks list content
-            if cachedFilteredTracks.isEmpty {
+            if cachedFilteredTracks.isEmpty && !isLibrarySearchActive {
                 emptyFilterView
             } else {
                 TrackView(
