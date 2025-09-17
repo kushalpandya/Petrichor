@@ -69,13 +69,11 @@ struct TabbedButtons<Item: TabbedItem>: View {
         .padding(4)
         .background(
             ZStack {
-                // Container background
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.clear)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
-                    )
+                if style != .modern {
+                    // Container background
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+                }
 
                 // Moving background for transform animation
                 if animation == .transform {
@@ -94,7 +92,7 @@ struct TabbedButtons<Item: TabbedItem>: View {
                 let buttonWidth = totalWidth / CGFloat(items.count)
                 let xOffset = CGFloat(selectedIndex) * buttonWidth + 4 // Account for padding
 
-                RoundedRectangle(cornerRadius: 6)
+                RoundedRectangle(cornerRadius: style.backgroundViewRadius ?? 8)
                     .fill(Color.accentColor)
                     .frame(
                         width: buttonWidth - 1, // Account for spacing
@@ -161,7 +159,7 @@ private struct TabbedButton<Item: TabbedItem>: View {
             )
             .padding(.vertical, style.buttonHeight == nil ? style.verticalPadding : 0)
             .background(backgroundView)
-            .contentShape(RoundedRectangle(cornerRadius: 6))
+            .contentShape(RoundedRectangle(cornerRadius: style.contentShapeRadius ?? 6))
         }
         .buttonStyle(.plain)
         .disabled(isDisabled)
@@ -233,7 +231,7 @@ private struct TabbedButton<Item: TabbedItem>: View {
     private var backgroundView: some View {
         if animation == .fade {
             // Original fade animation
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle(cornerRadius: style.backgroundViewRadius ?? 6)
                 .fill(
                     isSelected ? Color.accentColor :
                         isHovered ? Color.primary.opacity(0.06) :
@@ -243,7 +241,7 @@ private struct TabbedButton<Item: TabbedItem>: View {
                 .animation(.easeOut(duration: AnimationConstants.hoverDuration), value: isHovered)
         } else {
             // Transform animation - no individual background, uses moving background
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle(cornerRadius: style.backgroundViewRadius ?? 6)
                 .fill(
                     isHovered && !isSelected ? Color.primary.opacity(0.06) : Color.clear
                 )
@@ -261,6 +259,8 @@ struct TabbedButtonStyle {
     let iconTextSpacing: CGFloat
     let buttonWidth: CGFloat?
     let verticalPadding: CGFloat
+    let contentShapeRadius: CGFloat?
+    let backgroundViewRadius: CGFloat?
     let expandButtons: Bool
 
     var buttonHeight: CGFloat? {
@@ -275,6 +275,21 @@ struct TabbedButtonStyle {
         iconTextSpacing: 5,
         buttonWidth: 90,
         verticalPadding: 5,
+        contentShapeRadius: 6,
+        backgroundViewRadius: 6,
+        expandButtons: false
+    )
+    
+    static let modern = TabbedButtonStyle(
+        showIcon: true,
+        showTitle: true,
+        iconSize: 13,
+        textSize: 12,
+        iconTextSpacing: 5,
+        buttonWidth: 90,
+        verticalPadding: 5,
+        contentShapeRadius: 16,
+        backgroundViewRadius: 16,
         expandButtons: false
     )
 
@@ -286,6 +301,8 @@ struct TabbedButtonStyle {
         iconTextSpacing: 4,
         buttonWidth: 85,
         verticalPadding: 5,
+        contentShapeRadius: 6,
+        backgroundViewRadius: 6,
         expandButtons: false
     )
 
@@ -297,6 +314,8 @@ struct TabbedButtonStyle {
         iconTextSpacing: 0,
         buttonWidth: 32,
         verticalPadding: 5,
+        contentShapeRadius: 6,
+        backgroundViewRadius: 6,
         expandButtons: false
     )
 
@@ -308,6 +327,8 @@ struct TabbedButtonStyle {
         iconTextSpacing: 4,
         buttonWidth: nil,
         verticalPadding: 4,
+        contentShapeRadius: 6,
+        backgroundViewRadius: 6,
         expandButtons: true
     )
 
@@ -319,6 +340,8 @@ struct TabbedButtonStyle {
         iconTextSpacing: 0,
         buttonWidth: 32,
         verticalPadding: 0,
+        contentShapeRadius: 6,
+        backgroundViewRadius: 6,
         expandButtons: false
     )
 }
@@ -333,6 +356,21 @@ extension View {
         } else {
             self
         }
+    }
+}
+
+extension TabbedButtonStyle: Equatable {
+    static func == (lhs: TabbedButtonStyle, rhs: TabbedButtonStyle) -> Bool {
+        lhs.showIcon == rhs.showIcon &&
+               lhs.showTitle == rhs.showTitle &&
+               lhs.iconSize == rhs.iconSize &&
+               lhs.textSize == rhs.textSize &&
+               lhs.iconTextSpacing == rhs.iconTextSpacing &&
+               lhs.buttonWidth == rhs.buttonWidth &&
+               lhs.verticalPadding == rhs.verticalPadding &&
+               lhs.contentShapeRadius == rhs.contentShapeRadius &&
+               lhs.backgroundViewRadius == rhs.backgroundViewRadius &&
+               lhs.expandButtons == rhs.expandButtons
     }
 }
 

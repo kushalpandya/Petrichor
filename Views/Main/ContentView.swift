@@ -4,7 +4,7 @@ struct ContentView: View {
     @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var libraryManager: LibraryManager
     @EnvironmentObject var playlistManager: PlaylistManager
-    
+        
     @AppStorage("rightSidebarSplitPosition")
     private var splitPosition: Double = 200
     
@@ -21,6 +21,8 @@ struct ContentView: View {
     @State private var windowDelegate = WindowDelegate()
     @State private var isSettingsHovered = false
     @State private var shouldFocusSearch = false
+    
+    @ObservedObject private var notificationManager = NotificationManager.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -65,7 +67,13 @@ struct ContentView: View {
         }
         .background(WindowAccessor(windowDelegate: windowDelegate))
         .navigationTitle("")
-        .toolbar { toolbarContent }
+        .toolbar {
+            if #available(macOS 26.0, *) {
+                modernToolbarContent
+            } else {
+                toolbarContent
+            }
+        }
         .sheet(isPresented: $showingSettings) {
             SettingsView()
                 .environmentObject(libraryManager)
@@ -190,12 +198,45 @@ struct ContentView: View {
                     shouldFocus: shouldFocusSearch
                 )
                 .frame(width: 280)
+                .disabled(libraryManager.folders.isEmpty)
                 
                 settingsButton
+                    .disabled(libraryManager.folders.isEmpty)
             }
         }
     }
-
+    
+    @available(macOS 26.0, *)
+    @ToolbarContentBuilder
+    private var modernToolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .principal) {
+            TabbedButtons(
+                items: Sections.allCases.filter { $0 != .folders || showFoldersTab },
+                selection: $selectedTab,
+                style: .modern,
+                animation: .transform,
+                isDisabled: libraryManager.folders.isEmpty
+            )
+        }
+        
+        ToolbarItem(placement: .confirmationAction) {
+            SearchInputField(
+                text: $libraryManager.globalSearchText,
+                placeholder: "Search",
+                fontSize: 12,
+                width: 220,
+                shouldFocus: shouldFocusSearch
+            )
+            .frame(width: 280)
+            .disabled(libraryManager.folders.isEmpty)
+        }
+        
+        ToolbarItem(placement: .confirmationAction) {
+            NotificationTray()
+                .frame(width: 34, height: 30)
+        }
+    }
+    
     private var settingsButton: some View {
         Button(action: {
             showingSettings = true

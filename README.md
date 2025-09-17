@@ -1,4 +1,4 @@
-<img width="200" src="./Resources/Assets.xcassets/AppIcon.appiconset/1024-mac.png" alt="Petrichor App Icon" align="left"/>
+<img width="170" src="./Resources/AppIcon.icon/Assets/Default.png" alt="Petrichor App Icon" align="left"/>
 
 <div>
 <h3>Petrichor</h3>
