@@ -5,6 +5,40 @@
         <description>Updates for Petrichor</description>
         <language>en</language>
         <item>
+            <title>Version 1.1.0</title>
+            <pubDate>Thu, 18 Sep 2025 17:07:32 -0400</pubDate>
+            <sparkle:version>110</sparkle:version>
+            <sparkle:shortVersionString>1.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.1.0/Petrichor-1.1.0-Universal.dmg"
+                sparkle:edSignature="2A6UqEKnxhO3XHnXZMm9TNJZurhxwxrGody/MdTXxfUrtv+rk25rVOzoRq+Z5X4YHRUtxkU/3O5D5pcdXZseCA=="
+                length="14481840"
+                type="application/octet-stream"
+            />
+            <description><![CDATA[
+                <h2>Features</h2>
+                <ul>
+                    <li>Simplified design refresh for macOS 26 Tahoe, including adaptive app icon support</li>
+                    <li>Wallpaper-based app tinting, menu icons (only in Tahoe), and additional column types support in the tracks list</li>
+                    <li>Performance optimizations across tracks list, play queue list, and album/artist views for faster scrolling</li>
+                </ul>
+                <h2>Fixes</h2>
+                <ul>
+                    <li>Ensure app registers to menubar on first launch</li>
+                    <li>Fix grammar on setting options</li>
+                    <li>Handle special characters in library search efficiently</li>
+                    <li>Debounce library search to prevent rapid db queries</li>
+                    <li>Make text color switching reliable on app color mode change</li>
+                </ul>
+                <h2>Others</h2>
+                <ul>
+                    <li>Upgraded Sparkle to v2.8.0</li>
+                </ul>
+                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.0.1...v1.1.0">Full Changelog</a></p>
+            ]]></description>
+        </item>
+        <item>
             <title>Version 1.0.1</title>
             <pubDate>Mon, 01 Sep 2025 16:51:21 -0400</pubDate>
             <sparkle:version>101</sparkle:version>
