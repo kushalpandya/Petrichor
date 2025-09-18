@@ -290,36 +290,7 @@ struct TrackTableView: View {
     
     @ViewBuilder
     private func contextMenuItem(_ item: ContextMenuItem) -> some View {
-        switch item {
-        case .button(let title, _, let action):
-            Button(title, action: action)
-        case .menu(let title, let items):
-            Menu(title) {
-                ForEach(items, id: \.id) { subItem in
-                    contextMenuSubItem(subItem)
-                }
-            }
-        case .divider:
-            Divider()
-        }
-    }
-    
-    @ViewBuilder
-    private func contextMenuSubItem(_ item: ContextMenuItem) -> some View {
-        switch item {
-        case .button(let title, _, let action):
-            Button(title, action: action)
-        case .menu(let title, let items):
-            Menu(title) {
-                ForEach(items, id: \.id) { nestedItem in
-                    if case .button(let nestedTitle, _, let nestedAction) = nestedItem {
-                        Button(nestedTitle, action: nestedAction)
-                    }
-                }
-            }
-        case .divider:
-            Divider()
-        }
+        ContextMenuItemView(item: item)
     }
     
     // MARK: - Sorting Helpers
@@ -542,7 +513,6 @@ private struct TrackTitleCell: View {
         }
     }
 }
-
 
 // MARK: - Track Extension for Sorting
 

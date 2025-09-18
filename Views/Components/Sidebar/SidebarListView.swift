@@ -167,29 +167,7 @@ struct SidebarListView<Item: SidebarItem>: View {
 
     @ViewBuilder
     private func contextMenuItem(_ item: ContextMenuItem) -> some View {
-        switch item {
-        case .button(let title, let role, let action):
-            if title == "Rename" {
-                // Special handling for rename action
-                Button(title, role: role) {
-                    if let selectedItem = selectedItem, selectedItem.isEditable {
-                        startEditing(selectedItem)
-                    }
-                }
-            } else {
-                Button(title, role: role, action: action)
-            }
-        case .menu(let title, let items):
-            Menu(title) {
-                ForEach(Array(items.enumerated()), id: \.offset) { _, subItem in
-                    if case .button(let subTitle, let subRole, let subAction) = subItem {
-                        Button(subTitle, role: subRole, action: subAction)
-                    }
-                }
-            }
-        case .divider:
-            Divider()
-        }
+        ContextMenuItemView(item: item)
     }
 
     // MARK: - Editing Helpers

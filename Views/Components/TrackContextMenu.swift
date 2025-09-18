@@ -45,6 +45,35 @@ enum TrackContextMenu {
         return items
     }
     
+    static func createPlayerViewMenuItems(
+        for track: Track,
+        playbackManager: PlaybackManager,
+        playlistManager: PlaylistManager
+    ) -> [ContextMenuItem] {
+        var items: [ContextMenuItem] = []
+        
+        // Add info item
+        items.append(createShowInfoItem(for: track))
+        
+        items.append(createRevealInFinderItem(for: track))
+        
+        items.append(.divider)
+        
+        // Add "Go to" submenu
+        items.append(createGoToMenu(for: track))
+        
+        items.append(.divider)
+        
+        // Add playlist items
+        items.append(contentsOf: createPlaylistItems(
+            for: track,
+            playlistManager: playlistManager,
+            existingItems: &items
+        ))
+        
+        return items
+    }
+    
     // MARK: - Helper Methods
     
     private static func createPlaybackItems(
@@ -55,7 +84,7 @@ enum TrackContextMenu {
         var items: [ContextMenuItem] = []
         
         // Play
-        items.append(.button(title: "Play") {
+        items.append(.button(title: "Play", icon: Icons.playFill) {
             switch currentContext {
             case .library:
                 playlistManager.playTrack(track, fromTracks: [track])
@@ -69,12 +98,12 @@ enum TrackContextMenu {
         })
         
         // Play Next
-        items.append(.button(title: "Play Next") {
+        items.append(.button(title: "Play Next", icon: "text.line.first.and.arrowtriangle.forward") {
             playlistManager.playNext(track)
         })
         
         // Add to Queue
-        items.append(.button(title: "Add to Queue") {
+        items.append(.button(title: "Add to Queue", icon: "text.append") {
             playlistManager.addToQueue(track)
         })
         
@@ -82,7 +111,7 @@ enum TrackContextMenu {
     }
     
     private static func createShowInfoItem(for track: Track) -> ContextMenuItem {
-        .button(title: "Show Info") {
+        .button(title: "Show Info", icon: Icons.infoCircle) {
             NotificationCenter.default.post(
                 name: NSNotification.Name("ShowTrackInfo"),
                 object: nil,
@@ -92,7 +121,7 @@ enum TrackContextMenu {
     }
     
     private static func createRevealInFinderItem(for track: Track) -> ContextMenuItem {
-        .button(title: "Reveal in Finder") {
+        .button(title: "Reveal in Finder", icon: "finder") {
             NSWorkspace.shared.selectFile(track.url.path, inFileViewerRootedAtPath: "")
         }
     }
@@ -114,7 +143,7 @@ enum TrackContextMenu {
             }
         }
         
-        return .menu(title: "Go to", items: goToItems)
+        return .menu(title: "Go to", icon: "arrow.up.right.square", items: goToItems)
     }
     
     private static func createMultiValueFilterItems(
@@ -207,9 +236,9 @@ enum TrackContextMenu {
             }
         }
         
-        items.append(.menu(title: "Add to Playlist", items: playlistItems))
+        items.append(.menu(title: "Add to Playlist", icon: "text.badge.plus", items: playlistItems))
         
-        items.append(.button(title: track.isFavorite ? "Remove from Favorites" : "Add to Favorites") {
+        items.append(.button(title: track.isFavorite ? "Remove from Favorites" : "Add to Favorites", icon: track.isFavorite ? Icons.starFill : Icons.star) {
             playlistManager.toggleFavorite(for: track)
         })
         
@@ -226,7 +255,7 @@ enum TrackContextMenu {
         switch currentContext {
         case .folder:
             items.append(.divider)
-            items.append(.button(title: "Show in Finder") {
+            items.append(.button(title: "Show in Finder", icon: "finder") {
                 NSWorkspace.shared.selectFile(
                     track.url.path,
                     inFileViewerRootedAtPath: track.url.deletingLastPathComponent().path
@@ -255,5 +284,45 @@ enum TrackContextMenu {
         case library
         case folder(Folder)
         case playlist(Playlist)
+    }
+}
+
+struct ContextMenuItemView: View {
+    let item: ContextMenuItem
+    
+    var body: some View {
+        switch item {
+        case .button(_, _, _, let action):
+            Button(action: action) {
+                HStack {
+                    if let icon = item.icon {
+                        Image(systemName: icon)
+                            .frame(width: 16)
+                    }
+                    Text(item.title)
+                    Spacer()
+                }
+            }
+            .buttonStyle(.plain)
+            
+        case .menu(_, _, let items):
+            Menu {
+                ForEach(items, id: \.id) { subItem in
+                    ContextMenuItemView(item: subItem)
+                }
+            } label: {
+                HStack {
+                    if let icon = item.icon {
+                        Image(systemName: icon)
+                            .frame(width: 16)
+                    }
+                    Text(item.title)
+                    Spacer()
+                }
+            }
+            
+        case .divider:
+            Divider()
+        }
     }
 }

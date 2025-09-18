@@ -46,20 +46,7 @@ struct EntityGridView<T: Entity>: View {
 
     @ViewBuilder
     private func contextMenuItem(_ item: ContextMenuItem) -> some View {
-        switch item {
-        case .button(let title, let role, let action):
-            Button(title, role: role, action: action)
-        case .menu(let title, let items):
-            Menu(title) {
-                ForEach(items, id: \.id) { subItem in
-                    if case .button(let subTitle, let subRole, let subAction) = subItem {
-                        Button(subTitle, role: subRole, action: subAction)
-                    }
-                }
-            }
-        case .divider:
-            Divider()
-        }
+        ContextMenuItemView(item: item)
     }
 }
 

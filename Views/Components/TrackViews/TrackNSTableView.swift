@@ -830,7 +830,7 @@ struct TrackNSTableView: NSViewRepresentable {
 
             for item in items {
                 switch item {
-                case .button(let title, let role, let action):
+                case .button(let title, _, let role, let action):
                     let menuItem = NSMenuItem(title: title, action: #selector(contextMenuAction(_:)), keyEquivalent: "")
                     menuItem.target = self
                     menuItem.representedObject = ContextMenuAction(action: action, track: track)
@@ -845,7 +845,7 @@ struct TrackNSTableView: NSViewRepresentable {
 
                     menu.addItem(menuItem)
 
-                case .menu(let title, let subItems):
+                case .menu(let title, _, let subItems):
                     let submenuItem = NSMenuItem(title: title, action: nil, keyEquivalent: "")
                     let submenu = createNSMenu(from: subItems, track: track)
                     submenu.title = title
