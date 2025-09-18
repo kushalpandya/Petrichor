@@ -204,7 +204,12 @@ private class MarqueeNSView: NSView {
         default:
             resolvedColor = NSColor(color)
         }
-        return resolvedColor.cgColor
+        
+        var cgColor: CGColor!
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            cgColor = resolvedColor.cgColor
+        }
+        return cgColor
     }
     
     override func layout() {
