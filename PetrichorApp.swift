@@ -67,28 +67,46 @@ struct PetrichorApp: App {
     }
     
     private func aboutMenuItem() -> some View {
-        Button("About Petrichor") {
+        Button {
             NotificationCenter.default.post(
                 name: NSNotification.Name("OpenSettingsAboutTab"),
                 object: nil
             )
+        } label: {
+            if #available(macOS 26.0, *) {
+                Label("About Petrichor", systemImage: Icons.infoCircle)
+            } else {
+                Text("About Petrichor")
+            }
         }
     }
     
     private func settingsMenuItem() -> some View {
-        Button("Settings") {
+        Button {
             NotificationCenter.default.post(
                 name: NSNotification.Name("OpenSettings"),
                 object: nil
             )
+        } label: {
+            if #available(macOS 26.0, *) {
+                Label("Settings", systemImage: Icons.settings)
+            } else {
+                Text("Settings")
+            }
         }
         .keyboardShortcut(",", modifiers: .command)
     }
     
     private func checkForUpdatesMenuItem() -> some View {
-        Button("Check for Updates...") {
+        Button {
             if let updater = appDelegate.updaterController?.updater {
                 updater.checkForUpdates()
+            }
+        } label: {
+            if #available(macOS 26.0, *) {
+                Label("Check for Updates...", systemImage: Icons.checkForUpdates)
+            } else {
+                Text("Check for Updates...")
             }
         }
     }
@@ -117,9 +135,18 @@ struct PetrichorApp: App {
     }
     
     private func playPauseMenuItem() -> some View {
-        Button("Play/Pause") {
+        Button {
             if appCoordinator.playbackManager.currentTrack != nil {
                 appCoordinator.playbackManager.togglePlayPause()
+            }
+        } label: {
+            if #available(macOS 26.0, *) {
+                Label(
+                    "Play/Pause",
+                    systemImage: Icons.playPauseFill
+                )
+            } else {
+                Text("Play/Pause")
             }
         }
         .keyboardShortcut(" ", modifiers: [])
@@ -127,11 +154,21 @@ struct PetrichorApp: App {
     }
     
     private func favoriteMenuItem() -> some View {
-        Button(appCoordinator.playbackManager.currentTrack?.isFavorite == true ?
-               "Remove from Favorites" : "Add to Favorites") {
+        Button {
             if let track = appCoordinator.playbackManager.currentTrack {
                 appCoordinator.playlistManager.toggleFavorite(for: track)
                 menuUpdateTrigger = UUID()
+            }
+        } label: {
+            let isFavorite = appCoordinator.playbackManager.currentTrack?.isFavorite == true
+
+            if #available(macOS 26.0, *) {
+                Label(
+                    isFavorite ? "Remove from Favorites" : "Add to Favorites",
+                    systemImage: isFavorite ? Icons.starFill : Icons.star
+                )
+            } else {
+                Text(isFavorite ? "Remove from Favorites" : "Add to Favorites")
             }
         }
         .keyboardShortcut("f", modifiers: [.command, .shift])
@@ -140,21 +177,36 @@ struct PetrichorApp: App {
     }
     
     private func shuffleMenuItem() -> some View {
-        Toggle("Shuffle", isOn: Binding(
+        Toggle(isOn: Binding(
             get: { appCoordinator.playlistManager.isShuffleEnabled },
             set: { _ in
                 appCoordinator.playlistManager.toggleShuffle()
                 menuUpdateTrigger = UUID()
             }
-        ))
+        )) {
+            if #available(macOS 26.0, *) {
+                Label("Shuffle", systemImage: Icons.shuffleFill)
+            } else {
+                Text("Shuffle")
+            }
+        }
         .keyboardShortcut("s", modifiers: .command)
         .id(menuUpdateTrigger)
     }
     
     private func repeatMenuItem() -> some View {
-        Button(repeatModeLabel) {
+        Button {
             appCoordinator.playlistManager.toggleRepeatMode()
             menuUpdateTrigger = UUID()
+        } label: {
+            if #available(macOS 26.0, *) {
+                Label(
+                    repeatModeLabel,
+                    systemImage: Icons.repeatFill
+                )
+            } else {
+                Text(repeatModeLabel)
+            }
         }
         .keyboardShortcut("r", modifiers: .command)
         .id(menuUpdateTrigger)
@@ -169,23 +221,41 @@ struct PetrichorApp: App {
     }
     
     private func nextMenuItem() -> some View {
-        Button("Next") {
+        Button {
             appCoordinator.playlistManager.playNextTrack()
+        } label: {
+            if #available(macOS 26.0, *) {
+                Label(
+                    "Next",
+                    systemImage: Icons.nextFill
+                )
+            } else {
+                Text("Next")
+            }
         }
         .keyboardShortcut(.rightArrow, modifiers: .command)
         .disabled(appCoordinator.playbackManager.currentTrack == nil)
     }
     
     private func previousMenuItem() -> some View {
-        Button("Previous") {
+        Button {
             appCoordinator.playlistManager.playPreviousTrack()
+        } label: {
+            if #available(macOS 26.0, *) {
+                Label(
+                    "Previous",
+                    systemImage: Icons.previousFIll
+                )
+            } else {
+                Text("Previous")
+            }
         }
         .keyboardShortcut(.leftArrow, modifiers: .command)
         .disabled(appCoordinator.playbackManager.currentTrack == nil)
     }
     
     private func seekForwardMenuItem() -> some View {
-        Button("Seek Forward") {
+        Button {
             if let currentTrack = appCoordinator.playbackManager.currentTrack {
                 let newTime = min(
                     appCoordinator.playbackManager.actualCurrentTime + 10,
@@ -193,19 +263,37 @@ struct PetrichorApp: App {
                 )
                 appCoordinator.playbackManager.seekTo(time: newTime)
             }
+        } label: {
+            if #available(macOS 26.0, *) {
+                Label(
+                    "Seek Forward",
+                    systemImage: Icons.forwardFill
+                )
+            } else {
+                Text("Seek Formward")
+            }
         }
         .keyboardShortcut(.rightArrow, modifiers: [.command, .shift])
         .disabled(appCoordinator.playbackManager.currentTrack == nil)
     }
     
     private func seekBackwardMenuItem() -> some View {
-        Button("Seek Backward") {
+        Button {
             if appCoordinator.playbackManager.currentTrack != nil {
                 let newTime = max(
                     appCoordinator.playbackManager.actualCurrentTime - 10,
                     0
                 )
                 appCoordinator.playbackManager.seekTo(time: newTime)
+            }
+        } label: {
+            if #available(macOS 26.0, *) {
+                Label(
+                    "Seek Backward",
+                    systemImage: Icons.backwardFill
+                )
+            } else {
+                Text("Seek Backward")
             }
         }
         .keyboardShortcut(.leftArrow, modifiers: [.command, .shift])
@@ -219,17 +307,35 @@ struct PetrichorApp: App {
     }
     
     private func volumeUpMenuItem() -> some View {
-        Button("Volume Up") {
+        Button {
             let newVolume = min(appCoordinator.playbackManager.volume + 0.05, 1.0)
             appCoordinator.playbackManager.setVolume(newVolume)
+        } label: {
+            if #available(macOS 26.0, *) {
+                Label(
+                    "Volume Up",
+                    systemImage: Icons.volumeIncrease
+                )
+            } else {
+                Text("Volume Up")
+            }
         }
         .keyboardShortcut(.upArrow, modifiers: .command)
     }
     
     private func volumeDownMenuItem() -> some View {
-        Button("Volume Down") {
+        Button {
             let newVolume = max(appCoordinator.playbackManager.volume - 0.05, 0.0)
             appCoordinator.playbackManager.setVolume(newVolume)
+        } label: {
+            if #available(macOS 26.0, *) {
+                Label(
+                    "Volume Down",
+                    systemImage: Icons.volumeDecrease
+                )
+            } else {
+                Text("Volume Down")
+            }
         }
         .keyboardShortcut(.downArrow, modifiers: .command)
     }
@@ -245,15 +351,30 @@ struct PetrichorApp: App {
     }
     
     private func focusSearchMenuItem() -> some View {
-        Button("Search Library") {
+        Button {
             NotificationCenter.default.post(name: .focusSearchField, object: nil)
+        } label: {
+            if #available(macOS 26.0, *) {
+                Label(
+                    "Search Library",
+                    systemImage: Icons.magnifyingGlass
+                )
+            } else {
+                Text("Search Library")
+            }
         }
         .keyboardShortcut("f", modifiers: .command)
     }
     
     private func foldersTabToggle() -> some View {
-        Toggle("Folders tab", isOn: $showFoldersTab)
-            .keyboardShortcut("f", modifiers: [.command, .option])
+        Toggle(isOn: $showFoldersTab) {
+            if #available(macOS 26.0, *) {
+                Label("Folders Tab", systemImage: Icons.folderFill)
+            } else {
+                Text("Folders Tab")
+            }
+        }
+        .keyboardShortcut("f", modifiers: [.command, .option])
     }
     
     // MARK: - Help Menu Commands

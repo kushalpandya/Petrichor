@@ -107,8 +107,8 @@ class MenuBarManager: NSObject {
         guard let statusItem = statusItem else { return }
 
         let menu = NSMenu()
-        menu.autoenablesItems = false  // Prevent automatic state changes
-        menu.minimumWidth = 180  // Set a fixed minimum width
+        menu.autoenablesItems = false
+        menu.minimumWidth = 180
 
         // Play/Pause
         let playPauseItem = NSMenuItem(
@@ -118,6 +118,11 @@ class MenuBarManager: NSObject {
         )
         playPauseItem.target = self
         playPauseItem.isEnabled = true
+        if #available(macOS 26.0, *) {
+            playPauseItem.image = NSImage(systemSymbolName: Icons.playPauseFill, accessibilityDescription: nil)
+            playPauseItem.image?.size = NSSize(width: 16, height: 16)
+            playPauseItem.image?.isTemplate = true
+        }
         menu.addItem(playPauseItem)
 
         // Next
@@ -128,6 +133,11 @@ class MenuBarManager: NSObject {
         )
         nextItem.target = self
         nextItem.isEnabled = true
+        if #available(macOS 26.0, *) {
+            nextItem.image = NSImage(systemSymbolName: Icons.nextFill, accessibilityDescription: nil)
+            nextItem.image?.size = NSSize(width: 16, height: 16)
+            nextItem.image?.isTemplate = true
+        }
         menu.addItem(nextItem)
 
         // Previous
@@ -138,11 +148,16 @@ class MenuBarManager: NSObject {
         )
         previousItem.target = self
         previousItem.isEnabled = true
+        if #available(macOS 26.0, *) {
+            previousItem.image = NSImage(systemSymbolName: Icons.previousFIll, accessibilityDescription: nil)
+            previousItem.image?.size = NSSize(width: 16, height: 16)
+            previousItem.image?.isTemplate = true
+        }
         menu.addItem(previousItem)
 
         menu.addItem(NSMenuItem.separator())
 
-        // Shuffle - no indentation
+        // Shuffle
         let shuffleItem = NSMenuItem(
             title: "Shuffle",
             action: #selector(toggleShuffle),
@@ -151,6 +166,11 @@ class MenuBarManager: NSObject {
         shuffleItem.target = self
         shuffleItem.state = playlistManager.isShuffleEnabled ? .on : .off
         shuffleItem.isEnabled = true
+        if #available(macOS 26.0, *) {
+            shuffleItem.image = NSImage(systemSymbolName: Icons.shuffleFill, accessibilityDescription: nil)
+            shuffleItem.image?.size = NSSize(width: 16, height: 16)
+            shuffleItem.image?.isTemplate = true
+        }
         menu.addItem(shuffleItem)
 
         menu.addItem(NSMenuItem.separator())
@@ -163,6 +183,11 @@ class MenuBarManager: NSObject {
         )
         showWindowItem.target = self
         showWindowItem.isEnabled = true
+        if #available(macOS 26.0, *) {
+            showWindowItem.image = NSImage(systemSymbolName: "eye.fill", accessibilityDescription: nil)
+            showWindowItem.image?.size = NSSize(width: 16, height: 16)
+            showWindowItem.image?.isTemplate = true
+        }
         menu.addItem(showWindowItem)
 
         menu.addItem(NSMenuItem.separator())
@@ -175,6 +200,11 @@ class MenuBarManager: NSObject {
         )
         quitItem.target = self
         quitItem.isEnabled = true
+        if #available(macOS 26.0, *) {
+            quitItem.image = NSImage(systemSymbolName: "power", accessibilityDescription: nil)
+            quitItem.image?.size = NSSize(width: 16, height: 16)
+            quitItem.image?.isTemplate = true
+        }
         menu.addItem(quitItem)
 
         statusItem.menu = menu
