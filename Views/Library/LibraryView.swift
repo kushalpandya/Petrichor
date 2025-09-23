@@ -21,6 +21,7 @@ struct LibraryView: View {
     @State private var isLibrarySearchActive = false
     @State private var isViewReady = false
     @State private var trackTableSortOrder = [KeyPathComparator(\Track.title)]
+    @State private var filterUpdateTask: Task<Void, Never>?
     @Binding var pendingFilter: LibraryFilterRequest?
 
     var body: some View {
@@ -41,16 +42,13 @@ struct LibraryView: View {
                         tracksListView
                     }
                 )
-                .onChange(of: libraryManager.tracks) { _, newTracks in
-                    if let currentItem = selectedFilterItem, currentItem.isAllItem {
-                        selectedFilterItem = LibraryFilterItem.allItem(for: selectedFilterType, totalCount: newTracks.count)
-                    }
+                .onAppear {
+                    processPendingFilter()
                 }
                 .onDisappear {
                     isViewReady = false
                 }
                 .onChange(of: libraryManager.tracks) { _, newTracks in
-                    // Update filter item when tracks change
                     if let currentItem = selectedFilterItem, currentItem.isAllItem {
                         selectedFilterItem = LibraryFilterItem.allItem(for: selectedFilterType, totalCount: newTracks.count)
                     }
@@ -64,28 +62,36 @@ struct LibraryView: View {
                 .onChange(of: libraryManager.totalTrackCount) {
                     updateFilteredTracks()
                 }
-                .onChange(of: pendingFilter) { _, newValue in
-                    if let request = newValue {
-                        pendingFilter = nil
-                        selectedFilterType = request.filterType
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            pendingSearchText = request.value
-                        }
-                    }
+                .onChange(of: pendingFilter) {
+                    processPendingFilter()
                 }
-                .onChange(of: libraryManager.globalSearchText) { _, _ in
-                    isLibrarySearchActive = true
-                    Task {
-                        try? await Task.sleep(nanoseconds: TimeConstants.searchDebounceDuration)
-                        await MainActor.run {
-                            updateFilteredTracks()
-                            isLibrarySearchActive = false
-                        }
-                    }
+                .onChange(of: libraryManager.globalSearchText) {
+                    handleGlobalSearch()
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .libraryDataDidChange)) { _ in
                     updateFilteredTracks()
                 }
+            }
+        }
+    }
+
+    // MARK: - Helper Methods
+
+    private func processPendingFilter() {
+        guard let request = pendingFilter else { return }
+        
+        pendingFilter = nil
+        selectedFilterType = request.filterType
+        pendingSearchText = request.value
+    }
+
+    private func handleGlobalSearch() {
+        isLibrarySearchActive = true
+        Task {
+            try? await Task.sleep(nanoseconds: TimeConstants.searchDebounceDuration)
+            await MainActor.run {
+                updateFilteredTracks()
+                isLibrarySearchActive = false
             }
         }
     }
@@ -185,10 +191,11 @@ struct LibraryView: View {
     // MARK: - Filtering Tracks Helper
 
     private func updateFilteredTracks() {
+        filterUpdateTask?.cancel()
+        
         if !libraryManager.globalSearchText.isEmpty {
             var tracks = libraryManager.searchResults
             
-            // Apply sidebar filter if present
             if let filterItem = selectedFilterItem, !filterItem.isAllItem {
                 tracks = tracks.filter { track in
                     selectedFilterType.trackMatches(track, filterValue: filterItem.name)
@@ -201,11 +208,27 @@ struct LibraryView: View {
                 if filterItem.isAllItem {
                     cachedFilteredTracks = []
                 } else {
-                    // Load tracks for specific filter from database
-                    var tracks = libraryManager.getTracksBy(filterType: selectedFilterType, value: filterItem.name)
-                    // Populate album artwork for the tracks
-                    libraryManager.databaseManager.populateAlbumArtworkForTracks(&tracks)
-                    cachedFilteredTracks = tracks
+                    let filterType = selectedFilterType
+                    let filterValue = filterItem.name
+                    let libManager = libraryManager
+                    
+                    filterUpdateTask = Task {
+                        try? await Task.sleep(nanoseconds: TimeConstants.oneHundredMilliseconds)
+                        
+                        guard !Task.isCancelled else { return }
+                        
+                        let tracks = await Task.detached {
+                            var tracks = libManager.getTracksBy(filterType: filterType, value: filterValue)
+                            libManager.databaseManager.populateAlbumArtworkForTracks(&tracks)
+                            return tracks
+                        }.value
+                        
+                        guard !Task.isCancelled else { return }
+                        
+                        await MainActor.run {
+                            self.cachedFilteredTracks = tracks
+                        }
+                    }
                 }
             } else {
                 cachedFilteredTracks = []

@@ -112,26 +112,21 @@ struct ContentView: View {
                 .allowsHitTesting(selectedTab == .home)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            LibraryView(
-                pendingFilter: $pendingLibraryFilter
-            )
-            .opacity(selectedTab == .library ? 1 : 0)
-            .allowsHitTesting(selectedTab == .library)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if selectedTab == .library {
+                LibraryView(pendingFilter: $pendingLibraryFilter)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
 
-            PlaylistsView()
-                .opacity(selectedTab == .playlists ? 1 : 0)
-                .allowsHitTesting(selectedTab == .playlists)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if selectedTab == .playlists {
+                PlaylistsView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
 
-            if showFoldersTab == true {
+            if selectedTab == .folders && showFoldersTab {
                 FoldersView()
-                    .opacity(selectedTab == .folders ? 1 : 0)
-                    .allowsHitTesting(selectedTab == .folders)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .animation(.none, value: selectedTab)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
