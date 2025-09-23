@@ -48,7 +48,7 @@ struct SettingsView: View {
                 TabbedButtons(
                     items: SettingsTab.allCases,
                     selection: $selectedTab,
-                    style: .compact,
+                    style: tabbedButtonStyle,
                     animation: .transform
                 )
                 .focusable(false)
@@ -74,6 +74,14 @@ struct SettingsView: View {
             if let tab = notification.object as? SettingsTab {
                 selectedTab = tab
             }
+        }
+    }
+    
+    private var tabbedButtonStyle: TabbedButtonStyle {
+        if #available(macOS 26.0, *) {
+            return .moderncompact
+        } else {
+            return .compact
         }
     }
 }

@@ -71,7 +71,7 @@ struct TabbedButtons<Item: TabbedItem>: View {
             ZStack {
                 if style != .modern {
                     // Container background
-                    RoundedRectangle(cornerRadius: 8)
+                    RoundedRectangle(cornerRadius: style == .moderncompact ? 16 : 8)
                         .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
                 }
 
@@ -296,13 +296,26 @@ struct TabbedButtonStyle {
     static let compact = TabbedButtonStyle(
         showIcon: true,
         showTitle: true,
-        iconSize: 12,
-        textSize: 11,
+        iconSize: 11,
+        textSize: 10,
         iconTextSpacing: 4,
-        buttonWidth: 85,
+        buttonWidth: 80,
         verticalPadding: 5,
         contentShapeRadius: 6,
         backgroundViewRadius: 6,
+        expandButtons: false
+    )
+    
+    static let moderncompact = TabbedButtonStyle(
+        showIcon: true,
+        showTitle: true,
+        iconSize: 11,
+        textSize: 10,
+        iconTextSpacing: 4,
+        buttonWidth: 80,
+        verticalPadding: 5,
+        contentShapeRadius: 16,
+        backgroundViewRadius: 16,
         expandButtons: false
     )
 
