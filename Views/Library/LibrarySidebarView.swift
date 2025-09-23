@@ -90,32 +90,24 @@ struct LibrarySidebarView: View {
         }
         .onChange(of: pendingSearchText) { _, newValue in
             if let searchValue = newValue {
-                // Clear the pending search first
                 pendingSearchText = nil
                 
-                // Set the search text to filter the sidebar
-                searchText = searchValue
-                localSearchText = searchValue
+                let allItems = libraryManager.getLibraryFilterItems(for: selectedFilterType)
                 
-                // Update filtered items with the search
-                updateFilteredItems()
-                
-                // Use a small delay to ensure filtered items are updated
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    // Find the exact matching item from ALL items
-                    let allItems = libraryManager.getLibraryFilterItems(for: selectedFilterType)
-                    
-                    if let matchingItem = allItems.first(where: { item in
-                        item.name == searchValue
-                    }) {
-                        // Found exact match - select it
-                        selectedFilterItem = matchingItem
-                        let sidebarItem = LibrarySidebarItem(filterItem: matchingItem)
-                        selectedSidebarItem = sidebarItem
-                        
-                        // Manually trigger the selection to update tracks
-                        handleItemSelection(sidebarItem)
+                let matchingItem = allItems.first { item in
+                    if selectedFilterType.usesMultiArtistParsing {
+                        return ArtistParser.normalizeArtistName(item.name) == ArtistParser.normalizeArtistName(searchValue)
+                    } else {
+                        return item.name == searchValue
                     }
+                }
+                
+                if let item = matchingItem {
+                    searchText = item.name
+                    localSearchText = item.name
+                    selectedFilterItem = item
+                    selectedSidebarItem = LibrarySidebarItem(filterItem: item)
+                    updateFilteredItems()
                 }
             }
         }
