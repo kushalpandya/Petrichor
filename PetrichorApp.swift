@@ -390,25 +390,52 @@ struct PetrichorApp: App {
     }
     
     private func projectHomepageMenuItem() -> some View {
-        Button("Project Homepage") {
+        Button {
             if let url = URL(string: About.appWebsite) {
                 NSWorkspace.shared.open(url)
+            }
+        } label: {
+            if #available(macOS 26.0, *) {
+                Label(
+                    "Project Homepage",
+                    systemImage: "globe"
+                )
+            } else {
+                Text("Project Homepage")
             }
         }
     }
     
     private func sponsorProjectMenuItem() -> some View {
-        Button("Support Development") {
+        Button {
             if let url = URL(string: About.sponsor) {
                 NSWorkspace.shared.open(url)
+            }
+        } label: {
+            if #available(macOS 26.0, *) {
+                Label(
+                    "Support Development",
+                    systemImage: "dollarsign.circle"
+                )
+            } else {
+                Text("Support Development")
             }
         }
     }
     
     private func helpMenuItem() -> some View {
-        Button("Petrichor Help") {
+        Button {
             if let url = URL(string: About.appWiki) {
                 NSWorkspace.shared.open(url)
+            }
+        } label: {
+            if #available(macOS 26.0, *) {
+                Label(
+                    "Petrichor User Guide",
+                    systemImage: "book.pages"
+                )
+            } else {
+                Text("Petrichor User Guide")
             }
         }
         .keyboardShortcut("?", modifiers: .command)
