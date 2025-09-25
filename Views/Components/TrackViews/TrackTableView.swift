@@ -11,7 +11,6 @@ struct TrackTableView: View {
     
     @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var playlistManager: PlaylistManager
-    @StateObject private var columnManager = ColumnVisibilityManager.shared
     
     @State private var selection: Track.ID?
     @State private var sortedTracks: [Track] = []
