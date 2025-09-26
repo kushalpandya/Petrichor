@@ -17,7 +17,15 @@ struct TrackTableView: View {
     @State private var lastSelectionTime: Date = Date()
     @State private var lastSelectedTrackID: Track.ID?
     
-    @State private var columnCustomization = TableColumnCustomization<Track>()
+    @State private var hasInitializedCustomization = false
+    @State private var columnCustomization: TableColumnCustomization<Track> = {
+        if let data = UserDefaults.standard.data(forKey: "trackTableColumnCustomizationData"),
+           !data.isEmpty,
+           let decoded = try? JSONDecoder().decode(TableColumnCustomization<Track>.self, from: data) {
+            return decoded
+        }
+        return TableColumnCustomization<Track>()
+    }()
     
     @AppStorage("trackTableColumnCustomizationData")
     private var columnCustomizationData = Data()
@@ -47,7 +55,11 @@ struct TrackTableView: View {
                 }
             }
             .onChange(of: columnCustomization) { _, newValue in
-                saveColumnCustomization(newValue)
+                if hasInitializedCustomization {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        self.saveColumnCustomization(newValue)
+                    }
+                }
             }
             .onChange(of: sortOrder) { oldValue, newValue in
                 if oldValue != newValue {
@@ -69,7 +81,7 @@ struct TrackTableView: View {
             }
             .onAppear {
                 initializeSortedTracks()
-                restoreColumnCustomization()
+                hasInitializedCustomization = true
             }
             .onReceive(NotificationCenter.default.publisher(for: .playEntityTracks)) { notification in
                 handlePlayEntityNotification(notification)
@@ -97,7 +109,7 @@ struct TrackTableView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .width(min: 20, ideal: 50, max: 100)
+            .width(min: 20)
             .customizationID("trackNumber")
             .defaultVisibility(.hidden)
             
@@ -111,7 +123,7 @@ struct TrackTableView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .width(min: 20, ideal: 50, max: 100)
+            .width(min: 20)
             .customizationID("discNumber")
             .defaultVisibility(.hidden)
             
@@ -127,7 +139,7 @@ struct TrackTableView: View {
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .width(min: 200, ideal: 300)
+            .width(min: 200)
             .customizationID("title")
             .defaultVisibility(.visible)
             
@@ -140,7 +152,7 @@ struct TrackTableView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .width(min: 100, ideal: 200)
+            .width(min: 100)
             .customizationID("artist")
             .defaultVisibility(.visible)
             
@@ -153,7 +165,7 @@ struct TrackTableView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .width(min: 100, ideal: 200)
+            .width(min: 100)
             .customizationID("album")
             .defaultVisibility(.visible)
             
@@ -166,7 +178,7 @@ struct TrackTableView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .width(min: 80, ideal: 120)
+            .width(min: 80)
             .customizationID("genre")
             .defaultVisibility(.hidden)
             
@@ -179,7 +191,7 @@ struct TrackTableView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .width(min: 40, ideal: 60, max: 100)
+            .width(min: 40)
             .customizationID("year")
             .defaultVisibility(.visible)
             
@@ -192,7 +204,7 @@ struct TrackTableView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .width(min: 100, ideal: 150)
+            .width(min: 100)
             .customizationID("composer")
             .defaultVisibility(.hidden)
             
@@ -206,7 +218,7 @@ struct TrackTableView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .width(min: 200, ideal: 300)
+            .width(min: 200)
             .customizationID("filename")
             .defaultVisibility(.hidden)
             
@@ -220,7 +232,7 @@ struct TrackTableView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .width(min: 40, ideal: 60, max: 100)
+            .width(min: 40)
             .customizationID("duration")
             .defaultVisibility(.visible)
         }
@@ -337,19 +349,6 @@ struct TrackTableView: View {
             columnCustomizationData = data
         } catch {
             Logger.warning("Failed to encode TableColumnCustomization: \(error)")
-        }
-    }
-
-    private func restoreColumnCustomization() {
-        guard !columnCustomizationData.isEmpty else { return }
-        do {
-            let decoded = try JSONDecoder().decode(
-                TableColumnCustomization<Track>.self,
-                from: columnCustomizationData
-            )
-            columnCustomization = decoded
-        } catch {
-            Logger.warning("Failed to decode TableColumnCustomization: \(error)")
         }
     }
     
