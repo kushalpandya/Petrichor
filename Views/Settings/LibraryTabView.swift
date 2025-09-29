@@ -212,20 +212,21 @@ struct LibraryTabView: View {
         VStack(spacing: 12) {
             // Action buttons row
             HStack(spacing: 12) {
-                Button(action: { libraryManager.cleanupMissingFolders(notifyUser: true) }) {
+                Button(action: { libraryManager.optimizeDatabase(notifyUser: true) }) {
                     HStack(spacing: 6) {
                         Image(systemName: "sparkles")
                             .font(.system(size: 12, weight: .medium))
-                        Text("Clean Up Missing Folders")
+                        Text("Optimize Library Database")
                             .font(.system(size: 13, weight: .medium))
                     }
                     .foregroundColor(.primary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
                     .frame(maxWidth: .infinity)
+                    .background(Color(NSColor.separatorColor))
+                    .cornerRadius(5)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.regular)
+                .buttonStyle(.plain)
                 .disabled(isLibraryUpdateInProgress)
 
                 Button(action: { showingResetConfirmation = true }) {

@@ -244,6 +244,7 @@ struct PlayerView: View {
                         .animation(.easeInOut(duration: 0.2), value: track.isFavorite)
                 }
                 .buttonStyle(.plain)
+                .focusable(false)
                 .hoverEffect(scale: 1.15)
                 .help(track.isFavorite ? "Remove from Favorites" : "Add to Favorites")
             }

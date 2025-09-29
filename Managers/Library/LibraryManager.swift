@@ -94,7 +94,7 @@ class LibraryManager: ObservableObject {
         
         Task {
             try? await Task.sleep(nanoseconds: TimeConstants.fiftyMilliseconds)
-            cleanupMissingFolders()
+            optimizeDatabase()
             
             await MainActor.run {
                 startFileWatcher()

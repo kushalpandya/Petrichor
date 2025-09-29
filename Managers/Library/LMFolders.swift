@@ -115,7 +115,8 @@ extension LibraryManager {
         }
     }
 
-    func cleanupMissingFolders(notifyUser: Bool = false) {
+    func optimizeDatabase(notifyUser: Bool = false) {
+        let sizeBefore = databaseManager.getDatabaseSize() ?? 0
         var foldersToRemove: [Folder] = []
             
         for folder in folders {
@@ -125,29 +126,16 @@ extension LibraryManager {
         }
         
         if foldersToRemove.isEmpty {
-            Logger.info("No missing folders found during cleanup")
+            Logger.info("No missing folders found during optimization")
             
             if notifyUser {
-                Task {
-                    do {
-                        try await databaseManager.cleanupOrphanedData()
-                        Logger.info("Database cleanup completed")
-                        
-                        await MainActor.run {
-                            refreshEntities()
-                            updateTotalCounts()
-                            NotificationManager.shared.addMessage(.info, "Database cleanup completed")
-                        }
-                    } catch {
-                        Logger.error("Database cleanup failed: \(error)")
-                    }
-                }
+                performDatabaseOptimization(sizeBefore: sizeBefore, context: "optimization")
             }
             return
         }
         
-        Logger.info("Found \(foldersToRemove.count) missing folders to clean up")
-        NotificationManager.shared.startActivity("Cleaning up missing folders...")
+        Logger.info("Found \(foldersToRemove.count) missing folders to optimize")
+        NotificationManager.shared.startActivity("Optimizing database...")
         
         let group = DispatchGroup()
         var removedFolders: [String] = []
@@ -173,7 +161,6 @@ extension LibraryManager {
             
             NotificationManager.shared.stopActivity()
             
-            // Add notifications
             if !removedFolders.isEmpty {
                 let message = removedFolders.count == 1
                     ? "Folder '\(removedFolders[0])' was removed as it no longer exists"
@@ -186,20 +173,7 @@ extension LibraryManager {
                 NotificationManager.shared.addMessage(.error, message)
             }
             
-            Task {
-                do {
-                    try await self.databaseManager.cleanupOrphanedData()
-                    Logger.info("Database cleanup completed after folder cleanup")
-                    
-                    await MainActor.run {
-                        self.refreshEntities()
-                        self.updateTotalCounts()
-                    }
-                } catch {
-                    Logger.error("Database cleanup failed: \(error)")
-                }
-            }
-            
+            self.performDatabaseOptimization(sizeBefore: sizeBefore, context: "optimization after folder cleanup")
             self.refreshLibraryCategories()
             self.loadMusicLibrary()
         }
@@ -230,6 +204,42 @@ extension LibraryManager {
             Logger.info("Successfully refreshed bookmark for \(folder.name)")
         } catch {
             Logger.error("Failed to refresh bookmark for \(folder.name): \(error)")
+        }
+    }
+    
+    // MARK: - Private Helpers
+    
+    private func performDatabaseOptimization(sizeBefore: Int64, context: String) {
+        Task {
+            do {
+                try await databaseManager.cleanupOrphanedData()
+                try await databaseManager.vacuumDatabase()
+                try await databaseManager.analyzeDatabase()
+                
+                // Get database size after optimization and calculate savings
+                let sizeAfter = databaseManager.getDatabaseSize() ?? 0
+                let spaceSaved = max(0, sizeBefore - sizeAfter)
+                
+                Logger.info("Database \(context) completed")
+                
+                await MainActor.run {
+                    refreshEntities()
+                    updateTotalCounts()
+                    
+                    if spaceSaved > 0 {
+                        let savedMB = Double(spaceSaved) / (1024.0 * 1024.0)
+                        NotificationManager.shared.addMessage(.info,
+                            "Database optimization completed - reclaimed \(String(format: "%.1f", savedMB)) MB")
+                    } else {
+                        NotificationManager.shared.addMessage(.info, "Database optimization completed")
+                    }
+                }
+            } catch {
+                Logger.error("Database \(context) failed: \(error)")
+                await MainActor.run {
+                    NotificationManager.shared.addMessage(.error, "Database optimization failed")
+                }
+            }
         }
     }
 }
