@@ -215,20 +215,20 @@ struct ContentView: View {
         }
         
         ToolbarItem(placement: .confirmationAction) {
+            NotificationTray()
+                .frame(width: 34, height: 30)
+        }
+        .sharedBackgroundVisibility(.hidden)
+
+        ToolbarItem(placement: .confirmationAction) {
             SearchInputField(
                 text: $libraryManager.globalSearchText,
                 placeholder: "Search",
                 fontSize: 12,
-                width: 220,
                 shouldFocus: shouldFocusSearch
             )
             .frame(width: 280)
             .disabled(libraryManager.folders.isEmpty)
-        }
-        
-        ToolbarItem(placement: .confirmationAction) {
-            NotificationTray()
-                .frame(width: 34, height: 30)
         }
     }
     
