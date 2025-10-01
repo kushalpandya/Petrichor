@@ -22,7 +22,7 @@ on:
   workflow_dispatch:
 
 env:
-  XCODE_VERSION: '16.3'
+  XCODE_VERSION: '26.0'
   SCHEME: 'Petrichor'
   PROJECT: 'Petrichor.xcodeproj'
 
@@ -30,7 +30,7 @@ jobs:
   # Job 1: Code Quality & Linting
   lint:
     name: Swift Lint & Format Check
-    runs-on: macos-15
+    runs-on: macos-26
     
     steps:
       - name: Checkout
@@ -95,7 +95,7 @@ jobs:
   # Job 2: Build and Analyze
   build-analyze:
     name: Build & Static Analysis
-    runs-on: macos-15
+    runs-on: macos-26
     needs: lint
     strategy:
       matrix:
