@@ -5,6 +5,44 @@
         <description>Updates for Petrichor</description>
         <language>en</language>
         <item>
+            <title>Version 1.1.1</title>
+            <pubDate>Thu, 02 Oct 2025 17:11:03 -0400</pubDate>
+            <sparkle:version>111</sparkle:version>
+            <sparkle:shortVersionString>1.1.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.1.1/Petrichor-1.1.1-Universal.dmg"
+                sparkle:edSignature="/vIV+LCFv3GbzQd/L73GnLxQWxsoAt0GWjQHy+YvWuc7Uvu+wc3XGCt7KG9PvN9lkg5/jIZilhDnChZZ4/rbDw=="
+                length="14400767"
+                type="application/octet-stream"
+            />
+            <description><![CDATA[
+                <h2>Features</h2>
+                <ul>
+                    <li>Show album artist in albums view, add sorting by year support (#98)</li>
+                    <li>Make settings tab buttons adaptive based on macOS version</li>
+                    <li>Use AVAudioEngine-based audio playback system</li>
+                    <li>Add database optimization user action in settings</li>
+                    <li>Add Help menu item icons in macOS Tahoe</li>
+                </ul>
+                <h2>Fixes</h2>
+                <ul>
+                    <li>Load app tabs only on select to prevent full library load on launch</li>
+                    <li>Fix Go to feature to handle special characters in entity name</li>
+                    <li>Make table customization storage/restoration to be reliable (#97)</li>
+                    <li>Fix notification tray positioning in macOS Tahoe</li>
+                    <li>Update player state restore logging, refine settings UI</li>
+                </ul>
+                <h2>Others</h2>
+                <ul>
+                    <li>Upgrade GRDB</li>
+                    <li>Remove unused NSTableView-based Table</li>
+                    <li>Update GitHub Actions config to use macOS Tahoe</li>
+                </ul>
+                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.1.0...v1.1.1">Full Changelog</a></p>
+            ]]></description>
+        </item>
+        <item>
             <title>Version 1.1.0</title>
             <pubDate>Thu, 18 Sep 2025 17:07:32 -0400</pubDate>
             <sparkle:version>110</sparkle:version>
