@@ -21,7 +21,12 @@
 *.log
 
 # Project directories
+.github/
 build/
+DerivedData/
+Views/
+Resources/
+Models/
 Petrichor.xcodeproj/
 
 # Build artifacts
