@@ -451,7 +451,7 @@ extension PlaybackManager: AudioPlayerDelegate {
             }
             
             if newState == .playing || newState == .paused || newState == .stopped || newState == .error {
-                Logger.info("Player state: \(newState)")
+                Logger.info("Player state transition: \(previous) → \(newState)")
             }
         }
     }

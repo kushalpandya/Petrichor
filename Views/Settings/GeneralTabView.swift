@@ -127,7 +127,7 @@ struct GeneralTabView: View {
                             .foregroundColor(.primary)
                         Stepper("", value: $discoverTrackCount, in: 1...200, step: 1)
                             .labelsHidden()
-                            .fixedSize()
+                            .controlSize(.mini)
                     }
                     .help("Number of tracks to show in Discover (1-200)")
                 }
