@@ -1,5 +1,11 @@
 import SwiftUI
 
+enum AlbumSortOption: String, Codable {
+    case album
+    case artist
+    case year
+}
+
 struct HomeView: View {
     @EnvironmentObject var libraryManager: LibraryManager
     @EnvironmentObject var playbackManager: PlaybackManager
@@ -8,8 +14,8 @@ struct HomeView: View {
     @AppStorage("entitySortAscending")
     private var entitySortAscending: Bool = true
 
-    @AppStorage("albumSortByArtist")
-    private var albumSortByArtist: Bool = false
+    @AppStorage("albumSortBy")
+    private var albumSortBy: AlbumSortOption = .album
     
     @AppStorage("trackTableRowSize")
     private var trackTableRowSize: TableRowSize = .expanded
@@ -302,39 +308,51 @@ struct HomeView: View {
                 trackCount: libraryManager.albumEntities.count
             ) {
                 Menu {
-                    Toggle("Album", isOn: Binding(
-                        get: { !albumSortByArtist },
-                        set: { _ in
-                            albumSortByArtist = false
-                            sortAlbumEntities()
-                        }
-                    ))
+                    Section("Sort by") {
+                        Toggle("Album", isOn: Binding(
+                            get: { albumSortBy == .album },
+                            set: { _ in
+                                albumSortBy = .album
+                                sortAlbumEntities()
+                            }
+                        ))
 
-                    Toggle("Album artist", isOn: Binding(
-                        get: { albumSortByArtist },
-                        set: { _ in
-                            albumSortByArtist = true
-                            sortAlbumEntities()
-                        }
-                    ))
+                        Toggle("Album artist", isOn: Binding(
+                            get: { albumSortBy == .artist },
+                            set: { _ in
+                                albumSortBy = .artist
+                                sortAlbumEntities()
+                            }
+                        ))
+                        
+                        Toggle("Year", isOn: Binding(
+                            get: { albumSortBy == .year },
+                            set: { _ in
+                                albumSortBy = .year
+                                sortAlbumEntities()
+                            }
+                        ))
+                    }
 
                     Divider()
 
-                    Toggle("Ascending", isOn: Binding(
-                        get: { entitySortAscending },
-                        set: { _ in
-                            entitySortAscending = true
-                            sortAlbumEntities()
-                        }
-                    ))
-
-                    Toggle("Descending", isOn: Binding(
-                        get: { !entitySortAscending },
-                        set: { _ in
-                            entitySortAscending = false
-                            sortAlbumEntities()
-                        }
-                    ))
+                    Section("Sort order") {
+                        Toggle("Ascending", isOn: Binding(
+                            get: { entitySortAscending },
+                            set: { _ in
+                                entitySortAscending = true
+                                sortAlbumEntities()
+                            }
+                        ))
+                        
+                        Toggle("Descending", isOn: Binding(
+                            get: { !entitySortAscending },
+                            set: { _ in
+                                entitySortAscending = false
+                                sortAlbumEntities()
+                            }
+                        ))
+                    }
                 } label: {
                     Image(systemName: "line.3.horizontal.decrease")
                         .font(.system(size: 14))
@@ -377,7 +395,7 @@ struct HomeView: View {
                 sortAlbumEntities()
             }
         }
-        .onChange(of: albumSortByArtist) {
+        .onChange(of: albumSortBy) {
             sortAlbumEntities()
         }
     }
@@ -502,7 +520,13 @@ struct HomeView: View {
     private func sortAlbumEntities() {
         let albums = libraryManager.albumEntities
 
-        if albumSortByArtist {
+        switch albumSortBy {
+        case .album:
+            sortedAlbumEntities = entitySortAscending
+            ? albums.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            : albums.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedDescending }
+            
+        case .artist:
             sortedAlbumEntities = albums.sorted { a, b in
                 let artist1 = a.artistName ?? ""
                 let artist2 = b.artistName ?? ""
@@ -521,10 +545,26 @@ struct HomeView: View {
                 ? artistComparison == .orderedAscending
                 : artistComparison == .orderedDescending
             }
-        } else {
-            sortedAlbumEntities = entitySortAscending
-            ? albums.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-            : albums.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedDescending }
+            
+        case .year:
+            sortedAlbumEntities = albums.sorted { a, b in
+                let year1 = a.year ?? ""
+                let year2 = b.year ?? ""
+
+                let yearComparison = year1.compare(year2)
+
+                if yearComparison == .orderedSame {
+                    // Same year, compare album titles
+                    let albumComparison = a.name.localizedCaseInsensitiveCompare(b.name)
+                    return entitySortAscending
+                    ? albumComparison == .orderedAscending
+                    : albumComparison == .orderedDescending
+                }
+
+                return entitySortAscending
+                ? yearComparison == .orderedAscending
+                : yearComparison == .orderedDescending
+            }
         }
 
         lastAlbumCount = sortedAlbumEntities.count

@@ -69,15 +69,9 @@ extension DatabaseManager {
                         albums.artwork_data,
                         albums.release_year,
                         COALESCE(SUM(tracks.duration), 0) as totalDuration,
-                        primaryArtist.name as artistName
+                        MAX(tracks.album_artist) as artistName
                     FROM albums
                     LEFT JOIN tracks ON albums.id = tracks.album_id AND tracks.is_duplicate = 0
-                    LEFT JOIN (
-                        SELECT aa.album_id, a.name
-                        FROM album_artists aa
-                        INNER JOIN artists a ON aa.artist_id = a.id
-                        WHERE aa.role = 'primary' AND aa.position = 0
-                    ) primaryArtist ON albums.id = primaryArtist.album_id
                     WHERE albums.total_tracks > 0
                     GROUP BY albums.id
                     ORDER BY albums.sort_title

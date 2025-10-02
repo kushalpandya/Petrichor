@@ -210,12 +210,30 @@ private struct EntityGridItem<T: Entity>: View {
                     .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
                     .foregroundColor(.primary)
+                    .help(entity.name)
 
-                if let subtitle = entity.subtitle {
+                if let albumEntity = entity as? AlbumEntity {
+                    if let artistName = albumEntity.artistName {
+                        Text(artistName)
+                            .font(.system(size: 11))
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+                            .help(artistName)
+                    }
+                    
+                    if let year = albumEntity.year {
+                        Text(year)
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                            .help(year)
+                    }
+                } else if let subtitle = entity.subtitle {
                     Text(subtitle)
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                         .lineLimit(1)
+                        .help(subtitle)
                 }
 
                 if entity is AlbumEntity {
