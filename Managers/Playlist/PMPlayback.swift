@@ -177,8 +177,13 @@ extension PlaylistManager {
                 audioPlayer.playTrack(currentQueue[currentQueueIndex])
             }
         case .all, .off:
-            Logger.info("Track completed, playing next track")
-            playNextTrack()
+            let nextIndex = currentQueueIndex + 1
+            if nextIndex < currentQueue.count {
+                Logger.info("Track completed, playing next track")
+                playNextTrack()
+            } else {
+                Logger.info("Track completed, queue finished")
+            }
         }
     }
 

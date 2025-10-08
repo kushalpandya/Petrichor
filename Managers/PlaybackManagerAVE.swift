@@ -198,9 +198,9 @@ class PlaybackManager: NSObject, ObservableObject {
                 }
             } else {
                 audioPlayer.resume()
+                startPlaybackProgressTimer()
+                startStateSaveTimer()
             }
-            startPlaybackProgressTimer()
-            startStateSaveTimer()
         }
     }
     
@@ -364,6 +364,7 @@ class PlaybackManager: NSObject, ObservableObject {
     private func stopPlaybackProgressTimer() {
         playbackProgressTimer?.invalidate()
         playbackProgressTimer = nil
+        Logger.info("Playback progress timer stopped")
     }
     
     private func startStateSaveTimer() {
@@ -387,6 +388,7 @@ class PlaybackManager: NSObject, ObservableObject {
     private func stopStateSaveTimer() {
         stateSaveTimer?.invalidate()
         stateSaveTimer = nil
+        Logger.info("Playback state save timer stopped")
     }
     
     private func restartPlayback(from fullTrack: FullTrack) {
@@ -394,13 +396,22 @@ class PlaybackManager: NSObject, ObservableObject {
         
         audioPlayer.play(url: fullTrack.url, startPaused: true)
         
-        if targetPosition > 0 {
-            audioPlayer.seek(to: targetPosition)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            guard let self = self else { return }
+            
+            if targetPosition > 0 {
+                self.audioPlayer.seek(to: targetPosition)
+            }
+            
+            self.audioPlayer.resume()
+            
+            self.startPlaybackProgressTimer()
+            self.startStateSaveTimer()
+            
+            self.restoredPosition = 0
+            
+            Logger.info("Restarted playback from position: \(targetPosition)")
         }
-        
-        audioPlayer.resume()
-        
-        restoredPosition = 0
     }
 }
 
@@ -480,10 +491,21 @@ extension PlaybackManager: AudioPlayerDelegate {
             
             switch stopReason {
             case .eof:
+                self.currentTime = 0
                 if self.gaplessPlayback {
                     self.playlistManager.playNextTrack()
                 } else {
                     self.playlistManager.handleTrackCompletion()
+                    if !self.isPlaying {
+                        self.stopPlaybackProgressTimer()
+                        self.stopStateSaveTimer()
+                        
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("SavePlaybackState"),
+                            object: nil,
+                            userInfo: ["calledFromStateTimer": false]
+                        )
+                    }
                 }
             case .error:
                 NotificationManager.shared.addMessage(.error, "Playback error occurred")

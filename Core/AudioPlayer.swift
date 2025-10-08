@@ -510,6 +510,7 @@ public class AudioPlayer {
             guard let self = self else { return }
             
             self.state = .stopped
+            self.savedSeekPosition = 0
             
             if let entryId = entryId {
                 self.delegate?.audioPlayerDidFinishPlaying(
