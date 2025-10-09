@@ -691,14 +691,14 @@ public class AudioPlayer {
         isHibernating = false
         
         do {
-            if !engine.isRunning {
-                try engine.start()
-            }
-            
             let file = try AVAudioFile(forReading: url)
             audioFile = file
             
             reconnectPlayerNodeIfNeeded(format: file.processingFormat)
+            
+            if !engine.isRunning {
+                try engine.start()
+            }
             
             let sampleRate = file.processingFormat.sampleRate
             let framePosition = AVAudioFramePosition(savedSeekPosition * sampleRate)
