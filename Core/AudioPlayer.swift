@@ -238,6 +238,8 @@ public class AudioPlayer {
     private var audioFile: AVAudioFile?
     private var currentEntryId: AudioEntryId?
     private var currentURL: URL?
+    private var remainingChunksToSchedule: Int = 0
+    private let initialChunksToSchedule = 3
     
     // Seeking support
     private var targetSeekTime: Double?
@@ -473,30 +475,120 @@ public class AudioPlayer {
     
     private func scheduleFile(_ file: AVAudioFile, at framePosition: AVAudioFramePosition?) {
         let startFrame = framePosition ?? 0
-        let frameCount = AVAudioFrameCount(file.length - startFrame)
+        let totalFrames = file.length - startFrame
         
-        guard frameCount > 0 else { return }
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: frameCount) else {
-            return
+        guard totalFrames > 0 else { return }
+        
+        let chunkDurationSeconds: Double = 120 // 2 minutes
+        let sampleRate = file.processingFormat.sampleRate
+        let chunkSize = AVAudioFrameCount(chunkDurationSeconds * sampleRate)
+        
+        // Calculate total number of chunks needed
+        let totalChunks = Int(ceil(Double(totalFrames) / Double(chunkSize)))
+                
+        // For very short files (< 2 minutes), we only have 1 chunk
+        let chunksToScheduleNow = min(initialChunksToSchedule, totalChunks)
+        remainingChunksToSchedule = totalChunks - chunksToScheduleNow
+        
+        var currentFrame = startFrame
+        let endFrame = startFrame + totalFrames
+        
+        // Schedule initial chunks
+        for chunkIndex in 0..<chunksToScheduleNow {
+            let remainingFrames = endFrame - currentFrame
+            let framesToSchedule = min(AVAudioFrameCount(remainingFrames), chunkSize)
+            
+            guard let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: framesToSchedule) else {
+                Logger.error("Failed to create chunk buffer with capacity: \(framesToSchedule)")
+                delegate?.audioPlayerUnexpectedError(player: self, error: .invalidFormat)
+                return
+            }
+            
+            do {
+                file.framePosition = currentFrame
+                try file.read(into: buffer)
+                
+                if chunkIndex == 0 {
+                    bufferStartTime = Double(startFrame) / sampleRate
+                    savedSeekPosition = bufferStartTime
+                }
+                
+                let isLastChunkOverall = remainingChunksToSchedule == 0 && chunkIndex == chunksToScheduleNow - 1
+                
+                let options: AVAudioPlayerNodeBufferOptions = chunkIndex == 0 ? .interrupts : []
+                
+                if isLastChunkOverall {
+                    playerNode.scheduleBuffer(buffer, at: nil, options: options) { [weak self] in
+                        self?.handleBufferCompletion()
+                    }
+                } else if chunkIndex == chunksToScheduleNow - 1 {
+                    let nextFrame = currentFrame + AVAudioFramePosition(framesToSchedule)
+                    playerNode.scheduleBuffer(buffer, at: nil, options: options) { [weak self] in
+                        self?.scheduleNextChunk(file: file, startFrame: nextFrame, chunkSize: chunkSize, endFrame: endFrame)
+                    }
+                } else {
+                    playerNode.scheduleBuffer(buffer, at: nil, options: options)
+                }
+                
+                currentFrame += AVAudioFramePosition(framesToSchedule)
+                
+            } catch {
+                Logger.error("Failed to read chunk at frame \(currentFrame): \(error)")
+                delegate?.audioPlayerUnexpectedError(player: self, error: .engineError(error))
+                return
+            }
         }
         
-        do {
-            if let startFrame = framePosition {
+        if totalChunks > 1 {
+            Logger.info("Scheduled \(chunksToScheduleNow) initial chunks, \(remainingChunksToSchedule) remaining")
+        }
+    }
+
+    private func scheduleNextChunk(
+        file: AVAudioFile,
+        startFrame: AVAudioFramePosition,
+        chunkSize: AVAudioFrameCount,
+        endFrame: AVAudioFramePosition
+    ) {
+        guard remainingChunksToSchedule > 0 else { return }
+        
+        let remainingFrames = endFrame - startFrame
+        guard remainingFrames > 0 else { return }
+        
+        let framesToSchedule = min(AVAudioFrameCount(remainingFrames), chunkSize)
+        
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            
+            guard let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: framesToSchedule) else {
+                Logger.error("Failed to create next chunk buffer")
+                return
+            }
+            
+            do {
                 file.framePosition = startFrame
-                let sampleRate = file.processingFormat.sampleRate
-                bufferStartTime = Double(startFrame) / sampleRate
-                savedSeekPosition = bufferStartTime
-            } else {
-                bufferStartTime = 0.0
+                try file.read(into: buffer)
+                
+                DispatchQueue.main.async {
+                    guard self.playerNode.engine != nil else { return }
+                    
+                    self.remainingChunksToSchedule -= 1
+                    
+                    if self.remainingChunksToSchedule == 0 {
+                        self.playerNode.scheduleBuffer(buffer, at: nil, options: []) { [weak self] in
+                            self?.handleBufferCompletion()
+                        }
+                    } else {
+                        let nextFrame = startFrame + AVAudioFramePosition(framesToSchedule)
+                        self.playerNode.scheduleBuffer(buffer, at: nil, options: []) { [weak self] in
+                            self?.scheduleNextChunk(file: file, startFrame: nextFrame, chunkSize: chunkSize, endFrame: endFrame)
+                        }
+                    }
+                }
+                
+            } catch {
+                Logger.error("Failed to read next chunk: \(error)")
             }
-            
-            try file.read(into: buffer)
-            
-            playerNode.scheduleBuffer(buffer, at: nil, options: .interrupts) { [weak self] in
-                self?.handleBufferCompletion()
-            }
-        } catch {
-            delegate?.audioPlayerUnexpectedError(player: self, error: .engineError(error))
         }
     }
     
@@ -564,6 +656,7 @@ public class AudioPlayer {
         engine.stop()
         audioFile = nil
         state = .disposed
+        remainingChunksToSchedule = 0
     }
     
     // MARK: - Hibernation Management
