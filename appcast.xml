@@ -5,6 +5,34 @@
         <description>Updates for Petrichor</description>
         <language>en</language>
         <item>
+            <title>Version 1.1.2</title>
+            <pubDate>Thu, 09 Oct 2025 20:24:03 -0400</pubDate>
+            <sparkle:version>112</sparkle:version>
+            <sparkle:shortVersionString>1.1.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.1.2/Petrichor-1.1.2-Universal.dmg"
+                sparkle:edSignature="WXDUCRQ/X6i4a0HxNXGhQNiht3PgIrEZe3KNz7p9uK8P7/rFZNj6WhVGoWxqkz4LPq3bYCyh350LQ+oDKZqKCg=="
+                length="14430354"
+                type="application/octet-stream"
+            />
+            <description><![CDATA[
+                <h2>Fixes</h2>
+                <h4>This is an important bugfix release that addresses app crashing in certain situations.</h4>
+                <ul>
+                    <li>Handle tracks queue completion gracefully to prevent crashes (#107)</li>
+                    <li>Load track data in chunks instead of full load to prevent memory overload (#108)</li>
+                    <li>Restore player from hibernation correctly to prevent AV Engine crash (#107)</li>
+                    <li>Show artist in Albums view when album artist is missing (#98)</li>
+                </ul>
+                <h2>Others</h2>
+                <ul>
+                    <li>Upgrade GRDB to 7.8.0</li>
+                </ul>
+                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.1.1...v1.1.2">Full Changelog</a></p>
+            ]]></description>
+        </item>
+        <item>
             <title>Version 1.1.1</title>
             <pubDate>Thu, 02 Oct 2025 17:11:03 -0400</pubDate>
             <sparkle:version>111</sparkle:version>
