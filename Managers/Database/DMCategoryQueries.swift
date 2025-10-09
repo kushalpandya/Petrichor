@@ -69,7 +69,7 @@ extension DatabaseManager {
                         albums.artwork_data,
                         albums.release_year,
                         COALESCE(SUM(tracks.duration), 0) as totalDuration,
-                        MAX(tracks.album_artist) as artistName
+                        COALESCE(NULLIF(MAX(tracks.album_artist), ''), MAX(tracks.artist)) as artistName
                     FROM albums
                     LEFT JOIN tracks ON albums.id = tracks.album_id AND tracks.is_duplicate = 0
                     WHERE albums.total_tracks > 0

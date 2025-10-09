@@ -171,7 +171,8 @@ private class RenderedImageCache {
     }
 }
 
-// MARK: - Simplified Grid Item
+// MARK: - Grid Item for Album and Artist views
+
 private struct EntityGridItem<T: Entity>: View {
     let entity: T
     let isHovered: Bool
