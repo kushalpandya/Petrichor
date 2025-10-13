@@ -429,8 +429,7 @@ class MetadataExtractor {
 
             // Strict match for known valid track number fields
             let validTrackKeys = ["tracknumber", "trck", "trkn", "track"]
-            let invalidTrackKeys = ["tracktotal", "totaltracks", "trackc", "totaltrackcount"]
-
+    
             if validTrackKeys.contains(where: { keyLower == $0 }) {
                 let (track, total) = parseNumbering(value)
                 metadata.trackNumber = track.flatMap { Int($0) }
