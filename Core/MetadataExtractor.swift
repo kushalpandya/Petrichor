@@ -425,12 +425,11 @@ class MetadataExtractor {
         
         // Track Number - Add special handling for simple "track" key
         if metadata.trackNumber == nil {
-            let keyLower = keyString.lowercased()
-
-            // Strict match for known valid track number fields
-            let validTrackKeys = ["tracknumber", "trck", "trkn", "track"]
-    
-            if validTrackKeys.contains(where: { keyLower == $0 }) {
+            let validTrackKeys: Set<String> = ["tracknumber", "trck", "trkn", "track"]
+            let isTrackField = isKeyOfType(.trackNumber, keyString, identifier, commonKey) ||
+                validTrackKeys.contains(keyString.lowercased())
+            
+            if isTrackField {
                 let (track, total) = parseNumbering(value)
                 metadata.trackNumber = track.flatMap { Int($0) }
                 metadata.totalTracks = total.flatMap { Int($0) }
