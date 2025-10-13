@@ -546,6 +546,11 @@ class MetadataExtractor {
         }
         
         // For some fields, also check if any part contains our search terms
+        // But skip this for fields that should use exact matching only
+        if type == .trackNumber || type == .discNumber {
+            return false
+        }
+
         let combined = (key + identifier + commonKey).lowercased()
         
         // Check search terms
