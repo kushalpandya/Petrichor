@@ -49,16 +49,19 @@ struct PlayerView: View {
         .onChange(of: playbackManager.isPlaying) { _, isPlaying in
             // Only start timer if scene is active
             if isPlaying && scenePhase == .active {
+                syncDisplayTime()
                 startUITimer()
             } else {
                 stopUITimer()
             }
         }
         .onChange(of: playbackManager.currentTrack) { _, _ in
-            syncDisplayTime()
+            playbackStartTime = Date()
+            playbackStartOffset = 0
+            displayTime = 0
             // Only start timer if scene is active
             if playbackManager.isPlaying && scenePhase == .active {
-                startUITimer()
+                startUITimer(resetValues: false)
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("PlayerDidSeek"))) { notification in
@@ -95,17 +98,17 @@ struct PlayerView: View {
     
     // MARK: - UI Timer Management
     
-    private func startUITimer() {
+    private func startUITimer(resetValues: Bool = true) {
         guard scenePhase == .active else { return }
 
         stopUITimer()
         
-        // Capture the current playback position
-        playbackStartTime = Date()
-        playbackStartOffset = playbackManager.actualCurrentTime
-        displayTime = playbackStartOffset
+        if resetValues {
+            playbackStartTime = Date()
+            playbackStartOffset = playbackManager.actualCurrentTime
+            displayTime = playbackStartOffset
+        }
         
-        // Create a timer that updates the UI every second
         uiTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
             updateDisplayTime()
         }
@@ -115,7 +118,6 @@ struct PlayerView: View {
     private func stopUITimer() {
         uiTimer?.invalidate()
         uiTimer = nil
-        syncDisplayTime()
     }
     
     private func updateDisplayTime() {
