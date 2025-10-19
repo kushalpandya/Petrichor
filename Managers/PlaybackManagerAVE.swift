@@ -187,11 +187,22 @@ class PlaybackManager: NSObject, ObservableObject {
     }
     
     func togglePlayPause() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in
+                self?.togglePlayPause()
+            }
+            return
+        }
+        
         if isPlaying {
+            isPlaying = false
             audioPlayer.pause()
             stopPlaybackProgressTimer()
             stopStateSaveTimer()
+            updateNowPlayingInfo()
         } else {
+            isPlaying = true
+            
             if currentFullTrack != nil && (audioPlayer.state == .ready || audioPlayer.state == .stopped) {
                 if let fullTrack = currentFullTrack {
                     restartPlayback(from: fullTrack)
@@ -200,6 +211,7 @@ class PlaybackManager: NSObject, ObservableObject {
                 audioPlayer.resume()
                 startPlaybackProgressTimer()
                 startStateSaveTimer()
+                updateNowPlayingInfo()
             }
         }
     }

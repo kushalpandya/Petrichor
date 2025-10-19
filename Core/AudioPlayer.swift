@@ -229,12 +229,15 @@ public class AudioPlayer {
     
     // MARK: - Private Properties
     
-    private let engine: AVAudioEngine
-    private let playerNode: AVAudioPlayerNode
-    private let mainMixer: AVAudioMixerNode
-    private let eqNode: AVAudioUnitEQ
-    private let delayNode: AVAudioUnitDelay
-    
+    private var engine: AVAudioEngine
+    private var playerNode: AVAudioPlayerNode
+    private var mainMixer: AVAudioMixerNode
+    private var eqNode: AVAudioUnitEQ
+    private var delayNode: AVAudioUnitDelay
+    private var currentConnectionFormat: AVAudioFormat?
+    private var configurationChangeObserver: NSObjectProtocol?
+    private var isGraphConnected = false
+
     private var audioFile: AVAudioFile?
     private var currentEntryId: AudioEntryId?
     private var currentURL: URL?
@@ -267,9 +270,14 @@ public class AudioPlayer {
         self.monitoringQueue = DispatchQueue(label: "org.Petrichor.audioplayer.monitoring", qos: .userInitiated)
         
         setupAudioEngine()
+        setupConfigurationChangeObserver()
     }
     
     deinit {
+        if let observer = configurationChangeObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+
         cleanup()
     }
     
@@ -282,11 +290,7 @@ public class AudioPlayer {
         
         setupStereoWidening()
         setStereoWidening(enabled: false)
-        
-        engine.connect(playerNode, to: delayNode, format: nil)
-        engine.connect(delayNode, to: eqNode, format: nil)
-        engine.connect(eqNode, to: mainMixer, format: nil)
-        
+                
         applyEQ(preset: "flat")
         
         do {
@@ -295,6 +299,40 @@ public class AudioPlayer {
         } catch {
             state = .error
             delegate?.audioPlayerUnexpectedError(player: self, error: .engineError(error))
+        }
+    }
+    
+    /// Recreate the entire audio engine
+    private func recreateAudioEngine() {
+        Logger.info("Recreating audio engine")
+        
+        playerNode.stop()
+        engine.stop()
+        
+        engine = AVAudioEngine()
+        playerNode = AVAudioPlayerNode()
+        mainMixer = engine.mainMixerNode
+        eqNode = AVAudioUnitEQ(numberOfBands: 10)
+        delayNode = AVAudioUnitDelay()
+        
+        isGraphConnected = false
+        currentConnectionFormat = nil
+        
+        setupAudioEngine()
+        
+        if let observer = configurationChangeObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        setupConfigurationChangeObserver()
+    }
+    
+    private func setupConfigurationChangeObserver() {
+        configurationChangeObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange,
+            object: engine,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleConfigurationChange()
         }
     }
     
@@ -473,14 +511,61 @@ public class AudioPlayer {
     
     // MARK: - Private Methods
     
+    private func handleConfigurationChange() {
+        Logger.info("Audio configuration changed (output device or sample rate)")
+        
+        // Only handle if we're currently playing or paused
+        guard state == .playing || state == .paused else {
+            Logger.info("Not playing, ignoring configuration change")
+            return
+        }
+        
+        guard let audioFile = audioFile, let url = currentURL else {
+            Logger.error("No audio file loaded during configuration change")
+            return
+        }
+        
+        let wasPlaying = (state == .playing)
+        let currentPosition = progress
+        
+        Logger.info("Handling configuration change at position: \(currentPosition)s")
+        
+        recreateAudioEngine()
+        reconnectPlayerNodeIfNeeded(format: audioFile.processingFormat)
+        
+        // Schedule from saved position
+        let sampleRate = audioFile.processingFormat.sampleRate
+        let framePosition = AVAudioFramePosition(currentPosition * sampleRate)
+        scheduleFile(audioFile, at: framePosition)
+        
+        if wasPlaying {
+            playerNode.play()
+            state = .playing
+            startCompletionMonitoring()
+        } else {
+            state = .paused
+        }
+        
+        Logger.info("Successfully handled configuration change")
+    }
+    
     private func scheduleFile(_ file: AVAudioFile, at framePosition: AVAudioFramePosition?) {
         let startFrame = framePosition ?? 0
         let totalFrames = file.length - startFrame
         
         guard totalFrames > 0 else { return }
         
-        let chunkDurationSeconds: Double = 120 // 2 minutes
         let sampleRate = file.processingFormat.sampleRate
+        let chunkDurationSeconds: Double
+
+        if sampleRate >= 88200 {
+            chunkDurationSeconds = 30 // 30 seconds, hi-res lossless
+        } else if sampleRate >= 48000 {
+            chunkDurationSeconds = 60 // 60 seconds, lossless
+        } else {
+            chunkDurationSeconds = 120 // 120 seconds, lossy
+        }
+        
         let chunkSize = AVAudioFrameCount(chunkDurationSeconds * sampleRate)
         
         // Calculate total number of chunks needed
@@ -617,19 +702,37 @@ public class AudioPlayer {
     }
     
     private func reconnectPlayerNodeIfNeeded(format: AVAudioFormat) {
-        let currentFormat = engine.outputNode.inputFormat(forBus: 0)
-        if currentFormat.sampleRate == format.sampleRate,
-           currentFormat.channelCount == format.channelCount {
+        let needsReconnection: Bool
+        
+        if !isGraphConnected {
+            needsReconnection = true
+        } else if let currentFormat = currentConnectionFormat {
+            // Check if format changed significantly
+            needsReconnection = currentFormat.sampleRate != format.sampleRate ||
+                               currentFormat.channelCount != format.channelCount
+        } else {
+            needsReconnection = true
+        }
+        
+        guard needsReconnection else {
             return
         }
         
-        engine.disconnectNodeInput(playerNode)
-        engine.disconnectNodeInput(delayNode)
-        engine.disconnectNodeInput(eqNode)
+        // If format changed, recreate the entire engine
+        if isGraphConnected {
+            Logger.info("Format change detected: From \(currentConnectionFormat?.sampleRate ?? 0)Hz to \(format.sampleRate)Hz")
+            recreateAudioEngine()
+        }
+        
+        // Connect with the file's format
+        Logger.info("Connecting audio graph with format: \(format.sampleRate)Hz, \(format.channelCount)ch")
         
         engine.connect(playerNode, to: delayNode, format: format)
         engine.connect(delayNode, to: eqNode, format: format)
         engine.connect(eqNode, to: mainMixer, format: format)
+        
+        isGraphConnected = true
+        currentConnectionFormat = format
     }
     
     private func startCompletionMonitoring() {
