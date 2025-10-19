@@ -155,6 +155,18 @@ class PlaybackManager: NSObject, ObservableObject {
     
     func playTrack(_ track: Track) {
         restoredUITrack = nil
+        
+        guard FileManager.default.fileExists(atPath: track.url.path) else {
+            Logger.warning("Track file does not exist: \(track.url.path)")
+            NotificationManager.shared.addMessage(.error, "Cannot play '\(track.title)': File not found")
+            
+            // Auto-skip to next track if in queue
+            if playlistManager.currentQueue.count > 1 {
+                Logger.info("File not found, skipping to next track in queue")
+                playlistManager.playNextTrack()
+            }
+            return
+        }
                 
         Task {
             do {
@@ -537,10 +549,30 @@ extension PlaybackManager: AudioPlayerDelegate {
     func audioPlayerUnexpectedError(player: AudioPlayer, error: AudioPlayerError) {
         DispatchQueue.main.async {
             Logger.error("AudioPlayer unexpected error: \(error)")
-            NotificationManager.shared.addMessage(.error, "Playback error: \(error.localizedDescription)")
+            
+            let errorMessage: String
+            if case .engineError(let underlyingError) = error,
+               let currentTrack = self.currentTrack {
+                errorMessage = FilesystemUtils.getMessageForError(
+                    underlyingError,
+                    context: "play",
+                    path: currentTrack.url.path
+                )
+            } else {
+                errorMessage = "Playback error: \(error.localizedDescription)"
+            }
+            
+            NotificationManager.shared.addMessage(.error, errorMessage)
+            
             self.isPlaying = false
             self.isTransitioningTracks = false
             self.pendingTrack = nil
+            
+            // Auto-skip to next track if in a queue
+            if self.playlistManager.currentQueue.count > 1 {
+                Logger.info("Playback failed, attempting to skip to next track in queue")
+                self.playlistManager.playNextTrack()
+            }
         }
     }
 }

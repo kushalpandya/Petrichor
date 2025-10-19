@@ -275,6 +275,12 @@ extension LibraryManager {
         Logger.info("Starting folder refresh check")
         
         for folder in folders {
+            // Skip folders that are currently inaccessible
+            guard FileManager.default.fileExists(atPath: folder.url.path) else {
+                Logger.info("Folder '\(folder.name)': Currently unavailable, skipping refresh")
+                continue
+            }
+
             // Step 1: Check modification timestamp
             let timestampChanged = FilesystemUtils.modificationTimestampChanged(
                 for: folder.url,
