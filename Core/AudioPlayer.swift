@@ -681,10 +681,22 @@ public class AudioPlayer {
         guard state == .playing, !isSeeking else { return }
         
         let entryId = currentEntryId
-        let trackDuration = self.duration
         
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            
+            guard self.state == .playing else { return }
+            
+            let trackDuration = self.duration
+            let currentProgress = self.progress
+            let isNearEnd = (trackDuration - currentProgress) < 0.5
+            
+            guard isNearEnd else {
+                Logger.info("Buffer completion fired early at \(currentProgress)s / \(trackDuration)s - ignoring")
+                return
+            }
+            
+            Logger.info("Track completed - progress: \(currentProgress)s / \(trackDuration)s")
             
             self.state = .stopped
             self.savedSeekPosition = 0
