@@ -5,6 +5,33 @@
         <description>Updates for Petrichor</description>
         <language>en</language>
         <item>
+            <title>Version 1.1.3</title>
+            <pubDate>Mon, 20 Oct 2025 11:28:10 +0530</pubDate>
+            <sparkle:version>113</sparkle:version>
+            <sparkle:shortVersionString>1.1.3</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.1.3/Petrichor-1.1.3-Universal.dmg"
+                sparkle:edSignature="yTWqyzN03stnxcV6qoNkVlKo+dJPkSSd1PLGXb6zee/UBwN/gUlzPoGZ9G93twIGK3L7EN1bEOqih6nYJ//NCg=="
+                length="14452307"
+                type="application/octet-stream"
+            />
+            <description><![CDATA[
+                <h2>Fixes</h2>
+                <ul>
+                    <li>Improved track number extraction logic (#111, thanks @Veemo-wt)</li>
+                    <li>Bypass track and disc number fields for key matching (#111)</li>
+                    <li>Fix library searching for CJK locales (#109)</li>
+                    <li>Handle playback & transition to high bitrate files correctly (#110, #113)</li>
+                    <li>Prevent playback progress timer from going out of sync (#118)</li>
+                    <li>Skip folders from auto-removal if they're not accessible (#117)</li>
+                    <li>Fix track completion to prevent rapid skipping between tracks (#121)</li>
+                    <li>Follow-up fix for playback progress timer restoration (#118)</li>
+                </ul>
+                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.1.2...v1.1.3">Full Changelog</a></p>
+            ]]></description>
+        </item>
+        <item>
             <title>Version 1.1.2</title>
             <pubDate>Thu, 09 Oct 2025 20:24:03 -0400</pubDate>
             <sparkle:version>112</sparkle:version>
