@@ -520,7 +520,7 @@ public class AudioPlayer {
             return
         }
         
-        guard let audioFile = audioFile, let url = currentURL else {
+        guard let audioFile = audioFile, currentURL != nil else {
             Logger.error("No audio file loaded during configuration change")
             return
         }

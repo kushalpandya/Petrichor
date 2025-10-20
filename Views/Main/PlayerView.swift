@@ -47,19 +47,26 @@ struct PlayerView: View {
             syncDisplayTime()
         }
         .onChange(of: playbackManager.isPlaying) { _, isPlaying in
-            // Only start timer if scene is active
             if isPlaying && scenePhase == .active {
-                syncDisplayTime()
-                startUITimer()
+                displayTime = playbackManager.currentTime
+                playbackStartTime = Date()
+                playbackStartOffset = playbackManager.currentTime
+                startUITimer(resetValues: false)
             } else {
                 stopUITimer()
             }
         }
-        .onChange(of: playbackManager.currentTrack) { _, _ in
-            playbackStartTime = Date()
-            playbackStartOffset = 0
-            displayTime = 0
-            // Only start timer if scene is active
+        .onChange(of: playbackManager.currentTrack) { oldTrack, newTrack in
+            let isRestoringFromTemp = oldTrack?.url.path == "/restored"
+            
+            if isRestoringFromTemp {
+                displayTime = playbackManager.currentTime
+            } else if oldTrack?.id != newTrack?.id {
+                playbackStartTime = Date()
+                playbackStartOffset = 0
+                displayTime = 0
+            }
+            
             if playbackManager.isPlaying && scenePhase == .active {
                 startUITimer(resetValues: false)
             }
