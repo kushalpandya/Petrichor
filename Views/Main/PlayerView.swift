@@ -48,12 +48,19 @@ struct PlayerView: View {
         }
         .onChange(of: playbackManager.isPlaying) { _, isPlaying in
             if isPlaying && scenePhase == .active {
-                displayTime = playbackManager.currentTime
+                let actualTime = playbackManager.actualCurrentTime
+                let syncTime = actualTime > 0 ? actualTime : playbackManager.currentTime
+                
+                displayTime = syncTime
                 playbackStartTime = Date()
-                playbackStartOffset = playbackManager.currentTime
+                playbackStartOffset = syncTime
                 startUITimer(resetValues: false)
             } else {
                 stopUITimer()
+                if !isPlaying {
+                    let actualTime = playbackManager.actualCurrentTime
+                    displayTime = actualTime > 0 ? actualTime : playbackManager.currentTime
+                }
             }
         }
         .onChange(of: playbackManager.currentTrack) { oldTrack, newTrack in
