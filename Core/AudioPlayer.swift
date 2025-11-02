@@ -426,6 +426,8 @@ public class AudioPlayer {
         let trackDuration = self.duration
         let entryId = currentEntryId
         
+        remainingChunksToSchedule = 0
+        
         playerNode.stop()
         audioFile = nil
         currentURL = nil
@@ -645,6 +647,13 @@ public class AudioPlayer {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
             
+            guard self.audioFile != nil,
+                  self.state != .stopped,
+                  self.state != .disposed else {
+                Logger.warning("Skipping chunk schedule - player stopped or file released")
+                return
+            }
+            
             guard let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: framesToSchedule) else {
                 Logger.error("Failed to create next chunk buffer")
                 return
@@ -654,8 +663,14 @@ public class AudioPlayer {
                 file.framePosition = startFrame
                 try file.read(into: buffer)
                 
-                DispatchQueue.main.async {
-                    guard self.playerNode.engine != nil else { return }
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+                    
+                    guard self.playerNode.engine != nil,
+                          self.state == .playing || self.state == .paused else {
+                        Logger.warning("Skipping buffer schedule - playback state changed")
+                        return
+                    }
                     
                     self.remainingChunksToSchedule -= 1
                     
@@ -673,6 +688,9 @@ public class AudioPlayer {
                 
             } catch {
                 Logger.error("Failed to read next chunk: \(error)")
+                DispatchQueue.main.async { [weak self] in
+                    self?.remainingChunksToSchedule = 0
+                }
             }
         }
     }
