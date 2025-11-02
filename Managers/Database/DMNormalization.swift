@@ -108,11 +108,33 @@ extension DatabaseManager {
             .replacingOccurrences(of: "the ", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         
-        // Try to find existing album with same normalized title
-        if let existingAlbum = try Album
-            .filter(Album.Columns.normalizedTitle == normalizedTitle)
-            .fetchOne(db) {
-            return existingAlbum
+        let query = Album.filter(Album.Columns.normalizedTitle == normalizedTitle)
+        
+        if let albumArtist = albumArtist, !albumArtist.isEmpty, albumArtist != "Unknown Artist" {
+            let normalizedArtistName = ArtistParser.normalizeArtistName(albumArtist)
+            if let artist = try Artist
+                .filter((Artist.Columns.name == albumArtist) || (Artist.Columns.normalizedName == normalizedArtistName))
+                .fetchOne(db),
+               let artistId = artist.id {
+                // Find albums that have this artist as an album artist
+                let albumIdsWithArtist = try AlbumArtist
+                    .filter(AlbumArtist.Columns.artistId == artistId)
+                    .select(AlbumArtist.Columns.albumId, as: Int64.self)
+                    .fetchSet(db)
+                
+                // Filter to albums with matching title AND this artist
+                if let existingAlbum = try Album
+                    .filter(Album.Columns.normalizedTitle == normalizedTitle)
+                    .filter(albumIdsWithArtist.contains(Album.Columns.id))
+                    .fetchOne(db) {
+                    return existingAlbum
+                }
+            }
+        } else {
+            // No album artist info, fall back to title-only matching
+            if let existingAlbum = try query.fetchOne(db) {
+                return existingAlbum
+            }
         }
         
         // No existing album found, create new one
@@ -261,9 +283,18 @@ extension DatabaseManager {
     func updateAlbumArtwork(_ albumId: Int64, artworkData: Data?, in db: Database) throws {
         guard let artworkData = artworkData, !artworkData.isEmpty else { return }
 
-        // Direct update using SQL
+        // Check if album already has artwork, don't overwrite existing artwork
+        if let existingArtwork = try Album
+            .select(Album.Columns.artworkData)
+            .filter(Album.Columns.id == albumId)
+            .fetchOne(db)?[Album.Columns.artworkData] as Data?,
+           !existingArtwork.isEmpty {
+            // Album already has artwork, skip update
+            return
+        }
+
         try db.execute(
-            sql: "UPDATE albums SET artwork_data = ?, updated_at = ? WHERE id = ?",
+            sql: "UPDATE albums SET artwork_data = ?, updated_at = ? WHERE id = ? AND artwork_data IS NULL",
             arguments: [artworkData, Date(), albumId]
         )
     }
