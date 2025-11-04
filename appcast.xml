@@ -5,6 +5,30 @@
         <description>Updates for Petrichor</description>
         <language>en</language>
         <item>
+            <title>Version 1.1.4</title>
+            <pubDate>Tue, 04 Nov 2025 13:07:43 +0530</pubDate>
+            <sparkle:version>114</sparkle:version>
+            <sparkle:shortVersionString>1.1.4</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.1.4/Petrichor-1.1.4-Universal.dmg"
+                sparkle:edSignature="SVvbO0FOP/nBTfI9NFYK3mjSyyK+4RJPzlvyYGTNkUTkr/5zUyauPge28QZjfS3YX8FzMug8fTa8FN3Eza9jDg=="
+                length="11670598"
+                type="application/octet-stream"
+            />
+            <description><![CDATA[
+                <h2>Fixes</h2>
+                <ul>
+                    <li>Prevent reusing album art for same album names from different artists (#128)</li>
+                    <li>Ensure file existence is validated during playback buffering (#127)</li>
+                    <li>Remove porter stemming in library search to improve searching with unicode characters (#125, #109)</li>
+                    <li>Fix playback progress timer drifting</li>
+                    <li>Remove last scan status info from settings</li>
+                </ul>
+                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.1.3...v1.1.4">Full Changelog</a></p>
+            ]]></description>
+        </item>
+        <item>
             <title>Version 1.1.3</title>
             <pubDate>Mon, 20 Oct 2025 11:28:10 +0530</pubDate>
             <sparkle:version>113</sparkle:version>
