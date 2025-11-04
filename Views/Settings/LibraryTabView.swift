@@ -246,17 +246,6 @@ struct LibraryTabView: View {
                 .buttonStyle(.plain)
                 .disabled(isLibraryUpdateInProgress)
             }
-
-            // Status info
-            if let lastScan = UserDefaults.standard.object(forKey: "LastScanDate") as? Date {
-                HStack {
-                    Text("Last scan: \(lastScan, style: .relative) ago")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-
-                    Spacer()
-                }
-            }
         }
         .padding(.horizontal, 34)
         .padding(.vertical, 10)
