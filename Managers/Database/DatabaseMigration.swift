@@ -86,6 +86,23 @@ struct DatabaseMigrator {
             
             Logger.info("v3_add_category_query_indices migration completed")
         }
+        
+        migrator.registerMigration("v4_rebuild_fts_with_unicode61_tokenizer") { db in
+            Logger.info("Rebuilding FTS table with unicode tokenization without porter stemming...")
+            
+            // Drop existing FTS triggers
+            try db.execute(sql: "DROP TRIGGER IF EXISTS tracks_fts_insert")
+            try db.execute(sql: "DROP TRIGGER IF EXISTS tracks_fts_update")
+            try db.execute(sql: "DROP TRIGGER IF EXISTS tracks_fts_delete")
+            
+            // Drop existing FTS table
+            try db.execute(sql: "DROP TABLE IF EXISTS tracks_fts")
+            
+            // Recreate FTS table with unicode61 tokenizer without porter stemming
+            try DatabaseManager.createFTSTable(in: db)
+            
+            Logger.info("v4_rebuild_fts_with_unicode61_tokenizer migration completed")
+        }
 
         // MARK: - Future Migrations
         // Add new migrations here as: migrator.registerMigration("v2_description") { db in ... }

@@ -12,7 +12,7 @@ extension DatabaseManager {
     func searchTracksUsingFTS(_ searchText: String) -> [Track] {
         do {
             var tracks = try dbQueue.read { db in
-                let ftsQuery = buildAdaptiveFTS5Query(searchText)
+                let ftsQuery = buildFTS5Query(searchText)
 
                 let matchingTrackIds = try Int64.fetchAll(db, sql: """
                     SELECT track_id
@@ -45,7 +45,7 @@ extension DatabaseManager {
         
         do {
             var tracks = try dbQueue.read { db in
-                let prefixQuery = buildAdaptiveFTS5Query(searchText)
+                let prefixQuery = buildFTS5Query(searchText)
                 
                 // Build the WHERE clause based on exclusions
                 let whereClause: String
@@ -110,35 +110,6 @@ extension DatabaseManager {
         }
         
         return processedTokens.joined(separator: " AND ")
-    }
-    
-    /// Build FTS query without stemming for non-ASCII characters
-    private func buildFTS5QueryWithoutStemming(_ searchText: String) -> String {
-        let tokens = searchText.split(separator: " ").map { String($0) }
-        
-        let processedTokens = tokens.map { token -> String in
-            let tokenStr = String(token)
-            let escaped = tokenStr.replacingOccurrences(of: "\"", with: "\"\"")
-            
-            // Bypass stemming and do prefix matching at character level
-            return "\"\(escaped)\"*"
-        }
-        
-        return processedTokens.joined(separator: " ")
-    }
-    
-    /// Determines the appropriate FTS query based on search text character type
-    private func buildAdaptiveFTS5Query(_ searchText: String) -> String {
-        let containsNonASCII = searchText.unicodeScalars.contains { !$0.isASCII }
-        
-        if containsNonASCII {
-            // For non-ASCII, use phrase matching to bypass porter stemmer
-            // This allows substring matching for CJK characters
-            return buildFTS5QueryWithoutStemming(searchText)
-        } else {
-            // For ASCII/English, use normal query with stemming
-            return buildFTS5Query(searchText)
-        }
     }
     
     /// Generate SQL placeholders for IN clause

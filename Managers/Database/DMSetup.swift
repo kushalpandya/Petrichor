@@ -299,7 +299,7 @@ extension DatabaseManager {
             t.column("genre")
             t.column("year")
             
-            t.tokenizer = .porter(wrapping: .unicode61())
+            t.tokenizer = .unicode61()
         }
         
         // Create triggers to keep FTS index in sync
