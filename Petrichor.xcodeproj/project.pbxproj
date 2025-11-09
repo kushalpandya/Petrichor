@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		552A58402EC0629A00F6D8C0 /* SFBAudioEngine in Frameworks */ = {isa = PBXBuildFile; productRef = 552A583F2EC0629A00F6D8C0 /* SFBAudioEngine */; };
 		5590877F2DE0C078009E7719 /* PetrichorApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5590877E2DE0C078009E7719 /* PetrichorApp.swift */; };
 		55B0DEC12DE3A58400A41ED9 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 55B0DEC02DE3A58400A41ED9 /* GRDB */; };
 		55D673CF2E42CEA50095A358 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 55D673CE2E42CEA50095A358 /* Sparkle */; };
@@ -87,6 +88,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				55B0DEC12DE3A58400A41ED9 /* GRDB in Frameworks */,
+				552A58402EC0629A00F6D8C0 /* SFBAudioEngine in Frameworks */,
 				55D673CF2E42CEA50095A358 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -143,6 +145,7 @@
 			packageProductDependencies = (
 				55B0DEC02DE3A58400A41ED9 /* GRDB */,
 				55D673CE2E42CEA50095A358 /* Sparkle */,
+				552A583F2EC0629A00F6D8C0 /* SFBAudioEngine */,
 			);
 			productName = Petrichor;
 			productReference = 550F4A0E2DB45B1A005F794E /* Petrichor.app */;
@@ -175,6 +178,7 @@
 			packageReferences = (
 				55B0DEBF2DE3A58400A41ED9 /* XCRemoteSwiftPackageReference "GRDB" */,
 				55D673CD2E42CEA50095A358 /* XCRemoteSwiftPackageReference "Sparkle" */,
+				552A583E2EC0629A00F6D8C0 /* XCRemoteSwiftPackageReference "SFBAudioEngine" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 550F4A052DB45B1A005F794E;
@@ -426,6 +430,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		552A583E2EC0629A00F6D8C0 /* XCRemoteSwiftPackageReference "SFBAudioEngine" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sbooth/SFBAudioEngine";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.7.2;
+			};
+		};
 		55B0DEBF2DE3A58400A41ED9 /* XCRemoteSwiftPackageReference "GRDB" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/groue/GRDB.swift";
@@ -445,6 +457,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		552A583F2EC0629A00F6D8C0 /* SFBAudioEngine */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 552A583E2EC0629A00F6D8C0 /* XCRemoteSwiftPackageReference "SFBAudioEngine" */;
+			productName = SFBAudioEngine;
+		};
 		55B0DEC02DE3A58400A41ED9 /* GRDB */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 55B0DEBF2DE3A58400A41ED9 /* XCRemoteSwiftPackageReference "GRDB" */;

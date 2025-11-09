@@ -31,7 +31,15 @@
 ### ✨ Features
 
 - Everything you'd expect from an offline music player!
-- Supports MP3, M4A, WAV, AAC, AIFF, and FLAC file formats.
+- Supports wide variety of audio file formats;
+  - MP3, AAC/M4A, WAV, AIFF, AIF, ALAC
+  - Ogg Vorbis, Speex, Opus, and FLAC
+  - APE (Monkey's Audio)
+  - MPC (Musepack)
+  - TTA (True Audio)
+  - WV (WavPack)
+  - DSF/DFF (Direct Stream Digital)
+  - ... MOD, IT, S3M, XM, and AU
 - Map your music folders and browse your library in an organized view.
 - Create playlists and manage the play queue interactively.
 - Browse music using folder view when needed.
@@ -45,8 +53,8 @@
 ### ⌛ Upcoming Features
 
 - ~~Automatic in-app updates~~
+- ~~Better file format support (eg; Opus & OGG)~~
 - Audio Equalizer
-- Better file format support (eg; Opus & OGG)
 - AirPlay 2 casting support
 - Miniplayer and full-screen modes
 - Smart playlists with user-configurable conditional filters
@@ -101,7 +109,7 @@ along the way!
 - Once folders containing music files are added, the app scans them, extracts required metadata, and populates the SQLite database.
 - The app does **not** alter your music files, it only reads from the directories you add.
 - Tracks searching is handled by [SQLite FTS5](https://www.sqlite.org/fts5.html).
-- Playback is handled by [AVFoundation](https://developer.apple.com/av-foundation/).
+- Playback is handled by [AVFoundation](https://developer.apple.com/av-foundation/) and third-party audio decoders.
 
 <details>
 <summary>View Database Schema</summary>
@@ -308,8 +316,11 @@ erDiagram
 
 </details>
 
-#### Dependencies
+### Credits
 
+Petrichor wouldn't be possible without following open source projects!
+
+- [SFBAudioEngine](https://github.com/sbooth/SFBAudioEngine)
 - [GRDB.swift](https://github.com/groue/GRDB.swift/)
 - [Sparkle](https://github.com/sparkle-project/Sparkle)
 
@@ -317,10 +328,22 @@ erDiagram
 
 - Make sure you’re running macOS 14 or later.
 - Install [Xcode](https://developer.apple.com/xcode/).
-- To build the `.dmg` installer using the [`build-installer.sh`](Scripts/build-installer.sh) script, install:
-  - [xcpretty](https://github.com/xcpretty/xcpretty)
-  - [create-dmg](https://github.com/sindresorhus/create-dmg)
+- Clone the repository and open `Petrichor.xcodeproj`
+
+#### Build & Release
+
+You can build your own `.dmg` installer using the [`build-installer.sh`](Scripts/build-installer.sh) script,
+although it requires you to have a paid Apple Developer account to notarize the compiled binary and installer,
+you can use `--bypass-notary` option if you don't want to notarize. To use the script, make sure you have
+following tools installed along with Xcode;
+
+- [xcpretty](https://github.com/xcpretty/xcpretty)
+- [create-dmg](https://github.com/sindresorhus/create-dmg)
 
 ## 📝 License
 
-[MIT](LICENSE)
+- Petrichor is licensed under [MIT](LICENSE)
+- Core dependencies (SFBAudioEngine, GRDB, Sparkle) are licensed under MIT
+- Audio codec libraries (FLAC, Vorbis, Opus, etc.) are dynamically linked and use various open source licenses including GPL and LGPL
+
+For complete third-party license information, see [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md)

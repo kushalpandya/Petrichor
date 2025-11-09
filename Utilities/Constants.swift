@@ -97,17 +97,23 @@ enum About {
 // MARK: - Audio File Formats
 
 enum AudioFormat {
-    static let supportedExtensions = ["mp3", "m4a", "wav", "aac", "aiff", "flac"]
+    static let supportedExtensions = [
+        // Core Audio formats
+        "mp3", "m4a", "wav", "aac", "aiff", "aif", "alac",
+        // SFBAudioEngine extended formats
+        "flac", "ogg", "oga", "opus", "ape", "mpc", "wv",
+        "tta", "spx", "dsf", "dff", "mod", "it", "s3m", "xm",
+        // Common legacy/CoreAudio-compatible
+        "au"
+    ]
     static let unsupportedExtensions = [
-        "ogg", "opus", "wma", "ape", "mpc", "wv", "tta",
-        "dsf", "dff", "m4b", "m4p", "ra", "ram", "au", "amr",
-        "ac3", "dts", "spx", "oga", "mod", "it", "s3m", "xm"
+        "wma", "m4b", "m4p", "ra", "ram", "amr", "ac3", "dts"
     ]
     
     static var supportedFormatsDisplay: String {
-        supportedExtensions
-            .map { $0.uppercased() }
-            .joined(separator: ", ")
+        let exts = supportedExtensions.map { $0.uppercased() }
+        guard exts.count > 1 else { return exts.first ?? "" }
+        return exts.dropLast().joined(separator: ", ") + ", and " + (exts.last ?? "")
     }
     
     static func isSupported(_ fileExtension: String) -> Bool {
