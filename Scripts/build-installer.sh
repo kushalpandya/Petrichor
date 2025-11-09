@@ -58,7 +58,7 @@ check_requirements() {
     fi
     
     if ! command -v create-dmg >/dev/null 2>&1; then
-        warning "create-dmg not found - install with: brew install create-dmg"
+        warning "create-dmg not found - install with: npm install --global create-dmg"
         warning "Using fallback DMG creation method"
     fi
     
