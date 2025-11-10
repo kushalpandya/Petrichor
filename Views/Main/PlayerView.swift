@@ -17,12 +17,6 @@ struct PlayerView: View {
     @State private var playButtonPressed = false
     @State private var isMuted = false
     @State private var previousVolume: Float = 0.7
-    
-    // UI Timer state
-    @State private var displayTime: Double = 0
-    @State private var uiTimer: Timer?
-    @State private var playbackStartTime: Date?
-    @State private var playbackStartOffset: Double = 0
 
     var body: some View {
         HStack(spacing: 20) {
@@ -44,61 +38,6 @@ struct PlayerView: View {
         .frame(maxWidth: .infinity)
         .onAppear {
             setupInitialState()
-            syncDisplayTime()
-        }
-        .onChange(of: playbackManager.isPlaying) { _, isPlaying in
-            if isPlaying && scenePhase == .active {
-                let actualTime = playbackManager.actualCurrentTime
-                let syncTime = actualTime > 0 ? actualTime : playbackManager.currentTime
-                
-                displayTime = syncTime
-                playbackStartTime = Date()
-                playbackStartOffset = syncTime
-                startUITimer(resetValues: false)
-            } else {
-                stopUITimer()
-                if !isPlaying {
-                    let actualTime = playbackManager.actualCurrentTime
-                    displayTime = actualTime > 0 ? actualTime : playbackManager.currentTime
-                }
-            }
-        }
-        .onChange(of: playbackManager.currentTrack) { oldTrack, newTrack in
-            let isRestoringFromTemp = oldTrack?.url.path == "/restored"
-            
-            if isRestoringFromTemp {
-                displayTime = playbackManager.currentTime
-            } else if oldTrack?.id != newTrack?.id {
-                playbackStartTime = Date()
-                playbackStartOffset = 0
-                displayTime = 0
-            }
-            
-            if playbackManager.isPlaying && scenePhase == .active {
-                startUITimer(resetValues: false)
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("PlayerDidSeek"))) { notification in
-            if let time = notification.userInfo?["time"] as? Double {
-                displayTime = time
-                playbackStartTime = Date()
-                playbackStartOffset = time
-            }
-        }
-        .onChange(of: scenePhase) { _, newPhase in
-            switch newPhase {
-            case .active:
-                // Window is visible and active
-                if playbackManager.isPlaying {
-                    syncDisplayTime() // Sync time when becoming active
-                    startUITimer()
-                }
-            case .inactive, .background:
-                // Window is minimized, hidden, or app is in background
-                stopUITimer()
-            @unknown default:
-                break
-            }
         }
         .onChange(of: playbackManager.volume) { oldValue, newValue in
             if oldValue < 0.01 && newValue > 0.01 {
@@ -108,51 +47,6 @@ struct PlayerView: View {
                 previousVolume = oldValue > 0.01 ? oldValue : 0.7
             }
         }
-    }
-    
-    // MARK: - UI Timer Management
-    
-    private func startUITimer(resetValues: Bool = true) {
-        guard scenePhase == .active else { return }
-
-        stopUITimer()
-        
-        if resetValues {
-            playbackStartTime = Date()
-            playbackStartOffset = playbackManager.actualCurrentTime
-            displayTime = playbackStartOffset
-        }
-        
-        uiTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-            updateDisplayTime()
-        }
-        uiTimer?.tolerance = 0.1
-    }
-    
-    private func stopUITimer() {
-        uiTimer?.invalidate()
-        uiTimer = nil
-    }
-    
-    private func updateDisplayTime() {
-        guard let startTime = playbackStartTime,
-              playbackManager.isPlaying,
-              !isDraggingProgress else { return }
-        
-        // Calculate elapsed time since playback started
-        let elapsed = Date().timeIntervalSince(startTime)
-        let newTime = playbackStartOffset + elapsed
-        
-        // Clamp to track duration
-        if let duration = playbackManager.currentTrack?.duration {
-            displayTime = min(newTime, duration)
-        } else {
-            displayTime = newTime
-        }
-    }
-    
-    private func syncDisplayTime() {
-        displayTime = playbackManager.actualCurrentTime
     }
 
     // MARK: - View Sections
@@ -370,7 +264,7 @@ struct PlayerView: View {
     private var progressBar: some View {
         HStack(spacing: 8) {
             // Current time - updated to use displayTime
-            Text(formatDuration(isDraggingProgress ? tempProgressValue : displayTime))
+            Text(formatDuration(isDraggingProgress ? tempProgressValue : playbackManager.currentTime))
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(.secondary)
                 .monospacedDigit()
@@ -495,7 +389,7 @@ struct PlayerView: View {
         if isDraggingProgress {
             return min(1, max(0, tempProgressValue / duration))
         } else {
-            return min(1, max(0, displayTime / duration))  // Updated to use displayTime
+            return min(1, max(0, playbackManager.currentTime / duration))
         }
     }
 
@@ -547,7 +441,6 @@ struct PlayerView: View {
                 }
                 let percentage = max(0, min(1, value.location.x / geometry.size.width))
                 tempProgressValue = percentage * (playbackManager.currentTrack?.duration ?? 0)
-                displayTime = tempProgressValue  // Update displayTime while dragging
             }
             .onEnded { value in
                 let percentage = max(0, min(1, value.location.x / geometry.size.width))
@@ -564,7 +457,6 @@ struct PlayerView: View {
         let percentage = x / width
         let newTime = percentage * (playbackManager.currentTrack?.duration ?? 0)
         playbackManager.seekTo(time: newTime)
-        displayTime = newTime  // Update displayTime immediately
     }
 
     private func formatDuration(_ seconds: Double) -> String {

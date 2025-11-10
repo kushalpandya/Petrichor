@@ -4,6 +4,7 @@ struct NoMusicEmptyStateView: View {
     @EnvironmentObject var libraryManager: LibraryManager
     @State private var stableScanningState = false
     @State private var scanningStateTimer: Timer?
+    @State private var showFormatsPopover = false
 
     // Customization options
     let context: EmptyStateContext
@@ -154,16 +155,33 @@ struct NoMusicEmptyStateView: View {
             .buttonStyle(PlainButtonStyle())
 
             // Supported formats
-            VStack(spacing: 4) {
+            Button {
+                showFormatsPopover.toggle()
+            } label: {
                 Text("Supported formats")
                     .font(.caption)
                     .fontWeight(.medium)
                     .foregroundColor(.secondary)
+                    .underline()
+            }
+            .buttonStyle(.plain)
+            .popover(isPresented: $showFormatsPopover, arrowEdge: .bottom) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Supported Formats")
+                        .font(.headline)
 
-                Text(AudioFormat.supportedFormatsDisplay)
-                    .font(.caption)
-                    .foregroundColor(.secondary.opacity(0.7))
-                    .fontDesign(.monospaced)
+                    Divider()
+
+                    ScrollView {
+                        Text(AudioFormat.supportedFormatsDisplay)
+                            .font(.system(size: 12, design: .monospaced))
+                            .textSelection(.enabled)
+                            .padding(.vertical, 4)
+                    }
+                    .frame(maxWidth: 320, maxHeight: 160)
+                }
+                .padding(12)
+                .frame(width: 340)
             }
             .padding(.top, 8)
         }
