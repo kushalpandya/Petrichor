@@ -16,29 +16,27 @@ extension PlaylistManager {
             return
         }
 
-        // Create updated track
         let updatedTrack = track.withFavoriteStatus(isFavorite)
 
         do {
             if let dbManager = libraryManager?.databaseManager {
                 try await dbManager.updateTrackFavoriteStatus(trackId: trackId, isFavorite: isFavorite)
 
-                // Update library manager's tracks array
-                await MainActor.run {
-                    if let index = self.libraryManager?.tracks.firstIndex(where: { $0.trackId == trackId }) {
-                        self.libraryManager?.tracks[index] = updatedTrack
-                        Logger.info("Updated library track favorite status")
-                    }
-                }
-
                 Logger.info("Updated favorite status for track: \(track.title) to \(isFavorite)")
                 
-                // THEN update smart playlists
                 await handleTrackPropertyUpdate(updatedTrack)
+                
+                if let favoritesIndex = playlists.firstIndex(where: {
+                    $0.name == DefaultPlaylists.favorites && $0.type == .smart
+                }) {
+                    Task.detached(priority: .background) { [weak self] in
+                        guard let self = self else { return }
+                        await self.loadSmartPlaylistTracks(self.playlists[favoritesIndex])
+                    }
+                }
             }
         } catch {
             Logger.error("Failed to update favorite status: \(error)")
-            // No need to revert since we didn't modify the original
         }
     }
 
@@ -88,20 +86,13 @@ extension PlaylistManager {
                         lastPlayedDate: lastPlayedDate
                     )
 
-                    // Update the track with new play stats
                     let updatedTrack = track.withPlayStats(playCount: newPlayCount, lastPlayedDate: lastPlayedDate)
-
-                    // Update in library
-                    await MainActor.run {
-                        if let index = self.libraryManager?.tracks.firstIndex(where: { $0.trackId == trackId }) {
-                            self.libraryManager?.tracks[index] = updatedTrack
-                        }
-                    }
 
                     Logger.info("Incremented play count for track: \(track.title)")
 
-                    // Update smart playlists
                     await handleTrackPropertyUpdate(updatedTrack)
+                    
+                    updateSmartPlaylistCounts()
                 }
             } catch {
                 Logger.error("Failed to update play count: \(error)")
@@ -111,11 +102,6 @@ extension PlaylistManager {
 
     /// Handle track property updates to refresh smart playlists and other dependent data
     internal func handleTrackPropertyUpdate(_ track: Track) async {
-        // Update smart playlists
-        await MainActor.run {
-            self.updateSmartPlaylists()
-        }
-
         // Update current queue if the track is in it
         await MainActor.run {
             if let queueIndex = self.currentQueue.firstIndex(where: { $0.trackId == track.trackId }) {
