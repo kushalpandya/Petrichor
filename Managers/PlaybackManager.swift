@@ -10,6 +10,8 @@ import AVFoundation
 import Foundation
 
 class PlaybackManager: NSObject, ObservableObject {
+    let playbackProgressState = PlaybackProgressState()
+
     // MARK: - Published Properties
 
     @Published var currentTrack: Track?
@@ -19,7 +21,10 @@ class PlaybackManager: NSObject, ObservableObject {
                 name: NSNotification.Name("PlaybackStateChanged"), object: nil)
         }
     }
-    @Published var currentTime: Double = 0
+    var currentTime: Double {
+        get { playbackProgressState.currentTime }
+        set { playbackProgressState.currentTime = newValue }
+    }
     @Published var volume: Float = 0.7 {
         didSet {
             audioPlayer.volume = volume

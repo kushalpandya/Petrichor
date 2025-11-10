@@ -3,6 +3,7 @@ import Foundation
 
 struct PlayerView: View {
     @EnvironmentObject var playbackManager: PlaybackManager
+    @EnvironmentObject var playbackProgressState: PlaybackProgressState
     @EnvironmentObject var playlistManager: PlaylistManager
     @Binding var showingQueue: Bool
     
@@ -389,7 +390,7 @@ struct PlayerView: View {
         if isDraggingProgress {
             return min(1, max(0, tempProgressValue / duration))
         } else {
-            return min(1, max(0, playbackManager.currentTime / duration))
+            return min(1, max(0, playbackProgressState.currentTime / duration))
         }
     }
 

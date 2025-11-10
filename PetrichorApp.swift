@@ -14,6 +14,7 @@ struct PetrichorApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(appCoordinator.playbackManager)
+                .environmentObject(appCoordinator.playbackManager.playbackProgressState)
                 .environmentObject(appCoordinator.libraryManager)
                 .environmentObject(appCoordinator.playlistManager)
                 .onReceive(appCoordinator.playlistManager.$repeatMode) { _ in
