@@ -19,6 +19,7 @@
 		55593A412DE019E400640247 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		55613A822E04A7230000E217 /* .swiftlint.yml */ = {isa = PBXFileReference; lastKnownFileType = text.yaml; path = .swiftlint.yml; sourceTree = "<group>"; };
 		5590877E2DE0C078009E7719 /* PetrichorApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PetrichorApp.swift; sourceTree = "<group>"; };
+		55FB816B2EC22E6E008321CA /* ACKNOWLEDGEMENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = ACKNOWLEDGEMENTS.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -111,6 +112,7 @@
 				550F4A3F2DB4786F005F794E /* .gitignore */,
 				55613A822E04A7230000E217 /* .swiftlint.yml */,
 				55593A412DE019E400640247 /* README.md */,
+				55FB816B2EC22E6E008321CA /* ACKNOWLEDGEMENTS.md */,
 				5590877E2DE0C078009E7719 /* PetrichorApp.swift */,
 				550F4A0E2DB45B1A005F794E /* Petrichor.app */,
 			);

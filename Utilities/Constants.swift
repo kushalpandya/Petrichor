@@ -88,6 +88,7 @@ enum About {
     static let appSubtitle = "An offline macOS music player"
     static let appWebsite = "https://github.com/kushalpandya/Petrichor"
     static let appWiki = "https://github.com/kushalpandya/Petrichor/wiki"
+    static let appAcknowledgements = "https://github.com/kushalpandya/Petrichor/blob/main/ACKNOWLEDGEMENTS.md"
     static let sponsor = "https://github.com/sponsors/kushalpandya"
     static let appPlaybackQueueLabel = "org.Petrichor.playback"
     static let appVersion = "1.0.1"

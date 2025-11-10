@@ -139,6 +139,13 @@ struct AboutTabView: View {
             )
             
             FooterLink(
+                icon: "doc.text",
+                title: "License",
+                url: URL(string: About.appAcknowledgements)!,
+                tooltip: "View third-party licenses and acknowledgements"
+            )
+            
+            FooterLink(
                 icon: "folder",
                 title: "App Data",
                 action: {
