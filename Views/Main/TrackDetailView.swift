@@ -159,17 +159,20 @@ struct TrackDetailView: View {
                 .fontWeight(.semibold)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
+                .textSelection(.enabled)
 
             Text(fullTrack.artist)
                 .font(.title3)
                 .foregroundColor(.secondary)
                 .lineLimit(1)
+                .textSelection(.enabled)
 
             if !fullTrack.album.isEmpty && fullTrack.album != "Unknown Album" {
                 Text(fullTrack.album)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .lineLimit(1)
+                    .textSelection(.enabled)
             }
         }
     }
