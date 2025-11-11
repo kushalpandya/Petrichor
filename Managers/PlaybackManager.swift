@@ -195,12 +195,15 @@ class PlaybackManager: NSObject, ObservableObject {
         
         if isPlaying {
             audioPlayer.pause()
+            isPlaying = false
             stopStateSaveTimer()
         } else {
             if let fullTrack = currentFullTrack, let track = currentTrack, audioPlayer.state != .paused {
                 startPlayback(of: fullTrack, lightweightTrack: track)
+                isPlaying = true
             } else {
                 audioPlayer.resume()
+                isPlaying = true
                 startStateSaveTimer()
             }
         }
@@ -321,6 +324,7 @@ class PlaybackManager: NSObject, ObservableObject {
         timer.setEventHandler { [weak self] in
             guard let self = self, self.isPlaying else { return }
             self.currentTime = self.audioPlayer.currentPlaybackProgress
+            self.updateNowPlayingInfo()
         }
         
         timer.resume()
@@ -363,6 +367,8 @@ extension PlaybackManager: AudioPlayerDelegate {
     
     func audioPlayerStateChanged(player: PAudioPlayer, with newState: AudioPlayerState, previous: AudioPlayerState) {
         DispatchQueue.main.async {
+            let oldIsPlaying = self.isPlaying
+
             switch newState {
             case .playing:
                 self.isPlaying = true
@@ -374,6 +380,9 @@ extension PlaybackManager: AudioPlayerDelegate {
                 break
             }
             
+            if oldIsPlaying != self.isPlaying {
+                self.updateNowPlayingInfo()
+            }
             Logger.info("Player state changed: \(previous) → \(newState)")
         }
     }
