@@ -76,6 +76,7 @@ enum Icons {
     static let sortDescending = "sort.descending"
     
     // Custom Icons (from project assets)
+    static let customLossless = "custom.lossless"
     static let customMusicNoteRectangleStack = "custom.music.note.rectangle.stack"
     static let customMusicNoteRectangleStackFill = "custom.music.note.rectangle.stack.fill"
 }

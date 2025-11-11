@@ -341,26 +341,59 @@ struct FullTrack: Identifiable, Equatable, Hashable, FetchableRecord, Persistabl
 // MARK: - Quality Scoring
 
 extension FullTrack {
+    /// Determines if the track is in a lossless format
+    var isLossless: Bool {
+        let formatLower = format.lowercased()
+
+        let losslessFormats: Set<String> = [
+            // Lossless PCM
+            "flac", "alac", "wav", "aiff", "aif",
+            // Lossless compressed
+            "ape", "wv", "tta",
+            // DSD formats
+            "dsf", "dff",
+            // Legacy lossless
+            "au",
+            // Module/tracker formats
+            "mod", "it", "s3m", "xm"
+        ]
+        
+        return losslessFormats.contains(formatLower)
+    }
+
     /// Calculate a quality score for duplicate detection
     /// Higher score = better quality
     var qualityScore: Int {
         var score = 0
         
-        let formatLower = format.lowercased()
+        let formatExtension = format.lowercased()
         let bitrateValue = bitrate ?? 0
         
         // Format scoring (lossless > high bitrate lossy > low bitrate)
-        switch formatLower {
-        case "flac", "alac", "wav", "aiff":
-            score += 1000
-        case "mp3":
-            if bitrateValue >= 320 { score += 800 } else if bitrateValue >= 256 { score += 600 } else if bitrateValue >= 192 { score += 400 } else { score += 200 }
-        case "aac", "m4a":
-            if bitrateValue >= 256 { score += 700 } else if bitrateValue >= 192 { score += 500 } else { score += 300 }
-        case "ogg", "opus":
-            if bitrateValue >= 192 { score += 600 } else { score += 400 }
-        default:
-            score += 100
+        if isLossless {
+            switch formatExtension {
+            case "dsf", "dff":
+                score += 1200
+            default:
+                score += 1000
+            }
+        } else {
+            switch formatExtension {
+            case "mp3":
+                score += bitrateValue >= 320 ? 800 : bitrateValue >= 256 ? 600 : bitrateValue >= 192 ? 400 : 200
+            case "aac", "m4a":
+                score += bitrateValue >= 256 ? 700 : bitrateValue >= 192 ? 500 : 300
+            case "ogg":
+                score += bitrateValue >= 192 ? 600 : 400
+            case "opus", "oga":
+                score += bitrateValue >= 128 ? 650 : 450
+            case "mpc":
+                score += bitrateValue >= 192 ? 600 : 400
+            case "spx":
+                score += 300
+            default:
+                score += 100
+            }
         }
         
         // Metadata completeness

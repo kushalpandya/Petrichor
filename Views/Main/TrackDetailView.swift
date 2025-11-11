@@ -174,6 +174,21 @@ struct TrackDetailView: View {
                     .lineLimit(1)
                     .textSelection(.enabled)
             }
+            
+            if fullTrack.isLossless {
+                HStack(spacing: 5) {
+                    Image(Icons.customLossless)
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 14, height: 14)
+                        .foregroundColor(.secondary)
+
+                    Text("Lossless")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+            }
         }
     }
 
