@@ -46,7 +46,7 @@
 - Pin _anything_ (almost!) to the sidebar for quick access to your favorite music.
 - Navigate easily: right-click a track to go to its album, artist, year, etc.
 - Native macOS integration with menubar and dock playback controls, plus dark mode support.
-- Works with well large libraries containing thousands of songs.
+- Works well with large libraries containing thousands of songs.
 
 💡 **Tip**: Petrichor relies heavily on tracks having good metadata for all its features to work well.
 
@@ -93,6 +93,16 @@ brew install --cask petrichor
 <img src=".github/assets/screenshot_5.png" width="392" alt="Screenshot"/>
 <img src=".github/assets/screenshot_6.png" width="392" alt="Screenshot"/>
 </div>
+
+### 🔒 Privacy & Data Access
+
+- Petrichor is sandboxed and notarized by Apple.
+- It has two permissions on macOS as follows;
+  - Read-only access to user-selected files and folders
+  - Network access to check and install updates
+- It doesn't (and never will) have any analytics on how you use the app.
+- It never changes your audio files or folder structure in any way.
+- Your library data remains offline always.
 
 ## 🏗️ Development
 
