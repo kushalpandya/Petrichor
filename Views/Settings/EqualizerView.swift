@@ -109,7 +109,7 @@ struct EqualizerView: View {
                     .lineLimit(1)
             }
             .padding(.top, 1)
-            .padding(.bottom, 20)
+            .padding(.bottom, 25)
             .fixedSize(horizontal: true, vertical: false)
 
             ForEach(Array(frequencies.enumerated()), id: \.offset) {
@@ -183,7 +183,7 @@ struct EqualizerView: View {
     }
 
     private func applyPreset(_ preset: EqualizerPreset) {
-        withAnimation(.easeInOut(duration: 0.25)) {
+        withAnimation(.easeInOut(duration: 0.1)) {
             customGains = preset.gains
         }
         playbackManager.applyEQPreset(preset)
@@ -193,44 +193,6 @@ struct EqualizerView: View {
         isCustomMode = true
         UserDefaults.standard.set(customGains, forKey: "customEQGains")
         playbackManager.applyEQCustom(gains: customGains)
-    }
-}
-
-// MARK: - Vertical Slider Component
-
-private struct VerticalSlider: View {
-    @Binding var value: Float
-    let label: String
-    
-    var body: some View {
-        VStack(spacing: 8) {
-            GeometryReader { geometry in
-                ZStack(alignment: .topLeading) {
-                    // Stepper Indicators
-                    VStack(spacing: 0) {
-                        ForEach(0..<12, id: \.self) { _ in
-                            Rectangle()
-                                .fill(Color.secondary.opacity(0.3))
-                                .frame(width: 2, height: 2)
-                                .frame(maxHeight: .infinity)
-                        }
-                    }
-                    .frame(width: 1)
-                    .offset(x: 18)
-                    
-                    Slider(value: $value, in: -12...12)
-                        .rotationEffect(.degrees(-90.0), anchor: .topLeading)
-                        .frame(width: geometry.size.height)
-                        .controlSize(.small)
-                        .offset(y: geometry.size.height)
-                }
-            }
-            
-            Text(label)
-                .font(.caption)
-                .fixedSize()
-        }
-        .help("\(label): \(String(format: "%.0f", value)) dB")
     }
 }
 
