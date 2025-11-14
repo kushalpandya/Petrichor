@@ -52,9 +52,9 @@
 
 ### ⌛ Upcoming Features
 
-- ~~Automatic in-app updates~~
-- ~~Better file format support (eg; Opus & OGG)~~
-- Audio Equalizer
+- ~~Automatic in-app updates~~ (✅ [v1.0.0](https://github.com/kushalpandya/Petrichor/releases/tag/v1.0.0) )
+- ~~Better file format support (eg; Opus & OGG)~~ (✅ [v.1.2.0](https://github.com/kushalpandya/Petrichor/releases/tag/v1.2.0))
+- ~~Audio Equalizer~~ (✅ [v.1.2.0](https://github.com/kushalpandya/Petrichor/releases/tag/v1.2.0))
 - AirPlay 2 casting support
 - Miniplayer and full-screen modes
 - Smart playlists with user-configurable conditional filters

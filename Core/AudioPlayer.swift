@@ -142,6 +142,17 @@ public class PAudioPlayer: NSObject {
     private var currentURL: URL?
     private var delegateBridge: SFBAudioPlayerDelegateBridge?
     
+    // MARK: - Audio Effects Nodes
+
+    private var eqNode: AVAudioUnitEQ?
+    private var delayNode: AVAudioUnitDelay?
+    private var effectsAttached = false
+    private var eqEnabled: Bool = false
+    private var stereoWideningEnabled: Bool = false
+    private var preampGain: Float = 0.0
+    private var currentEQGains: [Float] = Array(repeating: 0.0, count: 10)
+    private let eqFrequencies: [Float] = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
+    
     // MARK: - Initialization
     
     public override init() {
@@ -300,6 +311,120 @@ public class PAudioPlayer: NSObject {
         return sfbPlayer.seek(backward: seconds)
     }
     
+    // MARK: - Audio Equalizer
+    
+    /// Enable or disable stereo widening effect
+    /// - Parameter enabled: boolean for the current state of stereo widening
+    public func setStereoWidening(enabled: Bool) {
+        stereoWideningEnabled = enabled
+        
+        if !effectsAttached {
+            setupAudioEffects()
+        }
+        
+        delayNode?.bypass = !enabled
+        
+        Logger.info("Stereo Widening \(enabled ? "enabled" : "disabled")")
+    }
+
+    /// Check if stereo widening is currently enabled
+    /// - Returns: true if Stereo Widening is enabled, false otherwise
+    public func isStereoWideningEnabled() -> Bool {
+        return stereoWideningEnabled
+    }
+    
+    /// Enable or disable the equalizer
+    /// - Parameter enabled: boolean for the current state Equalizer
+    public func setEQEnabled(_ enabled: Bool) {
+        eqEnabled = enabled
+        
+        if !effectsAttached {
+            setupAudioEffects()
+        }
+        
+        eqNode?.bypass = !enabled
+        
+        Logger.info("Audio Equalizer \(enabled ? "enabled" : "disabled")")
+    }
+    
+    /// Check if EQ is currently enabled
+    /// - Returns: true if Equalizer is enabled, false otherwise
+    public func isEQEnabled() -> Bool {
+        return eqEnabled
+    }
+    
+    /// Apply an EQ preset
+    /// - Parameter preset: The EqualizerPreset to apply
+    /// - Note: This will automatically enable the EQ if applying a non-flat preset
+    public func applyEQPreset(_ preset: EqualizerPreset) {
+        currentEQGains = preset.gains
+        
+        if !effectsAttached {
+            setupAudioEffects()
+        }
+        
+        if let eq = eqNode {
+            for (index, gain) in currentEQGains.enumerated() {
+                eq.bands[index].gain = gain
+            }
+        }
+        
+        if preset != .flat && !eqEnabled {
+            setEQEnabled(true)
+        }
+        
+        Logger.info("Applied Equalizer preset: \(preset.displayName)")
+    }
+    
+    /// Apply custom EQ gains
+    /// - Parameter gains: Array of 10 gain values in dB (one for each frequency band)
+    /// - Note: The array must contain exactly 10 values. This will automatically enable the EQ.
+    public func applyEQCustom(gains: [Float]) {
+        guard gains.count == 10 else {
+            Logger.warning("Equalizer gains array must contain exactly 10 values, got \(gains.count)")
+            return
+        }
+        
+        currentEQGains = gains
+        
+        if !effectsAttached {
+            setupAudioEffects()
+        }
+        
+        if let eq = eqNode {
+            for (index, gain) in gains.enumerated() {
+                eq.bands[index].gain = gain
+            }
+        }
+        
+        if !eqEnabled {
+            setEQEnabled(true)
+        }
+        
+        Logger.info("Applied custom Equalizer gains")
+    }
+    
+    /// Set the preamp gain (affects overall volume before EQ)
+    /// - Parameter gain: Gain value in dB, typically -12 to +12
+    /// - Note: Preamp adjusts the signal level before EQ processing
+    public func setPreamp(_ gain: Float) {
+        preampGain = max(-12.0, min(12.0, gain))
+        
+        if !effectsAttached {
+            setupAudioEffects()
+        }
+        
+        eqNode?.globalGain = preampGain
+        
+        Logger.info("Preamp set to \(preampGain) dB")
+    }
+
+    /// Get the current preamp gain value
+    /// - Returns: Current preamp gain in dB
+    public func getPreamp() -> Float {
+        return preampGain
+    }
+    
     // MARK: - Internal Methods (called by delegate bridge)
     
     internal func handlePlaybackStateChanged(_ newState: SFBPlayerPlaybackState) {
@@ -356,6 +481,68 @@ public class PAudioPlayer: NSObject {
             guard let self = self else { return }
             self.delegate?.audioPlayerUnexpectedError(player: self, error: .engineError(error))
         }
+    }
+    
+    // MARK: - Private Methods
+    
+    private func setupAudioEffects() {
+        guard !effectsAttached else {
+            Logger.info("Audio effects already attached")
+            return
+        }
+        
+        guard let engine = sfbPlayer.playerNode.engine else {
+            Logger.warning("AVAudioEngine not available, cannot setup audio effects")
+            return
+        }
+        
+        let playerNode = sfbPlayer.playerNode
+        let mainMixer = engine.mainMixerNode
+        
+        Logger.info("Setting up audio effects...")
+        
+
+        let eq = AVAudioUnitEQ(numberOfBands: 10)
+        let delay = AVAudioUnitDelay()
+        
+        for (index, frequency) in eqFrequencies.enumerated() {
+            let band = eq.bands[index]
+            band.filterType = .parametric
+            band.frequency = frequency
+            band.bandwidth = 1.0
+            band.gain = currentEQGains[index]
+            band.bypass = false
+        }
+        eq.globalGain = preampGain
+        eq.bypass = !eqEnabled
+        
+        delay.delayTime = 0.012
+        delay.wetDryMix = 20
+        delay.feedback = 0
+        delay.lowPassCutoff = 15000
+        delay.bypass = !stereoWideningEnabled
+        
+        engine.attach(delay)
+        engine.attach(eq)
+        Logger.info("Attached EQ and delay nodes to engine")
+        
+        let format = playerNode.outputFormat(forBus: 0)
+        
+        Logger.info("Player node format: \(format.sampleRate)Hz, \(format.channelCount)ch")
+        
+        engine.disconnectNodeOutput(playerNode)
+        
+        engine.connect(playerNode, to: delay, format: format)
+        engine.connect(delay, to: eq, format: format)
+        engine.connect(eq, to: mainMixer, format: format)
+        
+        Logger.info("Audio graph reconnected: playerNode → delay → EQ → mainMixer")
+        
+        self.eqNode = eq
+        self.delayNode = delay
+        self.effectsAttached = true
+        
+        Logger.info("Audio effects setup complete")
     }
 }
 

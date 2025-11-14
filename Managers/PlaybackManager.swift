@@ -77,8 +77,8 @@ class PlaybackManager: NSObject, ObservableObject {
         self.audioPlayer.delegate = self
         self.audioPlayer.volume = volume
         
-        // Start a simple timer that updates currentTime from audioPlayer
         startProgressUpdateTimer()
+        restoreAudioEffectsSettings()
     }
     
     deinit {
@@ -262,21 +262,70 @@ class PlaybackManager: NSObject, ObservableObject {
         )
     }
     
-    // MARK: - Audio Effects (Placeholders for future implementation)
+    // MARK: - Audio Effects
 
+    /// Enable or disable stereo widening effect
+    /// - Parameter enabled: true to enable, false to disable
     func setStereoWidening(enabled: Bool) {
-        // TODO: Implement when EQ features are added to PAudioPlayer
-        Logger.info("Stereo widening not yet implemented in PAudioPlayer")
+        audioPlayer.setStereoWidening(enabled: enabled)
+        UserDefaults.standard.set(enabled, forKey: "stereoWideningEnabled")
+        Logger.info("Stereo widening \(enabled ? "enabled" : "disabled") via PlaybackManager")
     }
 
-    func applyEQ(preset: String) {
-        // TODO: Implement when EQ features are added to PAudioPlayer
-        Logger.info("EQ preset not yet implemented in PAudioPlayer")
+    /// Check if stereo widening is currently enabled
+    /// - Returns: true if enabled, false otherwise
+    func isStereoWideningEnabled() -> Bool {
+        audioPlayer.isStereoWideningEnabled()
     }
 
-    func applyEQ(gains: [Float]) {
-        // TODO: Implement when EQ features are added to PAudioPlayer
-        Logger.info("EQ gains not yet implemented in PAudioPlayer")
+    /// Enable or disable the equalizer
+    /// - Parameter enabled: true to enable, false to disable
+    func setEQEnabled(_ enabled: Bool) {
+        audioPlayer.setEQEnabled(enabled)
+        UserDefaults.standard.set(enabled, forKey: "eqEnabled")
+        Logger.info("EQ \(enabled ? "enabled" : "disabled") via PlaybackManager")
+    }
+
+    /// Check if EQ is currently enabled
+    /// - Returns: true if enabled, false otherwise
+    func isEQEnabled() -> Bool {
+        audioPlayer.isEQEnabled()
+    }
+
+    /// Apply an EQ preset
+    /// - Parameter preset: The EqualizerPreset to apply
+    func applyEQPreset(_ preset: EqualizerPreset) {
+        audioPlayer.applyEQPreset(preset)
+        UserDefaults.standard.set(preset.rawValue, forKey: "eqPreset")
+        Logger.info("Applied EQ preset: \(preset.displayName) via PlaybackManager")
+    }
+
+    /// Apply custom EQ gains
+    /// - Parameter gains: Array of 10 Float values in dB
+    func applyEQCustom(gains: [Float]) {
+        guard gains.count == 10 else {
+            Logger.warning("Invalid EQ gains array size: \(gains.count), expected 10")
+            return
+        }
+        
+        audioPlayer.applyEQCustom(gains: gains)
+        UserDefaults.standard.set(gains, forKey: "customEQGains")
+        UserDefaults.standard.set("custom", forKey: "eqPreset")
+        Logger.info("Applied custom EQ gains via PlaybackManager")
+    }
+    
+    /// Set the preamp gain
+    /// - Parameter gain: Gain value in dB, range -12 to +12
+    func setPreamp(_ gain: Float) {
+        audioPlayer.setPreamp(gain)
+        UserDefaults.standard.set(gain, forKey: "preampGain")
+        Logger.info("Preamp set to \(gain) dB via PlaybackManager")
+    }
+
+    /// Get the current preamp gain
+    /// - Returns: Current preamp gain in dB
+    func getPreamp() -> Float {
+        audioPlayer.getPreamp()
     }
     
     // MARK: - Private Methods
@@ -352,6 +401,48 @@ class PlaybackManager: NSObject, ObservableObject {
     private func stopStateSaveTimer() {
         stateSaveTimer?.invalidate()
         stateSaveTimer = nil
+    }
+    
+    /// Restore audio effects settings from UserDefaults
+    private func restoreAudioEffectsSettings() {
+        // Restore stereo widening
+        let stereoWideningEnabled = UserDefaults.standard.bool(forKey: "stereoWideningEnabled")
+        if stereoWideningEnabled {
+            audioPlayer.setStereoWidening(enabled: true)
+            Logger.info("Restored stereo widening: enabled")
+        }
+        
+        // Restore EQ enabled state
+        let eqEnabled = UserDefaults.standard.bool(forKey: "eqEnabled")
+        if eqEnabled {
+            audioPlayer.setEQEnabled(true)
+            Logger.info("Restored EQ: enabled")
+        }
+        
+        // Restore EQ preset or custom gains
+        if let presetRawValue = UserDefaults.standard.string(forKey: "eqPreset") {
+            if presetRawValue == "custom" {
+                // Restore custom gains
+                if let customGains = UserDefaults.standard.array(forKey: "customEQGains") as? [Float],
+                   customGains.count == 10 {
+                    audioPlayer.applyEQCustom(gains: customGains)
+                    Logger.info("Restored custom EQ gains")
+                }
+            } else {
+                // Restore preset
+                if let preset = EqualizerPreset(rawValue: presetRawValue) {
+                    audioPlayer.applyEQPreset(preset)
+                    Logger.info("Restored EQ preset: \(preset.displayName)")
+                }
+            }
+        }
+        
+        // Restore preamp gain
+        if UserDefaults.standard.object(forKey: "preampGain") != nil {
+            let preampGain = UserDefaults.standard.float(forKey: "preampGain")
+            audioPlayer.setPreamp(preampGain)
+            Logger.info("Restored preamp: \(preampGain) dB")
+        }
     }
 }
 

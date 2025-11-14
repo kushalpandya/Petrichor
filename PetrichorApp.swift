@@ -9,6 +9,7 @@ struct PetrichorApp: App {
     private var showFoldersTab = false
     
     @State private var menuUpdateTrigger = UUID()
+    @Environment(\.openWindow) private var openWindow
 
     var body: some Scene {
         WindowGroup {
@@ -30,8 +31,11 @@ struct PetrichorApp: App {
         .windowStyle(.hiddenTitleBar)
         .windowToolbarStyle(.unified)
         .defaultSize(width: 1200, height: 800)
-        .windowResizability(.contentMinSize)
+        .windowResizability(.contentSize)
         .handlesExternalEvents(matching: Set(arrayLiteral: "main"))
+        
+        equalizerWindow
+
         .commands {
             // App Menu Commands
             appMenuCommands()
@@ -42,9 +46,21 @@ struct PetrichorApp: App {
             // View Menu Commands
             viewMenuCommands()
             
+            // Window Menu Commands
+            windowMenuCommands()
+            
             // Help Menu Commands
             helpMenuCommands()
         }
+    }
+    
+    private var equalizerWindow: some Scene {
+        WindowGroup("Equalizer", id: "equalizer") {
+            EqualizerView()
+                .environmentObject(appCoordinator.playbackManager)
+        }
+        .defaultSize(width: 500, height: 300)
+        .windowResizability(.contentSize)
     }
     
     // MARK: - App Menu Commands
@@ -339,6 +355,29 @@ struct PetrichorApp: App {
             }
         }
         .keyboardShortcut(.downArrow, modifiers: .command)
+    }
+    
+    // MARK: - Window Menu Commands
+    
+    @CommandsBuilder
+    private func windowMenuCommands() -> some Commands {
+        CommandGroup(before: .windowList) {
+            Button {
+                openWindow(id: "equalizer")
+            } label: {
+                if #available(macOS 26.0, *) {
+                    Label(
+                        "Equalizer",
+                        systemImage: "slider.vertical.3"
+                    )
+                } else {
+                    Text("Equalizer")
+                }
+            }
+            .keyboardShortcut("e", modifiers: [.command, .option])
+            
+            Divider()
+        }
     }
     
     // MARK: - View Menu Commands
