@@ -2,14 +2,16 @@ import SwiftUI
 
 struct LibraryTabView: View {
     @EnvironmentObject var libraryManager: LibraryManager
+    @Environment(\.dismiss) var dismiss
+
     @State private var showingRemoveFolderAlert = false
-    @State private var showingResetConfirmation = false
     @State private var selectedFolderIDs: Set<Int64> = []
     @State private var isSelectMode: Bool = false
     @State private var folderToRemove: Folder?
     @State private var stableScanningState = false
     @State private var stableRefreshButtonState = false
     @State private var scanningStateTimer: Timer?
+    @State private var alsoResetPreferences = false
     @StateObject private var notificationManager = NotificationManager.shared
     
     private var isLibraryUpdateInProgress: Bool {
@@ -68,14 +70,6 @@ struct LibraryTabView: View {
             if let folder = folderToRemove {
                 Text("Are you sure you want to stop watching \"\(folder.name)\"? This will remove all tracks from this folder from your library.")
             }
-        }
-        .alert("Reset Library Data", isPresented: $showingResetConfirmation) {
-            Button("Cancel", role: .cancel) { }
-            Button("Reset All Data", role: .destructive) {
-                resetLibraryData()
-            }
-        } message: {
-            Text("This will permanently remove all library data, including added folders, tracks, and playlists. This action cannot be undone.")
         }
     }
 
@@ -228,8 +222,9 @@ struct LibraryTabView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(isLibraryUpdateInProgress)
+                .help("Removes references to library data that no longer exists on disk and compacts the database to reclaim space")
 
-                Button(action: { showingResetConfirmation = true }) {
+                Button(action: { showResetConfirmation() }) {
                     HStack(spacing: 6) {
                         Image(systemName: "trash.fill")
                             .font(.system(size: 12, weight: .medium))
@@ -245,6 +240,7 @@ struct LibraryTabView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(isLibraryUpdateInProgress)
+                .help("Remove all folders, tracks, playlists, and pinned items. Use the checkbox in the confirmation dialog to optionally reset app preferences.")
             }
         }
         .padding(.horizontal, 34)
@@ -272,6 +268,7 @@ struct LibraryTabView: View {
     }
 
     // MARK: - Helper Methods
+
     private func updateStableScanningState(_ isScanning: Bool) {
         // Cancel any pending timer
         scanningStateTimer?.invalidate()
@@ -376,6 +373,15 @@ struct LibraryTabView: View {
         // Clear playback state
         UserDefaults.standard.removeObject(forKey: "SavedPlaybackState")
         UserDefaults.standard.removeObject(forKey: "SavedPlaybackUIState")
+        
+        // Optionally clear all preferences
+        if alsoResetPreferences {
+            if let bundleID = Bundle.main.bundleIdentifier {
+                UserDefaults.standard.removePersistentDomain(forName: bundleID)
+                UserDefaults.standard.synchronize()
+                Logger.info("All app preferences reset along with library data")
+            }
+        }
 
         Task {
             do {
@@ -383,6 +389,57 @@ struct LibraryTabView: View {
                 Logger.info("All library data has been reset")
             } catch {
                 Logger.error("Failed to reset library data: \(error)")
+            }
+        }
+    }
+    
+    private func showRestartAlert() {
+        let alert = NSAlert()
+        alert.messageText = "Restart Required"
+        alert.informativeText = "App preferences have been reset. Please restart Petrichor for changes to take full effect."
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Quit Now")
+        alert.addButton(withTitle: "Later")
+        
+        if alert.runModal() == .alertFirstButtonReturn {
+            exit(0)
+        }
+    }
+    
+    private func showResetConfirmation() {
+        let alert = NSAlert()
+        alert.messageText = "Reset Library Data"
+        alert.informativeText = "This will permanently remove all library data, including added folders, tracks, playlists, and pinned items. This action cannot be undone."
+        alert.alertStyle = .critical
+        alert.icon = nil
+        
+        let resetButton = alert.addButton(withTitle: "Reset All Data")
+        resetButton.hasDestructiveAction = true
+        
+        alert.addButton(withTitle: "Cancel")
+        
+        alert.showsSuppressionButton = true
+        alert.suppressionButton?.title = "Also reset app preferences"
+        
+        let response = alert.runModal()
+        
+        if response == .alertFirstButtonReturn {
+            alsoResetPreferences = alert.suppressionButton?.state == .on
+            
+            // Close settings window first
+            dismiss()
+            
+            // Small delay to let the window close
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                self.resetLibraryData()
+                
+                if self.alsoResetPreferences {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        self.showRestartAlert()
+                    }
+                }
+                
+                self.alsoResetPreferences = false
             }
         }
     }
