@@ -18,6 +18,7 @@ struct PlayerView: View {
     @State private var playButtonPressed = false
     @State private var isMuted = false
     @State private var previousVolume: Float = 0.7
+    @State private var isDraggingVolume = false
 
     var body: some View {
         HStack(spacing: 20) {
@@ -39,14 +40,6 @@ struct PlayerView: View {
         .frame(maxWidth: .infinity)
         .onAppear {
             setupInitialState()
-        }
-        .onChange(of: playbackManager.volume) { oldValue, newValue in
-            if oldValue < 0.01 && newValue > 0.01 {
-                isMuted = false
-            } else if newValue < 0.01 {
-                isMuted = true
-                previousVolume = oldValue > 0.01 ? oldValue : 0.7
-            }
         }
     }
 
@@ -350,18 +343,43 @@ struct PlayerView: View {
             value: Binding(
                 get: { playbackManager.volume },
                 set: { newVolume in
+                    // Save previous volume before changing
+                    if playbackManager.volume > 0.01 {
+                        previousVolume = playbackManager.volume
+                    }
+                    
                     playbackManager.setVolume(newVolume)
-                    // If user moves slider, unmute
-                    if isMuted && newVolume > 0 {
+                    
+                    // Update mute state
+                    if newVolume < 0.01 {
+                        isMuted = true
+                    } else if isMuted {
                         isMuted = false
                     }
                 }
             ),
             in: 0...1
-        )
+        ) { editing in
+                isDraggingVolume = editing
+        }
         .frame(width: 100)
         .controlSize(.small)
-        .disabled(isMuted)
+        .overlay(alignment: .leading) {
+            if isDraggingVolume {
+                Text("\(Int(playbackManager.volume * 100))%")
+                    .font(.caption)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color(nsColor: .controlBackgroundColor))
+                            .shadow(radius: 2)
+                    )
+                    .offset(x: 100 * CGFloat(playbackManager.volume) - 15, y: -25)
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.1), value: playbackManager.volume)
+            }
+        }
     }
 
     private var queueButton: some View {
