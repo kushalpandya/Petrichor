@@ -144,11 +144,15 @@ public class PAudioPlayer: NSObject {
     
     // MARK: - Audio Effects Nodes
 
-    private var eqNode: AVAudioUnitEQ?
-    private var delayNode: AVAudioUnitDelay?
     private var effectsAttached = false
-    private var eqEnabled: Bool = false
+
+    /// Stereo Widening
     private var stereoWideningEnabled: Bool = false
+    private var stereoWideningNode: AVAudioUnit?
+
+    /// Equalizer
+    private var eqEnabled: Bool = false
+    private var eqNode: AVAudioUnitEQ?
     private var preampGain: Float = 0.0
     private var currentEQGains: [Float] = Array(repeating: 0.0, count: 10)
     private let eqFrequencies: [Float] = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
@@ -322,7 +326,9 @@ public class PAudioPlayer: NSObject {
             setupAudioEffects()
         }
         
-        delayNode?.bypass = !enabled
+        if let effectNode = stereoWideningNode as? AVAudioUnitEffect {
+            effectNode.bypass = !enabled
+        }
         
         Logger.info("Stereo Widening \(enabled ? "enabled" : "disabled")")
     }
@@ -496,14 +502,47 @@ public class PAudioPlayer: NSObject {
             return
         }
         
-        let playerNode = sfbPlayer.playerNode
-        let mainMixer = engine.mainMixerNode
-        
         Logger.info("Setting up audio effects...")
         
+        setupStereoWidening(engine: engine)
+        setupEqualizer(engine: engine)
+        
+        // Connect the audio graph
+        let playerNode = sfbPlayer.playerNode
+        let mainMixer = engine.mainMixerNode
+        let format = playerNode.outputFormat(forBus: 0)
+        
+        Logger.info("Player node format: \(format.sampleRate)Hz, \(format.channelCount)ch")
+        
+        engine.disconnectNodeOutput(playerNode)
+        
+        if let stereoNode = stereoWideningNode, let equalizer = eqNode {
+            engine.connect(playerNode, to: stereoNode, format: format)
+            engine.connect(stereoNode, to: equalizer, format: format)
+            engine.connect(equalizer, to: mainMixer, format: format)
+            Logger.info("Audio graph: playerNode → stereoWidening → EQ → mainMixer")
+        }
+        
+        effectsAttached = true
+        Logger.info("Audio effects setup complete")
+    }
 
-        let eq = AVAudioUnitEQ(numberOfBands: 10)
+    private func setupStereoWidening(engine: AVAudioEngine) {
         let delay = AVAudioUnitDelay()
+        delay.delayTime = 0.020
+        delay.wetDryMix = 50
+        delay.feedback = -10
+        delay.lowPassCutoff = 15000
+        delay.bypass = !stereoWideningEnabled
+        
+        engine.attach(delay)
+        self.stereoWideningNode = delay
+
+        Logger.info("Attached delay node (Haas effect stereo widening)")
+    }
+
+    private func setupEqualizer(engine: AVAudioEngine) {
+        let eq = AVAudioUnitEQ(numberOfBands: 10)
         
         for (index, frequency) in eqFrequencies.enumerated() {
             let band = eq.bands[index]
@@ -516,33 +555,9 @@ public class PAudioPlayer: NSObject {
         eq.globalGain = preampGain
         eq.bypass = !eqEnabled
         
-        delay.delayTime = 0.012
-        delay.wetDryMix = 20
-        delay.feedback = 0
-        delay.lowPassCutoff = 15000
-        delay.bypass = !stereoWideningEnabled
-        
-        engine.attach(delay)
         engine.attach(eq)
-        Logger.info("Attached EQ and delay nodes to engine")
-        
-        let format = playerNode.outputFormat(forBus: 0)
-        
-        Logger.info("Player node format: \(format.sampleRate)Hz, \(format.channelCount)ch")
-        
-        engine.disconnectNodeOutput(playerNode)
-        
-        engine.connect(playerNode, to: delay, format: format)
-        engine.connect(delay, to: eq, format: format)
-        engine.connect(eq, to: mainMixer, format: format)
-        
-        Logger.info("Audio graph reconnected: playerNode → delay → EQ → mainMixer")
-        
         self.eqNode = eq
-        self.delayNode = delay
-        self.effectsAttached = true
-        
-        Logger.info("Audio effects setup complete")
+        Logger.info("Attached EQ node to engine")
     }
 }
 
