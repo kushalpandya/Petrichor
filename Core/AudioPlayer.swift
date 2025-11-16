@@ -482,6 +482,45 @@ public class PAudioPlayer: NSObject {
         }
     }
     
+    /// Reconfigures the audio processing graph when the format changes
+    /// This is called by SFBAudioEngine when switching between different sample rates
+    internal func reconfigureAudioGraph(engine: AVAudioEngine, format: AVAudioFormat) -> AVAudioNode {
+        Logger.info("Reconfiguring audio graph for format: \(format.sampleRate)Hz, \(format.channelCount)ch")
+        
+        guard effectsAttached else {
+            Logger.info("No effects attached, connecting directly to mixer")
+            return engine.mainMixerNode
+        }
+        
+        // Detach and recreate effect nodes with the new format
+        if let oldStereoNode = stereoWideningNode {
+            engine.detach(oldStereoNode)
+            stereoWideningNode = nil
+        }
+        
+        if let oldEQNode = eqNode {
+            engine.detach(oldEQNode)
+            eqNode = nil
+        }
+        
+        // Recreate the effects chain
+        setupStereoWidening(engine: engine)
+        setupEqualizer(engine: engine)
+        
+        let mainMixer = engine.mainMixerNode
+        
+        if let stereoNode = stereoWideningNode, let equalizer = eqNode {
+            engine.connect(stereoNode, to: equalizer, format: format)
+            engine.connect(equalizer, to: mainMixer, format: format)
+            Logger.info("Reconfigured audio graph: playerNode -> stereoWidening -> EQ -> mainMixer")
+            
+            return stereoNode
+        }
+        
+        Logger.warning("Failed to reconfigure effects chain, falling back to mixer")
+        return mainMixer
+    }
+    
     internal func handleError(_ error: Error) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
@@ -520,7 +559,7 @@ public class PAudioPlayer: NSObject {
             engine.connect(playerNode, to: stereoNode, format: format)
             engine.connect(stereoNode, to: equalizer, format: format)
             engine.connect(equalizer, to: mainMixer, format: format)
-            Logger.info("Audio graph: playerNode → stereoWidening → EQ → mainMixer")
+            Logger.info("Audio graph: playerNode -> stereoWidening -> EQ -> mainMixer")
         }
         
         effectsAttached = true
@@ -572,7 +611,10 @@ private class SFBAudioPlayerDelegateBridge: NSObject, SFBAudioEngine.AudioPlayer
         super.init()
     }
     
-    func audioPlayer(_ audioPlayer: SFBAudioEngine.AudioPlayer, playbackStateChanged playbackState: SFBAudioEngine.AudioPlayer.PlaybackState) {
+    func audioPlayer(
+        _ audioPlayer: SFBAudioEngine.AudioPlayer,
+        playbackStateChanged playbackState: SFBAudioEngine.AudioPlayer.PlaybackState
+    ) {
         owner?.handlePlaybackStateChanged(playbackState)
     }
     
@@ -580,7 +622,18 @@ private class SFBAudioPlayerDelegateBridge: NSObject, SFBAudioEngine.AudioPlayer
         owner?.handleEndOfAudio()
     }
     
-    func audioPlayer(_ audioPlayer: SFBAudioEngine.AudioPlayer, encounteredError error: Error) {
+    func audioPlayer(
+        _ audioPlayer: SFBAudioEngine.AudioPlayer,
+        encounteredError error: Error
+    ) {
         owner?.handleError(error)
+    }
+    
+    func audioPlayer(
+        _ audioPlayer: SFBAudioEngine.AudioPlayer,
+        reconfigureProcessingGraph engine: AVAudioEngine,
+        with format: AVAudioFormat
+    ) -> AVAudioNode {
+        owner?.reconfigureAudioGraph(engine: engine, format: format) ?? engine.mainMixerNode
     }
 }
