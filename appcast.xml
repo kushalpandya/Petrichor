@@ -5,6 +5,36 @@
         <description>Updates for Petrichor</description>
         <language>en</language>
         <item>
+            <title>Version 1.2.0</title>
+            <pubDate>Sun, 16 Nov 2025 15:36:39 +0530</pubDate>
+            <sparkle:version>120</sparkle:version>
+            <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.2.0/Petrichor-1.2.0-Universal.dmg"
+                sparkle:edSignature="SavF5U2rXfKLMcihQHyGrdosLWh49NHXihokoD980AhAh9wTc/kK79ZOeeAtJhnFkelxIXW0q0An4if/RQz2Dw=="
+                length="15703632"
+                type="application/octet-stream"
+            />
+            <description><![CDATA[
+                <h2>More Audio Formats & Equalizer</h2>
+                <h3>Features</h3>
+                <ul>
+                    <li>Support for 20+ audio file formats including Ogg Vorbis, Opus, Monkey's Audio, Musepack, WavPack, and DSD. <strong>Note:</strong> Be sure to refresh your library folders.</li>
+                    <li>10-band parametric equalizer with 23 presets, preamp control, and stereo widening effect</li>
+                    <li>Show lossless file format information in Track Detail view</li>
+                    <li>Improved volume control UX</li>
+                    <li>Enhanced library maintenance and database optimization tools</li>
+                </ul>
+                <h3>Fixes</h3>
+                <ul>
+                    <li>Prevent loading full library data into memory when updating playlists</li>
+                    <li>Fix Now Playing state to correctly sync in Control Center</li>
+                </ul>
+                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.1.4...v1.2.0">Full Changelog</a></p>
+            ]]></description>
+        </item>
+        <item>
             <title>Version 1.1.4</title>
             <pubDate>Tue, 04 Nov 2025 13:07:43 +0530</pubDate>
             <sparkle:version>114</sparkle:version>
