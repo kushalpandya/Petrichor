@@ -92,6 +92,7 @@ brew install --cask petrichor
 <img src=".github/assets/screenshot_4.png" width="392" alt="Screenshot"/>
 <img src=".github/assets/screenshot_5.png" width="392" alt="Screenshot"/>
 <img src=".github/assets/screenshot_6.png" width="392" alt="Screenshot"/>
+<img src=".github/assets/screenshot_7.png" width="392" alt="Screenshot"/>
 </div>
 
 ### 🔒 Privacy & Data Access
