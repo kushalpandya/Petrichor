@@ -42,6 +42,7 @@ struct FullTrack: Identifiable, Equatable, Hashable, FetchableRecord, Persistabl
     var channels: Int?
     var codec: String?
     var bitDepth: Int?
+    var lossless: Bool?
     var fileSize: Int64?
     var dateAdded: Date?
     var dateModified: Date?
@@ -137,6 +138,7 @@ struct FullTrack: Identifiable, Equatable, Hashable, FetchableRecord, Persistabl
         static let channels = Column("channels")
         static let codec = Column("codec")
         static let bitDepth = Column("bit_depth")
+        static let lossless = Column("lossless")
         static let fileSize = Column("file_size")
         static let dateModified = Column("date_modified")
         static let isDuplicate = Column("is_duplicate")
@@ -191,6 +193,7 @@ struct FullTrack: Identifiable, Equatable, Hashable, FetchableRecord, Persistabl
         channels = row[Columns.channels]
         codec = row[Columns.codec]
         bitDepth = row[Columns.bitDepth]
+        lossless = row[Columns.lossless]
         fileSize = row[Columns.fileSize]
         dateModified = row[Columns.dateModified]
         
@@ -252,6 +255,7 @@ struct FullTrack: Identifiable, Equatable, Hashable, FetchableRecord, Persistabl
         container[Columns.channels] = channels
         container[Columns.codec] = codec
         container[Columns.bitDepth] = bitDepth
+        container[Columns.lossless] = lossless
         container[Columns.fileSize] = fileSize
         container[Columns.dateModified] = dateModified
         container[Columns.isDuplicate] = isDuplicate
@@ -343,11 +347,29 @@ struct FullTrack: Identifiable, Equatable, Hashable, FetchableRecord, Persistabl
 extension FullTrack {
     /// Determines if the track is in a lossless format
     var isLossless: Bool {
+        // Check if we already have flag set in db during metadata extraction
+        if let lossless = lossless {
+            return lossless
+        }
+        
+        // Fallback to manual computation
         let formatLower = format.lowercased()
-
+        let codecLower = codec?.lowercased() ?? ""
+        
+        let losslessCodecs: Set<String> = [
+            "flac", "apple lossless", "alac", "wavpack", "ape", "tta",
+            "dsd", "dsf", "dff"
+        ]
+        
+        for losslessCodec in losslessCodecs {
+            if codecLower.contains(losslessCodec) {
+                return true
+            }
+        }
+        
         let losslessFormats: Set<String> = [
             // Lossless PCM
-            "flac", "alac", "wav", "aiff", "aif",
+            "flac", "alac", "wav", "wave", "aiff", "aif", "aifc",
             // Lossless compressed
             "ape", "wv", "tta",
             // DSD formats

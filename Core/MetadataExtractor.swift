@@ -30,6 +30,7 @@ struct TrackMetadata {
     var channels: Int?
     var codec: String?
     var bitDepth: Int?
+    var lossless: Bool?
 
     var sortTitle: String?
     var sortArtist: String?
@@ -179,6 +180,11 @@ class MetadataExtractor {
         // Format/Codec
         if let formatName = properties.formatName {
             metadata.codec = formatName
+        }
+
+        // Extract lossless flag from decoder
+        if let decoder = try? AudioDecoder(url: metadata.url) {
+            metadata.lossless = decoder.decodingIsLossless
         }
     }
 

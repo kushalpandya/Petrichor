@@ -53,6 +53,7 @@ extension DatabaseManager {
         track.channels = metadata.channels
         track.codec = metadata.codec
         track.bitDepth = metadata.bitDepth
+        track.lossless = metadata.lossless
 
         // File properties
         if let attributes = try? fileURL.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey]) {
@@ -259,6 +260,11 @@ extension DatabaseManager {
 
         if let newBitDepth = metadata.bitDepth, newBitDepth != track.bitDepth {
             track.bitDepth = newBitDepth
+            hasChanges = true
+        }
+        
+        if let newLossless = metadata.lossless, newLossless != track.lossless {
+            track.lossless = newLossless
             hasChanges = true
         }
 

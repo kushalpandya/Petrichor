@@ -80,7 +80,7 @@ extension PlaylistManager {
 
             do {
                 if let dbManager = libraryManager?.databaseManager {
-                    try await dbManager.updateTrackPlayInfo(
+                    try await dbManager.updatePlayingTrackMetadata(
                         trackId: trackId,
                         playCount: newPlayCount,
                         lastPlayedDate: lastPlayedDate

@@ -16,6 +16,7 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
     // File properties
     let format: String
     var folderId: Int64?
+    var lossless: Bool?
     
     // Navigation fields (for "Go to" functionality)
     var albumArtist: String?
@@ -158,6 +159,7 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
         static let year = Column("year")
         static let duration = Column("duration")
         static let format = Column("format")
+        static let lossless = Column("lossless")
         static let dateAdded = Column("date_added")
         static let isFavorite = Column("is_favorite")
         static let playCount = Column("play_count")
@@ -187,6 +189,7 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
         genre = row[Columns.genre]
         year = row[Columns.year]
         duration = row[Columns.duration]
+        lossless = row[Columns.lossless]
         dateAdded = row[Columns.dateAdded]
         isFavorite = row[Columns.isFavorite]
         playCount = row[Columns.playCount]
@@ -223,6 +226,7 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
         container[Columns.year] = year
         container[Columns.duration] = duration
         container[Columns.format] = format
+        container[Columns.lossless] = lossless
         container[Columns.dateAdded] = dateAdded ?? Date()
         container[Columns.isFavorite] = isFavorite
         container[Columns.playCount] = playCount

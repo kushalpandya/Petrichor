@@ -103,6 +103,13 @@ struct DatabaseMigrator {
             
             Logger.info("v4_rebuild_fts_with_unicode61_tokenizer migration completed")
         }
+        
+        migrator.registerMigration("v5_add_lossless_column") { db in
+            try db.alter(table: "tracks") { t in
+                t.add(column: "lossless", .boolean)
+            }
+            Logger.info("v5_add_lossless_column migration completed")
+        }
 
         // MARK: - Future Migrations
         // Add new migrations here as: migrator.registerMigration("v2_description") { db in ... }

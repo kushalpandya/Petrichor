@@ -7,6 +7,7 @@
 
 import Foundation
 import GRDB
+import SFBAudioEngine
 
 extension DatabaseManager {
     // Updates a track's favorite status
@@ -19,7 +20,7 @@ extension DatabaseManager {
     }
 
     // Updates a track's play count and last played date
-    func updateTrackPlayInfo(trackId: Int64, playCount: Int, lastPlayedDate: Date) async throws {
+    func updatePlayingTrackMetadata(trackId: Int64, playCount: Int, lastPlayedDate: Date) async throws {
         _ = try await dbQueue.write { db in
             try Track
                 .filter(Track.Columns.trackId == trackId)
