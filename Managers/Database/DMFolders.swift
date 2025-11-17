@@ -96,6 +96,7 @@ extension DatabaseManager {
 
         await MainActor.run {
             self.isScanning = false
+            self.scanStatusMessage = ""
         }
         
         // Wait for DB operations to finish before notifying scan completion
@@ -300,14 +301,12 @@ extension DatabaseManager {
             includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey],
             options: [.skipsHiddenFiles, .skipsPackageDescendants]
         ) else {
-            let error = DatabaseError.scanFailed("Unable to enumerate folder contents")
-            throw error
+            throw DatabaseError.scanFailed("Unable to enumerate folder contents")
         }
 
         guard let folderId = folder.id else {
-            let error = DatabaseError.invalidFolderId
             Logger.error("Folder has no ID")
-            throw error
+            throw DatabaseError.invalidFolderId
         }
 
         actor ScanState {
@@ -338,17 +337,14 @@ extension DatabaseManager {
         let existingTracks = getTracksForFolder(folderId)
         _ = Dictionary(uniqueKeysWithValues: existingTracks.map { ($0.url, $0) })
 
-        // Collect all music files first - do this synchronously before async context
+        // Collect all music files first
         var musicFiles: [URL] = []
         var scannedPaths = Set<URL>()
-
-        // Process enumerator synchronously
         var unsupportedFiles: [(url: URL, extension: String)] = []
 
         while let fileURL = enumerator.nextObject() as? URL {
             let fileExtension = fileURL.pathExtension.lowercased()
             
-            // Skip files without extensions
             guard !fileExtension.isEmpty else { continue }
             
             if supportedExtensions.contains(fileExtension) {
@@ -364,7 +360,6 @@ extension DatabaseManager {
             await scanState.addSkippedFiles(unsupportedFiles)
         }
 
-        // Now we can safely use these in async context
         let totalFiles = musicFiles.count
         let foundPaths = scannedPaths
 
@@ -376,7 +371,6 @@ extension DatabaseManager {
         if !trackIdsToRemove.isEmpty {
             let removedCount = trackIdsToRemove.count
             
-            // Delete tracks
             try await dbQueue.write { db in
                 for track in tracksToRemove {
                     try track.delete(db)
@@ -384,10 +378,8 @@ extension DatabaseManager {
                 }
             }
             
-            // Clean up orphaned metadata
             try await cleanupAfterTrackRemoval(trackIdsToRemove)
             
-            // Notify about the cleanup
             await MainActor.run {
                 if totalFiles == 0 {
                     NotificationManager.shared.addMessage(.info, "Folder '\(folder.name)' is now empty, removed \(removedCount) tracks")
@@ -400,47 +392,57 @@ extension DatabaseManager {
             }
         }
 
-        // If no music files found and all tracks removed, we're done
+        // If no music files found, we're done
         if totalFiles == 0 {
             try await updateFolderTrackCount(folder)
             return
         }
         
-        // Scan for artwork files once for the entire folder
+        // Scan for artwork files
         let artworkMap = MetadataExtractor.scanFolderForArtwork(at: folder.url)
         if !artworkMap.isEmpty {
             Logger.info("Found artwork in \(artworkMap.count) directories within \(folder.name)")
         }
 
-        // Process music files in batches
+        // Process music files in batches concurrently
         let batchSize = totalFiles > 1000 ? 100 : 50
         let fileBatches = musicFiles.chunked(into: batchSize)
 
-        for batch in fileBatches {
-            let batchWithFolderId = batch.map { url in (url: url, folderId: folderId) }
+        try await withThrowingTaskGroup(of: Int.self) { group in
+            for batch in fileBatches {
+                let batchWithFolderId = batch.map { url in (url: url, folderId: folderId) }
+                
+                group.addTask { [self, artworkMap, folder, scanState] in
+                    do {
+                        try await self.processBatch(batchWithFolderId, artworkMap: artworkMap)
+                        return batch.count
+                    } catch {
+                        let failures = batch.map { (url: $0, error: error) }
+                        await scanState.addFailedFiles(failures)
+                        Logger.error("Failed to process batch in folder \(folder.name): \(error)")
+                        return 0
+                    }
+                }
+            }
             
-            do {
-                try await processBatch(batchWithFolderId, artworkMap: artworkMap)
-                await scanState.incrementProcessed(by: batch.count)
+            // Collect results as batches complete
+            for try await processedCount in group {
+                await scanState.incrementProcessed(by: processedCount)
                 
                 let currentProcessed = await scanState.getProcessedCount()
                 
-                // Update progress
+                // Update progress message only
                 await MainActor.run {
                     self.scanStatusMessage = "Processing: \(currentProcessed)/\(totalFiles) files in \(folder.name)"
                 }
-            } catch {
-                // Track failed files but continue processing
-                let failures = batch.map { (url: $0, error: error) }
-                await scanState.addFailedFiles(failures)
-                Logger.error("Failed to process batch in folder \(folder.name): \(error)")
             }
         }
 
         // Update folder metadata
-        if let folderId = folder.id {
-            try await updateFolderMetadata(folderId)
-        }
+        try await updateFolderMetadata(folderId)
+        
+        // Detect and avoid duplicates
+        await detectAndMarkDuplicates()
 
         // Get final counts
         let processedCount = await scanState.getProcessedCount()
@@ -457,7 +459,6 @@ extension DatabaseManager {
             }
         }
         
-        // Report skipped files
         if !skippedFiles.isEmpty {
             let extensionCounts = Dictionary(grouping: skippedFiles) { $0.extension }
                 .mapValues { $0.count }

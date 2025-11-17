@@ -39,21 +39,14 @@ extension LibraryManager {
 
             // Add folders to database with their bookmarks
             if !urlsToAdd.isEmpty {
-                // Show scanning immediately
-                self.isScanning = true
-                self.scanStatusMessage = "Preparing to scan folders..."
-
-                // Small delay to ensure UI updates
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.databaseManager.addFolders(urlsToAdd, bookmarkDataMap: bookmarkDataMap) { result in
-                        switch result {
-                        case .success(let dbFolders):
-                            Logger.info("Successfully added \(dbFolders.count) folders to database")
-                            self.refreshLibraryCategories()
-                            self.loadMusicLibrary()
-                        case .failure(let error):
-                            Logger.error("Failed to add folders to database: \(error)")
-                        }
+                self.databaseManager.addFolders(urlsToAdd, bookmarkDataMap: bookmarkDataMap) { result in
+                    switch result {
+                    case .success(let dbFolders):
+                        Logger.info("Successfully added \(dbFolders.count) folders to database")
+                        self.refreshLibraryCategories()
+                        self.loadMusicLibrary()
+                    case .failure(let error):
+                        Logger.error("Failed to add folders to database: \(error)")
                     }
                 }
             }

@@ -10,107 +10,50 @@ import GRDB
 extension DatabaseManager {
     /// Process a batch of music files with normalized data support
     func processBatch(_ batch: [(url: URL, folderId: Int64)], artworkMap: [URL: Data] = [:]) async throws {
-        await MainActor.run {
-            self.isScanning = true
-            self.scanStatusMessage = "Processing \(batch.count) files..."
-        }
+        // Determine optimal concurrency based on system resources
+        let processorCount = ProcessInfo.processInfo.processorCount
+        let optimalConcurrency = max(4, min(processorCount * 2, 16))
         
-        // Process files concurrently but collect results
+        Logger.info("Processing batch of \(batch.count) files with concurrency: \(optimalConcurrency)")
+        
+        // Process files concurrently with controlled concurrency
         try await withThrowingTaskGroup(of: (URL, TrackProcessResult).self) { group in
-            for (fileURL, folderId) in batch {
-                group.addTask { [weak self] in
-                    guard let self = self else { return (fileURL, TrackProcessResult.skipped) }
-                    
-                    await MainActor.run {
-                        self.scanStatusMessage = "Processing: \(fileURL.lastPathComponent)"
-                    }
-                    
-                    // Get artwork for this file's directory
-                    let directory = fileURL.deletingLastPathComponent()
-                    let externalArtwork = artworkMap[directory]
-                    
-                    do {
-                        // Check if track already exists (use lightweight Track for efficiency)
-                        if let existingTrack = try await self.dbQueue.read({ db in
-                            try Track.filter(Track.Columns.path == fileURL.path).fetchOne(db)
-                        }) {
-                            // Fetch the full track for comparison and update
-                            guard let existingFullTrack = try await existingTrack.fullTrack(using: self.dbQueue) else {
-                                // If we can't get full track, treat as new
-                                let metadata = MetadataExtractor.extractMetadataSync(
-                                    from: fileURL,
-                                    externalArtwork: externalArtwork
-                                )
-                                var fullTrack = FullTrack(url: fileURL)
-                                fullTrack.folderId = folderId
-                                self.applyMetadataToTrack(&fullTrack, from: metadata, at: fileURL)
-                                
-                                return (fileURL, TrackProcessResult.new(fullTrack, metadata))
-                            }
-                            
-                            // Check if file has been modified
-                            if let attributes = try? fileURL.resourceValues(forKeys: [.contentModificationDateKey]),
-                               let modificationDate = attributes.contentModificationDate,
-                               let trackModifiedDate = existingFullTrack.dateModified,
-                               modificationDate <= trackModifiedDate {
-                                // File hasn't changed, but check if we should update external artwork
-                                if externalArtwork != nil {
-                                    Logger.info("External artwork available for track without file changes: \(fileURL.lastPathComponent)")
-                                } else {
-                                    return (fileURL, TrackProcessResult.skipped)
-                                }
-                            }
-                            
-                            // File has changed, extract metadata
-                            let metadata = MetadataExtractor.extractMetadataSync(
-                                from: fileURL,
-                                externalArtwork: externalArtwork
-                            )
-                            var updatedTrack = existingFullTrack
-                            
-                            let hasChanges = self.updateTrackIfNeeded(&updatedTrack, with: metadata, at: fileURL)
-                            
-                            if hasChanges {
-                                return (fileURL, TrackProcessResult.update(updatedTrack, metadata))
-                            } else {
-                                return (fileURL, TrackProcessResult.skipped)
-                            }
-                        } else {
-                            // New track
-                            let metadata = MetadataExtractor.extractMetadataSync(
-                                from: fileURL,
-                                externalArtwork: externalArtwork
-                            )
-                            var fullTrack = FullTrack(url: fileURL)
-                            fullTrack.folderId = folderId
-                            self.applyMetadataToTrack(&fullTrack, from: metadata, at: fileURL)
-                            
-                            return (fileURL, TrackProcessResult.new(fullTrack, metadata))
-                        }
-                    } catch {
-                        // Log the error and skip this track
-                        Logger.error("Failed to process track \(fileURL.lastPathComponent): \(error)")
-                        return (fileURL, TrackProcessResult.skipped)
-                    }
-                }
+            var pendingURLs = batch
+            var activeTasks = 0
+            
+            // Fill initial task pool
+            while activeTasks < optimalConcurrency && !pendingURLs.isEmpty {
+                let item = pendingURLs.removeFirst()
+                addProcessingTask(to: &group, item: item, artworkMap: artworkMap)
+                activeTasks += 1
             }
             
-            // Collect results into a single structure to avoid concurrent mutations
-            let processResults = try await group.reduce(
-                into: (
-                    new: [(FullTrack, TrackMetadata)](),
-                    update: [(FullTrack, TrackMetadata)](),
-                    skipped: 0
-                )
-            ) { result, item in
-                let (_, trackResult) = item
+            // Process results and add new tasks as they complete
+            var processResults = (
+                new: [(FullTrack, TrackMetadata)](),
+                update: [(FullTrack, TrackMetadata)](),
+                skipped: 0
+            )
+            
+            while let result = try await group.next() {
+                activeTasks -= 1
+                
+                // Collect result
+                let (_, trackResult) = result
                 switch trackResult {
                 case .new(let track, let metadata):
-                    result.new.append((track, metadata))
+                    processResults.new.append((track, metadata))
                 case .update(let track, let metadata):
-                    result.update.append((track, metadata))
+                    processResults.update.append((track, metadata))
                 case .skipped:
-                    result.skipped += 1
+                    processResults.skipped += 1
+                }
+                
+                // Add next task if available
+                if !pendingURLs.isEmpty {
+                    let item = pendingURLs.removeFirst()
+                    addProcessingTask(to: &group, item: item, artworkMap: artworkMap)
+                    activeTasks += 1
                 }
             }
             
@@ -121,7 +64,6 @@ extension DatabaseManager {
                     do {
                         try self.processNewTrack(track, metadata: metadata, in: db)
                     } catch {
-                        // Report error and continue with other tracks
                         Logger.error("Failed to add new track \(track.title): \(error)")
                     }
                 }
@@ -131,7 +73,6 @@ extension DatabaseManager {
                     do {
                         try self.processUpdatedTrack(track, metadata: metadata, in: db)
                     } catch {
-                        // Report error and continue with other tracks
                         Logger.error("Failed to update track \(track.title): \(error)")
                     }
                 }
@@ -144,18 +85,81 @@ extension DatabaseManager {
             
             let r = processResults
             Logger.info("Batch processing complete: \(r.new.count) new, \(r.update.count) updated, \(r.skipped) skipped")
-            
-            // After batch processing is complete, detect duplicates
-            await detectAndMarkDuplicates()
-        }
-        
-        await MainActor.run {
-            self.isScanning = false
-            self.scanStatusMessage = "Scan complete"
         }
     }
-    
+
     // MARK: - Track Processing
+    
+    private func addProcessingTask(
+        to group: inout ThrowingTaskGroup<(URL, TrackProcessResult), Error>,
+        item: (url: URL, folderId: Int64),
+        artworkMap: [URL: Data]
+    ) {
+        let (fileURL, folderId) = item
+        
+        group.addTask { [weak self] in
+            guard let self = self else { return (fileURL, TrackProcessResult.skipped) }
+            
+            // Get artwork for this file's directory
+            let directory = fileURL.deletingLastPathComponent()
+            let externalArtwork = artworkMap[directory]
+            
+            do {
+                // Check if track already exists
+                if let existingTrack = try await self.dbQueue.read({ db in
+                    try Track.filter(Track.Columns.path == fileURL.path).fetchOne(db)
+                }) {
+                    // Fetch the full track for comparison and update
+                    guard let existingFullTrack = try await existingTrack.fullTrack(using: self.dbQueue) else {
+                        // If we can't get full track, treat as new
+                        let metadata = MetadataExtractor.extractMetadataSync(
+                            from: fileURL,
+                            externalArtwork: externalArtwork
+                        )
+                        var fullTrack = FullTrack(url: fileURL)
+                        fullTrack.folderId = folderId
+                        self.applyMetadataToTrack(&fullTrack, from: metadata, at: fileURL)
+                        
+                        return (fileURL, TrackProcessResult.new(fullTrack, metadata))
+                    }
+                    
+                    // Check if file has been modified
+                    if let attributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path),
+                       let modDate = attributes[.modificationDate] as? Date,
+                       let storedModDate = existingFullTrack.dateModified,
+                       modDate > storedModDate {
+                        // File has been modified, re-extract metadata
+                        let metadata = MetadataExtractor.extractMetadataSync(
+                            from: fileURL,
+                            externalArtwork: externalArtwork
+                        )
+                        
+                        var updatedTrack = existingFullTrack
+                        if self.updateTrackIfNeeded(&updatedTrack, with: metadata, at: fileURL) {
+                            return (fileURL, TrackProcessResult.update(updatedTrack, metadata))
+                        }
+                    }
+                    
+                    // No changes needed
+                    return (fileURL, TrackProcessResult.skipped)
+                } else {
+                    // New track
+                    let metadata = MetadataExtractor.extractMetadataSync(
+                        from: fileURL,
+                        externalArtwork: externalArtwork
+                    )
+                    var fullTrack = FullTrack(url: fileURL)
+                    fullTrack.folderId = folderId
+                    self.applyMetadataToTrack(&fullTrack, from: metadata, at: fileURL)
+                    
+                    return (fileURL, TrackProcessResult.new(fullTrack, metadata))
+                }
+            } catch {
+                Logger.error("Failed to process track \(fileURL.lastPathComponent): \(error)")
+                return (fileURL, TrackProcessResult.skipped)
+            }
+        }
+    }
     
     /// Process a new track with normalized data
     private func processNewTrack(_ track: FullTrack, metadata: TrackMetadata, in db: Database) throws {

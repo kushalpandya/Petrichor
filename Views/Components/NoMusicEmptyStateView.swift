@@ -37,7 +37,7 @@ struct NoMusicEmptyStateView: View {
 
     var body: some View {
         VStack(spacing: context.spacing) {
-            if stableScanningState && libraryManager.folders.isEmpty {
+            if stableScanningState {
                 // Only show scanning animation when truly empty (no folders)
                 scanningProgressContent
                     .transition(.opacity)
