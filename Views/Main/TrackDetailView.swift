@@ -164,14 +164,16 @@ struct TrackDetailView: View {
             Text(fullTrack.artist)
                 .font(.title3)
                 .foregroundColor(.secondary)
-                .lineLimit(1)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
                 .textSelection(.enabled)
 
             if !fullTrack.album.isEmpty && fullTrack.album != "Unknown Album" {
                 Text(fullTrack.album)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
-                    .lineLimit(1)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
                     .textSelection(.enabled)
             }
             
@@ -277,11 +279,11 @@ struct TrackDetailView: View {
 
         // Release Dates
         if let releaseDate = fullTrack.releaseDate, !releaseDate.isEmpty {
-            items.append(("Release Date", releaseDate))
+            items.append(("Release Date", formatDate(releaseDate)))
         }
 
         if let originalDate = fullTrack.originalReleaseDate, !originalDate.isEmpty {
-            items.append(("Original Release", originalDate))
+            items.append(("Original Release", formatDate(originalDate)))
         }
 
         // Additional metadata from extended
@@ -354,6 +356,36 @@ struct TrackDetailView: View {
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
         return formatter.string(from: date)
+    }
+
+    private func formatDate(_ dateString: String) -> String {
+        if let date = parseDateString(dateString) {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .short
+            return formatter.string(from: date)
+        }
+        
+        return dateString
+    }
+
+    private func parseDateString(_ dateString: String) -> Date? {
+        let iso8601Formatter = ISO8601DateFormatter()
+        if let date = iso8601Formatter.date(from: dateString) {
+            return date
+        }
+        
+        let dateFormatter = DateFormatter()
+        
+        let formats = ["yyyy-MM-dd", "yyyy-MM", "yyyy"]
+        for format in formats {
+            dateFormatter.dateFormat = format
+            if let date = dateFormatter.date(from: dateString) {
+                return date
+            }
+        }
+        
+        return nil
     }
 }
 
