@@ -96,7 +96,7 @@ struct ContentView: View {
             CreatePlaylistSheet(
                 isPresented: $playlistManager.showingCreatePlaylistModal,
                 playlistName: $playlistManager.newPlaylistName,
-                trackToAdd: playlistManager.trackToAddToNewPlaylist
+                tracksToAdd: playlistManager.tracksToAddToNewPlaylist
             ) {
                 playlistManager.createPlaylistFromModal()
             }
@@ -371,7 +371,7 @@ struct CreatePlaylistSheet: View {
     @EnvironmentObject var playlistManager: PlaylistManager
     @Binding var isPresented: Bool
     @Binding var playlistName: String
-    let trackToAdd: Track?
+    let tracksToAdd: [Track]
     let onCreate: () -> Void
     
     var body: some View {
@@ -388,8 +388,8 @@ struct CreatePlaylistSheet: View {
                     }
                 }
 
-            if let track = trackToAdd {
-                Text("Will add: \(track.title)")
+            if !tracksToAdd.isEmpty {
+                Text("Will add: \(tracksToAdd.count) track\(tracksToAdd.count == 1 ? "" : "s")")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

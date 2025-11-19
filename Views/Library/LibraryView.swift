@@ -238,9 +238,9 @@ struct LibraryView: View {
 
     // MARK: - Context Menu Helper
 
-    private func createLibraryContextMenu(for track: Track) -> [ContextMenuItem] {
+    private func createLibraryContextMenu(for tracks: [Track]) -> [ContextMenuItem] {
         TrackContextMenu.createMenuItems(
-            for: track,
+            for: tracks,
             playbackManager: playbackManager,
             playlistManager: playlistManager,
             currentContext: .library

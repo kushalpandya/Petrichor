@@ -17,7 +17,7 @@ class PlaylistManager: ObservableObject {
     @Published var currentQueueIndex: Int = -1
     @Published var currentQueueSource: QueueSource = .library
     @Published var showingCreatePlaylistModal = false
-    @Published var trackToAddToNewPlaylist: Track?
+    @Published var tracksToAddToNewPlaylist: [Track] = []
     @Published var newPlaylistName = ""
 
     enum QueueSource {

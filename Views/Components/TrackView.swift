@@ -7,7 +7,7 @@ struct TrackView: View {
     let playlistID: UUID?
     let entityID: UUID?
     let onPlayTrack: (Track) -> Void
-    let contextMenuItems: (Track) -> [ContextMenuItem]
+    let contextMenuItems: ([Track]) -> [ContextMenuItem]
     
     @State private var sortOrder = [KeyPathComparator(\Track.title)]
     @EnvironmentObject var playbackManager: PlaybackManager

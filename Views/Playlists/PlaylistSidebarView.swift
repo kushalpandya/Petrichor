@@ -125,7 +125,7 @@ struct PlaylistSidebarView: View {
         CreatePlaylistSheet(
             isPresented: $showingCreatePlaylist,
             playlistName: $newPlaylistName,
-            trackToAdd: nil
+            tracksToAdd: []
         ) {
             createPlaylist()
         }
