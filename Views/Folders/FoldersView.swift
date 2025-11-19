@@ -117,12 +117,12 @@ struct FoldersView: View {
                     selectedTrackID = track.id
                 }
             },
-            contextMenuItems: { track in
+            contextMenuItems: { tracks in
                 if let node = selectedFolderNode {
                     // Create context menu items for folder node
                     if let dbFolder = node.databaseFolder {
                         return TrackContextMenu.createMenuItems(
-                            for: track,
+                            for: tracks,
                             playbackManager: playbackManager,
                             playlistManager: playlistManager,
                             currentContext: .folder(dbFolder)
@@ -130,7 +130,7 @@ struct FoldersView: View {
                     } else {
                         // For sub-folders, use library context
                         return TrackContextMenu.createMenuItems(
-                            for: track,
+                            for: tracks,
                             playbackManager: playbackManager,
                             playlistManager: playlistManager,
                             currentContext: .library

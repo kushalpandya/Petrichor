@@ -45,6 +45,40 @@ enum TrackContextMenu {
         return items
     }
     
+    static func createMenuItems(
+        for tracks: [Track],
+        playbackManager: PlaybackManager,
+        playlistManager: PlaylistManager,
+        currentContext: MenuContext
+    ) -> [ContextMenuItem] {
+        if tracks.count == 1, let track = tracks.first {
+            return createMenuItems(
+                for: track,
+                playbackManager: playbackManager,
+                playlistManager: playlistManager,
+                currentContext: currentContext
+            )
+        }
+        
+        var items: [ContextMenuItem] = []
+        
+        items.append(contentsOf: createBulkPlaybackItems(
+            for: tracks,
+            playlistManager: playlistManager,
+            currentContext: currentContext
+        ))
+        
+        items.append(.divider)
+        
+        items.append(contentsOf: createBulkPlaylistItems(
+            for: tracks,
+            playlistManager: playlistManager,
+            currentContext: currentContext
+        ))
+        
+        return items
+    }
+    
     static func createPlayerViewMenuItems(
         for track: Track,
         playbackManager: PlaybackManager,
@@ -105,6 +139,37 @@ enum TrackContextMenu {
         // Add to Queue
         items.append(.button(title: "Add to Queue", icon: "text.append") {
             playlistManager.addToQueue(track)
+        })
+        
+        return items
+    }
+    
+    private static func createBulkPlaybackItems(
+        for tracks: [Track],
+        playlistManager: PlaylistManager,
+        currentContext: MenuContext
+    ) -> [ContextMenuItem] {
+        var items: [ContextMenuItem] = []
+        
+        // Play
+        items.append(.button(title: "Play", icon: Icons.playFill) {
+            if let firstTrack = tracks.first {
+                playlistManager.playTrack(firstTrack, fromTracks: tracks)
+            }
+        })
+        
+        // Play Next
+        items.append(.button(title: "Play Next", icon: "text.line.first.and.arrowtriangle.forward") {
+            for track in tracks.reversed() {
+                playlistManager.playNext(track)
+            }
+        })
+        
+        // Add to Queue
+        items.append(.button(title: "Add to Queue", icon: "text.append") {
+            for track in tracks {
+                playlistManager.addToQueue(track)
+            }
         })
         
         return items
@@ -211,7 +276,7 @@ enum TrackContextMenu {
         
         // Create new playlist item
         playlistItems.append(.button(title: "New Playlist...") {
-            playlistManager.showCreatePlaylistModal(with: track)
+            playlistManager.showCreatePlaylistModal(with: [track])
         })
         
         // Add to existing playlists - optimize the containment check
@@ -245,6 +310,53 @@ enum TrackContextMenu {
         return items
     }
     
+    private static func createBulkPlaylistItems(
+        for tracks: [Track],
+        playlistManager: PlaylistManager,
+        currentContext: MenuContext
+    ) -> [ContextMenuItem] {
+        var items: [ContextMenuItem] = []
+        
+        let playlists = playlistManager.playlists.filter { $0.type == .regular }
+        var playlistItems: [ContextMenuItem] = []
+        
+        playlistItems.append(.button(title: "New Playlist...") {
+            playlistManager.showCreatePlaylistModal(with: tracks)
+        })
+        
+        if !playlists.isEmpty {
+            playlistItems.append(.divider)
+            
+            for playlist in playlists {
+                playlistItems.append(.button(title: playlist.name) {
+                    Task {
+                        await playlistManager.addTracksToPlaylist(tracks: tracks, playlistID: playlist.id)
+                    }
+                })
+            }
+        }
+        
+        items.append(.menu(title: "Add to Playlist", icon: "text.badge.plus", items: playlistItems))
+        
+        items.append(.button(title: "Add to Favorites", icon: Icons.star) {
+            for track in tracks {
+                if !track.isFavorite {
+                    playlistManager.toggleFavorite(for: track)
+                }
+            }
+        })
+        
+        if case .playlist(let playlist) = currentContext, playlist.type == .regular {
+            items.append(.button(title: "Remove from Playlist", icon: Icons.trash, role: .destructive) {
+                Task {
+                    await playlistManager.removeTracksFromPlaylist(tracks: tracks, playlistID: playlist.id)
+                }
+            })
+        }
+        
+        return items
+    }
+
     private static func createContextSpecificItems(
         for track: Track,
         playlistManager: PlaylistManager,
@@ -264,8 +376,7 @@ enum TrackContextMenu {
             
         case .playlist(let playlist):
             if playlist.type == .regular {
-                items.append(.divider)
-                items.append(.button(title: "Remove from Playlist", role: .destructive) {
+                items.append(.button(title: "Remove from Playlist", icon: Icons.trash, role: .destructive) {
                     playlistManager.removeTrackFromPlaylist(
                         track: track,
                         playlistID: playlist.id
