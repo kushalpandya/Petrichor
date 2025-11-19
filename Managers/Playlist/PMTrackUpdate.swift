@@ -86,11 +86,9 @@ extension PlaylistManager {
                         lastPlayedDate: lastPlayedDate
                     )
 
-                    let updatedTrack = track.withPlayStats(playCount: newPlayCount, lastPlayedDate: lastPlayedDate)
+                    _ = track.withPlayStats(playCount: newPlayCount, lastPlayedDate: lastPlayedDate)
 
                     Logger.info("Incremented play count for track: \(track.title)")
-
-                    await handleTrackPropertyUpdate(updatedTrack)
                     
                     updateSmartPlaylistCounts()
                 }

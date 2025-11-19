@@ -361,7 +361,6 @@ class PlaybackManager: NSObject, ObservableObject {
         
         startStateSaveTimer()
         updateNowPlayingInfo()
-        playlistManager.incrementPlayCount(for: lightweightTrack)
     }
     
     private func startProgressUpdateTimer() {
@@ -486,12 +485,17 @@ extension PlaybackManager: AudioPlayerDelegate {
         duration: Double
     ) {
         DispatchQueue.main.async {
-            guard self.currentTrack != nil else {
+            guard let currentTrack = self.currentTrack else {
                 Logger.info("Ignoring finish - no current track")
                 return
             }
             
             Logger.info("Track finished (reason: \(stopReason))")
+            
+            if stopReason == .eof {
+                self.playlistManager.incrementPlayCount(for: currentTrack)
+                Logger.info("Track completed naturally, updating play count and last played date")
+            }
             
             self.currentTime = 0
             

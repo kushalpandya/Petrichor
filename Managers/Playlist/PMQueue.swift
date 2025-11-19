@@ -56,7 +56,6 @@ extension PlaylistManager {
         if currentQueue.isEmpty || currentQueueIndex < 0 {
             currentQueue = [track]
             currentQueueIndex = 0
-            incrementPlayCount(for: track)
             audioPlayer?.playTrack(track)
             return
         }
@@ -78,7 +77,6 @@ extension PlaylistManager {
         if currentQueue.isEmpty {
             currentQueue = [track]
             currentQueueIndex = 0
-            incrementPlayCount(for: track)
             audioPlayer?.playTrack(track)
             return
         }
@@ -127,7 +125,6 @@ extension PlaylistManager {
 
         currentQueueIndex = index
         let track = currentQueue[index]
-        incrementPlayCount(for: track)
         audioPlayer?.playTrack(track)
     }
 
