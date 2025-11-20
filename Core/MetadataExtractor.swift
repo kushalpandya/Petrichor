@@ -183,8 +183,45 @@ class MetadataExtractor {
         }
 
         // Extract lossless flag from decoder
-        if let decoder = try? AudioDecoder(url: metadata.url) {
-            metadata.lossless = decoder.decodingIsLossless
+        metadata.lossless = isTrackLossless(for: metadata.url) ?? false
+    }
+
+    /// Safely detect lossless status by creating a decoder with full error handling
+    private static func isTrackLossless(for url: URL) -> Bool? {
+        return autoreleasepool {
+            do {
+                // Try to create decoder with explicit error handling
+                let decoder = try AudioDecoder(url: url)
+                
+                if !decoder.isOpen {
+                    do {
+                        try decoder.open()
+                    } catch {
+                        Logger.error("Failed to open decoder for lossless check: \(url.lastPathComponent)")
+                        return nil
+                    }
+                }
+                
+                // Get lossless status
+                let isLossless = decoder.decodingIsLossless
+                
+                try? decoder.close()
+                
+                return isLossless
+                
+            } catch let error as NSError {
+                let errorDescription = error.localizedDescription.lowercased()
+                
+                if errorDescription.contains("format") && errorDescription.contains("not recognized") {
+                    Logger.warning("Format not recognized for lossless detection: \(url.lastPathComponent)")
+                } else {
+                    Logger.error("Failed to detect lossless for \(url.lastPathComponent): \(error.localizedDescription)")
+                }
+                return nil
+            } catch {
+                Logger.error("Unexpected error detecting lossless for \(url.lastPathComponent): \(error)")
+                return nil
+            }
         }
     }
 
