@@ -5,6 +5,30 @@
         <description>Updates for Petrichor</description>
         <language>en</language>
         <item>
+            <title>Version 1.2.1</title>
+            <pubDate>Thu, 20 Nov 2025 07:20:51 +0530</pubDate>
+            <sparkle:version>121</sparkle:version>
+            <sparkle:shortVersionString>1.2.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.2.1/Petrichor-1.2.1-Universal.dmg"
+                sparkle:edSignature="8CuZAolvMCP0h5NzUz4oUEuRIuT+7L5v1u5BxoABBhovkOtynHTf1BPTUnvYXznCHFVY1Arh5WArG+ccLOFsBw=="
+                length="15688511"
+                type="application/octet-stream"
+            />
+            <description><![CDATA[
+                <h2>Fixes</h2>
+                <h3>This fix makes big improvements to library scanning. It is highly recommended that you refresh your library folders after this upgrade.</h4>
+                <ul>
+                    <li>Major improvements to library scanning, resulting in fast and accurate population of the library when folders are added</li>
+                    <li>Improve Track Detail view text alignment and formatting</li>
+                    <li>Update Play Count and Last Played info of a track only when track playback has finished</li>
+                    <li>Make the playback toggle keyboard shortcut reliable</li>
+                </ul>
+                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.2.0...v1.2.1">Full Changelog</a></p>
+            ]]></description>
+        </item>
+        <item>
             <title>Version 1.2.0</title>
             <pubDate>Sun, 16 Nov 2025 15:36:39 +0530</pubDate>
             <sparkle:version>120</sparkle:version>
