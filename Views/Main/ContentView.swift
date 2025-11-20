@@ -33,6 +33,20 @@ struct ContentView: View {
             playerControls
                 .animation(.easeInOut(duration: 0.3), value: libraryManager.folders.isEmpty)
         }
+        .onKeyPress(.space) {
+            if isCurrentlyEditingText() {
+                return .ignored
+            }
+            
+            if playbackManager.currentTrack != nil {
+                DispatchQueue.main.async {
+                    playbackManager.togglePlayPause()
+                }
+                return .handled
+            }
+            
+            return .ignored
+        }
         .frame(minWidth: 1000, minHeight: 600)
         .onAppear(perform: handleOnAppear)
         .contentViewNotificationHandlers(
@@ -290,6 +304,22 @@ struct ContentView: View {
     private func hideTrackDetail() {
         showingTrackDetail = false
         detailTrack = nil
+    }
+    
+    private func isCurrentlyEditingText() -> Bool {
+        guard let firstResponder = NSApp.keyWindow?.firstResponder else {
+            return false
+        }
+        
+        if firstResponder is NSText || firstResponder is NSTextView {
+            return true
+        }
+        
+        if let textField = firstResponder as? NSTextField, textField.isEditable {
+            return true
+        }
+        
+        return false
     }
 }
 
