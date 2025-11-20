@@ -5,27 +5,33 @@
         <description>Updates for Petrichor</description>
         <language>en</language>
         <item>
-            <title>Version 1.2.1</title>
-            <pubDate>Thu, 20 Nov 2025 07:20:51 +0530</pubDate>
-            <sparkle:version>121</sparkle:version>
-            <sparkle:shortVersionString>1.2.1</sparkle:shortVersionString>
+            <title>Version 1.2.2</title>
+            <pubDate>Thu, 20 Nov 2025 08:09:45 +0530</pubDate>
+            <sparkle:version>122</sparkle:version>
+            <sparkle:shortVersionString>1.2.2</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:criticalUpdate />
             <enclosure
-                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.2.1/Petrichor-1.2.1-Universal.dmg"
-                sparkle:edSignature="8CuZAolvMCP0h5NzUz4oUEuRIuT+7L5v1u5BxoABBhovkOtynHTf1BPTUnvYXznCHFVY1Arh5WArG+ccLOFsBw=="
-                length="15688511"
+                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.2.2/Petrichor-1.2.2-Universal.dmg"
+                sparkle:edSignature="m5RU4Uo0JXMyXANXaHHbwF1C6h98FrG0iBEfOz9acU+3joH80S8jvkANOVlOK+DuYVcNZ6g28JQlhLn76xerBA=="
+                length="15688961"
                 type="application/octet-stream"
             />
             <description><![CDATA[
-                <h2>Fixes</h2>
-                <h3>This fix makes big improvements to library scanning. It is highly recommended that you refresh your library folders after this upgrade.</h4>
+                <h2>Critical Hotfix</h2>
+                <h3>⚠️ This update fixes a critical crash bug in v1.2.1</h3>
                 <ul>
-                    <li>Major improvements to library scanning, resulting in fast and accurate population of the library when folders are added</li>
+                    <li><strong>Fixed:</strong> App crash when refreshing music library folders</li>
+                    <li><strong>Fixed:</strong> Stability issues during metadata extraction</li>
+                </ul>
+                <h2>Previous Changes from 1.2.1</h2>
+                <ul>
+                    <li>Major improvements to library scanning, resulting in fast and accurate population of the library when folders are added. <strong>Note:</strong> It is highly recommended that you refresh your library folders after this upgrade, in case some data is still not showing, remove and re-add folders</li>
                     <li>Improve Track Detail view text alignment and formatting</li>
                     <li>Update Play Count and Last Played info of a track only when track playback has finished</li>
                     <li>Make the playback toggle keyboard shortcut reliable</li>
                 </ul>
-                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.2.0...v1.2.1">Full Changelog</a></p>
+                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.2.0...v1.2.2">Full Changelog</a></p>
             ]]></description>
         </item>
         <item>
