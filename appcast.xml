@@ -5,6 +5,27 @@
         <description>Updates for Petrichor</description>
         <language>en</language>
         <item>
+            <title>Version 1.2.3</title>
+            <pubDate>Fri, 28 Nov 2025 07:04:50 +0530</pubDate>
+            <sparkle:version>123</sparkle:version>
+            <sparkle:shortVersionString>1.2.3</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.2.3/Petrichor-1.2.3-Universal.dmg"
+                sparkle:edSignature="5/WRDlQ/OFvQdvT9ghf/pOlR9fX3DfYJr3M8ETma6g5W5j6IaynQ2qEQtJwvBYOdmqinJ5CAQkHeCR8T9PGJDA=="
+                length="15689955"
+                type="application/octet-stream"
+            />
+            <description><![CDATA[
+                <h2>Fixes</h2>
+                <ul>
+                    <li>This release fixes app crashes happening around the library folder scanning and refresh</li>
+                    <li>Shows scanning progress more accurately with file count status</li>
+                </ul>
+                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.2.2...v1.2.3">Full Changelog</a></p>
+            ]]></description>
+        </item>
+        <item>
             <title>Version 1.2.2</title>
             <pubDate>Thu, 20 Nov 2025 08:09:45 +0530</pubDate>
             <sparkle:version>122</sparkle:version>
