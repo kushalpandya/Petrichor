@@ -8,6 +8,45 @@
 import Foundation
 import GRDB
 
+actor ScanState {
+    var processedCount = 0
+    var failedFiles: [(url: URL, error: Error)] = []
+    var skippedFiles: [(url: URL, extension: String)] = []
+    
+    func incrementProcessed(by count: Int) {
+        processedCount += count
+    }
+    
+    func addFailedFiles(_ files: [(url: URL, error: Error)]) {
+        failedFiles.append(contentsOf: files)
+    }
+    
+    func addSkippedFiles(_ files: [(url: URL, extension: String)]) {
+        skippedFiles.append(contentsOf: files)
+    }
+    
+    func getProcessedCount() -> Int { processedCount }
+    func getFailedFiles() -> [(url: URL, error: Error)] { failedFiles }
+    func getSkippedFiles() -> [(url: URL, extension: String)] { skippedFiles }
+}
+
+actor GlobalScanState {
+    let totalFiles: Int
+    var processedFiles = 0
+    
+    init(totalFiles: Int) {
+        self.totalFiles = totalFiles
+    }
+    
+    func incrementProcessed(by count: Int) {
+        processedFiles += count
+    }
+    
+    func getProgress() -> (processed: Int, total: Int) {
+        (processedFiles, totalFiles)
+    }
+}
+
 extension DatabaseManager {
     func addFolders(_ urls: [URL], bookmarkDataMap: [URL: Data], completion: @escaping (Result<[Folder], Error>) -> Void) {
         Task {
@@ -247,7 +286,6 @@ extension DatabaseManager {
     
     func scanFoldersForTracks(_ folders: [Folder], showActivityInTray: Bool = true) async throws {
         let supportedExtensions = AudioFormat.supportedExtensions
-        var processedFolders = 0
         let totalFolders = folders.count
 
         if showActivityInTray && totalFolders > 0 {
@@ -256,23 +294,42 @@ extension DatabaseManager {
             }
         }
 
-        for folder in folders {
-            do {
-                try await scanSingleFolder(folder, supportedExtensions: supportedExtensions)
-                processedFolders += 1
+        // Calculate total files across all folders
+        var totalFilesAcrossAllFolders = 0
+        
+        if totalFolders > 1 {
+            for folder in folders {
+                guard let enumerator = FileManager.default.enumerator(
+                    at: folder.url,
+                    includingPropertiesForKeys: [.isRegularFileKey],
+                    options: [.skipsHiddenFiles, .skipsPackageDescendants]
+                ) else { continue }
                 
-                // Update progress at 25%, 50%, 75%, 100%
-                if showActivityInTray && totalFolders > 4 {
-                    let progress = Double(processedFolders) / Double(totalFolders)
-                    let shouldUpdate = progress >= 0.25 && processedFolders % max(1, totalFolders / 4) == 0
-                    
-                    if shouldUpdate {
-                        let percentage = Int(progress * 100)
-                        await MainActor.run {
-                            NotificationManager.shared.startActivity("Scanning folders... \(percentage)%")
-                        }
+                var fileCount = 0
+                while let fileURL = enumerator.nextObject() as? URL {
+                    let ext = fileURL.pathExtension.lowercased()
+                    if !ext.isEmpty && supportedExtensions.contains(ext) {
+                        fileCount += 1
                     }
                 }
+                
+                totalFilesAcrossAllFolders += fileCount
+            }
+        }
+        
+        // Create global scan state if scanning multiple folders
+        let globalScanState = totalFolders > 1 ? GlobalScanState(totalFiles: totalFilesAcrossAllFolders) : nil
+        
+        var processedFolders = 0
+
+        for folder in folders {
+            do {
+                try await scanSingleFolder(
+                    folder,
+                    supportedExtensions: supportedExtensions,
+                    globalScanState: globalScanState
+                )
+                processedFolders += 1
             } catch {
                 Logger.error("Failed to scan folder \(folder.name): \(error)")
                 Task.detached { @MainActor in
@@ -292,56 +349,97 @@ extension DatabaseManager {
             }
         }
     }
+    
+    func updateFolderTrackCount(_ folder: Folder) async throws {
+        try await dbQueue.write { db in
+            let count = try Track
+                .filter(Track.Columns.folderId == folder.id)
+                .fetchCount(db)
 
-    func scanSingleFolder(_ folder: Folder, supportedExtensions: [String]) async throws {
+            var updatedFolder = folder
+            updatedFolder.trackCount = count
+            updatedFolder.dateUpdated = Date()
+            try updatedFolder.update(db)
+        }
+    }
+
+    func scanSingleFolder(
+        _ folder: Folder,
+        supportedExtensions: [String],
+        globalScanState: GlobalScanState? = nil
+    ) async throws {
+        guard let folderId = folder.id else {
+            Logger.error("Folder has no ID")
+            throw DatabaseError.invalidFolderId
+        }
+        
+        let scanState = ScanState()
+        
+        // Collect all music files and identify unsupported files
+        let (musicFiles, unsupportedFiles) = try collectMusicFiles(
+            from: folder.url,
+            supportedExtensions: supportedExtensions
+        )
+        
+        await scanState.addSkippedFiles(unsupportedFiles)
+        
+        // Remove tracks that no longer exist
+        try await removeDeletedTracks(
+            folderId: folderId,
+            foundPaths: Set(musicFiles),
+            folderName: folder.name,
+            hasRemainingFiles: !musicFiles.isEmpty
+        )
+        
+        // If no music files found, we're done
+        if musicFiles.isEmpty {
+            try await updateFolderTrackCount(folder)
+            return
+        }
+        
+        // Scan for artwork
+        let artworkMap = MetadataExtractor.scanFolderForArtwork(at: folder.url)
+        if !artworkMap.isEmpty {
+            Logger.info("Found artwork in \(artworkMap.count) directories within \(folder.name)")
+        }
+        
+        // Process music files in batches
+        try await processMusicFilesInBatches(
+            musicFiles: musicFiles,
+            folderId: folderId,
+            artworkMap: artworkMap,
+            folderName: folder.name,
+            scanState: scanState,
+            globalScanState: globalScanState
+        )
+        
+        // Update metadata and report results
+        try await finalizeScan(
+            folderId: folderId,
+            folder: folder,
+            scanState: scanState
+        )
+    }
+    // MARK: - Private Helpers
+
+    /// Collect all music files from a folder and identify unsupported files
+    private func collectMusicFiles(
+        from folderURL: URL,
+        supportedExtensions: [String]
+    ) throws -> (musicFiles: [URL], unsupportedFiles: [(url: URL, extension: String)]) {
         let fileManager = FileManager.default
-
+        
         guard let enumerator = fileManager.enumerator(
-            at: folder.url,
+            at: folderURL,
             includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey],
             options: [.skipsHiddenFiles, .skipsPackageDescendants]
         ) else {
             throw DatabaseError.scanFailed("Unable to enumerate folder contents")
         }
-
-        guard let folderId = folder.id else {
-            Logger.error("Folder has no ID")
-            throw DatabaseError.invalidFolderId
-        }
-
-        actor ScanState {
-            var processedCount = 0
-            var failedFiles: [(url: URL, error: Error)] = []
-            var skippedFiles: [(url: URL, extension: String)] = []
-            
-            func incrementProcessed(by count: Int) {
-                processedCount += count
-            }
-            
-            func addFailedFiles(_ files: [(url: URL, error: Error)]) {
-                failedFiles.append(contentsOf: files)
-            }
-            
-            func addSkippedFiles(_ files: [(url: URL, extension: String)]) {
-                skippedFiles.append(contentsOf: files)
-            }
-            
-            func getProcessedCount() -> Int { processedCount }
-            func getFailedFiles() -> [(url: URL, error: Error)] { failedFiles }
-            func getSkippedFiles() -> [(url: URL, extension: String)] { skippedFiles }
-        }
         
-        let scanState = ScanState()
-
-        // Get existing tracks for this folder to check for updates
-        let existingTracks = getTracksForFolder(folderId)
-        _ = Dictionary(uniqueKeysWithValues: existingTracks.map { ($0.url, $0) })
-
-        // Collect all music files first
         var musicFiles: [URL] = []
-        var scannedPaths = Set<URL>()
         var unsupportedFiles: [(url: URL, extension: String)] = []
-
+        
         while let fileURL = enumerator.nextObject() as? URL {
             let fileExtension = fileURL.pathExtension.lowercased()
             
@@ -349,107 +447,105 @@ extension DatabaseManager {
             
             if supportedExtensions.contains(fileExtension) {
                 musicFiles.append(fileURL)
-                scannedPaths.insert(fileURL)
             } else if AudioFormat.isNotSupported(fileExtension) {
                 unsupportedFiles.append((url: fileURL, extension: fileExtension))
                 Logger.info("Skipped unsupported audio file: \(fileURL.lastPathComponent) (.\(fileExtension))")
             }
         }
+        
+        return (musicFiles, unsupportedFiles)
+    }
 
-        if !unsupportedFiles.isEmpty {
-            await scanState.addSkippedFiles(unsupportedFiles)
-        }
-
-        let totalFiles = musicFiles.count
-        let foundPaths = scannedPaths
-
+    /// Remove tracks from database that no longer exist in the filesystem
+    private func removeDeletedTracks(
+        folderId: Int64,
+        foundPaths: Set<URL>,
+        folderName: String,
+        hasRemainingFiles: Bool
+    ) async throws {
+        let existingTracks = getTracksForFolder(folderId)
         let foundPathStrings = Set(foundPaths.map { $0.path })
         let tracksToRemove = existingTracks.filter { !foundPathStrings.contains($0.url.path) }
         let trackIdsToRemove = tracksToRemove.compactMap { $0.id }
         
-        // Remove tracks and clean up orphaned metadata
-        if !trackIdsToRemove.isEmpty {
-            let removedCount = trackIdsToRemove.count
-            
-            try await dbQueue.write { db in
-                for track in tracksToRemove {
-                    try track.delete(db)
-                    Logger.info("Removed track that no longer exists: \(track.url.lastPathComponent)")
-                }
+        guard !trackIdsToRemove.isEmpty else { return }
+        
+        let removedCount = trackIdsToRemove.count
+        
+        // Remove tracks from database
+        try await dbQueue.write { db in
+            for track in tracksToRemove {
+                try track.delete(db)
+                Logger.info("Removed track that no longer exists: \(track.url.lastPathComponent)")
             }
-            
-            try await cleanupAfterTrackRemoval(trackIdsToRemove)
-            
-            await MainActor.run {
-                if totalFiles == 0 {
-                    NotificationManager.shared.addMessage(.info, "Folder '\(folder.name)' is now empty, removed \(removedCount) tracks")
-                } else {
-                    let message = removedCount == 1
-                        ? "Removed 1 missing track from '\(folder.name)'"
-                        : "Removed \(removedCount) missing tracks from '\(folder.name)'"
-                    NotificationManager.shared.addMessage(.info, message)
-                }
-            }
-        }
-
-        // If no music files found, we're done
-        if totalFiles == 0 {
-            try await updateFolderTrackCount(folder)
-            return
         }
         
-        // Scan for artwork files
-        let artworkMap = MetadataExtractor.scanFolderForArtwork(at: folder.url)
-        if !artworkMap.isEmpty {
-            Logger.info("Found artwork in \(artworkMap.count) directories within \(folder.name)")
+        // Clean up orphaned metadata
+        try await cleanupAfterTrackRemoval(trackIdsToRemove)
+        
+        // Report results to user
+        await MainActor.run {
+            if !hasRemainingFiles {
+                NotificationManager.shared.addMessage(.info, "Folder '\(folderName)' is now empty, removed \(removedCount) tracks")
+            } else {
+                let message = removedCount == 1
+                    ? "Removed 1 missing track from '\(folderName)'"
+                    : "Removed \(removedCount) missing tracks from '\(folderName)'"
+                NotificationManager.shared.addMessage(.info, message)
+            }
         }
+    }
 
-        // Process music files in batches concurrently
-        let batchSize = totalFiles > 1000 ? 100 : 50
+    private func processMusicFilesInBatches(
+        musicFiles: [URL],
+        folderId: Int64,
+        artworkMap: [URL: Data],
+        folderName: String,
+        scanState: ScanState,
+        globalScanState: GlobalScanState? = nil
+    ) async throws {
+        let totalFiles = musicFiles.count
+        let batchSize = 500
         let fileBatches = musicFiles.chunked(into: batchSize)
-
-        try await withThrowingTaskGroup(of: Int.self) { group in
-            for batch in fileBatches {
-                let batchWithFolderId = batch.map { url in (url: url, folderId: folderId) }
-                
-                group.addTask { [self, artworkMap, folder, scanState] in
-                    do {
-                        try await self.processBatch(batchWithFolderId, artworkMap: artworkMap)
-                        return batch.count
-                    } catch {
-                        let failures = batch.map { (url: $0, error: error) }
-                        await scanState.addFailedFiles(failures)
-                        Logger.error("Failed to process batch in folder \(folder.name): \(error)")
-                        return 0
-                    }
-                }
-            }
+        
+        for batch in fileBatches {
+            let batchWithFolderId = batch.map { url in (url: url, folderId: folderId) }
             
-            // Collect results as batches complete
-            for try await processedCount in group {
-                await scanState.incrementProcessed(by: processedCount)
-                
-                let currentProcessed = await scanState.getProcessedCount()
-                
-                // Update progress message only
-                await MainActor.run {
-                    self.scanStatusMessage = "Processing: \(currentProcessed)/\(totalFiles) files in \(folder.name)"
-                }
+            do {
+                try await processBatch(
+                    batchWithFolderId,
+                    artworkMap: artworkMap,
+                    scanState: scanState,
+                    folderName: folderName,
+                    totalFilesInFolder: totalFiles,
+                    globalScanState: globalScanState
+                )
+            } catch {
+                let failures = batch.map { (url: $0, error: error) }
+                await scanState.addFailedFiles(failures)
+                Logger.error("Failed to process batch in folder \(folderName): \(error)")
             }
         }
+    }
 
+    /// Finalize the scan - update metadata, detect duplicates, and report results
+    private func finalizeScan(
+        folderId: Int64,
+        folder: Folder,
+        scanState: ScanState
+    ) async throws {
         // Update folder metadata
         try await updateFolderMetadata(folderId)
         
         // Detect and avoid duplicates
         await detectAndMarkDuplicates()
-
+        
         // Get final counts
         let processedCount = await scanState.getProcessedCount()
         let failedFiles = await scanState.getFailedFiles()
         let skippedFiles = await scanState.getSkippedFiles()
-
-        // Report results
+        
+        // Report failed files
         if !failedFiles.isEmpty {
             await MainActor.run {
                 let message = failedFiles.count == 1
@@ -459,6 +555,7 @@ extension DatabaseManager {
             }
         }
         
+        // Report skipped files
         if !skippedFiles.isEmpty {
             let extensionCounts = Dictionary(grouping: skippedFiles) { $0.extension }
                 .mapValues { $0.count }
@@ -477,18 +574,5 @@ extension DatabaseManager {
         }
         
         Logger.info("Completed scanning folder \(folder.name): \(processedCount) processed, \(failedFiles.count) failed, \(skippedFiles.count) skipped")
-    }
-
-    func updateFolderTrackCount(_ folder: Folder) async throws {
-        try await dbQueue.write { db in
-            let count = try Track
-                .filter(Track.Columns.folderId == folder.id)
-                .fetchCount(db)
-
-            var updatedFolder = folder
-            updatedFolder.trackCount = count
-            updatedFolder.dateUpdated = Date()
-            try updatedFolder.update(db)
-        }
     }
 }
