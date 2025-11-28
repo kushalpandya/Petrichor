@@ -355,7 +355,7 @@ following tools installed along with Xcode;
 
 Thank you to all the sponsors for supporting Petrichor's development!
 
-<!-- sponsors --><!-- sponsors -->
+<!-- sponsors --><a href="https://github.com/furilo"><img src="https:&#x2F;&#x2F;github.com&#x2F;furilo.png" width="60px" alt="User avatar: Álvaro Ortiz" /></a><a href="https://github.com/laurens94"><img src="https:&#x2F;&#x2F;github.com&#x2F;laurens94.png" width="60px" alt="User avatar: Laurens" /></a><a href="https://github.com/juliangruber"><img src="https:&#x2F;&#x2F;github.com&#x2F;juliangruber.png" width="60px" alt="User avatar: Julian Gruber" /></a><a href="https://github.com/t3sec"><img src="https:&#x2F;&#x2F;github.com&#x2F;t3sec.png" width="60px" alt="User avatar: Marcus" /></a><a href="https://github.com/"><img src="https:&#x2F;&#x2F;raw.githubusercontent.com&#x2F;JamesIves&#x2F;github-sponsors-readme-action&#x2F;dev&#x2F;.github&#x2F;assets&#x2F;placeholder.png" width="60px" alt="User avatar: Private Sponsor" /></a><a href="https://github.com/"><img src="https:&#x2F;&#x2F;raw.githubusercontent.com&#x2F;JamesIves&#x2F;github-sponsors-readme-action&#x2F;dev&#x2F;.github&#x2F;assets&#x2F;placeholder.png" width="60px" alt="User avatar: Private Sponsor" /></a><!-- sponsors -->
 
 ## 📝 License
 
