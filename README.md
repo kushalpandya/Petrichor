@@ -351,6 +351,12 @@ following tools installed along with Xcode;
 - [xcpretty](https://github.com/xcpretty/xcpretty)
 - [create-dmg](https://github.com/sindresorhus/create-dmg)
 
+## 💖 Sponsors
+
+Thank you to all the sponsors for supporting Petrichor's development!
+
+<!-- sponsors --><!-- sponsors -->
+
 ## 📝 License
 
 - Petrichor is licensed under [MIT](LICENSE)
