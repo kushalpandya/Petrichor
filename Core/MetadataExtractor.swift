@@ -186,43 +186,107 @@ class MetadataExtractor {
         metadata.lossless = isTrackLossless(for: metadata.url) ?? false
     }
 
-    /// Safely detect lossless status by creating a decoder with full error handling
+    /// Safely detect lossless status with multiple fallback strategies
     private static func isTrackLossless(for url: URL) -> Bool? {
-        return autoreleasepool {
-            do {
-                // Try to create decoder with explicit error handling
-                let decoder = try AudioDecoder(url: url)
-                
-                if !decoder.isOpen {
-                    do {
-                        try decoder.open()
-                    } catch {
-                        Logger.error("Failed to open decoder for lossless check: \(url.lastPathComponent)")
-                        return nil
-                    }
-                }
-                
-                // Get lossless status
-                let isLossless = decoder.decodingIsLossless
-                
-                try? decoder.close()
-                
-                return isLossless
-                
-            } catch let error as NSError {
-                let errorDescription = error.localizedDescription.lowercased()
-                
-                if errorDescription.contains("format") && errorDescription.contains("not recognized") {
-                    Logger.warning("Format not recognized for lossless detection: \(url.lastPathComponent)")
-                } else {
-                    Logger.error("Failed to detect lossless for \(url.lastPathComponent): \(error.localizedDescription)")
-                }
-                return nil
-            } catch {
-                Logger.error("Unexpected error detecting lossless for \(url.lastPathComponent): \(error)")
-                return nil
+        // Try reading file header to determine format reliably
+        if let formatBasedResult = detectLosslessFromFileHeader(url: url) {
+            return formatBasedResult
+        }
+        
+        return detectLosslessFromExtension(url: url)
+    }
+
+    /// Detect lossless format by reading file header magic bytes
+    private static func detectLosslessFromFileHeader(url: URL) -> Bool? {
+        guard let bytes = FilesystemUtils.readFileHeader(from: url, byteCount: 12) else {
+            return nil
+        }
+        
+        // FLAC: "fLaC"
+        if bytes.count >= 4 && bytes[0] == 0x66 && bytes[1] == 0x4C &&
+           bytes[2] == 0x61 && bytes[3] == 0x43 {
+            return true
+        }
+        
+        // AIFF: "FORM" followed by "AIFF" or "AIFC"
+        if bytes.count >= 12 && bytes[0] == 0x46 && bytes[1] == 0x4F &&
+           bytes[2] == 0x52 && bytes[3] == 0x4D {
+            if bytes[8] == 0x41 && bytes[9] == 0x49 && bytes[10] == 0x46 && bytes[11] == 0x46 {
+                return true // AIFF
+            }
+            if bytes[8] == 0x41 && bytes[9] == 0x49 && bytes[10] == 0x46 && bytes[11] == 0x43 {
+                return true // AIFC
             }
         }
+        
+        // WAV/WAVE: "RIFF" followed by "WAVE"
+        if bytes.count >= 12 && bytes[0] == 0x52 && bytes[1] == 0x49 &&
+           bytes[2] == 0x46 && bytes[3] == 0x46 &&
+           bytes[8] == 0x57 && bytes[9] == 0x41 && bytes[10] == 0x56 && bytes[11] == 0x45 {
+            return true // Usually lossless PCM
+        }
+        
+        // APE (Monkey's Audio): "MAC "
+        if bytes.count >= 4 && bytes[0] == 0x4D && bytes[1] == 0x41 &&
+           bytes[2] == 0x43 && bytes[3] == 0x20 {
+            return true
+        }
+        
+        // WavPack: "wvpk"
+        if bytes.count >= 4 && bytes[0] == 0x77 && bytes[1] == 0x76 &&
+           bytes[2] == 0x70 && bytes[3] == 0x6B {
+            return true
+        }
+        
+        // TTA (True Audio): "TTA1"
+        if bytes.count >= 4 && bytes[0] == 0x54 && bytes[1] == 0x54 &&
+           bytes[2] == 0x41 && bytes[3] == 0x31 {
+            return true
+        }
+        
+        // MP3 detection - various sync patterns, all lossy
+        // ID3v2 tag: "ID3"
+        if bytes.count >= 3 && bytes[0] == 0x49 && bytes[1] == 0x44 && bytes[2] == 0x33 {
+            return false
+        }
+        // MP3 frame sync: 0xFF 0xFB, 0xFF 0xFA, 0xFF 0xF3, 0xFF 0xF2
+        if bytes.count >= 2 && bytes[0] == 0xFF && (bytes[1] & 0xE0) == 0xE0 {
+            return false
+        }
+        
+        // M4A/AAC: "ftyp" at offset 4
+        if bytes.count >= 8 && bytes[4] == 0x66 && bytes[5] == 0x74 &&
+           bytes[6] == 0x79 && bytes[7] == 0x70 {
+            // Could be ALAC (lossless) or AAC (lossy), inconclusive
+            return nil
+        }
+        
+        // Ogg container
+        if bytes.count >= 4 && bytes[0] == 0x4F && bytes[1] == 0x67 &&
+           bytes[2] == 0x67 && bytes[3] == 0x53 {
+            // Need more analysis, return nil to try decoder
+            return false
+        }
+        
+        // Unknown format, let decoder handle it
+        return nil
+    }
+
+    /// Fallback: detect lossless from file extension
+    private static func detectLosslessFromExtension(url: URL) -> Bool? {
+        let ext = url.pathExtension.lowercased()
+        
+        let losslessExtensions = ["flac", "ape", "wv", "tta", "wav", "wave", "aiff", "aif", "aifc", "alac"]
+        let lossyExtensions = ["mp3", "aac", "m4a", "ogg", "opus", "mpc", "wma"]
+        
+        if losslessExtensions.contains(ext) {
+            return true
+        }
+        if lossyExtensions.contains(ext) {
+            return false
+        }
+        
+        return nil
     }
 
     private static func extractMetadata(

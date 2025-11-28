@@ -121,7 +121,27 @@ enum FilesystemUtils {
             return true
         }
     }
-    
+
+    /// Read the first N bytes of a file as a header
+    /// - Parameters:
+    ///   - url: The file URL to read from
+    ///   - byteCount: Number of bytes to read (default 12, enough for most format magic numbers)
+    /// - Returns: Array of bytes, or nil if reading fails
+    static func readFileHeader(from url: URL, byteCount: Int = 12) -> [UInt8]? {
+        guard let fileHandle = try? FileHandle(forReadingFrom: url) else {
+            return nil
+        }
+        
+        defer { try? fileHandle.close() }
+        
+        guard let headerData = try? fileHandle.read(upToCount: byteCount),
+              headerData.count >= 4 else { // At minimum we need 4 bytes for magic numbers
+            return nil
+        }
+        
+        return [UInt8](headerData)
+    }
+
     /// Converts system errors into user-friendly messages
     /// - Parameters:
     ///   - error: The error to convert
