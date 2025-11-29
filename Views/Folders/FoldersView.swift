@@ -163,8 +163,8 @@ struct FoldersView: View {
 
     // MARK: - Helper Methods
 
-    private func refreshFolder(_ folder: Folder) {
-        libraryManager.refreshFolder(folder)
+    private func refreshFolder(_ folder: Folder, hardRefresh: Bool = false) {
+        libraryManager.refreshFolder(folder, hardRefresh: hardRefresh)
     }
 
     // MARK: - Hierarchical Sidebar Helper Methods
