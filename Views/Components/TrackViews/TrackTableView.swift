@@ -5,14 +5,14 @@ struct TrackTableView: View {
     let playlistID: UUID?
     let entityID: UUID?
     let onPlayTrack: (Track) -> Void
-    let contextMenuItems: (Track) -> [ContextMenuItem]
+    let contextMenuItems: ([Track]) -> [ContextMenuItem]
     @Binding var sortOrder: [KeyPathComparator<Track>]
     @Binding var tableRowSize: TableRowSize
     
     @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var playlistManager: PlaylistManager
     
-    @State private var selection: Track.ID?
+    @State private var selection: Set<Track.ID> = []
     @State private var sortedTracks: [Track] = []
     @State private var lastSelectionTime: Date = Date()
     @State private var lastSelectedTrackID: Track.ID?
@@ -42,9 +42,9 @@ struct TrackTableView: View {
     var body: some View {
         tableView
             .contextMenu(forSelectionType: Track.ID.self) { selectedIDs in
-                if let trackID = selectedIDs.first,
-                   let track = tracks.first(where: { $0.id == trackID }) {
-                    ForEach(contextMenuItems(track), id: \.id) { item in
+                let selectedTracks = sortedTracks.filter { selectedIDs.contains($0.id) }
+                if !selectedTracks.isEmpty {
+                    ForEach(contextMenuItems(selectedTracks), id: \.id) { item in
                         contextMenuItem(item)
                     }
                 }
@@ -134,7 +134,7 @@ struct TrackTableView: View {
                     track: track,
                     isCurrentTrack: isCurrentTrack(track),
                     isPlaying: isPlaying(track),
-                    isSelected: selection == track.id,
+                    isSelected: selection.contains(track.id),
                     handlePlayTrack: handlePlayTrack
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
