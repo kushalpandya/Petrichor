@@ -99,142 +99,162 @@ struct TrackTableView: View {
     
     private var tableView: some View {
         Table(sortedTracks, selection: $selection, sortOrder: $sortOrder, columnCustomization: $columnCustomization) {
-            // Track Number
-            TableColumn("#", value: \.sortableTrackNumber) { track in
-                HStack {
-                    Text(track.trackNumber != nil ? "\(track.trackNumber!)" : "")
-                        .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
-                        .foregroundColor(.secondary)
-                        .monospacedDigit()
+            Group {
+                // Track Number
+                TableColumn("#", value: \.sortableTrackNumber) { track in
+                    HStack {
+                        Text(track.trackNumber != nil ? "\(track.trackNumber!)" : "")
+                            .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
+                            .foregroundColor(.secondary)
+                            .monospacedDigit()
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .width(min: 20)
-            .customizationID("trackNumber")
-            .defaultVisibility(.hidden)
-            
-            // Disc Number
-            TableColumn("Disc", value: \.sortableDiscNumber) { track in
-                HStack {
-                    Text(track.discNumber != nil ? "\(track.discNumber!)" : "")
-                        .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
-                        .foregroundColor(.secondary)
-                        .monospacedDigit()
+                .width(min: 20)
+                .customizationID("trackNumber")
+                .defaultVisibility(.hidden)
+                
+                // Disc Number
+                TableColumn("Disc", value: \.sortableDiscNumber) { track in
+                    HStack {
+                        Text(track.discNumber != nil ? "\(track.discNumber!)" : "")
+                            .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
+                            .foregroundColor(.secondary)
+                            .monospacedDigit()
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .width(min: 20)
+                .customizationID("discNumber")
+                .defaultVisibility(.hidden)
             }
-            .width(min: 20)
-            .customizationID("discNumber")
-            .defaultVisibility(.hidden)
             
-            // Title
-            TableColumn("Title", value: \.title) { track in
-                TrackTitleCell(
-                    tableRowSize: tableRowSize,
-                    track: track,
-                    isCurrentTrack: isCurrentTrack(track),
-                    isPlaying: isPlaying(track),
-                    isSelected: selection.contains(track.id),
-                    handlePlayTrack: handlePlayTrack
-                )
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .width(min: 200)
-            .customizationID("title")
-            .defaultVisibility(.visible)
-            
-            // Artist
-            TableColumn("Artist", value: \.artist) { track in
-                HStack {
-                    Text(track.artist)
-                        .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
-                        .lineLimit(1)
+            Group {
+                // Title
+                TableColumn("Title", value: \.title) { track in
+                    TrackTitleCell(
+                        tableRowSize: tableRowSize,
+                        track: track,
+                        isCurrentTrack: isCurrentTrack(track),
+                        isPlaying: isPlaying(track),
+                        isSelected: selection.contains(track.id),
+                        handlePlayTrack: handlePlayTrack
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .width(min: 100)
-            .customizationID("artist")
-            .defaultVisibility(.visible)
-            
-            // Album
-            TableColumn("Album", value: \.album) { track in
-                HStack {
-                    Text(track.album)
-                        .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
-                        .lineLimit(1)
+                .width(min: 200)
+                .customizationID("title")
+                .defaultVisibility(.visible)
+                
+                // Artist
+                TableColumn("Artist", value: \.artist) { track in
+                    HStack {
+                        Text(track.artist)
+                            .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .width(min: 100)
-            .customizationID("album")
-            .defaultVisibility(.visible)
-            
-            // Genre
-            TableColumn("Genre", value: \.genre) { track in
-                HStack {
-                    Text(track.genre)
-                        .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
-                        .lineLimit(1)
+                .width(min: 100)
+                .customizationID("artist")
+                .defaultVisibility(.visible)
+                
+                // Album
+                TableColumn("Album", value: \.album) { track in
+                    HStack {
+                        Text(track.album)
+                            .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .width(min: 80)
-            .customizationID("genre")
-            .defaultVisibility(.hidden)
-            
-            // Year
-            TableColumn("Year", value: \.year) { track in
-                HStack {
-                    Text(track.year)
-                        .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
-                        .lineLimit(1)
+                .width(min: 100)
+                .customizationID("album")
+                .defaultVisibility(.visible)
+                
+                // Genre
+                TableColumn("Genre", value: \.genre) { track in
+                    HStack {
+                        Text(track.genre)
+                            .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .width(min: 40)
-            .customizationID("year")
-            .defaultVisibility(.visible)
-            
-            // Composer
-            TableColumn("Composer", value: \.composer) { track in
-                HStack {
-                    Text(track.composer)
-                        .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
-                        .lineLimit(1)
+                .width(min: 80)
+                .customizationID("genre")
+                .defaultVisibility(.hidden)
+                
+                // Year
+                TableColumn("Year", value: \.year) { track in
+                    HStack {
+                        Text(track.year)
+                            .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .width(min: 100)
-            .customizationID("composer")
-            .defaultVisibility(.hidden)
-            
-            // Filename
-            TableColumn("Filename", value: \.filename) { track in
-                HStack {
-                    Text(track.filename)
-                        .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
+                .width(min: 40)
+                .customizationID("year")
+                .defaultVisibility(.visible)
+                
+                // Composer
+                TableColumn("Composer", value: \.composer) { track in
+                    HStack {
+                        Text(track.composer)
+                            .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .width(min: 100)
+                .customizationID("composer")
+                .defaultVisibility(.hidden)
             }
-            .width(min: 200)
-            .customizationID("filename")
-            .defaultVisibility(.hidden)
             
-            // Duration
-            TableColumn("Duration", value: \.duration) { track in
-                HStack {
-                    Text(formatDuration(track.duration))
-                        .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
-                        .foregroundColor(.secondary)
-                        .monospacedDigit()
+            Group {
+                // Filename
+                TableColumn("Filename", value: \.filename) { track in
+                    HStack {
+                        Text(track.filename)
+                            .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .width(min: 200)
+                .customizationID("filename")
+                .defaultVisibility(.hidden)
+                
+                // Date Added
+                TableColumn("Date Added", value: \.sortableDateAdded) { track in
+                    HStack {
+                        Text(track.dateAdded != nil ? formatDate(track.dateAdded!) : "")
+                            .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .width(min: 100)
+                .customizationID("dateAdded")
+                .defaultVisibility(.hidden)
+                
+                // Duration
+                TableColumn("Duration", value: \.duration) { track in
+                    HStack {
+                        Text(formatDuration(track.duration))
+                            .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
+                            .foregroundColor(.secondary)
+                            .monospacedDigit()
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .width(min: 40)
+                .customizationID("duration")
+                .defaultVisibility(.visible)
             }
-            .width(min: 40)
-            .customizationID("duration")
-            .defaultVisibility(.visible)
         }
         .background(Color(NSColor.controlBackgroundColor))
         .environment(\.defaultMinListRowHeight, tableRowSize.rowHeight)
@@ -297,6 +317,13 @@ struct TrackTableView: View {
         let minutes = totalSeconds / 60
         let remainingSeconds = totalSeconds % 60
         return String(format: StringFormat.mmss, minutes, remainingSeconds)
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter.string(from: date)
     }
     
     @ViewBuilder
@@ -521,5 +548,9 @@ extension Track {
     
     var sortableDiscNumber: Int {
         discNumber ?? Int.max
+    }
+    
+    var sortableDateAdded: Date {
+        dateAdded ?? Date.distantPast
     }
 }
