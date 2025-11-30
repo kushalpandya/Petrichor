@@ -11,6 +11,7 @@ extension DatabaseManager {
     func processBatch(
         _ batch: [(url: URL, folderId: Int64)],
         artworkMap: [URL: Data] = [:],
+        hardRefresh: Bool = false,
         scanState: ScanState? = nil,
         folderName: String? = nil,
         totalFilesInFolder: Int? = nil,
@@ -27,7 +28,7 @@ extension DatabaseManager {
                 for item in chunk {
                     group.addTask { [weak self] in
                         guard let self = self else { return (item.url, .skipped) }
-                        return await self.processFile(item.url, folderId: item.folderId, artworkMap: artworkMap)
+                        return await self.processFile(item.url, folderId: item.folderId, artworkMap: artworkMap, hardRefresh: hardRefresh)
                     }
                 }
                 
@@ -106,8 +107,13 @@ extension DatabaseManager {
 
     // MARK: - Track Processing
 
-    /// Process a single file - extracted for clarity
-    private func processFile(_ fileURL: URL, folderId: Int64, artworkMap: [URL: Data]) async -> (URL, TrackProcessResult) {
+    /// Process a single file
+    private func processFile(
+        _ fileURL: URL,
+        folderId: Int64,
+        artworkMap: [URL: Data],
+        hardRefresh: Bool = false
+    ) async -> (URL, TrackProcessResult) {
         // Get artwork for this file's directory
         let directory = fileURL.deletingLastPathComponent()
         let externalArtwork = artworkMap[directory]
@@ -129,6 +135,20 @@ extension DatabaseManager {
                     applyMetadataToTrack(&fullTrack, from: metadata, at: fileURL)
                     
                     return (fileURL, .new(fullTrack, metadata))
+                }
+                
+                // Re-extract complete metadata on hardRefresh
+                if hardRefresh {
+                    let metadata = MetadataExtractor.extractMetadataSync(
+                        from: fileURL,
+                        externalArtwork: externalArtwork
+                    )
+                    
+                    var updatedTrack = existingFullTrack
+                    _ = updateTrackIfNeeded(&updatedTrack, with: metadata, at: fileURL)
+                    
+                    // Always return as update during hard refresh
+                    return (fileURL, .update(updatedTrack, metadata))
                 }
                 
                 // Check if file has been modified

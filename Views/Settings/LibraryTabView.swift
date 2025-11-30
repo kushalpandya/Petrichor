@@ -12,12 +12,12 @@ struct LibraryTabView: View {
     @State private var stableRefreshButtonState = false
     @State private var scanningStateTimer: Timer?
     @State private var alsoResetPreferences = false
+    @State private var isCommandKeyPressed = false
+    @State private var modifierMonitor: Any?
     @StateObject private var notificationManager = NotificationManager.shared
     
     private var isLibraryUpdateInProgress: Bool {
-        libraryManager.isScanning ||
-        notificationManager.isActivityInProgress ||
-        stableScanningState
+        libraryManager.isScanning || stableScanningState
     }
 
     var body: some View {
@@ -33,18 +33,24 @@ struct LibraryTabView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
-            stableScanningState = libraryManager.isScanning || notificationManager.isActivityInProgress
+            stableScanningState = libraryManager.isScanning
+            
+            modifierMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
+                isCommandKeyPressed = event.modifierFlags.contains(.command)
+                return event
+            }
         }
         .onDisappear {
             scanningStateTimer?.invalidate()
+            
+            if let monitor = modifierMonitor {
+                NSEvent.removeMonitor(monitor)
+                modifierMonitor = nil
+            }
         }
         .onChange(of: libraryManager.isScanning) { _, newValue in
-            updateStableScanningState(newValue || notificationManager.isActivityInProgress)
-            updateStableRefreshState(newValue || notificationManager.isActivityInProgress)
-        }
-        .onChange(of: notificationManager.isActivityInProgress) { _, newValue in
-            updateStableScanningState(newValue || libraryManager.isScanning)
-            updateStableRefreshState(newValue || libraryManager.isScanning)
+            updateStableScanningState(newValue)
+            updateStableRefreshState(newValue)
         }
         .alert("Remove Folder", isPresented: $showingRemoveFolderAlert) {
             Button("Cancel", role: .cancel) { }
@@ -90,14 +96,21 @@ struct LibraryTabView: View {
 
             Spacer()
 
-            Button(action: { libraryManager.refreshLibrary() }) {
-                Label("Refresh Library", systemImage: "arrow.clockwise")
+            Button(action: { libraryManager.refreshLibrary(hardRefresh: isCommandKeyPressed) }) {
+                Label(
+                    isCommandKeyPressed ? "Force Refresh Library" : "Refresh Library",
+                    systemImage: isCommandKeyPressed ? "arrow.trianglehead.2.clockwise" : "arrow.clockwise"
+                )
+                .frame(height: 16)
             }
-            .help("Scan for new files and update metadata")
+            .help(isCommandKeyPressed
+                ? "Force complete re-scan of all metadata (slower)"
+                : "Scan for new files and update metadata. Hold ⌘ for deep refresh")
             .disabled(isLibraryUpdateInProgress)
 
             Button(action: { libraryManager.addFolder() }) {
                 Label("Add Folder", systemImage: "plus")
+                    .frame(height: 16)
             }
             .buttonStyle(.borderedProminent)
             .help("Add a folder to library")
@@ -145,7 +158,7 @@ struct LibraryTabView: View {
             ScrollView {
                 LazyVStack(spacing: 2) {
                     ForEach(libraryManager.folders) { folder in
-                        compactFolderRow(for: folder)
+                        compactFolderRow(for: folder, isCommandKeyPressed: isCommandKeyPressed)
                             .padding(.horizontal, 6)
                     }
                 }
@@ -249,7 +262,7 @@ struct LibraryTabView: View {
 
     // MARK: - Folder Row
     @ViewBuilder
-    private func compactFolderRow(for folder: Folder) -> some View {
+    private func compactFolderRow(for folder: Folder, isCommandKeyPressed: Bool) -> some View {
         let isSelected = selectedFolderIDs.contains(folder.id ?? -1)
         let trackCount = folder.trackCount
 
@@ -258,8 +271,9 @@ struct LibraryTabView: View {
             trackCount: trackCount,
             isSelected: isSelected,
             isSelectMode: isSelectMode,
+            isCommandKeyPressed: isCommandKeyPressed,
             onToggleSelection: { toggleFolderSelection(folder) },
-            onRefresh: { libraryManager.refreshFolder(folder) },
+            onRefresh: { libraryManager.refreshFolder(folder, hardRefresh: isCommandKeyPressed) },
             onRemove: {
                 folderToRemove = folder
                 showingRemoveFolderAlert = true
@@ -450,6 +464,7 @@ private struct CompactFolderRowView: View {
     let trackCount: Int
     let isSelected: Bool
     let isSelectMode: Bool
+    let isCommandKeyPressed: Bool
     let onToggleSelection: () -> Void
     let onRefresh: () -> Void
     let onRemove: () -> Void
@@ -502,12 +517,14 @@ private struct CompactFolderRowView: View {
             if !isSelectMode {
                 HStack(spacing: 4) {
                     Button(action: onRefresh) {
-                        Image(systemName: "arrow.clockwise")
+                        Image(systemName: isCommandKeyPressed ? "arrow.trianglehead.2.clockwise" : "arrow.clockwise")
                             .font(.system(size: 12))
                             .foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
-                    .help("Refresh this folder")
+                    .help(isCommandKeyPressed
+                        ? "⌘ + Click for deep refresh (re-scans all metadata)"
+                        : "Refresh this folder. Hold ⌘ for deep refresh")
 
                     Button(action: onRemove) {
                         Image(systemName: Icons.minusCircleFill)

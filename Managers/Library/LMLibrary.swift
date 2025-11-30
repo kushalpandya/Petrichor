@@ -141,7 +141,7 @@ extension LibraryManager {
         objectWillChange.send()
     }
 
-    func refreshLibrary() {
+    func refreshLibrary(hardRefresh: Bool = false) {
         Logger.info("Refreshing library...")
         
         actor ErrorTracker {
@@ -175,7 +175,7 @@ extension LibraryManager {
             }
 
             // Filter folders that need refreshing
-            let foldersToRefresh = await determineFoldersToRefresh()
+            let foldersToRefresh = await determineFoldersToRefresh(hardRefresh: hardRefresh)
 
             // Only proceed if there are folders to refresh
             if foldersToRefresh.isEmpty {
@@ -195,7 +195,7 @@ extension LibraryManager {
                 group.enter()
                 
                 await MainActor.run { [weak self] in
-                    self?.databaseManager.refreshFolder(folder) { result in
+                    self?.databaseManager.refreshFolder(folder, hardRefresh: hardRefresh) { result in
                         Task {
                             switch result {
                             case .success:
@@ -269,10 +269,24 @@ extension LibraryManager {
         }
     }
 
-    private func determineFoldersToRefresh() async -> [Folder] {
+    private func determineFoldersToRefresh(hardRefresh: Bool = false) async -> [Folder] {
         var foldersToRefresh: [Folder] = []
         
-        Logger.info("Starting folder refresh check")
+        Logger.info("Starting folder refresh check (hardRefresh: \(hardRefresh))")
+            
+        // Refresh all folders when hardRefresh is set
+        if hardRefresh {
+            for folder in folders {
+                guard FileManager.default.fileExists(atPath: folder.url.path) else {
+                    Logger.info("Folder '\(folder.name)': Currently unavailable, skipping")
+                    continue
+                }
+                Logger.info("Folder \(folder.name): Hard refresh requested, marking for refresh")
+                foldersToRefresh.append(folder)
+            }
+            Logger.info("Hard refresh: All \(foldersToRefresh.count) accessible folders marked for refresh")
+            return foldersToRefresh
+        }
         
         for folder in folders {
             // Skip folders that are currently inaccessible

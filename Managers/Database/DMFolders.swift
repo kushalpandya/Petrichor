@@ -160,7 +160,7 @@ extension DatabaseManager {
         }
     }
 
-    func refreshFolder(_ folder: Folder, completion: @escaping (Result<Void, Error>) -> Void) {
+    func refreshFolder(_ folder: Folder, hardRefresh: Bool = false, _ completion: @escaping (Result<Void, Error>) -> Void) {
         Task {
             do {
                 await MainActor.run {
@@ -174,7 +174,7 @@ extension DatabaseManager {
                 Logger.info("Starting refresh for folder \(folder.name) with \(trackCountBefore) tracks")
 
                 // Scan the folder - this will check for metadata updates
-                try await scanSingleFolder(folder, supportedExtensions: AudioFormat.supportedExtensions)
+                try await scanSingleFolder(folder, supportedExtensions: AudioFormat.supportedExtensions, hardRefresh: hardRefresh)
 
                 // Update folder's metadata
                 if let folderId = folder.id {
@@ -366,6 +366,7 @@ extension DatabaseManager {
     func scanSingleFolder(
         _ folder: Folder,
         supportedExtensions: [String],
+        hardRefresh: Bool = false,
         globalScanState: GlobalScanState? = nil
     ) async throws {
         guard let folderId = folder.id else {
@@ -409,6 +410,7 @@ extension DatabaseManager {
             folderId: folderId,
             artworkMap: artworkMap,
             folderName: folder.name,
+            hardRefresh: hardRefresh,
             scanState: scanState,
             globalScanState: globalScanState
         )
@@ -501,6 +503,7 @@ extension DatabaseManager {
         folderId: Int64,
         artworkMap: [URL: Data],
         folderName: String,
+        hardRefresh: Bool = false,
         scanState: ScanState,
         globalScanState: GlobalScanState? = nil
     ) async throws {
@@ -515,6 +518,7 @@ extension DatabaseManager {
                 try await processBatch(
                     batchWithFolderId,
                     artworkMap: artworkMap,
+                    hardRefresh: hardRefresh,
                     scanState: scanState,
                     folderName: folderName,
                     totalFilesInFolder: totalFiles,

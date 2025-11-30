@@ -80,7 +80,7 @@ extension LibraryManager {
         }
     }
 
-    func refreshFolder(_ folder: Folder) {
+    func refreshFolder(_ folder: Folder, hardRefresh: Bool = false) {
         // First, ensure we have a valid bookmark
         Task {
             // Refresh bookmark if needed
@@ -93,7 +93,7 @@ extension LibraryManager {
                 guard let self = self else { return }
 
                 // Delegate to database manager for refresh
-                self.databaseManager.refreshFolder(folder) { result in
+                self.databaseManager.refreshFolder(folder, hardRefresh: hardRefresh) { result in
                     switch result {
                     case .success:
                         Logger.info("Successfully refreshed folder \(folder.name)")
