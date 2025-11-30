@@ -49,12 +49,8 @@ enum TrackSortField: String, CaseIterable {
         return sortComparators[self] ?? KeyPathComparator(\Track.title, order: ascending ? .forward : .reverse)
     }
     
-    static var regularFields: [TrackSortField] {
-        [.trackNumber, .discNumber, .title, .artist, .album, .genre, .year, .composer, .filename, .duration]
-    }
-    
-    static var playlistFields: [TrackSortField] {
-        [.dateAdded] + regularFields
+    static var sortFields: [TrackSortField] {
+        [.trackNumber, .discNumber, .title, .artist, .album, .genre, .year, .composer, .filename, .duration, .dateAdded]
     }
 }
 
@@ -73,10 +69,6 @@ struct TrackTableOptionsDropdown: View {
         self._sortOrder = sortOrder
         self._tableRowSize = tableRowSize
         self.playlistID = playlistID
-    }
-    
-    private var availableFields: [TrackSortField] {
-        playlistID != nil ? TrackSortField.playlistFields : TrackSortField.regularFields
     }
     
     private var currentSortField: TrackSortField {
@@ -115,7 +107,7 @@ struct TrackTableOptionsDropdown: View {
     var body: some View {
         Menu {
             Section("Sort by") {
-                ForEach(availableFields, id: \.self) { field in
+                ForEach(TrackSortField.sortFields, id: \.self) { field in
                     Toggle(field.displayName, isOn: Binding(
                         get: { currentSortField == field },
                         set: { _ in setSortField(field) }
