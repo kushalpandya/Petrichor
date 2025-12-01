@@ -50,11 +50,29 @@ class PlaylistManager: ObservableObject {
 
     // MARK: - Convenience Methods
 
-    /// Toggle favorite status for a track
-    func toggleFavorite(for track: Track) {
-        // Simply toggle the favorite status - the system will handle the rest
+    /// Toggle favorite status for a single track
+    func toggleFavorite(for track: Track, currentState: Bool? = nil) {
+        let finalState: Bool?
+        if let currentState = currentState {
+            finalState = !currentState
+        } else {
+            finalState = nil
+        }
+        toggleFavorite(for: [track], setTo: finalState)
+    }
+
+    /// Toggle favorite status for multiple tracks
+    func toggleFavorite(for tracks: [Track], setTo finalState: Bool? = nil) {
         Task {
-            await updateTrackFavoriteStatus(track: track, isFavorite: !track.isFavorite)
+            for track in tracks {
+                let isFavorite: Bool
+                if let finalState = finalState {
+                    isFavorite = finalState
+                } else {
+                    isFavorite = !track.isFavorite
+                }
+                await updateTrackFavoriteStatus(track: track, isFavorite: isFavorite)
+            }
         }
     }
 

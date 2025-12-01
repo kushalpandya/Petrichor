@@ -26,6 +26,14 @@ extension PlaylistManager {
                 
                 await handleTrackPropertyUpdate(updatedTrack)
                 
+                await MainActor.run {
+                    NotificationCenter.default.post(
+                        name: .trackFavoriteStatusChanged,
+                        object: nil,
+                        userInfo: ["track": updatedTrack]
+                    )
+                }
+                
                 if let favoritesIndex = playlists.firstIndex(where: {
                     $0.name == DefaultPlaylists.favorites && $0.type == .smart
                 }) {
