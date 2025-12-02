@@ -338,12 +338,10 @@ enum TrackContextMenu {
         
         items.append(.menu(title: "Add to Playlist", icon: "text.badge.plus", items: playlistItems))
         
-        items.append(.button(title: "Add to Favorites", icon: Icons.star) {
-            for track in tracks {
-                if !track.isFavorite {
-                    playlistManager.toggleFavorite(for: track)
-                }
-            }
+        let allFavorited = tracks.allSatisfy { $0.isFavorite }
+        let title = allFavorited ? "Remove from Favorites" : "Add to Favorites"
+        items.append(.button(title: title, icon: Icons.star) {
+            playlistManager.toggleFavorite(for: tracks, setTo: !allFavorited)
         })
         
         if case .playlist(let playlist) = currentContext, playlist.type == .regular {

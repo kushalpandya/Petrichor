@@ -5,6 +5,7 @@ import SwiftUI
 enum TrackSortField: String, CaseIterable {
     case trackNumber = "trackNumber"
     case discNumber = "discNumber"
+    case favorite = "favorite"
     case title = "title"
     case artist = "artist"
     case album = "album"
@@ -19,6 +20,7 @@ enum TrackSortField: String, CaseIterable {
         switch self {
         case .trackNumber: return "Track number (#)"
         case .discNumber: return "Disc number"
+        case .favorite: return "Favorite"
         case .title: return "Title"
         case .artist: return "Artist"
         case .album: return "Album"
@@ -35,6 +37,7 @@ enum TrackSortField: String, CaseIterable {
         let sortComparators: [TrackSortField: KeyPathComparator<Track>] = [
             .trackNumber: KeyPathComparator(\Track.sortableTrackNumber, order: ascending ? .forward : .reverse),
             .discNumber: KeyPathComparator(\Track.sortableDiscNumber, order: ascending ? .forward : .reverse),
+            .favorite: KeyPathComparator(\Track.sortableIsFavorite, order: ascending ? .forward : .reverse),
             .title: KeyPathComparator(\Track.title, order: ascending ? .forward : .reverse),
             .artist: KeyPathComparator(\Track.artist, order: ascending ? .forward : .reverse),
             .album: KeyPathComparator(\Track.album, order: ascending ? .forward : .reverse),
@@ -50,7 +53,7 @@ enum TrackSortField: String, CaseIterable {
     }
     
     static var sortFields: [TrackSortField] {
-        [.trackNumber, .discNumber, .title, .artist, .album, .genre, .year, .composer, .filename, .duration, .dateAdded]
+        [.trackNumber, .discNumber, .favorite, .title, .artist, .album, .genre, .year, .composer, .filename, .duration, .dateAdded]
     }
 }
 
@@ -80,6 +83,7 @@ struct TrackTableOptionsDropdown: View {
             "dateAdded": TrackSortField.dateAdded,
             "sortableTrackNumber": TrackSortField.trackNumber,
             "sortableDiscNumber": TrackSortField.discNumber,
+            "sortableIsFavorite": TrackSortField.favorite,
             "title": TrackSortField.title,
             "artist": TrackSortField.artist,
             "album": TrackSortField.album,

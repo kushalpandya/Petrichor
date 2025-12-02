@@ -14,6 +14,7 @@ struct TrackTableView: View {
     
     @State private var selection: Set<Track.ID> = []
     @State private var sortedTracks: [Track] = []
+    @State private var trackFavorites: [Int64: Bool] = [:]
     @State private var lastSelectionTime: Date = Date()
     @State private var lastSelectedTrackID: Track.ID?
     
@@ -37,6 +38,16 @@ struct TrackTableView: View {
     
     private func isPlaying(_ track: Track) -> Bool {
         isCurrentTrack(track) && playbackManager.isPlaying
+    }
+    
+    private func isFavorite(_ track: Track) -> Bool {
+        guard let trackId = track.trackId else { return track.isFavorite }
+        
+        if let favorite = trackFavorites[trackId] {
+            return favorite
+        }
+        
+        return track.isFavorite
     }
     
     var body: some View {
@@ -77,6 +88,13 @@ struct TrackTableView: View {
             .onChange(of: tracks) { _, newTracks in
                 if !newTracks.isEmpty {
                     performBackgroundSort(with: sortOrder)
+                    
+                    trackFavorites = Dictionary(uniqueKeysWithValues:
+                        newTracks.compactMap { track in
+                            guard let trackId = track.trackId else { return nil }
+                            return (trackId, track.isFavorite)
+                        }
+                    )
                 }
             }
             .onAppear {
@@ -95,6 +113,9 @@ struct TrackTableView: View {
             .onReceive(NotificationCenter.default.publisher(for: .trackTableRowSizeChanged)) { notification in
                 handleRowSizeChangedNotification(notification)
             }
+            .onReceive(NotificationCenter.default.publisher(for: .trackFavoriteStatusChanged)) { notification in
+                handleTrackFavoriteStatusChanged(notification)
+            }
     }
     
     private var tableView: some View {
@@ -112,6 +133,18 @@ struct TrackTableView: View {
                 }
                 .width(min: 20)
                 .customizationID("trackNumber")
+                .defaultVisibility(.hidden)
+                
+                // Favorite
+                TableColumn("★", value: \.sortableIsFavorite) { track in
+                    FavoriteButtonCell(
+                        track: track,
+                        isFavorite: isFavorite(track)
+                    )
+                    .frame(maxWidth: .infinity, alignment: .center)
+                }
+                .width(15)
+                .customizationID("favorite")
                 .defaultVisibility(.hidden)
                 
                 // Disc Number
@@ -269,6 +302,7 @@ struct TrackTableView: View {
             let sortComparators: [String: KeyPathComparator<Track>] = [
                 "trackNumber": KeyPathComparator(\Track.sortableTrackNumber, order: ascending ? .forward : .reverse),
                 "discNumber": KeyPathComparator(\Track.sortableDiscNumber, order: ascending ? .forward : .reverse),
+                "favorite": KeyPathComparator(\Track.sortableIsFavorite, order: ascending ? .forward : .reverse),
                 "title": KeyPathComparator(\Track.title, order: ascending ? .forward : .reverse),
                 "artist": KeyPathComparator(\Track.artist, order: ascending ? .forward : .reverse),
                 "album": KeyPathComparator(\Track.album, order: ascending ? .forward : .reverse),
@@ -352,6 +386,7 @@ struct TrackTableView: View {
             "dateAdded": "dateAdded",
             "sortableTrackNumber": "trackNumber",
             "sortableDiscNumber": "discNumber",
+            "sortableIsFavorite": "favorite",
             "title": "title",
             "artist": "artist",
             "album": "album",
@@ -436,6 +471,23 @@ struct TrackTableView: View {
     private func handleRowSizeChangedNotification(_ notification: Notification) {
         if let newRowSize = notification.userInfo?["rowSize"] as? TableRowSize {
             tableRowSize = newRowSize
+        }
+    }
+    
+    private func handleTrackFavoriteStatusChanged(_ notification: Notification) {
+        guard let updatedTrack = notification.userInfo?["track"] as? Track,
+              let trackId = updatedTrack.trackId else { return }
+        
+        trackFavorites[trackId] = updatedTrack.isFavorite
+        
+        if let index = sortedTracks.firstIndex(where: { $0.trackId == trackId }) {
+            sortedTracks[index].isFavorite = updatedTrack.isFavorite
+            
+            // If sorted by favorites, re-sort
+            let sortString = String(describing: sortOrder.first ?? KeyPathComparator(\Track.title))
+            if sortString.contains("sortableIsFavorite") {
+                sortedTracks.sort(using: sortOrder)
+            }
         }
     }
 }
@@ -539,6 +591,26 @@ private struct TrackTitleCell: View {
     }
 }
 
+// MARK: - Favorite Button Cell
+
+private struct FavoriteButtonCell: View {
+    let track: Track
+    let isFavorite: Bool
+    
+    @EnvironmentObject var playlistManager: PlaylistManager
+    
+    var body: some View {
+        Button(action: {
+            playlistManager.toggleFavorite(for: track, currentState: isFavorite)
+        }) {
+            Image(systemName: isFavorite ? Icons.starFill : Icons.star)
+                .font(.system(size: 13))
+                .foregroundColor(isFavorite ? .yellow : .secondary)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 // MARK: - Track Extension for Sorting
 
 extension Track {
@@ -552,5 +624,9 @@ extension Track {
     
     var sortableDateAdded: Date {
         dateAdded ?? Date.distantPast
+    }
+    
+    var sortableIsFavorite: Int {
+        isFavorite ? 0 : 1
     }
 }
