@@ -1,5 +1,12 @@
 import SwiftUI
 
+enum RightSidebarContent: Equatable {
+    case none
+    case queue
+    case trackDetail(Track)
+    case lyrics
+}
+
 struct ContentView: View {
     @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var libraryManager: LibraryManager
@@ -14,9 +21,7 @@ struct ContentView: View {
     @State private var selectedTab: Sections = .home
     @State private var showingSettings = false
     @State private var settingsInitialTab: SettingsView.SettingsTab = .general
-    @State private var showingQueue = false
-    @State private var showingTrackDetail = false
-    @State private var detailTrack: Track?
+    @State private var rightSidebarContent: RightSidebarContent = .none
     @State private var pendingLibraryFilter: LibraryFilterRequest?
     @State private var windowDelegate = WindowDelegate()
     @State private var isSettingsHovered = false
@@ -58,11 +63,10 @@ struct ContentView: View {
             showTrackDetail: showTrackDetail
         )
         .onChange(of: playbackManager.currentTrack?.id) { oldId, _ in
-            if showingTrackDetail,
-               let detailTrack = detailTrack,
-               detailTrack.id == oldId,
+            if case .trackDetail(let currentDetailTrack) = rightSidebarContent,
+               currentDetailTrack.id == oldId,
                let newTrack = playbackManager.currentTrack {
-                self.detailTrack = newTrack
+                rightSidebarContent = .trackDetail(newTrack)
             }
         }
         .onChange(of: libraryManager.globalSearchText) { _, newValue in
@@ -146,10 +150,22 @@ struct ContentView: View {
 
     @ViewBuilder
     private var sidePanel: some View {
-        if showingQueue {
-            PlayQueueView(showingQueue: $showingQueue)
-        } else if showingTrackDetail, let track = detailTrack {
-            TrackDetailView(track: track, onClose: hideTrackDetail)
+        switch rightSidebarContent {
+        case .queue:
+            PlayQueueView(showingQueue: Binding(
+                get: { rightSidebarContent == .queue },
+                set: { if !$0 { rightSidebarContent = .none } }
+            ))
+        case .trackDetail(let track):
+            TrackDetailView(track: track) {
+                rightSidebarContent = .none
+            }
+        case .lyrics:
+            TrackLyricsView(track: playbackManager.currentTrack!) {
+                rightSidebarContent = .none
+            }
+        case .none:
+            EmptyView()
         }
     }
 
@@ -158,21 +174,9 @@ struct ContentView: View {
         if !libraryManager.folders.isEmpty {
             Divider()
 
-            PlayerView(showingQueue: Binding(
-                get: { showingQueue },
-                set: { newValue in
-                    if newValue {
-                        showingTrackDetail = false
-                        detailTrack = nil
-                    }
-                    showingQueue = newValue
-                    if let coordinator = AppCoordinator.shared {
-                        coordinator.isQueueVisible = newValue
-                    }
-                }
-            ))
-            .frame(height: 90)
-            .transition(.move(edge: .bottom).combined(with: .opacity))
+            PlayerView(rightSidebarContent: $rightSidebarContent)
+                .frame(height: 90)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
 
@@ -270,10 +274,6 @@ struct ContentView: View {
     // MARK: - Event Handlers
 
     private func handleOnAppear() {
-        if let coordinator = AppCoordinator.shared {
-            showingQueue = coordinator.isQueueVisible
-        }
-        
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             NSApp.keyWindow?.makeFirstResponder(nil)
         }
@@ -296,14 +296,11 @@ struct ContentView: View {
     // MARK: - Helper Methods
 
     private func showTrackDetail(for track: Track) {
-        showingQueue = false
-        detailTrack = track
-        showingTrackDetail = true
+        rightSidebarContent = .trackDetail(track)
     }
 
     private func hideTrackDetail() {
-        showingTrackDetail = false
-        detailTrack = nil
+        rightSidebarContent = .none
     }
     
     private func isCurrentlyEditingText() -> Bool {

@@ -79,6 +79,7 @@ enum Icons {
     static let customLossless = "custom.lossless"
     static let customMusicNoteRectangleStack = "custom.music.note.rectangle.stack"
     static let customMusicNoteRectangleStackFill = "custom.music.note.rectangle.stack.fill"
+    static let customLyrics = "custom.music.microphone.bubble.right"
 }
 
 // MARK: - About

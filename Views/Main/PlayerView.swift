@@ -5,7 +5,7 @@ struct PlayerView: View {
     @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var playbackProgressState: PlaybackProgressState
     @EnvironmentObject var playlistManager: PlaylistManager
-    @Binding var showingQueue: Bool
+    @Binding var rightSidebarContent: RightSidebarContent
     
     @Environment(\.scenePhase)
     var scenePhase
@@ -65,6 +65,7 @@ struct PlayerView: View {
         HStack(spacing: 12) {
             volumeControl
             queueButton
+            lyricsButton
         }
         .frame(width: 250, alignment: .trailing)
     }
@@ -384,23 +385,46 @@ struct PlayerView: View {
 
     private var queueButton: some View {
         Button(action: {
-            showingQueue.toggle()
+            rightSidebarContent = rightSidebarContent == .queue ? .none : .queue
         }) {
             Image(systemName: "list.bullet")
                 .font(.system(size: 16))
-                .foregroundColor(showingQueue ? .white : .secondary)
+                .foregroundColor(rightSidebarContent == .queue ? .white : .secondary)
                 .frame(width: 32, height: 32)
                 .background(
                     Circle()
-                        .fill(showingQueue ? Color.accentColor : Color.secondary.opacity(0.1))
+                        .fill(rightSidebarContent == .queue ? Color.accentColor : Color.secondary.opacity(0.1))
                 )
         }
         .buttonStyle(PlainButtonStyle())
         .hoverEffect(scale: 1.1)
-        .help(showingQueue ? "Hide Queue" : "Show Queue")
+        .help(rightSidebarContent == .queue ? "Hide Queue" : "Show Queue")
+    }
+    
+    private var lyricsButton: some View {
+        Button(action: {
+            rightSidebarContent = rightSidebarContent == .lyrics ? .none : .lyrics
+        }) {
+            Image(Icons.customLyrics)
+                .foregroundColor(rightSidebarContent == .lyrics ? .white : .secondary)
+                .frame(width: 32, height: 32)
+                .background(
+                    Circle()
+                        .fill(rightSidebarContent == .lyrics ? Color.accentColor : Color.secondary.opacity(0.1))
+                )
+        }
+        .buttonStyle(PlainButtonStyle())
+        .disabled(!hasCurrentTrack)
+        .opacity(hasCurrentTrack ? 1.0 : 0.5)
+        .hoverEffect(scale: hasCurrentTrack ? 1.1 : 1.0)
+        .help(rightSidebarContent == .lyrics ? "Hide Lyrics" : "Show Lyrics")
     }
 
     // MARK: - Computed Properties
+    
+    private var hasCurrentTrack: Bool {
+        playbackManager.currentTrack != nil
+    }
 
     private var progressPercentage: Double {
         guard let duration = playbackManager.currentTrack?.duration, duration > 0 else { return 0 }
@@ -612,10 +636,10 @@ private struct PlayPauseIcon: View {
 
 #Preview {
     struct PreviewWrapper: View {
-        @State private var showingQueue = false
+        @State private var rightSidebarContent: RightSidebarContent = .none
 
         var body: some View {
-            PlayerView(showingQueue: $showingQueue)
+            PlayerView(rightSidebarContent: $rightSidebarContent)
                 .environmentObject({
                     let coordinator = AppCoordinator()
                     return coordinator.playbackManager
