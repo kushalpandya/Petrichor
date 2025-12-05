@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct PlaylistSidebarView: View {
     @EnvironmentObject var playlistManager: PlaylistManager
@@ -8,6 +9,8 @@ struct PlaylistSidebarView: View {
     @State private var selectedSidebarItem: PlaylistSidebarItem?
     @State private var playlistToDelete: Playlist?
     @State private var showingDeleteConfirmation = false
+    @State private var showingExportPlaylistSheet = false
+    @State private var isImportingPlaylist = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -19,6 +22,10 @@ struct PlaylistSidebarView: View {
         }
         .sheet(isPresented: $showingCreatePlaylist) {
             createPlaylistSheet
+        }
+        .sheet(isPresented: $showingExportPlaylistSheet) {
+            ExportPlaylistsSheet(isPresented: $showingExportPlaylistSheet)
+                .environmentObject(playlistManager)
         }
         .alert("Delete Playlist", isPresented: $showingDeleteConfirmation) {
             Button("Cancel", role: .cancel) {
@@ -70,6 +77,25 @@ struct PlaylistSidebarView: View {
             .buttonStyle(.borderless)
             .hoverEffect(scale: 1.1)
             .help("Create New Playlist")
+            
+            // Kebab menu button
+            Menu {
+                Button("Import Playlists...") {
+                    importPlaylists()
+                }
+                
+                Button("Export Playlists...") {
+                    showingExportPlaylistSheet = true
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 14))
+                    .frame(width: 20, height: 20)
+                    .contentShape(Rectangle())
+                    .hoverEffect(scale: 1.1)
+            }
+            .buttonStyle(.plain)
+            .help("Playlist Options")
         }
     }
 
@@ -138,6 +164,99 @@ struct PlaylistSidebarView: View {
             selectedPlaylist = newPlaylist
             newPlaylistName = ""
             showingCreatePlaylist = false
+        }
+    }
+    
+    // MARK: - Import Methods
+
+    private func importPlaylists() {
+        let panel = NSOpenPanel()
+        panel.title = "Import Playlists"
+        panel.message = "Select up to 25 playlist files to import"
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = true
+        panel.allowedContentTypes = [
+            UTType(filenameExtension: "m3u")!,
+            UTType(filenameExtension: "m3u8")!
+        ]
+        
+        panel.begin { response in
+            guard response == .OK else { return }
+            
+            let urls = panel.urls
+            
+            guard urls.count <= 25 else {
+                NotificationManager.shared.addMessage(
+                    .warning,
+                    "Selected \(urls.count) files. Please select up to 25 files at a time."
+                )
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    importPlaylists()
+                }
+                return
+            }
+            
+            guard !urls.isEmpty else { return }
+            
+            isImportingPlaylist = true
+            NotificationManager.shared.startActivity("Importing playlists...")
+            
+            Task {
+                let importResult = await playlistManager.importPlaylists(from: urls)
+                
+                await MainActor.run {
+                    isImportingPlaylist = false
+                    NotificationManager.shared.stopActivity()
+                    showImportNotifications(result: importResult)
+                }
+            }
+        }
+    }
+
+    private func showImportNotifications(result: BulkImportResult) {
+        // Helper for pluralization
+        func pluralize(_ count: Int, singular: String) -> String {
+            count == 1 ? singular : "\(singular)s"
+        }
+        
+        // Collect all notifications to show
+        var notifications: [(type: NotificationType, message: String)] = []
+        
+        // Add individual error messages for failed imports
+        for importResult in result.results where importResult.error != nil {
+            if let error = importResult.error {
+                notifications.append((.error, error.localizedDescription))
+            }
+        }
+        
+        // Build aggregate notification messages
+        if result.withWarnings > 0 {
+            let message = """
+                Imported \(result.withWarnings) \(pluralize(result.withWarnings, singular: "playlist")) \
+                with \(result.totalTracksMissing) missing \(pluralize(result.totalTracksMissing, singular: "track"))
+                """
+            notifications.append((.warning, message))
+        }
+        
+        if result.successful > 0 {
+            let message = """
+                Successfully imported \(result.successful) \(pluralize(result.successful, singular: "playlist")) \
+                (\(result.totalTracksImported) \(pluralize(result.totalTracksImported, singular: "track")))
+                """
+            notifications.append((.info, message))
+        }
+        
+        if result.totalFiles > 0 && result.successful == 0 && result.withWarnings == 0 {
+            let message = """
+                Failed to import all \(result.totalFiles) \(pluralize(result.totalFiles, singular: "playlist"))
+                """
+            notifications.append((.error, message))
+        }
+        
+        // Show all notifications
+        for notification in notifications {
+            NotificationManager.shared.addMessage(notification.type, notification.message)
         }
     }
 }

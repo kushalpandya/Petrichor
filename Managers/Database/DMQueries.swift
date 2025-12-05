@@ -555,6 +555,20 @@ extension DatabaseManager {
         }
     }
 
+    /// Find a track by its file path
+    func findTrackByPath(_ path: String) async -> Track? {
+        do {
+            return try await dbQueue.read { db in
+                try Track
+                    .filter(Track.Columns.path == path)
+                    .fetchOne(db)
+            }
+        } catch {
+            Logger.error("Failed to query track by path: \(error)")
+            return nil
+        }
+    }
+
     /// Apply duplicate filtering to a Track query if the user preference is enabled
     func applyDuplicateFilter(_ query: QueryInterfaceRequest<Track>) -> QueryInterfaceRequest<Track> {
         let hideDuplicates = UserDefaults.standard.bool(forKey: "hideDuplicateTracks")

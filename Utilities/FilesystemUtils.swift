@@ -181,6 +181,36 @@ enum FilesystemUtils {
         return "Cannot \(context ?? "access") '\(fileName)': \(error.localizedDescription)"
     }
     
+    /// Write M3U playlist content to a file
+    /// - Parameters:
+    ///   - content: The M3U file content as a string
+    ///   - url: The destination file URL
+    /// - Throws: File writing errors
+    static func writeM3UFile(content: String, to url: URL) throws {
+        try content.write(to: url, atomically: true, encoding: .utf8)
+    }
+    
+    /// Sanitize a playlist name for use as a filename
+    /// - Parameter name: The playlist name to sanitize
+    /// - Returns: A safe filename (without extension)
+    static func sanitizeFilename(_ name: String) -> String {
+        // Characters that are invalid in filenames on macOS
+        let invalidCharacters = CharacterSet(charactersIn: ":/\\?%*|\"<>")
+        
+        // Replace invalid characters with underscores
+        let sanitized = name.components(separatedBy: invalidCharacters).joined(separator: "_")
+        
+        // Trim whitespace and limit length
+        let trimmed = sanitized.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Limit to 255 characters (macOS filename limit)
+        if trimmed.count > 255 {
+            return String(trimmed.prefix(255))
+        }
+        
+        return trimmed.isEmpty ? "Untitled" : trimmed
+    }
+    
     // MARK: - Private Helpers
     
     private static func getCocoaErrorMessage(_ error: NSError, fileName: String, context: String?) -> String {
