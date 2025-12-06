@@ -155,8 +155,8 @@ jobs:
             -configuration ${{ matrix.configuration }} \
             -destination 'platform=macOS' \
             -derivedDataPath ~/Library/Developer/Xcode/DerivedData \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=YES \
             ONLY_ACTIVE_ARCH=NO \
             COMPILER_INDEX_STORE_ENABLE=YES \
             | xcpretty --color --report junit --output build/reports/junit-${{ matrix.configuration }}.xml
