@@ -4,13 +4,9 @@ import UniformTypeIdentifiers
 struct PlaylistSidebarView: View {
     @EnvironmentObject var playlistManager: PlaylistManager
     @Binding var selectedPlaylist: Playlist?
-    @State private var showingCreatePlaylist = false
-    @State private var newPlaylistName = ""
     @State private var selectedSidebarItem: PlaylistSidebarItem?
     @State private var playlistToDelete: Playlist?
     @State private var showingDeleteConfirmation = false
-    @State private var showingExportPlaylistSheet = false
-    @State private var isImportingPlaylist = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -19,13 +15,6 @@ struct PlaylistSidebarView: View {
             Divider()
 
             playlistsList
-        }
-        .sheet(isPresented: $showingCreatePlaylist) {
-            createPlaylistSheet
-        }
-        .sheet(isPresented: $showingExportPlaylistSheet) {
-            ExportPlaylistsSheet(isPresented: $showingExportPlaylistSheet)
-                .environmentObject(playlistManager)
         }
         .alert("Delete Playlist", isPresented: $showingDeleteConfirmation) {
             Button("Cancel", role: .cancel) {
@@ -51,6 +40,12 @@ struct PlaylistSidebarView: View {
         .onChange(of: selectedPlaylist) {
             updateSelectedSidebarItem()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .selectPlaylist)) { notification in
+            if let playlistID = notification.userInfo?["playlistID"] as? UUID,
+               let playlist = playlistManager.playlists.first(where: { $0.id == playlistID }) {
+                selectedPlaylist = playlist
+            }
+        }
     }
 
     // MARK: - Update Selection Helper
@@ -70,7 +65,7 @@ struct PlaylistSidebarView: View {
 
             Spacer()
 
-            Button(action: { showingCreatePlaylist = true }) {
+            Button(action: { playlistManager.showCreatePlaylistModal() }) {
                 Image(systemName: "plus")
                     .font(.system(size: 14))
             }
@@ -81,11 +76,11 @@ struct PlaylistSidebarView: View {
             // Kebab menu button
             Menu {
                 Button("Import Playlists...") {
-                    importPlaylists()
+                    NotificationCenter.default.post(name: .importPlaylists, object: nil)
                 }
                 
                 Button("Export Playlists...") {
-                    showingExportPlaylistSheet = true
+                    NotificationCenter.default.post(name: .exportPlaylists, object: nil)
                 }
             } label: {
                 Image(systemName: "ellipsis")
@@ -143,121 +138,6 @@ struct PlaylistSidebarView: View {
         }
         
         return items
-    }
-
-    // MARK: - Create Playlist Sheet
-
-    private var createPlaylistSheet: some View {
-        CreatePlaylistSheet(
-            isPresented: $showingCreatePlaylist,
-            playlistName: $newPlaylistName,
-            tracksToAdd: []
-        ) {
-            createPlaylist()
-        }
-        .environmentObject(playlistManager)
-    }
-
-    private func createPlaylist() {
-        if !newPlaylistName.isEmpty {
-            let newPlaylist = playlistManager.createPlaylist(name: newPlaylistName)
-            selectedPlaylist = newPlaylist
-            newPlaylistName = ""
-            showingCreatePlaylist = false
-        }
-    }
-    
-    // MARK: - Import Methods
-
-    private func importPlaylists() {
-        let panel = NSOpenPanel()
-        panel.title = "Import Playlists"
-        panel.message = "Select up to 25 playlist files to import"
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = true
-        panel.allowedContentTypes = [
-            UTType(filenameExtension: "m3u")!,
-            UTType(filenameExtension: "m3u8")!
-        ]
-        
-        panel.begin { response in
-            guard response == .OK else { return }
-            
-            let urls = panel.urls
-            
-            guard urls.count <= 25 else {
-                NotificationManager.shared.addMessage(
-                    .warning,
-                    "Selected \(urls.count) files. Please select up to 25 files at a time."
-                )
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    importPlaylists()
-                }
-                return
-            }
-            
-            guard !urls.isEmpty else { return }
-            
-            isImportingPlaylist = true
-            NotificationManager.shared.startActivity("Importing playlists...")
-            
-            Task {
-                let importResult = await playlistManager.importPlaylists(from: urls)
-                
-                await MainActor.run {
-                    isImportingPlaylist = false
-                    NotificationManager.shared.stopActivity()
-                    showImportNotifications(result: importResult)
-                }
-            }
-        }
-    }
-
-    private func showImportNotifications(result: BulkImportResult) {
-        // Helper for pluralization
-        func pluralize(_ count: Int, singular: String) -> String {
-            count == 1 ? singular : "\(singular)s"
-        }
-        
-        // Collect all notifications to show
-        var notifications: [(type: NotificationType, message: String)] = []
-        
-        // Add individual error messages for failed imports
-        for importResult in result.results where importResult.error != nil {
-            if let error = importResult.error {
-                notifications.append((.error, error.localizedDescription))
-            }
-        }
-        
-        // Build aggregate notification messages
-        if result.withWarnings > 0 {
-            let message = """
-                Imported \(result.withWarnings) \(pluralize(result.withWarnings, singular: "playlist")) \
-                with \(result.totalTracksMissing) missing \(pluralize(result.totalTracksMissing, singular: "track"))
-                """
-            notifications.append((.warning, message))
-        }
-        
-        if result.successful > 0 {
-            let message = """
-                Successfully imported \(result.successful) \(pluralize(result.successful, singular: "playlist")) \
-                (\(result.totalTracksImported) \(pluralize(result.totalTracksImported, singular: "track")))
-                """
-            notifications.append((.info, message))
-        }
-        
-        if result.totalFiles > 0 && result.successful == 0 && result.withWarnings == 0 {
-            let message = """
-                Failed to import all \(result.totalFiles) \(pluralize(result.totalFiles, singular: "playlist"))
-                """
-            notifications.append((.error, message))
-        }
-        
-        // Show all notifications
-        for notification in notifications {
-            NotificationManager.shared.addMessage(notification.type, notification.message)
-        }
     }
 }
 

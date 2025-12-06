@@ -116,6 +116,14 @@ struct TrackTableView: View {
             .onReceive(NotificationCenter.default.publisher(for: .trackFavoriteStatusChanged)) { notification in
                 handleTrackFavoriteStatusChanged(notification)
             }
+            .onReceive(NotificationCenter.default.publisher(for: .createPlaylistFromSelection)) { _ in
+                if !selection.isEmpty {
+                    let selectedTracks = sortedTracks.filter { selection.contains($0.id) }
+                    if !selectedTracks.isEmpty {
+                        playlistManager.showCreatePlaylistModal(with: selectedTracks)
+                    }
+                }
+            }
     }
     
     private var tableView: some View {

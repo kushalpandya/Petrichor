@@ -17,12 +17,19 @@ extension PlaylistManager {
     func createPlaylistFromModal() {
         guard !newPlaylistName.isEmpty else { return }
         
-        _ = createPlaylist(name: newPlaylistName, tracks: tracksToAddToNewPlaylist)
+        let newPlaylist = createPlaylist(name: newPlaylistName, tracks: tracksToAddToNewPlaylist)
         
         // Reset modal state
         newPlaylistName = ""
         tracksToAddToNewPlaylist = []
         showingCreatePlaylistModal = false
+        
+        // Notify to navigate to the new playlist
+        NotificationCenter.default.post(
+            name: .navigateToPlaylists,
+            object: nil,
+            userInfo: ["playlistID": newPlaylist.id]
+        )
     }
     
     func cancelCreatePlaylistModal() {

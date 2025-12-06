@@ -239,12 +239,19 @@ extension DefaultPlaylists {
 extension Notification.Name {
     static let libraryDataDidChange = Notification.Name("LibraryDataDidChange")
     static let goToLibraryFilter = Notification.Name("GoToLibraryFilter")
+
+    static let selectPlaylist = Notification.Name("SelectPlaylist")
+    static let importPlaylists = Notification.Name("ImportPlaylists")
+    static let exportPlaylists = Notification.Name("ExportPlaylists")
+    
+    static let navigateToPlaylists = Notification.Name("navigateToPlaylists")
     
     static let playEntityTracks = Notification.Name("playEntityTracks")
     static let playPlaylistTracks = Notification.Name("playPlaylistTracks")
     static let trackTableSortChanged = Notification.Name("trackTableSortChanged")
     static let trackTableRowSizeChanged = Notification.Name("trackTableRowSizeChanged")
     static let trackFavoriteStatusChanged = Notification.Name("trackFavoriteStatusChanged")
+    static let createPlaylistFromSelection = Notification.Name("createPlaylistFromSelection")
     
     static let focusSearchField = Notification.Name("FocusSearchField")
 }

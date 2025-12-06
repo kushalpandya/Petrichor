@@ -317,11 +317,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private func removeUnwantedMenus() {
         guard let mainMenu = NSApp.mainMenu else { return }
         
-        // Remove File menu
-        if let fileMenu = mainMenu.item(withTitle: "File") {
-            mainMenu.removeItem(fileMenu)
-        }
-        
         // Remove Format menu
         if let formatMenu = mainMenu.item(withTitle: "Format") {
             mainMenu.removeItem(formatMenu)
