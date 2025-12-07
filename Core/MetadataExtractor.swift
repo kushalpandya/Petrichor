@@ -320,7 +320,7 @@ class MetadataExtractor {
             metadata.bpm = bpm
         }
         if let rating = audioMetadata.rating {
-            metadata.rating = rating
+            metadata.rating = extractRating(from: audioMetadata.rating)
         }
 
         // Compilation (Bool, not NSNumber)
@@ -598,5 +598,22 @@ class MetadataExtractor {
         }
 
         return ""
+    }
+    
+    /// Extract normalized rating value on a 0-5 scale
+    private static func extractRating(from rawRating: Int?) -> Int? {
+        guard let raw = rawRating, raw > 0 else { return nil }
+        
+        // Default rating range
+        if raw <= 5 {
+            return raw
+        }
+        
+        // ID3v2 POPM rating range
+        if raw <= 31 { return 1 }
+        if raw <= 95 { return 2 }
+        if raw <= 159 { return 3 }
+        if raw <= 223 { return 4 }
+        return 5
     }
 }
