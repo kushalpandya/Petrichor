@@ -40,6 +40,9 @@ struct PetrichorApp: App {
             // App Menu Commands
             appMenuCommands()
             
+            // File Menu Commands
+            fileMenuCommands()
+            
             // Playback Menu
             playbackMenuCommands()
             
@@ -124,6 +127,138 @@ struct PetrichorApp: App {
                 Label("Check for Updates...", systemImage: Icons.checkForUpdates)
             } else {
                 Text("Check for Updates...")
+            }
+        }
+    }
+    
+    // MARK: - File Menu Commands
+
+    @CommandsBuilder
+    private func fileMenuCommands() -> some Commands {
+        CommandGroup(replacing: .saveItem) {}
+
+        CommandGroup(replacing: .newItem) {
+            // New submenu
+            Menu {
+                newPlaylistMenuItem()
+                newPlaylistFromSelectionMenuItem()
+            } label: {
+                if #available(macOS 26.0, *) {
+                    Label("New", systemImage: "plus.square")
+                } else {
+                    Text("New")
+                }
+            }
+            
+            Divider()
+            
+            // Library submenu
+            Menu {
+                addFolderMenuItem()
+                refreshLibraryMenuItem()
+            } label: {
+                if #available(macOS 26.0, *) {
+                    Label("Library", image: "custom.music.note.rectangle.stack")
+                } else {
+                    Text("Library")
+                }
+            }
+            
+            // Playlists submenu
+            Menu {
+                importPlaylistsMenuItem()
+                exportPlaylistsMenuItem()
+            } label: {
+                if #available(macOS 26.0, *) {
+                    Label("Playlists", systemImage: Icons.musicNoteList)
+                } else {
+                    Text("Playlists")
+                }
+            }
+        }
+    }
+
+    // MARK: - New Menu Items
+
+    private func newPlaylistMenuItem() -> some View {
+        Button {
+            appCoordinator.playlistManager.showCreatePlaylistModal()
+        } label: {
+            if #available(macOS 26.0, *) {
+                Label("Playlist", systemImage: Icons.musicNoteList)
+            } else {
+                Text("Playlist")
+            }
+        }
+        .keyboardShortcut("n", modifiers: .command)
+    }
+
+    private func newPlaylistFromSelectionMenuItem() -> some View {
+        Button {
+            NotificationCenter.default.post(
+                name: .createPlaylistFromSelection,
+                object: nil
+            )
+        } label: {
+            if #available(macOS 26.0, *) {
+                Label("Playlist from Selection", systemImage: Icons.musicNoteList)
+            } else {
+                Text("Playlist from Selection")
+            }
+        }
+        .keyboardShortcut("n", modifiers: [.command, .shift])
+    }
+
+    // MARK: - Library Menu Items
+
+    private func addFolderMenuItem() -> some View {
+        Button {
+            appCoordinator.libraryManager.addFolder()
+        } label: {
+            if #available(macOS 26.0, *) {
+                Label("Add Folder(s) to Library", systemImage: Icons.folderBadgePlus)
+            } else {
+                Text("Add Folder(s) to Library")
+            }
+        }
+        .keyboardShortcut("o", modifiers: .command)
+    }
+
+    private func refreshLibraryMenuItem() -> some View {
+        Button {
+            appCoordinator.libraryManager.refreshLibrary()
+        } label: {
+            if #available(macOS 26.0, *) {
+                Label("Refresh Library Folders", systemImage: Icons.arrowClockwise)
+            } else {
+                Text("Refresh Library Folders")
+            }
+        }
+        .keyboardShortcut("r", modifiers: [.command, .shift])
+    }
+
+    // MARK: - Playlists Menu Items
+
+    private func importPlaylistsMenuItem() -> some View {
+        Button {
+            NotificationCenter.default.post(name: .importPlaylists, object: nil)
+        } label: {
+            if #available(macOS 26.0, *) {
+                Label("Import Playlists", systemImage: "square.and.arrow.down")
+            } else {
+                Text("Import Playlists")
+            }
+        }
+    }
+
+    private func exportPlaylistsMenuItem() -> some View {
+        Button {
+            NotificationCenter.default.post(name: .exportPlaylists, object: nil)
+        } label: {
+            if #available(macOS 26.0, *) {
+                Label("Export Playlists", systemImage: "square.and.arrow.up")
+            } else {
+                Text("Export Playlists")
             }
         }
     }
