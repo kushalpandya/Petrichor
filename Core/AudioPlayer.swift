@@ -120,14 +120,12 @@ public class PAudioPlayer: NSObject {
     
     /// Current playback progress in seconds
     public var currentPlaybackProgress: Double {
-        let positionAndTime = sfbPlayer.playerNode.playbackPositionAndTime
-        return positionAndTime.time.currentTime
+        sfbPlayer.currentTime ?? 0
     }
     
     /// Total duration of current file in seconds
     public var duration: Double {
-        let positionAndTime = sfbPlayer.playerNode.playbackPositionAndTime
-        return positionAndTime.time.totalTime
+        sfbPlayer.totalTime ?? 0
     }
     
     /// Legacy property name for backwards compatibility
@@ -536,31 +534,37 @@ public class PAudioPlayer: NSObject {
             return
         }
         
-        guard let engine = sfbPlayer.playerNode.engine else {
-            Logger.warning("AVAudioEngine not available, cannot setup audio effects")
+        let engine = sfbPlayer.audioEngine
+        let mainMixer = engine.mainMixerNode
+        
+        // Find the node connected to mainMixer input (this is the playerNode or converter)
+        // We use this instead of sfbPlayer.playerNode which is broken in v0.8.0
+        guard let inputConnection = engine.inputConnectionPoint(for: mainMixer, inputBus: 0),
+              let sourceNode = inputConnection.node else {
+            Logger.warning("Cannot find node connected to mainMixer")
             return
         }
         
+        let format = sourceNode.outputFormat(forBus: 0)
+        
         Logger.info("Setting up audio effects...")
+        Logger.info("Source node: \(sourceNode), Format: \(format.sampleRate)Hz, \(format.channelCount)ch")
         
         setupStereoWidening(engine: engine)
         setupEqualizer(engine: engine)
         
-        // Connect the audio graph
-        let playerNode = sfbPlayer.playerNode
-        let mainMixer = engine.mainMixerNode
-        let format = playerNode.outputFormat(forBus: 0)
-        
-        Logger.info("Player node format: \(format.sampleRate)Hz, \(format.channelCount)ch")
-        
-        engine.disconnectNodeOutput(playerNode)
-        
-        if let stereoNode = stereoWideningNode, let equalizer = eqNode {
-            engine.connect(playerNode, to: stereoNode, format: format)
-            engine.connect(stereoNode, to: equalizer, format: format)
-            engine.connect(equalizer, to: mainMixer, format: format)
-            Logger.info("Audio graph: playerNode -> stereoWidening -> EQ -> mainMixer")
+        guard let stereoNode = stereoWideningNode, let equalizer = eqNode else {
+            Logger.warning("Failed to create effect nodes")
+            return
         }
+        
+        // Disconnect sourceNode from mainMixer
+        engine.disconnectNodeOutput(sourceNode)
+        
+        // Connect: sourceNode -> stereoWidening -> EQ -> mainMixer
+        engine.connect(sourceNode, to: stereoNode, format: format)
+        engine.connect(stereoNode, to: equalizer, format: format)
+        engine.connect(equalizer, to: mainMixer, format: format)
         
         effectsAttached = true
         Logger.info("Audio effects setup complete")

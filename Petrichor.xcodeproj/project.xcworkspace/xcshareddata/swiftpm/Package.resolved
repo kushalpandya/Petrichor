@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sbooth/AVFAudioExtensions",
       "state" : {
-        "revision" : "a9616556eb3ed9751fc6e036c2197540036567ee",
-        "version" : "0.4.1"
+        "revision" : "16b850dd542bbe8001b02596595309c8171f002d",
+        "version" : "0.4.2"
       }
     },
     {
@@ -29,12 +29,21 @@
       }
     },
     {
-      "identity" : "cxxaudioutilities",
+      "identity" : "cxxaudiotoolbox",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/sbooth/CXXAudioUtilities",
+      "location" : "https://github.com/sbooth/CXXAudioToolbox",
       "state" : {
-        "revision" : "b381f7dfcece39b28b91913e1f763d2ecf196bef",
-        "version" : "0.3.2"
+        "revision" : "5a80775ba2512ec5dfa6ff043901b601f1020757",
+        "version" : "0.1.2"
+      }
+    },
+    {
+      "identity" : "cxxcoreaudio",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sbooth/CXXCoreAudio",
+      "state" : {
+        "revision" : "463da36ac52f8c578f9e5e8f13dd438acafc73aa",
+        "version" : "0.2.0"
       }
     },
     {
@@ -42,8 +51,17 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sbooth/CXXMonkeysAudio",
       "state" : {
-        "revision" : "f576cd43884179960733a7ff6b44e3aa920e9768",
-        "version" : "11.22.0"
+        "revision" : "f8f445c5e545cf78ec8c097a3c236659e1e4ba8b",
+        "version" : "11.82.0"
+      }
+    },
+    {
+      "identity" : "cxxringbuffer",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sbooth/CXXRingBuffer",
+      "state" : {
+        "revision" : "7f4542248dca706c5a95bfe0df13f951e3254dce",
+        "version" : "0.2.0"
       }
     },
     {
@@ -53,6 +71,15 @@
       "state" : {
         "revision" : "a243fefb04d56eeade7669b4ec90dc2997089fbb",
         "version" : "2.1.1"
+      }
+    },
+    {
+      "identity" : "cxxunfairlock",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sbooth/CXXUnfairLock",
+      "state" : {
+        "revision" : "2d4662d15f63178229948f8624171a9ac9df865f",
+        "version" : "0.1.0"
       }
     },
     {
@@ -96,8 +123,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sbooth/mpg123-binary-xcframework",
       "state" : {
-        "revision" : "a678f1f21ed6f0350fc1ded94259ebe1f8e802b9",
-        "version" : "0.2.3"
+        "revision" : "54f515998ff4604e87bd27cf15e57089881cf3ff",
+        "version" : "0.3.0"
       }
     },
     {
@@ -105,8 +132,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sbooth/ogg-binary-xcframework",
       "state" : {
-        "revision" : "c0e822e18738ad913864e98d9614927ac1e9337c",
-        "version" : "0.1.2"
+        "revision" : "48cbf24e7fb5d329b1f5e24cd2e5b048585ff770",
+        "version" : "0.1.3"
       }
     },
     {
@@ -123,8 +150,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sbooth/SFBAudioEngine",
       "state" : {
-        "revision" : "e5b8fdad1b8e551cd780ba4e4e9663c545d32a88",
-        "version" : "0.7.2"
+        "revision" : "b82066df77922d6cb9af0f52f67b7378aacfd020",
+        "version" : "0.8.0"
       }
     },
     {
