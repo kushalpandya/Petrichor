@@ -99,7 +99,7 @@ struct LibraryTabView: View {
             Button(action: { libraryManager.refreshLibrary(hardRefresh: isCommandKeyPressed) }) {
                 Label(
                     isCommandKeyPressed ? "Force Refresh Library" : "Refresh Library",
-                    systemImage: isCommandKeyPressed ? "arrow.trianglehead.2.clockwise" : "arrow.clockwise"
+                    systemImage: isCommandKeyPressed ? Icons.arrowClockwiseCircle : Icons.arrowClockwise
                 )
                 .frame(height: 16)
             }
@@ -517,7 +517,7 @@ private struct CompactFolderRowView: View {
             if !isSelectMode {
                 HStack(spacing: 4) {
                     Button(action: onRefresh) {
-                        Image(systemName: isCommandKeyPressed ? "arrow.trianglehead.2.clockwise" : "arrow.clockwise")
+                        Image(systemName: isCommandKeyPressed ? Icons.arrowClockwiseCircle : Icons.arrowClockwise)
                             .font(.system(size: 12))
                             .foregroundColor(.secondary)
                     }
