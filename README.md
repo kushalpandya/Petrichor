@@ -1,4 +1,4 @@
-<img width="170" src="./Resources/AppIcon.icon/Assets/Default.png" alt="Petrichor App Icon" align="left"/>
+<img width="170" src=".github/assets/DefaultAppIcon.png" alt="Petrichor App Icon" align="left"/>
 
 <div>
 <h3>Petrichor</h3>
