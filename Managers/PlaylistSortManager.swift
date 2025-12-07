@@ -86,7 +86,8 @@ class PlaylistSortManager: ObservableObject {
         if let decoded = try? JSONDecoder().decode([String: String].self, from: sortCriteriaData) {
             sortCriteria = decoded.compactMapValues { rawValue in
                 SortCriteria(rawValue: rawValue)
-            }.reduce(into: [:]) { result, pair in
+            }
+            .reduce(into: [:]) { result, pair in
                 if let uuid = UUID(uuidString: pair.key) {
                     result[uuid] = pair.value
                 }

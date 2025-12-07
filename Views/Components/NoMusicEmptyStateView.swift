@@ -24,7 +24,7 @@ struct NoMusicEmptyStateView: View {
             switch self {
             case .mainWindow: return 24
             case .settings: return 20
-        }
+            }
         }
 
         var titleFont: Font {

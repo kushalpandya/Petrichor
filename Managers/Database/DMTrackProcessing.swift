@@ -318,7 +318,8 @@ extension DatabaseManager {
         do {
             try await dbQueue.write { db in
                 // First, reset all duplicate flags using FullTrack
-                try FullTrack.updateAll(db,
+                try FullTrack.updateAll(
+                    db,
                     FullTrack.Columns.isDuplicate.set(to: false),
                     FullTrack.Columns.primaryTrackId.set(to: nil),
                     FullTrack.Columns.duplicateGroupId.set(to: nil)
@@ -368,7 +369,8 @@ extension DatabaseManager {
                             // This is the primary track
                             try FullTrack
                                 .filter(FullTrack.Columns.trackId == trackId)
-                                .updateAll(db,
+                                .updateAll(
+                                    db,
                                     FullTrack.Columns.isDuplicate.set(to: false),
                                     FullTrack.Columns.primaryTrackId.set(to: nil),
                                     FullTrack.Columns.duplicateGroupId.set(to: groupId)
@@ -377,7 +379,8 @@ extension DatabaseManager {
                             // This is a duplicate
                             try FullTrack
                                 .filter(FullTrack.Columns.trackId == trackId)
-                                .updateAll(db,
+                                .updateAll(
+                                    db,
                                     FullTrack.Columns.isDuplicate.set(to: true),
                                     FullTrack.Columns.primaryTrackId.set(to: primaryId),
                                     FullTrack.Columns.duplicateGroupId.set(to: groupId)

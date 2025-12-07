@@ -164,7 +164,8 @@ extension PlaylistManager {
         if !matchResult.unmatchedPaths.isEmpty {
             let sample = matchResult.unmatchedPaths.prefix(3).joined(separator: ", ")
             let more = matchResult.unmatchedPaths.count > 3 ? " (+\(matchResult.unmatchedPaths.count - 3) more)" : ""
-            Logger.warning("Partial import - '\(playlistName)': \(matchResult.matchedTracks.count)/\(trackPaths.count) tracks. Missing: \(sample)\(more)")
+            let message = "Partial import - '\(playlistName)': \(matchResult.matchedTracks.count)/\(trackPaths.count) tracks. Missing: \(sample)\(more)"
+            Logger.warning(message)
         }
         
         let uniquePlaylistName = generateUniquePlaylistName(baseName: playlistName, existingNames: usedNames)

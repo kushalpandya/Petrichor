@@ -114,12 +114,14 @@ extension DatabaseManager {
         switch criteria.matchType {
         case .all:
             // AND all conditions together
-            return expressions.reduce(expressions.first!) { result, expr in
+            guard let first = expressions.first else { return nil }
+            return expressions.dropFirst().reduce(first) { result, expr in
                 result && expr
             }
         case .any:
             // OR all conditions together
-            return expressions.reduce(expressions.first!) { result, expr in
+            guard let first = expressions.first else { return nil }
+            return expressions.dropFirst().reduce(first) { result, expr in
                 result || expr
             }
         }

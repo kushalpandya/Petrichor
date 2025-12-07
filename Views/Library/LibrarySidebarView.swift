@@ -321,10 +321,12 @@ struct LibrarySidebarView: View {
         // Don't show context menu for "All" items
         guard !item.filterName.isEmpty else { return [] }
         
-        return [libraryManager.createPinContextMenuItem(
-            for: item.filterType,
-            filterValue: item.filterName
-        )]
+        return [
+            libraryManager.createPinContextMenuItem(
+                for: item.filterType,
+                filterValue: item.filterName
+            )
+        ]
     }
 }
 

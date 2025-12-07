@@ -3,18 +3,18 @@ import SwiftUI
 // MARK: - Sort Field Enum
 
 enum TrackSortField: String, CaseIterable {
-    case trackNumber = "trackNumber"
-    case discNumber = "discNumber"
-    case favorite = "favorite"
-    case title = "title"
-    case artist = "artist"
-    case album = "album"
-    case genre = "genre"
-    case year = "year"
-    case composer = "composer"
-    case filename = "filename"
-    case duration = "duration"
-    case dateAdded = "dateAdded"
+    case trackNumber
+    case discNumber
+    case favorite
+    case title
+    case artist
+    case album
+    case genre
+    case year
+    case composer
+    case filename
+    case duration
+    case dateAdded
     
     var displayName: String {
         switch self {

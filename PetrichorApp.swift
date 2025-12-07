@@ -620,9 +620,9 @@ struct PetrichorApp: App {
     
     private var repeatModeLabel: String {
         switch appCoordinator.playlistManager.repeatMode {
-            case .off: return "Repeat: Off"
-            case .one: return "Repeat: Current Track"
-            case .all: return "Repeat: All"
+        case .off: return "Repeat: Off"
+        case .one: return "Repeat: Current Track"
+        case .all: return "Repeat: All"
         }
     }
 }

@@ -319,9 +319,9 @@ class MetadataExtractor {
         if let bpm = audioMetadata.bpm {
             metadata.bpm = bpm
         }
-        if let rating = audioMetadata.rating {
-            metadata.rating = extractRating(from: audioMetadata.rating)
-        }
+
+        // Rating
+        metadata.rating = extractRating(from: audioMetadata.rating)
 
         // Compilation (Bool, not NSNumber)
         metadata.compilation = audioMetadata.isCompilation ?? false

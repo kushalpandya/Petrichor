@@ -221,8 +221,10 @@ extension LibraryManager {
                     
                     if spaceSaved > 0 {
                         let savedMB = Double(spaceSaved) / (1024.0 * 1024.0)
-                        NotificationManager.shared.addMessage(.info,
-                            "Database optimization completed - reclaimed \(String(format: "%.1f", savedMB)) MB")
+                        NotificationManager.shared.addMessage(
+                            .info,
+                            "Database optimization completed - reclaimed \(String(format: "%.1f", savedMB)) MB"
+                        )
                     } else {
                         NotificationManager.shared.addMessage(.info, "Database optimization completed")
                     }

@@ -14,12 +14,16 @@ extension DatabaseManager {
             var tracks = try dbQueue.read { db in
                 let ftsQuery = buildFTS5Query(searchText)
 
-                let matchingTrackIds = try Int64.fetchAll(db, sql: """
-                    SELECT track_id
-                    FROM tracks_fts
-                    WHERE tracks_fts MATCH ?
-                    ORDER BY rank
-                    """, arguments: [ftsQuery])
+                let matchingTrackIds = try Int64.fetchAll(
+                    db,
+                    sql: """
+                        SELECT track_id
+                        FROM tracks_fts
+                        WHERE tracks_fts MATCH ?
+                        ORDER BY rank
+                        """,
+                    arguments: [ftsQuery]
+                )
                 
                 guard !matchingTrackIds.isEmpty else { return [Track]() }
                 

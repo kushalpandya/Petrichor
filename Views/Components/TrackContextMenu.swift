@@ -303,9 +303,12 @@ enum TrackContextMenu {
         
         items.append(.menu(title: "Add to Playlist", icon: "text.badge.plus", items: playlistItems))
         
-        items.append(.button(title: track.isFavorite ? "Remove from Favorites" : "Add to Favorites", icon: track.isFavorite ? Icons.starFill : Icons.star) {
-            playlistManager.toggleFavorite(for: track)
-        })
+        items.append(
+            .button(
+                title: track.isFavorite ? "Remove from Favorites" : "Add to Favorites",
+                icon: track.isFavorite ? Icons.starFill : Icons.star
+            ) { playlistManager.toggleFavorite(for: track) }
+        )
         
         return items
     }

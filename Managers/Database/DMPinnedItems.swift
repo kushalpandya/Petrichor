@@ -191,7 +191,8 @@ extension DatabaseManager {
         }
     }
     
-    /// Get track counts for multiple pinned items in a single query
+    // Get track counts for multiple pinned items in a single query
+    // swiftlint:disable:next cyclomatic_complexity
     func getTrackCountForPinnedItems(_ items: [PinnedItem]) async -> [Int64: Int] {
         do {
             var counts = try await dbQueue.read { db -> [Int64: Int] in

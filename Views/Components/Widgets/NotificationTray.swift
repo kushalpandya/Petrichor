@@ -163,7 +163,7 @@ struct NotificationTray: View {
                 
                 if showingActivity {
                     // Activity indicator
-                    activityIndicator
+                    ActivityAnimation(size: .small)
                 } else if hasNotifications {
                     // Notification icon
                     Image(systemName: mostSevereNotificationType.icon)
@@ -216,13 +216,6 @@ struct NotificationTray: View {
             return "\(manager.messages.count) notification\(manager.messages.count == 1 ? "" : "s")"
         }
         return ""
-    }
-    
-    // MARK: - Activity Indicator
-    
-    @ViewBuilder
-    private var activityIndicator: some View {
-        ActivityAnimation(size: .small)
     }
 }
 
