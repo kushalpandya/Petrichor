@@ -376,8 +376,10 @@ struct TrackTableView: View {
     // MARK: - Sorting Helpers
     
     private func performBackgroundSort(with newSortOrder: [KeyPathComparator<Track>]) {
+        let initialTracks = (sortedTracks.count != tracks.count) ? tracks : sortedTracks
+        
         Task.detached(priority: .userInitiated) {
-            let sorted = tracks.sorted(using: newSortOrder)
+            let sorted = initialTracks.sorted(using: newSortOrder)
             await MainActor.run {
                 self.sortedTracks = sorted
             }
@@ -488,14 +490,20 @@ struct TrackTableView: View {
         
         trackFavorites[trackId] = updatedTrack.isFavorite
         
-        if let index = sortedTracks.firstIndex(where: { $0.trackId == trackId }) {
+        guard let index = sortedTracks.firstIndex(where: { $0.trackId == trackId }) else { return }
+        
+        // Check if we're sorted by favorites
+        let sortString = String(describing: sortOrder.first ?? KeyPathComparator(\Track.title))
+        let isSortedByFavorites = sortString.contains("sortableIsFavorite")
+        
+        if isSortedByFavorites {
+            // Create new array to ensure SwiftUI Table updates as
+            // in-place mutation + sort doesn't trigger proper view refresh on macOS 14/15
+            var updatedTracks = sortedTracks
+            updatedTracks[index].isFavorite = updatedTrack.isFavorite
+            sortedTracks = updatedTracks.sorted(using: sortOrder)
+        } else {
             sortedTracks[index].isFavorite = updatedTrack.isFavorite
-            
-            // If sorted by favorites, re-sort
-            let sortString = String(describing: sortOrder.first ?? KeyPathComparator(\Track.title))
-            if sortString.contains("sortableIsFavorite") {
-                sortedTracks.sort(using: sortOrder)
-            }
         }
     }
 }
