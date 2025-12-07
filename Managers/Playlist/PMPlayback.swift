@@ -168,9 +168,13 @@ extension PlaylistManager {
             guard let audioPlayer = audioPlayer else { return }
             audioPlayer.seekTo(time: 0)
             if currentQueueIndex >= 0 && currentQueueIndex < currentQueue.count {
+                Logger.info("Track completed, playing current track again (repeat: current track)")
                 audioPlayer.playTrack(currentQueue[currentQueueIndex])
             }
-        case .all, .off:
+        case .all:
+            Logger.info("Track completed, playing next track from current queue (repeat: all)")
+            playNextTrack()
+        case .off:
             let nextIndex = currentQueueIndex + 1
             if nextIndex < currentQueue.count {
                 Logger.info("Track completed, playing next track")

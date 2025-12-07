@@ -252,8 +252,16 @@ struct PlayerView: View {
         }
         .buttonStyle(ControlButtonStyle())
         .hoverEffect(scale: 1.1)
-        .help("Toggle repeat mode")
+        .help(repeatModeTooltip)
         .disabled(playbackManager.currentTrack == nil)
+    }
+    
+    private var repeatModeTooltip: String {
+        switch playlistManager.repeatMode {
+        case .off: return "Repeat: Off"
+        case .one: return "Repeat: Current Track"
+        case .all: return "Repeat: All"
+        }
     }
 
     private var progressBar: some View {
