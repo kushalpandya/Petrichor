@@ -90,6 +90,7 @@ struct TrackLyricsView: View {
                 .lineSpacing(10)
                 .padding(20)
                 .textSelection(.enabled)
+                .frame(maxWidth: .infinity)
         }
     }
     
