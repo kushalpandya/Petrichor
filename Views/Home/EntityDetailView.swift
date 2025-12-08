@@ -93,7 +93,12 @@ struct EntityDetailView: View {
                 
                 // Info and controls
                 VStack(alignment: .leading, spacing: 12) {
-                    entityInfo
+                    if entity is ArtistEntity {
+                        artistEntityInfo
+                    } else {
+                        albumEntityInfo
+                    }
+                    
                     entityControls
                 }
                 
@@ -134,9 +139,9 @@ struct EntityDetailView: View {
         }
     }
     
-    private var entityInfo: some View {
+    private var artistEntityInfo: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(entity is ArtistEntity ? "Artist" : "Album")
+            Text("Artist")
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .fontWeight(.medium)
@@ -147,17 +152,6 @@ struct EntityDetailView: View {
                 .lineLimit(2)
             
             HStack {
-                if let albumEntity = entity as? AlbumEntity,
-                   let year = albumEntity.year {
-                    Text(year)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-
-                    Text("•")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-
                 Text("\(tracks.count) \(tracks.count == 1 ? "song" : "songs")")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
@@ -170,6 +164,68 @@ struct EntityDetailView: View {
                     Text(formattedTotalDuration)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
+                }
+            }
+        }
+    }
+
+    private var albumEntityInfo: some View {
+        let albumEntity = entity as? AlbumEntity
+        
+        return VStack(alignment: .leading, spacing: 4) {
+            Text(entity.name)
+                .font(.title)
+                .fontWeight(.bold)
+                .lineLimit(2)
+            
+            if let artistName = albumEntity?.artistName, !artistName.isEmpty {
+                Text(artistName)
+                    .font(.title3)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+            
+            HStack {
+                if let year = albumEntity?.year {
+                    Text(year)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    Text("•")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                
+                Text("\(tracks.count) \(tracks.count == 1 ? "song" : "songs")")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                
+                if !tracks.isEmpty {
+                    Text("•")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    Text(formattedTotalDuration)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    if isAlbumFullyLossless {
+                        Text("•")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        
+                        HStack(spacing: 4) {
+                            Image(Icons.customLossless)
+                                .renderingMode(.template)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 15, height: 15)
+                            
+                            Text("Lossless")
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    }
                 }
             }
         }
@@ -267,6 +323,11 @@ struct EntityDetailView: View {
         } else {
             return "\(minutes) min"
         }
+    }
+    
+    private var isAlbumFullyLossless: Bool {
+        guard entity is AlbumEntity, !tracks.isEmpty else { return false }
+        return tracks.allSatisfy { $0.lossless == true }
     }
     
     private var isPinned: Bool {
