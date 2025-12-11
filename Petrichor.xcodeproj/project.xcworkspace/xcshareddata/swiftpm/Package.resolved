@@ -65,6 +65,15 @@
       }
     },
     {
+      "identity" : "cxxsharedmutex",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sbooth/CXXSharedMutex",
+      "state" : {
+        "revision" : "9de324ca10422d6532f888a1aea28c9f51dd2327",
+        "version" : "0.1.0"
+      }
+    },
+    {
       "identity" : "cxxtaglib",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sbooth/CXXTagLib",
@@ -150,8 +159,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sbooth/SFBAudioEngine",
       "state" : {
-        "revision" : "b82066df77922d6cb9af0f52f67b7378aacfd020",
-        "version" : "0.8.0"
+        "revision" : "124da31bafb7347c239e34e4a74331fe5c8fa092",
+        "version" : "0.9.0"
       }
     },
     {

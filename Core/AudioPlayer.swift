@@ -536,15 +536,7 @@ public class PAudioPlayer: NSObject {
         
         let engine = sfbPlayer.audioEngine
         let mainMixer = engine.mainMixerNode
-        
-        // Find the node connected to mainMixer input (this is the playerNode or converter)
-        // We use this instead of sfbPlayer.playerNode which is broken in v0.8.0
-        guard let inputConnection = engine.inputConnectionPoint(for: mainMixer, inputBus: 0),
-              let sourceNode = inputConnection.node else {
-            Logger.warning("Cannot find node connected to mainMixer")
-            return
-        }
-        
+        let sourceNode = sfbPlayer.playerNode
         let format = sourceNode.outputFormat(forBus: 0)
         
         Logger.info("Setting up audio effects...")
