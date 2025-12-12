@@ -1,52 +1,117 @@
 {
-  "fill-specializations" : [
-    {
-      "value" : {
-        "solid" : "display-p3:0.47059,0.61176,0.81569,1.00000"
-      }
-    },
-    {
-      "appearance" : "dark",
-      "value" : {
-        "solid" : "display-p3:0.04314,0.13333,0.22745,1.00000"
-      }
-    }
-  ],
+  "fill" : {
+    "linear-gradient" : [
+      "display-p3:0.51791,0.68616,0.92326,1.00000",
+      "display-p3:0.23485,0.40869,0.65432,1.00000"
+    ]
+  },
   "groups" : [
     {
       "layers" : [
         {
-          "glass" : false,
+          "blend-mode" : "normal",
+          "fill-specializations" : [
+            {
+              "value" : "automatic"
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "linear-gradient" : [
+                  "display-p3:0.33011,0.58610,0.93854,1.00000",
+                  "display-p3:0.53278,0.71455,0.97287,1.00000"
+                ],
+                "orientation" : {
+                  "start" : {
+                    "x" : 0.5,
+                    "y" : 1
+                  },
+                  "stop" : {
+                    "x" : 0.5,
+                    "y" : 0.3
+                  }
+                }
+              }
+            },
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "solid" : "display-p3:1.00000,1.00000,1.00000,1.00000"
+              }
+            }
+          ],
+          "glass" : true,
           "hidden-specializations" : [
             {
               "idiom" : "macOS",
               "value" : false
             }
           ],
-          "image-name" : "Default.png",
-          "name" : "Default",
-          "opacity-specializations" : [
+          "image-name" : "custom.music.svg",
+          "name" : "Music Notes",
+          "position-specializations" : [
             {
-              "appearance" : "dark",
-              "value" : 0
+              "value" : {
+                "scale" : 1,
+                "translation-in-points" : [
+                  -212.78125,
+                  -229.0078125
+                ]
+              }
+            },
+            {
+              "idiom" : "macOS",
+              "value" : {
+                "scale" : 28,
+                "translation-in-points" : [
+                  -14,
+                  0
+                ]
+              }
             }
           ]
         },
         {
-          "glass" : false,
-          "image-name" : "Dark.png",
-          "name" : "Dark",
-          "opacity-specializations" : [
+          "blend-mode" : "normal",
+          "fill-specializations" : [
             {
-              "value" : 0
+              "value" : {
+                "solid" : "display-p3:1.00000,1.00000,1.00000,1.00000"
+              }
             },
             {
               "appearance" : "dark",
-              "value" : 1
+              "value" : {
+                "automatic-gradient" : "display-p3:1.00000,1.00000,1.00000,1.00000"
+              }
+            },
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "automatic-gradient" : "display-p3:1.00000,1.00000,1.00000,1.00000"
+              }
+            }
+          ],
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "play.fill.svg",
+          "name" : "Play",
+          "opacity" : 0.2,
+          "position-specializations" : [
+            {
+              "idiom" : "macOS",
+              "value" : {
+                "scale" : 40,
+                "translation-in-points" : [
+                  19.3836,
+                  0.19399999999995998
+                ]
+              }
             }
           ]
         }
       ],
+      "name" : "Symbols",
       "shadow" : {
         "kind" : "neutral",
         "opacity" : 0.5

@@ -35,12 +35,11 @@ struct AboutTabView: View {
 
     private var appIcon: some View {
         Group {
-            if let appIcon = NSImage(named: "DefaultAppIcon") {
+            if let appIcon = NSImage(named: "AppIcon") {
                 Image(nsImage: appIcon)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .frame(width: 80, height: 80)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .frame(width: 128, height: 128)
             } else {
                 Image(systemName: "drop.fill")
                     .font(.system(size: 80))
