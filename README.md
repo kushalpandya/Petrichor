@@ -41,7 +41,9 @@
   - DSF/DFF (Direct Stream Digital)
   - ... MOD, IT, S3M, XM, and AU
 - Map your music folders and browse your library in an organized view.
-- Create playlists and manage the play queue interactively.
+- Show lyrics of a playing track when available.
+- Create, import or export playlists.
+- Manage the play queue interactively using drag and drop
 - Browse music using folder view when needed.
 - Pin _anything_ (almost!) to the sidebar for quick access to your favorite music.
 - Navigate easily: right-click a track to go to its album, artist, year, etc.
@@ -85,6 +87,8 @@ brew install --cask petrichor
 
 ### 📷 Screenshots
 
+**Note:** These may not be up-to-date.
+
 <div align="center">
 <img src=".github/assets/screenshot_1.png" width="392" alt="Screenshot"/>
 <img src=".github/assets/screenshot_2.png" width="392" alt="Screenshot"/>
@@ -99,8 +103,11 @@ brew install --cask petrichor
 
 - Petrichor is sandboxed and notarized by Apple.
 - It has two permissions on macOS as follows;
-  - Read-only access to user-selected files and folders
-  - Network access to check and install updates
+  - **Read-write access**
+    - To read and write into user-selected files and folders,
+      write access is only used for exporting M3U playlist files.
+  - **Network access**
+    - To check for and install app updates.
 - It doesn't (and never will) have any analytics on how you use the app.
 - It never changes your audio files or folder structure in any way.
 - Your library data remains offline always.
