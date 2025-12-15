@@ -422,7 +422,7 @@ struct PetrichorApp: App {
                     systemImage: Icons.forwardFill
                 )
             } else {
-                Text("Seek Formward")
+                Text("Seek Forward")
             }
         }
         .keyboardShortcut(.rightArrow, modifiers: [.command, .shift])
