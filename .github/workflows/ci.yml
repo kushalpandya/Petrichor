@@ -22,7 +22,7 @@ on:
   workflow_dispatch:
 
 env:
-  XCODE_VERSION: '26.0'
+  XCODE_VERSION: '26.2'
   SCHEME: 'Petrichor'
   PROJECT: 'Petrichor.xcodeproj'
 
