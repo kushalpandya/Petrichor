@@ -34,6 +34,7 @@ extension DatabaseManager {
                 Logger.info("Saving \(playlist.tracks.count) tracks for playlist '\(playlist.name)'")
                 
                 // Create all PlaylistTrack objects at once
+                let now = Date()
                 let playlistTracks = playlist.tracks.enumerated().compactMap { index, track -> PlaylistTrack?
                     in
                     guard let trackId = track.trackId else {
@@ -41,8 +42,8 @@ extension DatabaseManager {
                         return nil
                     }
                     
-                    // Use existing dateAdded if available, otherwise use current time for new tracks
-                    let dateAdded = existingDateAdded[trackId] ?? Date()
+                    // Use existing dateAdded if available, otherwise stagger timestamps to preserve order
+                    let dateAdded = existingDateAdded[trackId] ?? now.addingTimeInterval(TimeInterval(index))
                     
                     return PlaylistTrack(
                         playlistId: playlist.id.uuidString,
