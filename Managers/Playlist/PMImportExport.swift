@@ -205,15 +205,56 @@ extension PlaylistManager {
         var matchedTracks: [Track] = []
         var unmatchedPaths: [String] = []
         
-        for path in trackPaths {
-            if let track = await dbManager.findTrackByPath(path) {
-                matchedTracks.append(track)
-            } else {
-                unmatchedPaths.append(path)
+        for originalPath in trackPaths {
+            let pathVariations = generatePathVariations(originalPath)
+            
+            var matched = false
+            for path in pathVariations {
+                if let track = await dbManager.findTrackByPath(path) {
+                    matchedTracks.append(track)
+                    matched = true
+                    break
+                }
+            }
+            
+            if !matched {
+                unmatchedPaths.append(originalPath)
             }
         }
         
         return (matchedTracks, unmatchedPaths)
+    }
+    
+    /// Generates possible path variations for M3U import matching
+    private func generatePathVariations(_ path: String) -> [String] {
+        var normalized = path
+        
+        for scheme in ["file://", "smb://", "afp://", "nfs://"] {
+            if normalized.lowercased().hasPrefix(scheme) {
+                normalized = String(normalized.dropFirst(scheme.count))
+                break
+            }
+        }
+        
+        // Handle Windows-style UNC paths (//server/share)
+        if normalized.hasPrefix("//") {
+            normalized = "/Volumes" + String(normalized.dropFirst(1))
+        }
+        
+        // URL decode
+        normalized = normalized.removingPercentEncoding ?? normalized
+        
+        var variations = [normalized]
+        
+        if normalized.hasPrefix("/Volumes/") {
+            // Try without /Volumes prefix
+            variations.append(String(normalized.dropFirst(8)))
+        } else if normalized.hasPrefix("/") && !normalized.hasPrefix("/Users/") {
+            // Try with /Volumes prefix
+            variations.append("/Volumes" + normalized)
+        }
+        
+        return variations
     }
     
     private func generateUniquePlaylistName(baseName: String, existingNames: Set<String>) -> String {
