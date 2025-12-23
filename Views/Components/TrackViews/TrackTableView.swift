@@ -304,6 +304,12 @@ struct TrackTableView: View {
     // MARK: - Helper Methods
     
     private func initializeSortedTracks() {
+        // Follow overridden sort order for entities
+        if entityID != nil {
+            sortedTracks = tracks.sorted(using: sortOrder)
+            return
+        }
+
         if let savedSort = UserDefaults.standard.dictionary(forKey: "trackTableSortOrder"),
            let key = savedSort["key"] as? String,
            let ascending = savedSort["ascending"] as? Bool {

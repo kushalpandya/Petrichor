@@ -6,10 +6,10 @@ struct TrackView: View {
     @Binding var selectedTrackID: UUID?
     let playlistID: UUID?
     let entityID: UUID?
+    @Binding var sortOrder: [KeyPathComparator<Track>]
     let onPlayTrack: (Track) -> Void
     let contextMenuItems: ([Track]) -> [ContextMenuItem]
     
-    @State private var sortOrder = [KeyPathComparator(\Track.title)]
     @EnvironmentObject var playbackManager: PlaybackManager
     
     @AppStorage("trackTableRowSize")
@@ -74,6 +74,7 @@ extension View {
 
 // MARK: - Preview
 #Preview("Tracks View") {
+    @Previewable @State var sortOrder = [KeyPathComparator(\Track.title)]
     let sampleTracks = (0..<5).map { i in
         var track = Track(url: URL(fileURLWithPath: "/path/to/sample\(i).mp3"))
         track.title = "Sample Song \(i)"
@@ -89,6 +90,7 @@ extension View {
         selectedTrackID: .constant(nil),
         playlistID: nil,
         entityID: nil,
+        sortOrder: $sortOrder,
         onPlayTrack: { track in
             Logger.debugPrint("Playing \(track.title)")
         },
@@ -99,6 +101,7 @@ extension View {
 }
 
 #Preview("Tracks View with Playlist") {
+    @Previewable @State var sortOrder = [KeyPathComparator(\Track.title)]
     let sampleTracks = (0..<10).map { i in
         var track = Track(url: URL(fileURLWithPath: "/path/to/sample\(i).mp3"))
         track.title = "Playlist Song \(i)"
@@ -116,6 +119,7 @@ extension View {
         selectedTrackID: .constant(nil),
         playlistID: nil,
         entityID: nil,
+        sortOrder: $sortOrder,
         onPlayTrack: { track in
             Logger.debugPrint("Playing \(track.title)")
         },
