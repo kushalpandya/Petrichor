@@ -33,6 +33,7 @@ struct EntityDetailView: View {
                     selectedTrackID: $selectedTrackID,
                     playlistID: nil,
                     entityID: entity.id,
+                    sortOrder: $trackTableSortOrder,
                     onPlayTrack: { track in
                         playTrack(track)
                     },
@@ -354,6 +355,19 @@ struct EntityDetailView: View {
         }
         
         self.tracks = fetchedTracks
+        
+        // Sort album tracks by disc/track number by default if those values exist
+        if entity is AlbumEntity {
+            let hasCompleteOrdering = fetchedTracks.allSatisfy { $0.trackNumber != nil && $0.trackNumber! > 0 }
+            
+            if hasCompleteOrdering {
+                trackTableSortOrder = [
+                    KeyPathComparator(\Track.sortableDiscNumber, order: .forward),
+                    KeyPathComparator(\Track.sortableTrackNumber, order: .forward)
+                ]
+            }
+        }
+        
         self.isLoading = false
     }
     

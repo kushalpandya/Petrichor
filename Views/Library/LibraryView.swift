@@ -122,6 +122,7 @@ struct LibraryView: View {
                     selectedTrackID: $selectedTrackID,
                     playlistID: nil,
                     entityID: nil,
+                    sortOrder: $trackTableSortOrder,
                     onPlayTrack: { track in
                         playlistManager.playTrack(track, fromTracks: cachedFilteredTracks)
                         playlistManager.currentQueueSource = .library

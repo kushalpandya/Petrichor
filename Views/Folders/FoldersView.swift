@@ -110,6 +110,7 @@ struct FoldersView: View {
             selectedTrackID: $selectedTrackID,
             playlistID: nil,
             entityID: nil,
+            sortOrder: $trackTableSortOrder,
             onPlayTrack: { track in
                 if selectedFolderNode != nil {
                     // For hierarchical view, we need to play from the track list

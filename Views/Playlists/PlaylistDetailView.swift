@@ -213,6 +213,7 @@ struct PlaylistDetailView: View {
                     selectedTrackID: $selectedTrackID,
                     playlistID: playlistID,
                     entityID: nil,
+                    sortOrder: $playlistSortOrder,
                     onPlayTrack: { track in
                         if let playlist = playlist,
                            let index = playlist.tracks.firstIndex(of: track) {

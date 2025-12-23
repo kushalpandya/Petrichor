@@ -171,6 +171,7 @@ struct HomeView: View {
                     selectedTrackID: $selectedTrackID,
                     playlistID: nil,
                     entityID: nil,
+                    sortOrder: $trackTableSortOrder,
                     onPlayTrack: { track in
                         playlistManager.playTrack(track, fromTracks: libraryManager.discoverTracks)
                         playlistManager.currentQueueSource = .library
@@ -227,6 +228,7 @@ struct HomeView: View {
                     selectedTrackID: $selectedTrackID,
                     playlistID: nil,
                     entityID: nil,
+                    sortOrder: $trackTableSortOrder,
                     onPlayTrack: { track in
                         playlistManager.playTrack(track, fromTracks: libraryManager.tracks)
                         playlistManager.currentQueueSource = .library
@@ -461,6 +463,7 @@ struct HomeView: View {
                             selectedTrackID: $selectedTrackID,
                             playlistID: nil,
                             entityID: nil,
+                            sortOrder: $trackTableSortOrder,
                             onPlayTrack: { track in
                                 playlistManager.playTrack(track, fromTracks: pinnedItemTracks)
                                 playlistManager.currentQueueSource = .library
