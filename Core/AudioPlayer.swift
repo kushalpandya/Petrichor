@@ -139,6 +139,7 @@ public class PAudioPlayer: NSObject {
     private var currentEntryId: AudioEntryId?
     private var currentURL: URL?
     private var delegateBridge: SFBAudioPlayerDelegateBridge?
+    private static let maxPreBufferSize: UInt64 = 100 * 1024 * 1024
     
     // MARK: - Audio Effects Nodes
 
@@ -181,7 +182,25 @@ public class PAudioPlayer: NSObject {
         currentEntryId = AudioEntryId(id: url.lastPathComponent)
         
         do {
-            try sfbPlayer.play(url)
+            let shouldPreBuffer = Self.shouldPreBuffer(url: url)
+            
+            if shouldPreBuffer {
+                // Load entire file into memory before playback
+                do {
+                    let inputSource = try InputSource(for: url, flags: .loadFilesInMemory)
+                    let decoder = try AudioDecoder(inputSource: inputSource)
+                    try sfbPlayer.play(decoder)
+                    Logger.info("Started playing (pre-buffered): \(url.lastPathComponent)")
+                } catch {
+                    // Pre-buffering failed, fall back to direct streaming
+                    Logger.warning("Pre-buffering failed, falling back to direct playback: \(error.localizedDescription)")
+                    try sfbPlayer.play(url)
+                    Logger.info("Started playing (direct): \(url.lastPathComponent)")
+                }
+            } else {
+                try sfbPlayer.play(url)
+                Logger.info("Started playing: \(url.lastPathComponent)")
+            }
             
             if startPaused {
                 sfbPlayer.pause()
@@ -189,8 +208,6 @@ public class PAudioPlayer: NSObject {
             } else {
                 state = .playing
             }
-            
-            Logger.info("Started playing: \(url.lastPathComponent)")
         } catch {
             Logger.error("Failed to play audio: \(error)")
             state = .stopped
@@ -527,6 +544,22 @@ public class PAudioPlayer: NSObject {
     }
     
     // MARK: - Private Methods
+    
+    private static func shouldPreBuffer(url: URL) -> Bool {
+        // Only consider pre-buffering for files under the size threshold
+        guard let fileSize = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+              UInt64(fileSize) <= maxPreBufferSize else {
+            return false
+        }
+        
+        // Check if the file is on a network volume
+        guard let resourceValues = try? url.resourceValues(forKeys: [.volumeIsLocalKey]),
+              let isLocal = resourceValues.volumeIsLocal else {
+            return false
+        }
+        
+        return !isLocal
+    }
     
     private func setupAudioEffects() {
         guard !effectsAttached else {
