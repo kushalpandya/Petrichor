@@ -211,6 +211,38 @@ enum FilesystemUtils {
         return trimmed.isEmpty ? "Untitled" : trimmed
     }
     
+    /// Checks if the URL is on a potentially slow filesystem (FUSE, WebDAV, etc.)
+    /// These filesystems may appear as "local" but actually fetch data over the network.
+    /// - Parameter url: The URL to check
+    /// - Returns: true if the filesystem is potentially slow
+    static func isSlowFilesystem(url: URL) -> Bool {
+        var statfsInfo = statfs()
+        guard statfs(url.path, &statfsInfo) == 0 else {
+            return false
+        }
+        
+        let fsType = withUnsafePointer(to: &statfsInfo.f_fstypename) {
+            $0.withMemoryRebound(to: CChar.self, capacity: Int(MFSTYPENAMELEN)) {
+                String(cString: $0)
+            }
+        }
+        
+        // Filesystem types that indicate potentially slow/network-based sources
+        let slowFilesystems = [
+            "macfuse",      // macFUSE (used by CloudMounter, Mountain Duck, etc.)
+            "osxfuse",      // Older FUSE implementation
+            "fuse",         // Generic FUSE
+            "fusefs",       // FUSE variant
+            "smbfs",        // SMB shares
+            "nfs",          // NFS mounts
+            "afpfs",        // AFP shares
+            "webdav",       // WebDAV mounts
+        ]
+        
+        let fsTypeLower = fsType.lowercased()
+        return slowFilesystems.contains { fsTypeLower.contains($0) }
+    }
+    
     // MARK: - Private Helpers
     
     private static func getCocoaErrorMessage(_ error: NSError, fileName: String, context: String?) -> String {
