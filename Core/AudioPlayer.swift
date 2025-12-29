@@ -139,6 +139,7 @@ public class PAudioPlayer: NSObject {
     private var currentEntryId: AudioEntryId?
     private var currentURL: URL?
     private var delegateBridge: SFBAudioPlayerDelegateBridge?
+    private static let maxPreBufferSize: UInt64 = 100 * 1024 * 1024
     
     // MARK: - Audio Effects Nodes
 
@@ -178,32 +179,68 @@ public class PAudioPlayer: NSObject {
     ///   - startPaused: If true, loads the file but doesn't start playback
     public func play(url: URL, startPaused: Bool = false) {
         currentURL = url
-        currentEntryId = AudioEntryId(id: url.lastPathComponent)
+        let entryId = AudioEntryId(id: url.lastPathComponent)
+        currentEntryId = entryId
         
-        do {
-            try sfbPlayer.play(url)
+        let shouldPreBuffer = Self.shouldPreBuffer(url: url)
+        
+        if shouldPreBuffer {
+            state = .ready
             
-            if startPaused {
-                sfbPlayer.pause()
-                state = .paused
-            } else {
-                state = .playing
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                guard let self = self else { return }
+                
+                do {
+                    let inputSource = try InputSource(for: url, flags: .loadFilesInMemory)
+                    let decoder = try AudioDecoder(inputSource: inputSource)
+                    
+                    try self.sfbPlayer.play(decoder)
+                    
+                    DispatchQueue.main.async {
+                        if startPaused {
+                            self.sfbPlayer.pause()
+                            self.state = .paused
+                        } else {
+                            self.state = .playing
+                        }
+                        Logger.info("Started playing (pre-buffered): \(url.lastPathComponent)")
+                    }
+                } catch {
+                    Logger.warning("Pre-buffering failed, falling back to direct playback: \(error.localizedDescription)")
+                    
+                    do {
+                        try self.sfbPlayer.play(url)
+                        
+                        DispatchQueue.main.async {
+                            if startPaused {
+                                self.sfbPlayer.pause()
+                                self.state = .paused
+                            } else {
+                                self.state = .playing
+                            }
+                            Logger.info("Started playing (direct fallback): \(url.lastPathComponent)")
+                        }
+                    } catch {
+                        DispatchQueue.main.async {
+                            self.handlePlaybackError(error, entryId: entryId)
+                        }
+                    }
+                }
             }
-            
-            Logger.info("Started playing: \(url.lastPathComponent)")
-        } catch {
-            Logger.error("Failed to play audio: \(error)")
-            state = .stopped
-            
-            if let entryId = currentEntryId {
-                delegate?.audioPlayerUnexpectedError(player: self, error: .engineError(error))
-                delegate?.audioPlayerDidFinishPlaying(
-                    player: self,
-                    entryId: entryId,
-                    stopReason: .error,
-                    progress: 0,
-                    duration: 0
-                )
+        } else {
+            do {
+                try sfbPlayer.play(url)
+                
+                if startPaused {
+                    sfbPlayer.pause()
+                    state = .paused
+                } else {
+                    state = .playing
+                }
+                
+                Logger.info("Started playing: \(url.lastPathComponent)")
+            } catch {
+                handlePlaybackError(error, entryId: entryId)
             }
         }
     }
@@ -527,6 +564,43 @@ public class PAudioPlayer: NSObject {
     }
     
     // MARK: - Private Methods
+    
+    private static func shouldPreBuffer(url: URL) -> Bool {
+        // Only consider pre-buffering for files under the size threshold
+        guard let fileSize = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+              UInt64(fileSize) <= maxPreBufferSize else {
+            return false
+        }
+        
+        // Check if the file is on a network volume
+        if let resourceValues = try? url.resourceValues(forKeys: [.volumeIsLocalKey]),
+           let isLocal = resourceValues.volumeIsLocal,
+           !isLocal {
+            return true
+        }
+        
+        // Check filesystem type for FUSE-based mounts
+        if FilesystemUtils.isSlowFilesystem(url: url) {
+            return true
+        }
+        
+        return false
+    }
+    
+    /// Handle playback errors
+    private func handlePlaybackError(_ error: Error, entryId: AudioEntryId) {
+        Logger.error("Failed to play audio: \(error)")
+        state = .stopped
+        
+        delegate?.audioPlayerUnexpectedError(player: self, error: .engineError(error))
+        delegate?.audioPlayerDidFinishPlaying(
+            player: self,
+            entryId: entryId,
+            stopReason: .error,
+            progress: 0,
+            duration: 0
+        )
+    }
     
     private func setupAudioEffects() {
         guard !effectsAttached else {
