@@ -5,6 +5,29 @@
         <description>Updates for Petrichor</description>
         <language>en</language>
         <item>
+            <title>Version 1.3.1</title>
+            <pubDate>Tue, 06 Jan 2026 16:08:22 -0500</pubDate>
+            <sparkle:version>131</sparkle:version>
+            <sparkle:shortVersionString>1.3.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.3.1/Petrichor-1.3.1-Universal.dmg"
+                sparkle:edSignature="JuUQBB9M2w4t9bEykw3pFLcbWGft+H3BNRN7+Jit2cqykz1r9O9ag1vqB4+38Zt/13DDg2UanJHkYYUA3VHSDA=="
+                length="13221354"
+                type="application/octet-stream"
+            />
+            <description><![CDATA[
+                <h2>Fixes</h2>
+                <ul>
+                    <li>Improve playlist import behaviour (<a href="https://github.com/kushalpandya/Petrichor/pull/158">#158</a>)</li>
+                    <li>Sort album tracks by disc & track number by default in Album view (<a href="https://github.com/kushalpandya/Petrichor/pull/159">#159</a>)</li>
+                    <li>Prebuffers track before playback on slower data sources to prevent playback stuttering (<a href="https://github.com/kushalpandya/Petrichor/pull/160">#160</a>)</li>
+                    <li>Fix some tracks not showing in library (<a href="https://github.com/kushalpandya/Petrichor/pull/161">#161</a>)</li>
+                </ul>
+                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.3.0...v1.3.1">Full Changelog</a></p>
+            ]]></description>
+        </item>
+        <item>
             <title>Version 1.3.0</title>
             <pubDate>Fri, 12 Dec 2025 05:10:42 +0530</pubDate>
             <sparkle:version>130</sparkle:version>
