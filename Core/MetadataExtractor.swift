@@ -604,16 +604,25 @@ class MetadataExtractor {
     private static func extractRating(from rawRating: Int?) -> Int? {
         guard let raw = rawRating, raw > 0 else { return nil }
         
-        // Default rating range
+        let normalized: Int
+        
+        // Default rating range (1-5)
         if raw <= 5 {
-            return raw
+            normalized = raw
+        }
+        // ID3v2 POPM rating range (1-255 mapped to 1-5)
+        else if raw <= 31 {
+            normalized = 1
+        } else if raw <= 95 {
+            normalized = 2
+        } else if raw <= 159 {
+            normalized = 3
+        } else if raw <= 223 {
+            normalized = 4
+        } else {
+            normalized = 5
         }
         
-        // ID3v2 POPM rating range
-        if raw <= 31 { return 1 }
-        if raw <= 95 { return 2 }
-        if raw <= 159 { return 3 }
-        if raw <= 223 { return 4 }
-        return 5
+        return min(max(normalized, 0), 5)
     }
 }
