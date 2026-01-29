@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sbooth/CXXAudioToolbox",
       "state" : {
-        "revision" : "5a80775ba2512ec5dfa6ff043901b601f1020757",
-        "version" : "0.1.2"
+        "revision" : "781eb0c5f89607d31fcc7450f44b6f9d81a10340",
+        "version" : "0.2.0"
       }
     },
     {
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sbooth/CXXCoreAudio",
       "state" : {
-        "revision" : "463da36ac52f8c578f9e5e8f13dd438acafc73aa",
-        "version" : "0.2.0"
+        "revision" : "1af4736ed771f9a6f37be42600e1bfe5208eb330",
+        "version" : "0.5.1"
       }
     },
     {
@@ -60,17 +60,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sbooth/CXXRingBuffer",
       "state" : {
-        "revision" : "7f4542248dca706c5a95bfe0df13f951e3254dce",
-        "version" : "0.2.0"
-      }
-    },
-    {
-      "identity" : "cxxsharedmutex",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/sbooth/CXXSharedMutex",
-      "state" : {
-        "revision" : "9de324ca10422d6532f888a1aea28c9f51dd2327",
-        "version" : "0.1.0"
+        "revision" : "89fb60fcba8b96367bdbb9265e50ea08ed5ba194",
+        "version" : "0.5.2"
       }
     },
     {
@@ -87,8 +78,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sbooth/CXXUnfairLock",
       "state" : {
-        "revision" : "2d4662d15f63178229948f8624171a9ac9df865f",
-        "version" : "0.1.0"
+        "revision" : "ba2c8cb1df213260807d15620e67785ca7e5f924",
+        "version" : "0.2.0"
       }
     },
     {
@@ -159,8 +150,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sbooth/SFBAudioEngine",
       "state" : {
-        "revision" : "124da31bafb7347c239e34e4a74331fe5c8fa092",
-        "version" : "0.9.0"
+        "revision" : "7e67c8e06ccdb8a7da0bb02df6111e2c62f7dcb4",
+        "version" : "0.11.0"
       }
     },
     {

@@ -608,32 +608,33 @@ public class PAudioPlayer: NSObject {
             return
         }
         
-        let engine = sfbPlayer.audioEngine
-        let mainMixer = engine.mainMixerNode
-        let sourceNode = sfbPlayer.playerNode
+        let sourceNode = sfbPlayer.sourceNode
+        let mainMixer = sfbPlayer.mainMixerNode
         let format = sourceNode.outputFormat(forBus: 0)
         
         Logger.info("Setting up audio effects...")
         Logger.info("Source node: \(sourceNode), Format: \(format.sampleRate)Hz, \(format.channelCount)ch")
         
-        setupStereoWidening(engine: engine)
-        setupEqualizer(engine: engine)
-        
-        guard let stereoNode = stereoWideningNode, let equalizer = eqNode else {
-            Logger.warning("Failed to create effect nodes")
-            return
+        sfbPlayer.modifyProcessingGraph { [self] engine in
+            setupStereoWidening(engine: engine)
+            setupEqualizer(engine: engine)
+            
+            guard let stereoNode = stereoWideningNode, let equalizer = eqNode else {
+                Logger.warning("Failed to create effect nodes")
+                return
+            }
+            
+            // Disconnect sourceNode from mainMixer
+            engine.disconnectNodeOutput(sourceNode)
+            
+            // Connect: sourceNode -> stereoWidening -> EQ -> mainMixer
+            engine.connect(sourceNode, to: stereoNode, format: format)
+            engine.connect(stereoNode, to: equalizer, format: format)
+            engine.connect(equalizer, to: mainMixer, format: format)
+            
+            effectsAttached = true
+            Logger.info("Audio effects setup complete")
         }
-        
-        // Disconnect sourceNode from mainMixer
-        engine.disconnectNodeOutput(sourceNode)
-        
-        // Connect: sourceNode -> stereoWidening -> EQ -> mainMixer
-        engine.connect(sourceNode, to: stereoNode, format: format)
-        engine.connect(stereoNode, to: equalizer, format: format)
-        engine.connect(equalizer, to: mainMixer, format: format)
-        
-        effectsAttached = true
-        Logger.info("Audio effects setup complete")
     }
 
     private func setupStereoWidening(engine: AVAudioEngine) {
