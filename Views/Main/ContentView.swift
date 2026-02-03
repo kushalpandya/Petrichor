@@ -173,7 +173,7 @@ struct ContentView: View {
                 rightSidebarContent = .none
             }
         case .lyrics:
-            TrackLyricsView(track: playbackManager.currentTrack!) {
+            TrackLyricsView {
                 rightSidebarContent = .none
             }
         case .none:
