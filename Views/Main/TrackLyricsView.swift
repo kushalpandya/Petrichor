@@ -1,13 +1,17 @@
 import SwiftUI
 
 struct TrackLyricsView: View {
-    let track: Track
     let onClose: () -> Void
     
     @EnvironmentObject var libraryManager: LibraryManager
+    @EnvironmentObject var playbackManager: PlaybackManager
     
     @State private var lyrics: String = ""
     @State private var isLoading = true
+    
+    private var currentTrack: Track? {
+        playbackManager.currentTrack
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -26,7 +30,10 @@ struct TrackLyricsView: View {
             }
         }
         .onAppear {
-            loadLyrics()
+            loadLyricsForCurrentTrack()
+        }
+        .onChange(of: playbackManager.currentTrack?.id) {
+           loadLyricsForCurrentTrack()
         }
     }
     
@@ -96,24 +103,33 @@ struct TrackLyricsView: View {
     
     // MARK: - Helper Methods
     
-    private func loadLyrics() {
-        Task {
-            do {
-                let result = try await LyricsLoader.loadLyrics(
-                    for: track,
-                    using: libraryManager.databaseManager.dbQueue
-                )
-                
-                await MainActor.run {
-                    lyrics = result.lyrics
-                    isLoading = false
-                }
-            } catch {
-                await MainActor.run {
-                    lyrics = ""
-                    isLoading = false
-                }
-            }
-        }
-    }
+    private func loadLyricsForCurrentTrack() {
+       guard let track = currentTrack else {
+           lyrics = ""
+           isLoading = false
+           return
+       }
+       
+       isLoading = true
+       lyrics = ""
+       
+       Task {
+           do {
+               let result = try await LyricsLoader.loadLyrics(
+                   for: track,
+                   using: libraryManager.databaseManager.dbQueue
+               )
+               
+               await MainActor.run {
+                   lyrics = result.lyrics
+                   isLoading = false
+               }
+           } catch {
+               await MainActor.run {
+                   lyrics = ""
+                   isLoading = false
+               }
+           }
+       }
+   }
 }
