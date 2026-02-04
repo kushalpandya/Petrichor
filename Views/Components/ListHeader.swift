@@ -149,22 +149,38 @@ struct TrackListHeader<Trailing: View>: View {
     }
 }
 
-struct TrackListHeaderWithOptions: View {
+struct TrackListHeaderWithOptions<TrailingContent: View>: View {
     let title: String
     let subtitle: String?
     @Binding var sortOrder: [KeyPathComparator<Track>]
     @Binding var tableRowSize: TableRowSize
+    let trailingContent: TrailingContent
 
     init(
         title: String,
         subtitle: String? = nil,
         sortOrder: Binding<[KeyPathComparator<Track>]>,
-        tableRowSize: Binding<TableRowSize>
+        tableRowSize: Binding<TableRowSize>,
+        @ViewBuilder trailingContent: () -> TrailingContent
     ) {
         self.title = title
         self.subtitle = subtitle
         self._sortOrder = sortOrder
         self._tableRowSize = tableRowSize
+        self.trailingContent = trailingContent()
+    }
+    
+    init(
+        title: String,
+        subtitle: String? = nil,
+        sortOrder: Binding<[KeyPathComparator<Track>]>,
+        tableRowSize: Binding<TableRowSize>
+    ) where TrailingContent == EmptyView {
+        self.title = title
+        self.subtitle = subtitle
+        self._sortOrder = sortOrder
+        self._tableRowSize = tableRowSize
+        self.trailingContent = EmptyView()
     }
 
     var body: some View {
@@ -180,6 +196,8 @@ struct TrackListHeaderWithOptions: View {
             }
 
             Spacer()
+            
+            trailingContent
 
             TrackTableOptionsDropdown(
                 sortOrder: $sortOrder,

@@ -146,7 +146,18 @@ struct HomeView: View {
                 title: "Discover",
                 sortOrder: $trackTableSortOrder,
                 tableRowSize: $trackTableRowSize
-            )
+            ) {
+                Button(action: {
+                    libraryManager.refreshDiscoverTracks()
+                }) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.borderless)
+                .hoverEffect(scale: 1.1)
+                .help("Refresh Discover tracks")
+            }
             
             Divider()
 
@@ -185,6 +196,7 @@ struct HomeView: View {
                         )
                     }
                 )
+                .id(libraryManager.discoverLastUpdated)
             }
         }
         .onAppear {
