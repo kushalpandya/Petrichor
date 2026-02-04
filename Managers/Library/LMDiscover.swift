@@ -17,6 +17,10 @@ extension LibraryManager {
         return count > 0 ? count : 50
     }
     
+    var discoverLastUpdated: Date? {
+        userDefaults.object(forKey: Self.discoverLastUpdatedKey) as? Date
+    }
+    
     // MARK: - Methods
     
     func loadDiscoverTracks() {
