@@ -4,6 +4,7 @@ enum AlbumSortOption: String, Codable {
     case album
     case artist
     case year
+    case dateAdded
 }
 
 struct HomeView: View {
@@ -346,6 +347,14 @@ struct HomeView: View {
                                 sortAlbumEntities()
                             }
                         ))
+                        
+                        Toggle("Date added", isOn: Binding(
+                            get: { albumSortBy == .dateAdded },
+                            set: { _ in
+                                albumSortBy = .dateAdded
+                                sortAlbumEntities()
+                            }
+                        ))
                     }
 
                     Divider()
@@ -535,50 +544,47 @@ struct HomeView: View {
     private func sortAlbumEntities() {
         let albums = libraryManager.albumEntities
 
+        func tiebreaker(_ a: AlbumEntity, _ b: AlbumEntity) -> Bool {
+            let comparison = a.name.localizedCaseInsensitiveCompare(b.name)
+            return entitySortAscending
+                ? comparison == .orderedAscending
+                : comparison == .orderedDescending
+        }
+
         switch albumSortBy {
         case .album:
             sortedAlbumEntities = entitySortAscending
-            ? albums.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-            : albums.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedDescending }
-            
+                ? albums.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+                : albums.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedDescending }
+
         case .artist:
             sortedAlbumEntities = albums.sorted { a, b in
-                let artist1 = a.artistName ?? ""
-                let artist2 = b.artistName ?? ""
-
-                let artistComparison = artist1.localizedCaseInsensitiveCompare(artist2)
-
-                if artistComparison == .orderedSame {
-                    // Same artist, compare album titles
-                    let albumComparison = a.name.localizedCaseInsensitiveCompare(b.name)
-                    return entitySortAscending
-                    ? albumComparison == .orderedAscending
-                    : albumComparison == .orderedDescending
-                }
-
+                let comparison = (a.artistName ?? "")
+                    .localizedCaseInsensitiveCompare(b.artistName ?? "")
+                if comparison == .orderedSame { return tiebreaker(a, b) }
+                
                 return entitySortAscending
-                ? artistComparison == .orderedAscending
-                : artistComparison == .orderedDescending
+                    ? comparison == .orderedAscending
+                    : comparison == .orderedDescending
             }
-            
+
         case .year:
             sortedAlbumEntities = albums.sorted { a, b in
-                let year1 = a.year ?? ""
-                let year2 = b.year ?? ""
-
-                let yearComparison = year1.compare(year2)
-
-                if yearComparison == .orderedSame {
-                    // Same year, compare album titles
-                    let albumComparison = a.name.localizedCaseInsensitiveCompare(b.name)
-                    return entitySortAscending
-                    ? albumComparison == .orderedAscending
-                    : albumComparison == .orderedDescending
-                }
-
+                let comparison = (a.year ?? "").compare(b.year ?? "")
+                if comparison == .orderedSame { return tiebreaker(a, b) }
+                
                 return entitySortAscending
-                ? yearComparison == .orderedAscending
-                : yearComparison == .orderedDescending
+                    ? comparison == .orderedAscending
+                    : comparison == .orderedDescending
+            }
+
+        case .dateAdded:
+            sortedAlbumEntities = albums.sorted { a, b in
+                let date1 = a.dateAdded ?? .distantPast
+                let date2 = b.dateAdded ?? .distantPast
+                if date1 == date2 { return tiebreaker(a, b) }
+                
+                return entitySortAscending ? date1 < date2 : date1 > date2
             }
         }
 
