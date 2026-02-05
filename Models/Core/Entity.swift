@@ -87,6 +87,7 @@ struct AlbumEntity: Entity {
     let year: String?
     let duration: Double?
     let artistName: String?
+    let dateAdded: Date?
     static var artworkCache = NSCache<NSString, NSData>()
 
     var subtitle: String? {
@@ -133,12 +134,22 @@ struct AlbumEntity: Entity {
         self.year = nil
         self.duration = nil
         self.artistName = nil
+        self.dateAdded = nil
 
         let trackWithArt = tracks.first { $0.albumArtworkData != nil }
         self.artworkData = trackWithArt?.albumArtworkData
     }
 
-    init(name: String, trackCount: Int, artworkData: Data? = nil, albumId: Int64? = nil, year: String? = nil, duration: Double? = nil, artistName: String? = nil) {
+    init(
+        name: String,
+        trackCount: Int,
+        artworkData: Data? = nil,
+        albumId: Int64? = nil,
+        year: String? = nil,
+        duration: Double? = nil,
+        artistName: String? = nil,
+        dateAdded: Date? = nil
+    ) {
         if let albumId = albumId {
             let uuidString = String(format: "00000000-0000-0000-0000-%012d", albumId)
             self.id = UUID(uuidString: uuidString) ?? UUID()
@@ -154,6 +165,7 @@ struct AlbumEntity: Entity {
         self.year = year
         self.duration = duration
         self.artistName = artistName
+        self.dateAdded = dateAdded
     }
 }
 

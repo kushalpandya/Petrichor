@@ -69,7 +69,8 @@ extension DatabaseManager {
                         albums.artwork_data,
                         albums.release_year,
                         COALESCE(SUM(tracks.duration), 0) as totalDuration,
-                        COALESCE(NULLIF(MAX(tracks.album_artist), ''), MAX(tracks.artist)) as artistName
+                        COALESCE(NULLIF(MAX(tracks.album_artist), ''), MAX(tracks.artist)) as artistName,
+                        albums.created_at
                     FROM albums
                     LEFT JOIN tracks ON albums.id = tracks.album_id AND tracks.is_duplicate = 0
                     WHERE albums.total_tracks > 0
@@ -85,6 +86,7 @@ extension DatabaseManager {
                     let releaseYear: Int?
                     let totalDuration: Double
                     let artistName: String?
+                    let createdAt: Date?
                     
                     init(row: Row) throws {
                         id = row["id"]
@@ -94,6 +96,7 @@ extension DatabaseManager {
                         releaseYear = row["release_year"]
                         totalDuration = row["totalDuration"] ?? 0
                         artistName = row["artistName"]
+                        createdAt = row["created_at"]
                     }
                 }
                 
@@ -107,7 +110,8 @@ extension DatabaseManager {
                         albumId: info.id,
                         year: info.releaseYear.map { String($0) } ?? "",
                         duration: info.totalDuration,
-                        artistName: info.artistName
+                        artistName: info.artistName,
+                        dateAdded: info.createdAt
                     )
                 }
             }
