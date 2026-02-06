@@ -169,7 +169,7 @@ struct PlaylistSidebarView: View {
                 criteria: SmartPlaylistCriteria(
                     rules: [SmartPlaylistCriteria.Rule(
                         field: "playCount",
-                        condition: .greaterThan,
+                        condition: .greaterThanOrEqual,
                         value: "5"
                     )],
                     limit: 25,

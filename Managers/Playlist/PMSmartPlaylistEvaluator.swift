@@ -132,8 +132,12 @@ extension PlaylistManager {
             return value == numericRuleValue
         case .greaterThan:
             return value > numericRuleValue
+        case .greaterThanOrEqual:
+            return value >= numericRuleValue
         case .lessThan:
             return value < numericRuleValue
+        case .lessThanOrEqual:
+            return value <= numericRuleValue
         default:
             return false
         }
