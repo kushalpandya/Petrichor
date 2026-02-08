@@ -544,6 +544,16 @@ extension DatabaseManager {
     
     // MARK: - Helper Methods
     
+    /// Get the current play count for a track from the database
+    func getTrackPlayCount(trackId: Int64) async throws -> Int? {
+        try await dbQueue.read { db in
+            try Track
+                .filter(Track.Columns.trackId == trackId)
+                .select(Track.Columns.playCount, as: Int.self)
+                .fetchOne(db)
+        }
+    }
+    
     func trackExists(withId trackId: Int64) -> Bool {
         do {
             return try dbQueue.read { db in

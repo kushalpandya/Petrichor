@@ -110,6 +110,18 @@ struct DatabaseMigrator {
             }
             Logger.info("v5_add_lossless_column migration completed")
         }
+        
+        migrator.registerMigration("v6_update_most_played_criteria") { db in
+            try db.execute(
+                sql: """
+                    UPDATE playlists
+                    SET smart_criteria = REPLACE(smart_criteria, '"condition":"greaterThan"', '"condition":"greaterThanOrEqual"')
+                    WHERE name = ? AND type = 'smart'
+                    """,
+                arguments: [DefaultPlaylists.mostPlayed]
+            )
+            Logger.info("v6_update_most_played_criteria migration completed")
+        }
 
         // MARK: - Future Migrations
         // Add new migrations here as: migrator.registerMigration("v2_description") { db in ... }

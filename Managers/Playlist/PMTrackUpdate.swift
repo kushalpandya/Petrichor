@@ -82,23 +82,39 @@ extension PlaylistManager {
                 Logger.error("Cannot update play count - track has no database ID")
                 return
             }
-
-            let newPlayCount = track.playCount + 1
-            let lastPlayedDate = Date()
+            
+            guard let dbManager = libraryManager?.databaseManager else {
+                Logger.error("Cannot update play count - no database manager")
+                return
+            }
 
             do {
-                if let dbManager = libraryManager?.databaseManager {
-                    try await dbManager.updatePlayingTrackMetadata(
-                        trackId: trackId,
-                        playCount: newPlayCount,
-                        lastPlayedDate: lastPlayedDate
-                    )
+                let currentPlayCount = try await dbManager.getTrackPlayCount(trackId: trackId) ?? track.playCount
+                let newPlayCount = currentPlayCount + 1
+                let lastPlayedDate = Date()
 
-                    _ = track.withPlayStats(playCount: newPlayCount, lastPlayedDate: lastPlayedDate)
+                try await dbManager.updatePlayingTrackMetadata(
+                    trackId: trackId,
+                    playCount: newPlayCount,
+                    lastPlayedDate: lastPlayedDate
+                )
 
-                    Logger.info("Incremented play count for track: \(track.title)")
+                _ = track.withPlayStats(playCount: newPlayCount, lastPlayedDate: lastPlayedDate)
+
+                Logger.info("Incremented play count for track: \(track.title) (now: \(newPlayCount))")
+                
+                updateSmartPlaylistCounts()
+                
+                // Refresh smart playlists affected by play count/last played changes
+                Task.detached(priority: .background) { [weak self] in
+                    guard let self = self else { return }
                     
-                    updateSmartPlaylistCounts()
+                    for playlist in self.playlists where playlist.type == .smart && !playlist.isUserEditable {
+                        if playlist.name == DefaultPlaylists.mostPlayed ||
+                           playlist.name == DefaultPlaylists.recentlyPlayed {
+                            await self.loadSmartPlaylistTracks(playlist)
+                        }
+                    }
                 }
             } catch {
                 Logger.error("Failed to update play count: \(error)")

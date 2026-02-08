@@ -224,7 +224,7 @@ extension DefaultPlaylists {
             case DefaultPlaylists.favorites:
                 return "Mark songs as favorites to see them here"
             case DefaultPlaylists.mostPlayed:
-                return "Songs played more than 5 times will appear here"
+                return "Songs played 5 or more times will appear here"
             case DefaultPlaylists.recentlyPlayed:
                 return "Songs played in the last week will appear here"
             default:

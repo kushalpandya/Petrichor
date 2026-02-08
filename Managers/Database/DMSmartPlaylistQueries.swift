@@ -223,8 +223,12 @@ extension DatabaseManager {
             return column == numericValue
         case .greaterThan:
             return column > numericValue
+        case .greaterThanOrEqual:
+            return column >= numericValue
         case .lessThan:
             return column < numericValue
+        case .lessThanOrEqual:
+            return column <= numericValue
         default:
             return nil
         }

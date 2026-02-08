@@ -20,7 +20,9 @@ struct SmartPlaylistCriteria: Codable {
         case startsWith
         case endsWith
         case greaterThan
+        case greaterThanOrEqual
         case lessThan
+        case lessThanOrEqual
     }
     
     struct Rule: Codable {
@@ -427,14 +429,14 @@ extension Playlist {
                 isUserEditable: false
             ),
             
-            // Top 25 Most Played - already correct
+            // Top 25 Most Played - tracks played 5 or more times
             Playlist(
                 name: DefaultPlaylists.mostPlayed,
                 criteria: SmartPlaylistCriteria(
                     rules: [
                         SmartPlaylistCriteria.Rule(
                             field: "playCount",
-                            condition: .greaterThan,
+                            condition: .greaterThanOrEqual,
                             value: "5"
                         )
                     ],
