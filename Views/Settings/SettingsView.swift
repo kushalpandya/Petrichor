@@ -10,12 +10,14 @@ struct SettingsView: View {
     enum SettingsTab: String, CaseIterable {
         case general = "General"
         case library = "Library"
+        case online = "Online"
         case about = "About"
 
         var icon: String {
             switch self {
             case .general: return Icons.settings
             case .library: return Icons.customMusicNoteRectangleStack
+            case .online: return Icons.globe
             case .about: return Icons.infoCircle
             }
         }
@@ -24,6 +26,7 @@ struct SettingsView: View {
             switch self {
             case .general: return Icons.settings
             case .library: return Icons.customMusicNoteRectangleStack
+            case .online: return Icons.globeFill
             case .about: return Icons.infoCircleFill
             }
         }
@@ -63,6 +66,8 @@ struct SettingsView: View {
                     GeneralTabView()
                 case .library:
                     LibraryTabView()
+                case .online:
+                    OnlineTabView()
                 case .about:
                     AboutTabView()
                 }

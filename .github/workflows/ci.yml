@@ -127,6 +127,12 @@ jobs:
             ${{ runner.os }}-derived-data-${{ matrix.configuration }}-
             ${{ runner.os }}-derived-data-
       
+      - name: Create Secrets Config
+        run: |
+          echo "// CI placeholder - scrobbling disabled" > Configuration/Secrets.xcconfig
+          echo "LASTFM_API_KEY = " >> Configuration/Secrets.xcconfig
+          echo "LASTFM_SHARED_SECRET = " >> Configuration/Secrets.xcconfig
+      
       - name: Resolve Dependencies
         run: |
           echo "Resolving Swift Package Manager dependencies..."
