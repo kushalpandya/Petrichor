@@ -153,6 +153,7 @@ public class PAudioPlayer: NSObject {
     private var eqEnabled: Bool = false
     private var eqNode: AVAudioUnitEQ?
     private var preampGain: Float = 0.0
+    private var userPreampGain: Float = 0.0
     private var currentEQGains: [Float] = Array(repeating: 0.0, count: 10)
     private let eqFrequencies: [Float] = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
     
@@ -385,6 +386,8 @@ public class PAudioPlayer: NSObject {
         
         eqNode?.bypass = !enabled
         
+        applyEffectivePreamp()
+        
         Logger.info("Audio Equalizer \(enabled ? "enabled" : "disabled")")
     }
     
@@ -409,6 +412,8 @@ public class PAudioPlayer: NSObject {
                 eq.bands[index].gain = gain
             }
         }
+        
+        applyEffectivePreamp()
         
         if preset != .flat && !eqEnabled {
             setEQEnabled(true)
@@ -438,6 +443,8 @@ public class PAudioPlayer: NSObject {
             }
         }
         
+        applyEffectivePreamp()
+        
         if !eqEnabled {
             setEQEnabled(true)
         }
@@ -449,21 +456,15 @@ public class PAudioPlayer: NSObject {
     /// - Parameter gain: Gain value in dB, typically -12 to +12
     /// - Note: Preamp adjusts the signal level before EQ processing
     public func setPreamp(_ gain: Float) {
-        preampGain = max(-12.0, min(12.0, gain))
-        
-        if !effectsAttached {
-            setupAudioEffects()
-        }
-        
-        eqNode?.globalGain = preampGain
-        
-        Logger.info("Preamp set to \(preampGain) dB")
+        userPreampGain = max(-12.0, min(12.0, gain))
+        applyEffectivePreamp()
+        Logger.info("Preamp set to \(userPreampGain) dB (effective: \(preampGain) dB)")
     }
 
     /// Get the current preamp gain value
     /// - Returns: Current preamp gain in dB
     public func getPreamp() -> Float {
-        return preampGain
+        return userPreampGain
     }
     
     // MARK: - Internal Methods (called by delegate bridge)
@@ -668,6 +669,30 @@ public class PAudioPlayer: NSObject {
         engine.attach(eq)
         self.eqNode = eq
         Logger.info("Attached EQ node to engine")
+    }
+    
+    private func calculateGainCompensation() -> Float {
+        guard eqEnabled else { return 0 }
+        
+        let maxBandGain = currentEQGains.max() ?? 0
+        
+        if maxBandGain > 0 {
+            // Offset max gain to prevent audio
+            // distortion due to signal clipping
+            return -(maxBandGain + 1.0)
+        }
+        return 0
+    }
+    
+    private func applyEffectivePreamp() {
+        let compensation = calculateGainCompensation()
+        preampGain = userPreampGain + compensation
+        
+        if !effectsAttached {
+            setupAudioEffects()
+        }
+        
+        eqNode?.globalGain = preampGain
     }
 }
 
