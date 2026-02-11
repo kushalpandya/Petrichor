@@ -11,6 +11,10 @@ import Foundation
 
 class PlaybackManager: NSObject, ObservableObject {
     let playbackProgressState = PlaybackProgressState()
+    
+    private var scrobbleManager: ScrobbleManager? {
+        AppCoordinator.shared?.scrobbleManager
+    }
 
     // MARK: - Published Properties
 
@@ -361,6 +365,7 @@ class PlaybackManager: NSObject, ObservableObject {
         
         startStateSaveTimer()
         updateNowPlayingInfo()
+        scrobbleManager?.trackStarted(lightweightTrack)
     }
     
     private func startProgressUpdateTimer() {
@@ -494,7 +499,9 @@ extension PlaybackManager: AudioPlayerDelegate {
             
             if stopReason == .eof {
                 self.playlistManager.incrementPlayCount(for: currentTrack)
-                Logger.info("Track completed naturally, updating play count and last played date")
+                self.scrobbleManager?.trackFinished(currentTrack)
+                
+                Logger.info("Track completed naturally, updating play count, last played date, and scrobbling it if configured")
             }
             
             self.currentTime = 0

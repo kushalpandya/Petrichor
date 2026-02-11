@@ -62,6 +62,7 @@ struct PetrichorApp: App {
             EqualizerView()
                 .environmentObject(appCoordinator.playbackManager)
         }
+        .handlesExternalEvents(matching: [])
         .defaultSize(width: 500, height: 300)
         .windowResizability(.contentSize)
     }

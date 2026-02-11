@@ -10,6 +10,12 @@ import Sparkle
 
 class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     internal var updaterController: SPUStandardUpdaterController?
+    
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            URLSchemeHandler.handle(url)
+        }
+    }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         // Register UserDefaults with default settings
