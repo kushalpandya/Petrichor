@@ -77,7 +77,10 @@ struct PlayerView: View {
             TrackArtworkInfo(id: track.id, artworkData: track.artworkData)
         }
 
-        return PlayerAlbumArtView(trackInfo: trackArtworkInfo) {
+        return PlayerAlbumArtView(
+            trackInfo: trackArtworkInfo,
+            contextMenuItems: currentTrackContextMenuItems
+        ) {
             if let currentTrack = playbackManager.currentTrack {
                 NotificationCenter.default.post(
                     name: NSNotification.Name("ShowTrackInfo"),
@@ -87,9 +90,6 @@ struct PlayerView: View {
             }
         }
         .equatable()
-        .contextMenu {
-            TrackContextMenuContent(items: currentTrackContextMenuItems)
-        }
     }
 
     private var trackDetails: some View {
@@ -574,6 +574,7 @@ struct TrackArtworkInfo: Equatable {
 
 struct PlayerAlbumArtView: View, Equatable {
     let trackInfo: TrackArtworkInfo?
+    let contextMenuItems: [ContextMenuItem]
     let onTap: (() -> Void)?
 
     static func == (lhs: PlayerAlbumArtView, rhs: PlayerAlbumArtView) -> Bool {
@@ -584,6 +585,9 @@ struct PlayerAlbumArtView: View, Equatable {
         AlbumArtworkImage(trackInfo: trackInfo)
             .onTapGesture {
                 onTap?()
+            }
+            .contextMenu {
+                TrackContextMenuContent(items: contextMenuItems)
             }
     }
 }
