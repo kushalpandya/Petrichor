@@ -32,24 +32,31 @@ actor ScanState {
 
 actor GlobalScanState {
     let totalFiles: Int
+    let isInitialScan: Bool
     var processedFiles = 0
+    var tracksFound = 0
     
-    init(totalFiles: Int) {
+    init(totalFiles: Int, isInitialScan: Bool = false) {
         self.totalFiles = totalFiles
+        self.isInitialScan = isInitialScan
     }
     
     func incrementProcessed(by count: Int) {
         processedFiles += count
     }
     
-    func getProgress() -> (processed: Int, total: Int) {
-        (processedFiles, totalFiles)
+    func incrementTracksFound(by count: Int) {
+        tracksFound += count
+    }
+    
+    func getProgress() -> (processed: Int, total: Int, tracks: Int, isInitial: Bool) {
+        (processedFiles, totalFiles, tracksFound, isInitialScan)
     }
 }
 
 extension DatabaseManager {
     func addFolders(_ urls: [URL], bookmarkDataMap: [URL: Data], completion: @escaping (Result<[Folder], Error>) -> Void) {
-        Task {
+        Task(priority: .utility) {
             do {
                 let folders = try await addFoldersAsync(urls, bookmarkDataMap: bookmarkDataMap)
                 await MainActor.run {
@@ -122,20 +129,33 @@ extension DatabaseManager {
             
             return folders
         }
+        
+        await MainActor.run {
+            NotificationCenter.default.post(name: .foldersAddedToDatabase, object: addedFolders)
+        }
+        
+        let existingTrackCount = try await dbQueue.read { db in
+            try Track.fetchCount(db)
+        }
+        let isInitialScan = existingTrackCount == 0
 
-        // Now scan the folders for tracks
         if !addedFolders.isEmpty {
-            let existingTrackCount = try await dbQueue.read { db in
-                try Track.fetchCount(db)
+            if isInitialScan {
+                await MainActor.run {
+                    NotificationCenter.default.post(name: .initialScanStarted, object: nil)
+                }
             }
-            let isInitialScan = existingTrackCount == 0
-
-            try await scanFoldersForTracks(addedFolders, showActivityInTray: !isInitialScan)
+            
+            try await scanFoldersForTracks(addedFolders, showActivityInTray: true, isInitialScan: isInitialScan)
         }
 
         await MainActor.run {
             self.isScanning = false
             self.scanStatusMessage = ""
+            
+            if isInitialScan {
+                NotificationCenter.default.post(name: .initialScanCompleted, object: nil)
+            }
         }
         
         // Wait for DB operations to finish before notifying scan completion
@@ -284,13 +304,37 @@ extension DatabaseManager {
         return getTracksForFolder(folderId)
     }
     
-    func scanFoldersForTracks(_ folders: [Folder], showActivityInTray: Bool = true) async throws {
+    private func countFilesInFolder(_ folder: Folder, supportedExtensions: [String]) async -> Int {
+        guard let enumerator = FileManager.default.enumerator(
+            at: folder.url,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+        ) else { return 0 }
+        
+        var count = 0
+        while let fileURL = enumerator.nextObject() as? URL {
+            let ext = fileURL.pathExtension.lowercased()
+            if !ext.isEmpty && supportedExtensions.contains(ext) {
+                count += 1
+            }
+        }
+        return count
+    }
+    
+    func scanFoldersForTracks(
+        _ folders: [Folder],
+        showActivityInTray: Bool = true,
+        isInitialScan: Bool = false
+    ) async throws {
         let supportedExtensions = AudioFormat.supportedExtensions
         let totalFolders = folders.count
 
         if showActivityInTray && totalFolders > 0 {
             await MainActor.run {
-                NotificationManager.shared.startActivity("Scanning \(totalFolders) folder\(totalFolders == 1 ? "" : "s")...")
+                let message = isInitialScan
+                    ? "Scanning your music library..."
+                    : "Scanning \(totalFolders) folder\(totalFolders == 1 ? "" : "s")..."
+                NotificationManager.shared.startActivity(message)
             }
         }
 
@@ -317,8 +361,11 @@ extension DatabaseManager {
             }
         }
         
-        // Create global scan state if scanning multiple folders
-        let globalScanState = totalFolders > 1 ? GlobalScanState(totalFiles: totalFilesAcrossAllFolders) : nil
+        // Create global scan state for progress tracking
+        let totalFiles = totalFolders == 1
+            ? await countFilesInFolder(folders[0], supportedExtensions: supportedExtensions)
+            : totalFilesAcrossAllFolders
+        let globalScanState = GlobalScanState(totalFiles: totalFiles, isInitialScan: isInitialScan)
         
         var processedFolders = 0
 
@@ -347,6 +394,11 @@ extension DatabaseManager {
             if showActivityInTray {
                 NotificationManager.shared.stopActivity()
             }
+            
+            let completionMessage = isInitialScan
+                ? "Library scan complete: \(self.getTotalTrackCount()) tracks found"
+                : "Added \(totalFolders) folder\(totalFolders == 1 ? "" : "s") to library"
+            NotificationManager.shared.addMessage(.info, completionMessage)
         }
     }
     

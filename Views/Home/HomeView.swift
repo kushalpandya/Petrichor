@@ -35,7 +35,7 @@ struct HomeView: View {
     @Binding var isShowingEntities: Bool
     
     var body: some View {
-        if libraryManager.folders.isEmpty {
+        if !libraryManager.shouldShowMainUI {
             NoMusicEmptyStateView(context: .mainWindow)
         } else {
             PersistentSplitView(

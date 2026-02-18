@@ -13,6 +13,8 @@ class LibraryManager: ObservableObject {
     @Published var tracks: [Track] = []
     @Published var folders: [Folder] = []
     @Published var isScanning: Bool = false
+    @Published var isInitialOnboardingScan: Bool = false
+    @Published var hasReachedInitialScanThreshold: Bool = false
     @Published var scanStatusMessage: String = ""
     @Published var globalSearchText: String = "" {
         didSet {
@@ -28,6 +30,8 @@ class LibraryManager: ObservableObject {
     @Published private(set) var totalTrackCount: Int = 0
     @Published private(set) var artistCount: Int = 0
     @Published private(set) var albumCount: Int = 0
+    
+    static let initialScanTrackThreshold = 100
 
     // MARK: - Entity Properties
     var artistEntities: [ArtistEntity] {
@@ -43,10 +47,23 @@ class LibraryManager: ObservableObject {
         }
         return cachedAlbumEntities
     }
+    
+    var shouldShowMainUI: Bool {
+        guard !folders.isEmpty else { return false }
+        
+        // If we're in initial onboarding scan, only show UI after threshold is reached
+        if isInitialOnboardingScan {
+            return hasReachedInitialScanThreshold
+        }
+        
+        return true
+    }
 
     // MARK: - Private/Internal Properties
     private var fileWatcherTimer: Timer?
     private var hasPerformedInitialScan = false
+    private var lastThresholdCheckTime: Date = .distantPast
+    private let thresholdCheckInterval: TimeInterval = 1.0
     internal var cachedLibraryCategories: [LibraryFilterType: [LibraryFilterItem]] = [:]
     internal var libraryCategoriesLoaded = false
     internal var entitiesLoaded = false
@@ -107,6 +124,35 @@ class LibraryManager: ObservableObject {
             name: UserDefaults.didChangeNotification,
             object: nil
         )
+        
+        // Observe initial scan events
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleInitialScanStarted),
+            name: .initialScanStarted,
+            object: nil
+        )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleCheckInitialScanThreshold),
+            name: .checkInitialScanThreshold,
+            object: nil
+        )
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleInitialScanCompleted),
+            name: .initialScanCompleted,
+            object: nil
+        )
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleFoldersAddedToDatabase(_:)),
+            name: .foldersAddedToDatabase,
+            object: nil
+        )
     }
 
     deinit {
@@ -119,11 +165,41 @@ class LibraryManager: ObservableObject {
         }
     }
     
-    internal func updateTotalCounts() {
+    internal func updateTotalCounts(notify: Bool = true) {
         totalTrackCount = databaseManager.getTotalTrackCount()
         artistCount = databaseManager.getArtistCount()
         albumCount = databaseManager.getAlbumCount()
-        NotificationCenter.default.post(name: .libraryDataDidChange, object: nil)
+
+        if notify {
+            NotificationCenter.default.post(name: .libraryDataDidChange, object: nil)
+        }
+    }
+    
+    /// Check if we've reached the track threshold during initial onboarding scan
+    func checkInitialScanThreshold() {
+        guard isInitialOnboardingScan else { return }
+        
+        // Check threshold only if not already reached
+        if !hasReachedInitialScanThreshold {
+            updateTotalCounts(notify: false)
+
+            let currentCount = totalTrackCount
+            if currentCount >= Self.initialScanTrackThreshold {
+                Logger.info("Initial scan threshold reached: \(currentCount) tracks")
+                hasReachedInitialScanThreshold = true
+                
+                // Refresh library data so UI can populate
+                refreshLibraryCategories()
+                loadMusicLibrary()
+                refreshDiscoverTracks()
+            }
+        }
+    }
+
+    /// Reset initial scan state (called when scan completes or is cancelled)
+    func resetInitialScanState() {
+        isInitialOnboardingScan = false
+        hasReachedInitialScanThreshold = false
     }
     
     // MARK: - Library Categories Cache Management
@@ -309,6 +385,56 @@ class LibraryManager: ObservableObject {
         // Check if the auto-scan interval specifically changed
         DispatchQueue.main.async { [weak self] in
             self?.handleAutoScanIntervalChange()
+        }
+    }
+    
+    @objc
+    private func handleInitialScanStarted() {
+        DispatchQueue.main.async {
+            self.isInitialOnboardingScan = true
+            self.hasReachedInitialScanThreshold = false
+            Logger.info("Initial onboarding scan started")
+        }
+    }
+
+    @objc
+    private func handleCheckInitialScanThreshold() {
+        DispatchQueue.main.async {
+            let now = Date()
+            
+            guard now.timeIntervalSince(self.lastThresholdCheckTime) >= self.thresholdCheckInterval else {
+                return
+            }
+            self.lastThresholdCheckTime = now
+            
+            self.checkInitialScanThreshold()
+        }
+    }
+    
+    @objc
+    private func handleInitialScanCompleted() {
+        DispatchQueue.main.async {
+            // Only process if we were actually in an initial scan
+            guard self.isInitialOnboardingScan else { return }
+            
+            // Reset initial scan state
+            self.resetInitialScanState()
+            
+            // Final refresh of all data
+            self.refreshLibraryCategories()
+            self.loadMusicLibrary()
+            self.updateTotalCounts()
+            
+            Logger.info("Initial scan completed, library fully loaded")
+        }
+    }
+    
+    @objc
+    private func handleFoldersAddedToDatabase(_ notification: Notification) {
+        DispatchQueue.main.async {
+            // Immediately load folders so UI knows folders exist
+            self.folders = self.databaseManager.getAllFolders()
+            Logger.info("Folders loaded immediately after database insert: \(self.folders.count) folders")
         }
     }
 }

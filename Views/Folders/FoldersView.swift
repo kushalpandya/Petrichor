@@ -16,7 +16,7 @@ struct FoldersView: View {
     private var trackTableRowSize: TableRowSize = .expanded
 
     var body: some View {
-        if libraryManager.folders.isEmpty {
+        if !libraryManager.shouldShowMainUI {
             NoMusicEmptyStateView(context: .mainWindow)
         } else {
             PersistentSplitView(

@@ -44,7 +44,30 @@ class NotificationManager: ObservableObject {
     
     @Published var isActivityInProgress = false
     @Published var activityMessage = ""
+    @Published var scanProgress: ScanProgress?
     @Published var messages: [NotificationMessage] = []
+    
+    private var lastProgressUpdateTime: Date = .distantPast
+    private let progressUpdateInterval: TimeInterval = 0.5
+    
+    struct ScanProgress {
+        let processedFiles: Int
+        let totalFiles: Int
+        let tracksFound: Int
+        
+        var progressPercentage: Int {
+            guard totalFiles > 0 else { return 0 }
+            return Int((Double(processedFiles) / Double(totalFiles)) * 100)
+        }
+        
+        var displayText: String {
+            if totalFiles > 0 {
+                return "\(processedFiles) of \(totalFiles) files • \(tracksFound) tracks found"
+            } else {
+                return "\(tracksFound) tracks found"
+            }
+        }
+    }
     
     private let messagesKey = "NotificationTrayMessages"
     
@@ -65,6 +88,21 @@ class NotificationManager: ObservableObject {
         DispatchQueue.main.async {
             self.isActivityInProgress = false
             self.activityMessage = ""
+            self.scanProgress = nil
+        }
+    }
+    
+    func updateScanProgress(processedFiles: Int, totalFiles: Int, tracksFound: Int) {
+        let now = Date()
+        guard now.timeIntervalSince(lastProgressUpdateTime) >= progressUpdateInterval else { return }
+        lastProgressUpdateTime = now
+        
+        DispatchQueue.main.async {
+            self.scanProgress = ScanProgress(
+                processedFiles: processedFiles,
+                totalFiles: totalFiles,
+                tracksFound: tracksFound
+            )
         }
     }
     
@@ -148,7 +186,7 @@ struct NotificationTray: View {
     
     var body: some View {
         Button(action: {
-            if hasNotifications {
+            if hasNotifications || manager.isActivityInProgress {
                 showingPopover.toggle()
             }
         }) {
@@ -229,12 +267,12 @@ struct NotificationPopover: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text("Notifications")
+                Text(manager.isActivityInProgress ? "Updating Library" : "Notifications")
                     .font(.headline)
                 
                 Spacer()
                 
-                if !manager.messages.isEmpty {
+                if !manager.messages.isEmpty && !manager.isActivityInProgress {
                     Button("Clear") {
                         manager.clearMessages()
                         isPresented = false
@@ -248,8 +286,10 @@ struct NotificationPopover: View {
             
             Divider()
             
-            // Messages
-            if manager.messages.isEmpty {
+            // Content
+            if manager.isActivityInProgress {
+                scanProgressView
+            } else if manager.messages.isEmpty {
                 emptyState
             } else {
                 messagesList
@@ -290,6 +330,40 @@ struct NotificationPopover: View {
                 }
             }
         }
+    }
+    
+    @ViewBuilder
+    private var scanProgressView: some View {
+        VStack(spacing: 16) {
+            ActivityAnimation(size: .medium)
+            
+            VStack(spacing: 8) {
+                Text(manager.activityMessage.isEmpty ? "Processing..." : manager.activityMessage)
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+                
+                if let progress = manager.scanProgress {
+                    Text(progress.displayText)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    if progress.totalFiles > 0 {
+                        ProgressView(value: Double(progress.processedFiles), total: Double(progress.totalFiles))
+                            .progressViewStyle(.linear)
+                            .frame(width: 250)
+                    }
+                }
+            }
+            
+            Text("You can continue using the app while scanning completes")
+                .font(.caption)
+                .foregroundColor(.secondary.opacity(0.8))
+                .multilineTextAlignment(.center)
+                .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.vertical, 24)
+        .padding(.horizontal, 16)
     }
 }
 

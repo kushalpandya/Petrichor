@@ -34,11 +34,27 @@ struct NoMusicEmptyStateView: View {
             }
         }
     }
+    
+    /// Determines if scanning state should be shown based on context and initial scan progress
+    private var shouldShowScanningState: Bool {
+        switch context {
+        case .mainWindow:
+            // During initial onboarding scan, show scanning state until threshold is reached
+            if libraryManager.isInitialOnboardingScan {
+                return !libraryManager.hasReachedInitialScanThreshold
+            }
+            // For non-initial scans, show scanning state only if no folders exist
+            return libraryManager.folders.isEmpty
+        case .settings:
+            // Settings always shows scanning state when scanning is active
+            return true
+        }
+    }
 
     var body: some View {
         VStack(spacing: context.spacing) {
-            if stableScanningState {
-                // Only show scanning animation when truly empty (no folders)
+            if stableScanningState && shouldShowScanningState {
+                // Show scanning animation during initial scan until threshold is reached
                 scanningProgressContent
                     .transition(.opacity)
             } else if libraryManager.folders.isEmpty {
@@ -46,12 +62,12 @@ struct NoMusicEmptyStateView: View {
                 emptyStateContent
                     .transition(.opacity)
             } else {
-                // Folders exist but view is empty - show appropriate message
                 noContentView
                     .transition(.opacity)
             }
         }
         .animation(.easeInOut(duration: 0.3), value: stableScanningState)
+        .animation(.easeInOut(duration: 0.3), value: libraryManager.hasReachedInitialScanThreshold)
         .frame(maxWidth: context == .mainWindow ? .infinity : 500)
         .frame(maxHeight: context == .mainWindow ? .infinity : 400)
         .padding(context == .mainWindow ? 60 : 40)

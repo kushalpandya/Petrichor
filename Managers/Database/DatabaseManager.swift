@@ -16,6 +16,8 @@ class DatabaseManager: ObservableObject {
 
     let dbQueue: DatabaseQueue
     private let dbPath: String
+    private var lastStatusUpdateTime: Date = .distantPast
+    private let statusUpdateInterval: TimeInterval = 0.5
 
     // MARK: - Initialization
 
@@ -79,6 +81,16 @@ class DatabaseManager: ObservableObject {
     }
 
     // MARK: - Helper Methods
+    
+    internal func updateScanStatus(_ message: String) {
+        let now = Date()
+        guard now.timeIntervalSince(lastStatusUpdateTime) >= statusUpdateInterval else { return }
+        lastStatusUpdateTime = now
+        
+        Task { @MainActor in
+            self.scanStatusMessage = message
+        }
+    }
 
     /// Clean up database file and recreate schema
     /// Warning: This will delete all data!

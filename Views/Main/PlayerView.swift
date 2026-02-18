@@ -506,9 +506,8 @@ struct PlayerTrackDetailsView: View, Equatable {
 
                 if let track = track {
                     FavoriteButtonView(
-                        isFavorite: track.isFavorite,
-                        onToggle: { playlistManager.toggleFavorite(for: track) }
-                    )
+                        isFavorite: track.isFavorite
+                    ) { playlistManager.toggleFavorite(for: track) }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
