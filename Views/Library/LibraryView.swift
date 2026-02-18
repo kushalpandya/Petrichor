@@ -26,7 +26,7 @@ struct LibraryView: View {
 
     var body: some View {
         VStack {
-            if libraryManager.folders.isEmpty {
+            if !libraryManager.shouldShowMainUI {
                 NoMusicEmptyStateView(context: .mainWindow)
             } else {
                 // Main library view with sidebar

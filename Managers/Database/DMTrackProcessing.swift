@@ -79,17 +79,31 @@ extension DatabaseManager {
             }
             
             // Update progress after each chunk
-            let chunkProcessed = processResults.new.count + processResults.update.count
-            
+            let chunkProcessed = processResults.new.count + processResults.update.count + processResults.skipped
+            let newTracksCount = processResults.new.count
+
             if let scanState = scanState, let folderName = folderName {
                 await scanState.incrementProcessed(by: chunkProcessed)
                 
                 if let globalState = globalScanState {
                     await globalState.incrementProcessed(by: chunkProcessed)
-                    let (globalProcessed, globalTotal) = await globalState.getProgress()
+                    await globalState.incrementTracksFound(by: newTracksCount)
+                    let (globalProcessed, globalTotal, tracksFound, isInitial) = await globalState.getProgress()
+                    
+                    updateScanStatus("Processing: \(globalProcessed)/\(globalTotal) files")
                     
                     await MainActor.run {
-                        self.scanStatusMessage = "Processing: \(globalProcessed)/\(globalTotal) files across all folders"
+                        // Update NotificationManager with progress
+                        NotificationManager.shared.updateScanProgress(
+                            processedFiles: globalProcessed,
+                            totalFiles: globalTotal,
+                            tracksFound: tracksFound
+                        )
+                        
+                        // Check threshold during initial scan
+                        if isInitial {
+                            NotificationCenter.default.post(name: .checkInitialScanThreshold, object: nil)
+                        }
                     }
                 } else if let totalFiles = totalFilesInFolder {
                     // Single folder progress

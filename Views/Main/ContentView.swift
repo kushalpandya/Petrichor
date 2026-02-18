@@ -183,7 +183,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private var playerControls: some View {
-        if !libraryManager.folders.isEmpty {
+        if libraryManager.shouldShowMainUI {
             Divider()
 
             PlayerView(rightSidebarContent: $rightSidebarContent)
@@ -223,10 +223,10 @@ struct ContentView: View {
                     shouldFocus: shouldFocusSearch
                 )
                 .frame(width: 280)
-                .disabled(libraryManager.folders.isEmpty)
+                .disabled(!libraryManager.shouldShowMainUI)
                 
                 settingsButton
-                    .disabled(libraryManager.folders.isEmpty)
+                    .disabled(!libraryManager.shouldShowMainUI)
             }
         }
     }
@@ -258,7 +258,7 @@ struct ContentView: View {
                 shouldFocus: shouldFocusSearch
             )
             .frame(width: 280)
-            .disabled(libraryManager.folders.isEmpty)
+            .disabled(!libraryManager.shouldShowMainUI)
         }
     }
     

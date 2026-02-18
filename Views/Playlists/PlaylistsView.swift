@@ -10,8 +10,7 @@ struct PlaylistsView: View {
     private var splitPosition: Double = 200
 
     var body: some View {
-        if libraryManager.folders.isEmpty {
-            // Show unified empty state when no music exists
+        if !libraryManager.shouldShowMainUI {
             NoMusicEmptyStateView(context: .mainWindow)
         } else {
             PersistentSplitView(

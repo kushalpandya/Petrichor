@@ -26,9 +26,11 @@ extension LibraryManager {
             for url in openPanel.urls {
                 // Create security bookmark
                 do {
-                    let bookmarkData = try url.bookmarkData(options: [.withSecurityScope],
-                                                            includingResourceValuesForKeys: nil,
-                                                            relativeTo: nil)
+                    let bookmarkData = try url.bookmarkData(
+                        options: [.withSecurityScope],
+                        includingResourceValuesForKeys: nil,
+                        relativeTo: nil
+                    )
                     urlsToAdd.append(url)
                     bookmarkDataMap[url] = bookmarkData
                     Logger.info("Created bookmark for folder - \(url.lastPathComponent) at \(url.path)")
