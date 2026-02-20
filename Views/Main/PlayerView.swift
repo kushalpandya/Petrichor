@@ -506,6 +506,7 @@ struct PlayerTrackDetailsView: View, Equatable {
 
                 if let track = track {
                     FavoriteButtonView(
+                        trackId: track.id,
                         isFavorite: track.isFavorite
                     ) { playlistManager.toggleFavorite(for: track) }
                 }
@@ -541,10 +542,12 @@ struct PlayerTrackDetailsView: View, Equatable {
 }
 
 struct FavoriteButtonView: View, Equatable {
+    let trackId: UUID
     let isFavorite: Bool
     let onToggle: () -> Void
 
     static func == (lhs: FavoriteButtonView, rhs: FavoriteButtonView) -> Bool {
+        lhs.trackId == rhs.trackId &&
         lhs.isFavorite == rhs.isFavorite
     }
 
