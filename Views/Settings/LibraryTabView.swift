@@ -4,10 +4,9 @@ struct LibraryTabView: View {
     @EnvironmentObject var libraryManager: LibraryManager
     @Environment(\.dismiss) var dismiss
 
-    @State private var showingRemoveFolderAlert = false
     @State private var selectedFolderIDs: Set<Int64> = []
     @State private var isSelectMode: Bool = false
-    @State private var folderToRemove: Folder?
+    @State private var foldersToRemove: [Folder] = []
     @State private var stableScanningState = false
     @State private var stableRefreshButtonState = false
     @State private var scanningStateTimer: Timer?
@@ -52,29 +51,49 @@ struct LibraryTabView: View {
             updateStableScanningState(newValue)
             updateStableRefreshState(newValue)
         }
-        .alert("Remove Folder", isPresented: $showingRemoveFolderAlert) {
+        .alert(
+            foldersToRemove.count == 1 ? "Remove Folder" : "Remove Folders",
+            isPresented: .init(
+                get: { !foldersToRemove.isEmpty },
+                set: { if !$0 { foldersToRemove = [] } }
+            )
+        ) {
             Button("Cancel", role: .cancel) { }
             Button("Remove", role: .destructive) {
-                if let folder = folderToRemove {
-                    Task {
-                        await MainActor.run {
-                            NotificationManager.shared.startActivity("Removing folder '\(folder.name)'...")
-                        }
-                        
-                        // Small delay to ensure UI updates
-                        try? await Task.sleep(nanoseconds: TimeConstants.fiftyMilliseconds)
-                        
+                let folders = foldersToRemove
+                Task {
+                    await MainActor.run {
+                        let message = folders.count == 1
+                            ? "Removing folder '\(folders[0].name)'..."
+                            : "Removing \(folders.count) folders..."
+                        NotificationManager.shared.startActivity(message)
+                    }
+                    
+                    try? await Task.sleep(nanoseconds: TimeConstants.fiftyMilliseconds)
+                    
+                    for folder in folders {
                         libraryManager.removeFolder(folder)
+                        try? await Task.sleep(nanoseconds: TimeConstants.fiftyMilliseconds)
+                    }
+                    
+                    await MainActor.run {
+                        let message = folders.count == 1
+                            ? "Removed folder '\(folders[0].name)'"
+                            : "Removed \(folders.count) folders"
+                        NotificationManager.shared.addMessage(.info, message)
                         
-                        await MainActor.run {
-                            folderToRemove = nil
-                        }
+                        selectedFolderIDs.removeAll()
+                        isSelectMode = false
+                        foldersToRemove = []
                     }
                 }
             }
         } message: {
-            if let folder = folderToRemove {
-                Text("Are you sure you want to stop watching \"\(folder.name)\"? This will remove all tracks from this folder from your library.")
+            let count = foldersToRemove.count
+            if count == 1 {
+                Text("Are you sure you want to stop watching \"\(foldersToRemove[0].name)\"? This will remove all tracks from this folder from your library.")
+            } else {
+                Text("Are you sure you want to remove \(count) folders? This will remove all tracks from these folders from your library.")
             }
         }
     }
@@ -275,8 +294,7 @@ struct LibraryTabView: View {
             onToggleSelection: { toggleFolderSelection(folder) },
             onRefresh: { libraryManager.refreshFolder(folder, hardRefresh: isCommandKeyPressed) },
             onRemove: {
-                folderToRemove = folder
-                showingRemoveFolderAlert = true
+                foldersToRemove = [folder]
             }
         )
     }
@@ -332,42 +350,9 @@ struct LibraryTabView: View {
     }
 
     private func removeSelectedFolders() {
-        let selectedFolders = libraryManager.folders.filter { folder in
+        foldersToRemove = libraryManager.folders.filter { folder in
             guard let id = folder.id else { return false }
             return selectedFolderIDs.contains(id)
-        }
-
-        let alert = NSAlert()
-        alert.messageText = "Remove Selected Folders"
-        alert.informativeText = "Are you sure you want to remove \(selectedFolders.count) folders? This will remove all tracks from these folders from your library."
-        alert.addButton(withTitle: "Remove")
-        alert.addButton(withTitle: "Cancel")
-        alert.alertStyle = .warning
-
-        if alert.runModal() == .alertFirstButtonReturn {
-            // User confirmed - now show progress
-            Task {
-                await MainActor.run {
-                    let message = selectedFolders.count == 1
-                        ? "Removing folder '\(selectedFolders[0].name)'..."
-                        : "Removing \(selectedFolders.count) folders..."
-                    NotificationManager.shared.startActivity(message)
-                }
-                
-                // Small delay to ensure UI updates
-                try? await Task.sleep(nanoseconds: TimeConstants.fiftyMilliseconds)
-                
-                for folder in selectedFolders {
-                    libraryManager.removeFolder(folder)
-                    // Small delay between removals
-                    try? await Task.sleep(nanoseconds: TimeConstants.fiftyMilliseconds)
-                }
-                
-                await MainActor.run {
-                    selectedFolderIDs.removeAll()
-                    isSelectMode = false
-                }
-            }
         }
     }
 
