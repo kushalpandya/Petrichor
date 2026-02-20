@@ -2,29 +2,52 @@ import Foundation
 import GRDB
 
 struct LyricsLoader {
-    /// Load lyrics for a track, checking external files first, then embedded lyrics
+    /// Load lyrics for a track, checking external files first, then embedded lyrics, then online
     /// - Parameters:
     ///   - track: The track to load lyrics for
     ///   - dbQueue: Database queue for fetching embedded lyrics
+    ///   - databaseManager: Database manager for online lyrics storage (optional)
     /// - Returns: Tuple containing lyrics text and source type
     static func loadLyrics(
         for track: Track,
-        using dbQueue: DatabaseQueue
+        using dbQueue: DatabaseQueue,
+        databaseManager: DatabaseManager? = nil
     ) async throws -> (lyrics: String, source: LyricsSource) {
+        var rawLyrics: String?
+        var source: LyricsSource = .none
+        
         // First, check for external LRC/SRT files
         if let externalLyrics = try? loadExternalLyrics(for: track) {
-            return externalLyrics
+            rawLyrics = externalLyrics.lyrics
+            source = externalLyrics.source
         }
         
-        // Fall back to embedded lyrics
-        if let fullTrack = try? await track.fullTrack(using: dbQueue),
+        // Second, check for embedded lyrics (stored in db during library scan)
+        let fullTrack = try? await track.fullTrack(using: dbQueue)
+        if rawLyrics == nil,
+           let fullTrack = fullTrack,
            let embeddedLyrics = fullTrack.extendedMetadata?.lyrics,
            !embeddedLyrics.isEmpty {
-            return (embeddedLyrics, .embedded)
+            rawLyrics = embeddedLyrics
+            source = .embedded
         }
         
-        // No lyrics found
-        return ("", .none)
+        // Finally, try fetching from online source
+        if rawLyrics == nil,
+           let fullTrack = fullTrack,
+           let databaseManager = databaseManager,
+           let onlineLyrics = await LyricsManager.shared.fetchLyrics(for: fullTrack, using: databaseManager) {
+            rawLyrics = onlineLyrics
+            source = .online
+        }
+        
+        // Strip timestamps for display
+        guard let lyrics = rawLyrics else {
+            return ("", .none)
+        }
+        
+        let displayLyrics = stripTimestamps(lyrics)
+        return (displayLyrics, source)
     }
     
     /// Check for and load external lyrics files (.lrc or .srt)
@@ -68,54 +91,87 @@ struct LyricsLoader {
         return nil
     }
     
+    // MARK: - Timestamp Stripping
+            
+    /// Strip LRC-style timestamps from lyrics for display
+    private static func stripTimestamps(_ content: String) -> String {
+        let lines = content.components(separatedBy: .newlines)
+        var strippedLines: [String] = []
+        
+        for line in lines {
+            var currentLine = line
+            
+            // Remove all timestamp tags [mm:ss.xx] from the line
+            while currentLine.hasPrefix("[") {
+                if let endBracket = currentLine.firstIndex(of: "]") {
+                    let tag = String(currentLine[currentLine.index(after: currentLine.startIndex)..<endBracket])
+                    // Check if it's a timestamp (contains digits and colons/periods)
+                    let isTimestamp = tag.contains(":") && tag.rangeOfCharacter(from: .decimalDigits) != nil
+                    
+                    if isTimestamp {
+                        currentLine = String(currentLine[currentLine.index(after: endBracket)...])
+                    } else {
+                        break
+                    }
+                } else {
+                    break
+                }
+            }
+            
+            let trimmed = currentLine.trimmingCharacters(in: .whitespaces)
+            if !trimmed.isEmpty {
+                strippedLines.append(trimmed)
+            }
+        }
+        
+        return strippedLines.joined(separator: "\n")
+    }
+    
+    // MARK: - Format Parsing
+    
     /// Parse LRC file format and extract lyrics text
     private static func parseLRC(_ content: String) -> String {
         let lines = content.components(separatedBy: .newlines)
         var lyricsLines: [String] = []
         
         for line in lines {
-            // LRC format: [mm:ss.xx]lyrics text
-            // Remove timestamp and metadata tags for now
             if line.hasPrefix("[") {
                 if let endBracket = line.firstIndex(of: "]") {
-                    let afterBracket = line.index(after: endBracket)
-                    if afterBracket < line.endIndex {
-                        let lyricsText = String(line[afterBracket...]).trimmingCharacters(in: .whitespaces)
-                        if !lyricsText.isEmpty {
-                            // Skip metadata lines (ar:, ti:, al:, etc.)
-                            let tag = String(line[line.index(after: line.startIndex)..<endBracket])
-                            if !tag.contains(":") || tag.contains(".") {
-                                lyricsLines.append(lyricsText)
-                            }
-                        }
+                    let tag = String(line[line.index(after: line.startIndex)..<endBracket])
+                    
+                    // Skip metadata lines (ar:, ti:, al:, etc.) but not timestamps
+                    let isMetadata = tag.contains(":") && tag.rangeOfCharacter(from: .decimalDigits) == nil
+                    if isMetadata {
+                        continue
                     }
+                    
+                    // Keep the full line (with timestamps) for now
+                    lyricsLines.append(line)
                 }
             } else if !line.trimmingCharacters(in: .whitespaces).isEmpty {
                 lyricsLines.append(line)
             }
         }
         
-        return lyricsLines.joined(separator: "\n")
+        // Strip timestamps at the end
+        return stripTimestamps(lyricsLines.joined(separator: "\n"))
     }
     
-    /// Parse SRT file format and extract lyrics text (ignoring timestamps for now)
+    /// Parse SRT file format and extract lyrics text
     private static func parseSRT(_ content: String) -> String {
         let lines = content.components(separatedBy: .newlines)
         var lyricsLines: [String] = []
-        var skipNext = false
         
         for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             
-            // Skip empty lines and sequence numbers
+            // Skip empty lines
             if trimmed.isEmpty {
-                skipNext = false
                 continue
             }
             
             // Skip timestamp lines (format: 00:00:00,000 --> 00:00:00,000)
             if trimmed.contains("-->") {
-                skipNext = true
                 continue
             }
             
@@ -124,12 +180,6 @@ struct LyricsLoader {
                 continue
             }
             
-            // Skip the line immediately after timestamp
-            if skipNext {
-                skipNext = false
-            }
-            
-            // This is lyrics text
             lyricsLines.append(trimmed)
         }
         
@@ -141,5 +191,6 @@ enum LyricsSource {
     case lrc
     case srt
     case embedded
+    case online
     case none
 }
