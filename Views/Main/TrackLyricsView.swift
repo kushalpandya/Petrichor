@@ -8,6 +8,7 @@ struct TrackLyricsView: View {
     
     @State private var lyrics: String = ""
     @State private var isLoading = true
+    @State private var fetchFailed = false
     
     private var currentTrack: Track? {
         playbackManager.currentTrack
@@ -82,6 +83,16 @@ struct TrackLyricsView: View {
             Text("No Lyrics Available")
                 .font(.headline)
                 .foregroundColor(.secondary)
+            
+            if fetchFailed {
+                Button(action: {
+                    loadLyricsForCurrentTrack()
+                }) {
+                    Label("Retry", systemImage: Icons.arrowClockwise)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -104,32 +115,37 @@ struct TrackLyricsView: View {
     // MARK: - Helper Methods
     
     private func loadLyricsForCurrentTrack() {
-       guard let track = currentTrack else {
-           lyrics = ""
-           isLoading = false
-           return
-       }
-       
-       isLoading = true
-       lyrics = ""
-       
-       Task {
-           do {
-               let result = try await LyricsLoader.loadLyrics(
-                   for: track,
-                   using: libraryManager.databaseManager.dbQueue
-               )
-               
-               await MainActor.run {
-                   lyrics = result.lyrics
-                   isLoading = false
-               }
-           } catch {
-               await MainActor.run {
-                   lyrics = ""
-                   isLoading = false
-               }
-           }
-       }
-   }
+        guard let track = currentTrack else {
+            lyrics = ""
+            isLoading = false
+            fetchFailed = false
+            return
+        }
+        
+        isLoading = true
+        lyrics = ""
+        fetchFailed = false
+        
+        Task {
+            do {
+                let result = try await LyricsLoader.loadLyrics(
+                    for: track,
+                    using: libraryManager.databaseManager.dbQueue,
+                    databaseManager: libraryManager.databaseManager
+                )
+                
+                await MainActor.run {
+                    lyrics = result.lyrics
+                    isLoading = false
+                    fetchFailed = false
+                }
+            } catch {
+                await MainActor.run {
+                    lyrics = ""
+                    isLoading = false
+                    fetchFailed = true
+                }
+            }
+        }
+    }
 }

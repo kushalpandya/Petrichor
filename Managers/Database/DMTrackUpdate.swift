@@ -32,7 +32,7 @@ extension DatabaseManager {
         }
     }
 
-    // Batch update for track properties (more efficient for multiple updates)
+    /// Batch update for track properties
     func updateTrack(_ track: Track) async throws {
         guard track.trackId != nil else {
             throw DatabaseError.invalidTrackId
@@ -40,6 +40,23 @@ extension DatabaseManager {
 
         try await dbQueue.write { db in
             try track.update(db)
+        }
+    }
+    
+    /// Updates a track's lyrics in extended_metadata
+    func updateTrackLyrics(for fullTrack: FullTrack, lyrics: String) async throws {
+        guard fullTrack.trackId != nil else {
+            throw DatabaseError.invalidTrackId
+        }
+        
+        var updatedTrack = fullTrack
+        var extendedMetadata = updatedTrack.extendedMetadata ?? ExtendedMetadata()
+        extendedMetadata.lyrics = lyrics
+        updatedTrack.extendedMetadata = extendedMetadata
+        
+        let trackToSave = updatedTrack
+        try await dbQueue.write { db in
+            try trackToSave.update(db)
         }
     }
 }

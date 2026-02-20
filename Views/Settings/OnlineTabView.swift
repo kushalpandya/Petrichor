@@ -10,6 +10,9 @@ struct OnlineTabView: View {
     @AppStorage("loveSyncEnabled")
     private var loveSyncEnabled: Bool = true
     
+    @AppStorage("onlineLyricsEnabled")
+    private var onlineLyricsEnabled: Bool = false
+    
     @State private var isAuthenticating = false
     @State private var showLoveSyncInfo = false
     @State private var showDisconnectConfirmation = false
@@ -32,6 +35,12 @@ struct OnlineTabView: View {
                 lastfmSection
             } header: {
                 Text("Last.fm")
+            }
+            
+            Section {
+                lyricsSection
+            } header: {
+                Text("Lyrics")
             }
         }
         .formStyle(.grouped)
@@ -152,6 +161,13 @@ struct OnlineTabView: View {
             .disabled(isAuthenticating)
         }
         .padding(.vertical, 4)
+    }
+    
+    // MARK: - Lyrics Section
+            
+    private var lyricsSection: some View {
+        Toggle("Fetch lyrics from internet when unavailable", isOn: $onlineLyricsEnabled)
+            .help("Automatically search for lyrics online when no local lyrics are found")
     }
     
     // MARK: - Actions
