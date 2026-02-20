@@ -394,6 +394,9 @@ struct LibraryTabView: View {
                 UserDefaults.standard.removePersistentDomain(forName: bundleID)
                 UserDefaults.standard.synchronize()
                 Logger.info("All app preferences reset along with library data")
+                
+                // Clear Last.fm connection from Keychain
+                KeychainManager.delete(key: KeychainManager.Keys.lastfmSessionKey)
             }
         }
 
