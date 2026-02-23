@@ -41,7 +41,7 @@
   - DSF/DFF (Direct Stream Digital)
   - ... MOD, IT, S3M, XM, and AU
 - Map your music folders and browse your library in an organized view.
-- Show lyrics of a playing track when available.
+- Show lyrics of a playing track when available, including ability to download missing lyrics.
 - Create, import or export playlists.
 - Manage the play queue interactively using drag and drop
 - Browse music using folder view when needed.
@@ -49,6 +49,7 @@
 - Navigate easily: right-click a track to go to its album, artist, year, etc.
 - Native macOS integration with menubar and dock playback controls, plus dark mode support.
 - Works well with large libraries containing thousands of songs.
+- Last.fm scrobbling support
 
 💡 **Tip**: Petrichor relies heavily on tracks having good metadata for all its features to work well.
 
@@ -108,6 +109,10 @@ brew install --cask petrichor
       write access is only used for exporting M3U playlist files.
   - **Network access**
     - To check for and install app updates.
+    - Download track lyrics from the internet (disabled by default)
+    - Last.fm scrobbling (disabled by default)
+        - When enabled, app may ask to store your Last.fm session information in macOS Keychain, if you choose to allow it, macOS will ask for your user account password to store the information in Keychain.
+        - App **does not** store your Last.fm username or password, you still have to provide it on Last.fm website that opens in browser during configuration, once done, app only receives a session key to scrobble track playbacks with your account.
 - It doesn't (and never will) have any analytics on how you use the app.
 - It never changes your audio files or folder structure in any way.
 - Your library data remains offline always.
