@@ -8,6 +8,9 @@ struct PetrichorApp: App {
     @AppStorage("showFoldersTab")
     private var showFoldersTab = false
     
+    @AppStorage("closeToMenubar")
+    private var closeToMenubar = true
+    
     @State private var menuUpdateTrigger = UUID()
     @Environment(\.openWindow) private var openWindow
 
@@ -176,6 +179,39 @@ struct PetrichorApp: App {
                     Text("Playlists")
                 }
             }
+            
+            Divider()
+            
+            closeWindowMenuItem()
+        }
+    }
+    
+    private func closeWindowMenuItem() -> some View {
+        Button {
+            closeWindow()
+        } label: {
+            if #available(macOS 26.0, *) {
+                Label("Close", systemImage: "xmark")
+            } else {
+                Text("Close")
+            }
+        }
+        .keyboardShortcut("w", modifiers: .command)
+    }
+    
+    private func closeWindow() {
+        guard let window = NSApp.keyWindow else { return }
+        
+        let isMainWindow = window.identifier?.rawValue == WindowIdentifier.mainWindow
+        
+        if closeToMenubar && isMainWindow {
+            appCoordinator.savePlaybackState()
+            window.orderOut(nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                NSApp.setActivationPolicy(.accessory)
+            }
+        } else {
+            window.close()
         }
     }
 

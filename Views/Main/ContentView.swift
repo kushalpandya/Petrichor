@@ -539,8 +539,8 @@ struct WindowAccessor: NSViewRepresentable {
         DispatchQueue.main.async {
             if let window = view.window {
                 window.delegate = windowDelegate
-                window.identifier = NSUserInterfaceItemIdentifier("MainWindow")
-                window.setFrameAutosaveName("MainWindow")
+                window.identifier = NSUserInterfaceItemIdentifier(WindowIdentifier.mainWindow)
+                window.setFrameAutosaveName(WindowIdentifier.mainWindow)
                 WindowManager.shared.mainWindow = window
                 window.title = ""
                 window.isExcludedFromWindowsMenu = true

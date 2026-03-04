@@ -158,6 +158,12 @@ enum ViewDefaults {
     static let gridArtworkSize: CGFloat = 160
 }
 
+// MARK: - Window Identifiers
+
+enum WindowIdentifier {
+    static let mainWindow = "MainWindow"
+}
+
 // MARK: - String Formats
 
 enum StringFormat {
