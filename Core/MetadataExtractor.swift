@@ -56,8 +56,8 @@ class MetadataExtractor {
     ///   - url: The URL of the audio file
     ///   - externalArtwork: Optional external artwork to use if file has none
     /// - Returns: TrackMetadata containing all extracted information
-    static func extractMetadataSync(from url: URL, externalArtwork: Data? = nil)
-        -> TrackMetadata
+    static func extractMetadata(from url: URL, externalArtwork: Data? = nil)
+        async -> TrackMetadata
     {
         var metadata = TrackMetadata(url: url)
 
@@ -74,7 +74,7 @@ class MetadataExtractor {
         }
 
         // Extract audio properties
-        extractAudioProperties(from: audioFile.properties, into: &metadata)
+        await extractAudioProperties(from: audioFile.properties, into: &metadata)
 
         // Extract metadata
         extractMetadata(from: audioFile.metadata, into: &metadata)
@@ -151,10 +151,38 @@ class MetadataExtractor {
     private static func extractAudioProperties(
         from properties: AudioProperties,
         into metadata: inout TrackMetadata
-    ) {
+    ) async {
+        // Format/Codec
+        if let formatName = properties.formatName {
+            metadata.codec = formatName
+        }
+        
         // Duration (TimeInterval is a typealias for Double)
         if let duration = properties.duration {
             metadata.duration = duration
+        }
+
+        // For MPEG audio (MP3/MP2/MP1), TagLib falls back to bitrate estimation
+        // when no Xing/Info/VBRI header is present, which can be inaccurate.
+        // AVFoundation uses independent frame scanning and is more reliable for these formats.
+        let isMPEG = metadata.codec == "MP3" || metadata.codec?.hasPrefix("MPEG") == true
+        if isMPEG {
+            let asset = AVURLAsset(url: metadata.url)
+            let avDuration: Double
+            do {
+                let duration = try await asset.load(.duration)
+                avDuration = duration.seconds
+            } catch {
+                avDuration = 0
+            }
+            if avDuration.isFinite && avDuration > 0
+                && abs(avDuration - metadata.duration) > 1.0 {
+                Logger.warning(
+                    "MPEG duration mismatch for \(metadata.url.lastPathComponent) - " +
+                    "SFBAudioEngine: \(metadata.duration)s, AVAsset: \(avDuration)s. Using AVAsset value."
+                )
+                metadata.duration = avDuration
+            }
         }
 
         // Sample rate
@@ -175,11 +203,6 @@ class MetadataExtractor {
         // Bitrate
         if let bitrate = properties.bitrate {
             metadata.bitrate = Int(bitrate)
-        }
-
-        // Format/Codec
-        if let formatName = properties.formatName {
-            metadata.codec = formatName
         }
 
         // Extract lossless flag from decoder

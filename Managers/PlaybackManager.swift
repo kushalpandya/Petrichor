@@ -237,9 +237,15 @@ class PlaybackManager: NSObject, ObservableObject {
     }
     
     func seekTo(time: Double) {
-        audioPlayer.seek(to: time)
-        currentTime = time
-        restoredPosition = time
+        // Clamp seek position to the engine's actual duration to prevent seek
+        // errors when the DB-stored duration differs from the actual track
+        // duration, this happens in edge-cases for MP3, although it is fixed
+        // in MetadataExtractor so hard refresh on library should resolve this.
+        let engineDuration = audioPlayer.duration
+        let clampedTime = engineDuration > 0 ? min(time, engineDuration) : time
+        audioPlayer.seek(to: clampedTime)
+        currentTime = clampedTime
+        restoredPosition = clampedTime
         
         NotificationCenter.default.post(
             name: NSNotification.Name("PlayerDidSeek"),
