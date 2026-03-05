@@ -116,6 +116,7 @@ extension PlaylistManager {
     
     private func importSinglePlaylist(from url: URL, usedNames: Set<String>) async -> PlaylistImportResult {
         let basePlaylistName = url.deletingPathExtension().lastPathComponent
+        let sourceDirectory = url.deletingLastPathComponent()
         
         let fileContent = (try? String(contentsOf: url, encoding: .utf8)) ??
                           (try? String(contentsOf: url, encoding: .isoLatin1))
@@ -131,10 +132,20 @@ extension PlaylistManager {
             )
         }
         
-        return await processM3UContent(content, playlistName: basePlaylistName, usedNames: usedNames)
+        return await processM3UContent(
+            content,
+            playlistName: basePlaylistName,
+            usedNames: usedNames,
+            sourceDirectory: sourceDirectory
+        )
     }
     
-    private func processM3UContent(_ content: String, playlistName: String, usedNames: Set<String>) async -> PlaylistImportResult {
+    private func processM3UContent(
+        _ content: String,
+        playlistName: String,
+        usedNames: Set<String>,
+        sourceDirectory: URL? = nil
+    ) async -> PlaylistImportResult {
         let trackPaths = parseM3UContent(content)
         
         guard !trackPaths.isEmpty else {
@@ -148,7 +159,10 @@ extension PlaylistManager {
             )
         }
         
-        let matchResult = await matchTracksToLibrary(trackPaths: trackPaths)
+        let matchResult = await matchTracksToLibrary(
+            trackPaths: trackPaths,
+            sourceDirectory: sourceDirectory
+        )
         
         guard !matchResult.matchedTracks.isEmpty else {
             Logger.error("Import failed - '\(playlistName)': 0/\(trackPaths.count) tracks found in library")
@@ -197,7 +211,10 @@ extension PlaylistManager {
             .filter { !$0.isEmpty && !$0.hasPrefix(M3UFormat.commentPrefix) }
     }
     
-    private func matchTracksToLibrary(trackPaths: [String]) async -> (matchedTracks: [Track], unmatchedPaths: [String]) {
+    private func matchTracksToLibrary(
+        trackPaths: [String],
+        sourceDirectory: URL? = nil
+    ) async -> (matchedTracks: [Track], unmatchedPaths: [String]) {
         guard let dbManager = libraryManager?.databaseManager else {
             return ([], trackPaths)
         }
@@ -206,7 +223,7 @@ extension PlaylistManager {
         var unmatchedPaths: [String] = []
         
         for originalPath in trackPaths {
-            let pathVariations = generatePathVariations(originalPath)
+            let pathVariations = generatePathVariations(originalPath, sourceDirectory: sourceDirectory)
             
             var matched = false
             for path in pathVariations {
@@ -222,11 +239,27 @@ extension PlaylistManager {
             }
         }
         
+        if !unmatchedPaths.isEmpty {
+            let filenames = unmatchedPaths.map { ($0 as NSString).lastPathComponent }
+            let filenameMap = await dbManager.findTracksByFilenames(filenames)
+            
+            var stillUnmatched: [String] = []
+            for path in unmatchedPaths {
+                let filename = (path as NSString).lastPathComponent.lowercased()
+                if let track = filenameMap[filename] {
+                    matchedTracks.append(track)
+                } else {
+                    stillUnmatched.append(path)
+                }
+            }
+            unmatchedPaths = stillUnmatched
+        }
+        
         return (matchedTracks, unmatchedPaths)
     }
     
     /// Generates possible path variations for M3U import matching
-    private func generatePathVariations(_ path: String) -> [String] {
+    private func generatePathVariations(_ path: String, sourceDirectory: URL? = nil) -> [String] {
         var normalized = path
         
         for scheme in ["file://", "smb://", "afp://", "nfs://"] {
@@ -241,17 +274,24 @@ extension PlaylistManager {
             normalized = "/Volumes" + String(normalized.dropFirst(1))
         }
         
+        normalized = normalized.replacingOccurrences(of: "\\", with: "/")
+        
         // URL decode
         normalized = normalized.removingPercentEncoding ?? normalized
         
         var variations = [normalized]
         
         if normalized.hasPrefix("/Volumes/") {
-            // Try without /Volumes prefix
             variations.append(String(normalized.dropFirst(8)))
         } else if normalized.hasPrefix("/") && !normalized.hasPrefix("/Users/") {
-            // Try with /Volumes prefix
             variations.append("/Volumes" + normalized)
+        } else if !normalized.hasPrefix("/"), let sourceDirectory {
+            var relativePath = normalized
+            while relativePath.hasPrefix("./") {
+                relativePath = String(relativePath.dropFirst(2))
+            }
+            let resolved = sourceDirectory.appendingPathComponent(relativePath).standardizedFileURL.path
+            variations.insert(resolved, at: 0)
         }
         
         return variations

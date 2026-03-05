@@ -123,6 +123,16 @@ struct DatabaseMigrator {
             Logger.info("v6_update_most_played_criteria migration completed")
         }
 
+        // TODO: Uncomment in next minor release to add filename index for playlist import performance
+        // migrator.registerMigration("v7_add_filename_index_for_playlist_import") { db in
+        //     try db.createIndexIfNotExists(
+        //         name: "idx_tracks_filename",
+        //         table: "tracks",
+        //         columns: ["filename"]
+        //     )
+        //     Logger.info("v7_add_filename_index_for_playlist_import migration completed")
+        // }
+
         // MARK: - Future Migrations
         // Add new migrations here as: migrator.registerMigration("v2_description") { db in ... }
         
