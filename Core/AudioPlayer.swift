@@ -399,7 +399,6 @@ public class PAudioPlayer: NSObject {
     
     /// Apply an EQ preset
     /// - Parameter preset: The EqualizerPreset to apply
-    /// - Note: This will automatically enable the EQ if applying a non-flat preset
     public func applyEQPreset(_ preset: EqualizerPreset) {
         currentEQGains = preset.gains
         
@@ -415,16 +414,11 @@ public class PAudioPlayer: NSObject {
         
         applyEffectivePreamp()
         
-        if preset != .flat && !eqEnabled {
-            setEQEnabled(true)
-        }
-        
         Logger.info("Applied Equalizer preset: \(preset.displayName)")
     }
     
     /// Apply custom EQ gains
     /// - Parameter gains: Array of 10 gain values in dB (one for each frequency band)
-    /// - Note: The array must contain exactly 10 values. This will automatically enable the EQ.
     public func applyEQCustom(gains: [Float]) {
         guard gains.count == 10 else {
             Logger.warning("Equalizer gains array must contain exactly 10 values, got \(gains.count)")
@@ -444,10 +438,6 @@ public class PAudioPlayer: NSObject {
         }
         
         applyEffectivePreamp()
-        
-        if !eqEnabled {
-            setEQEnabled(true)
-        }
         
         Logger.info("Applied custom Equalizer gains")
     }
