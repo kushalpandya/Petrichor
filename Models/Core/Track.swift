@@ -151,6 +151,7 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
         static let trackId = Column("id")
         static let folderId = Column("folder_id")
         static let path = Column("path")
+        static let filename = Column("filename")
         static let title = Column("title")
         static let artist = Column("artist")
         static let album = Column("album")

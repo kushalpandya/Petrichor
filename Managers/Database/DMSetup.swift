@@ -393,7 +393,10 @@ extension DatabaseManager {
         try db.createIndexIfNotExists(name: "idx_tracks_rating", table: "tracks", columns: ["rating"])
         try db.createIndexIfNotExists(name: "idx_tracks_compilation", table: "tracks", columns: ["compilation"])
         try db.createIndexIfNotExists(name: "idx_tracks_media_type", table: "tracks", columns: ["media_type"])
-        
+
+        // TODO: Uncomment in next minor release to add filename index for playlist import performance
+        // try db.createIndexIfNotExists(name: "idx_tracks_filename", table: "tracks", columns: ["filename"])
+
         // Duplicate tracking indices
         try db.createIndexIfNotExists(name: "idx_tracks_primary_track_id", table: "tracks", columns: ["primary_track_id"])
         try db.createIndexIfNotExists(name: "idx_tracks_is_duplicate", table: "tracks", columns: ["is_duplicate"])
