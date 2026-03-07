@@ -5,6 +5,29 @@
         <description>Updates for Petrichor</description>
         <language>en</language>
         <item>
+            <title>Version 1.4.1</title>
+            <pubDate>Sat, 07 Mar 2026 20:07:38 -0500</pubDate>
+            <sparkle:version>141</sparkle:version>
+            <sparkle:shortVersionString>1.4.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.4.1/Petrichor-1.4.1-Universal.dmg"
+                sparkle:edSignature="rs0eAdElxtKL56LJ1MoNwEuzDOTOZNMJ3h1T7O3j2vfjux/hNzAjQgZX+1rYZusjW8I6iYJA4Weu0Yi56XmDBQ=="
+                length="13643023"
+                type="application/octet-stream"
+            />
+            <description><![CDATA[
+                <h2>Fixes</h2>
+                <ul>
+                    <li>Handle incorrect track durations gracefully (<a href="https://github.com/kushalpandya/Petrichor/pull/198">#198</a>)</li>
+                    <li>Add support for Cmd+W to close app window (<a href="https://github.com/kushalpandya/Petrichor/pull/199">#199</a>)</li>
+                    <li>Fix importing of playlists with relative track paths (<a href="https://github.com/kushalpandya/Petrichor/pull/201">#201</a>)</li>
+                    <li>Remember EQ enabled state across app relaunches (<a href="https://github.com/kushalpandya/Petrichor/pull/204">#204</a>)</li>
+                </ul>                
+                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.4.0...v1.4.1">Full Changelog</a></p>
+            ]]></description>
+        </item>
+        <item>
             <title>Version 1.4.0</title>
             <pubDate>Mon, 23 Feb 2026 00:31:28 -0500</pubDate>
             <sparkle:version>140</sparkle:version>
