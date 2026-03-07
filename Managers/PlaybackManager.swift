@@ -306,6 +306,9 @@ class PlaybackManager: NSObject, ObservableObject {
     /// - Parameter preset: The EqualizerPreset to apply
     func applyEQPreset(_ preset: EqualizerPreset) {
         audioPlayer.applyEQPreset(preset)
+        if preset != .flat && !audioPlayer.isEQEnabled() {
+            setEQEnabled(true)
+        }
         UserDefaults.standard.set(preset.rawValue, forKey: "eqPreset")
         Logger.info("Applied EQ preset: \(preset.displayName) via PlaybackManager")
     }
@@ -319,6 +322,9 @@ class PlaybackManager: NSObject, ObservableObject {
         }
         
         audioPlayer.applyEQCustom(gains: gains)
+        if !audioPlayer.isEQEnabled() {
+            setEQEnabled(true)
+        }
         UserDefaults.standard.set(gains, forKey: "customEQGains")
         UserDefaults.standard.set("custom", forKey: "eqPreset")
         Logger.info("Applied custom EQ gains via PlaybackManager")
