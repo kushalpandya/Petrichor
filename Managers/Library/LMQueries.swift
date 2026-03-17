@@ -59,6 +59,10 @@ extension LibraryManager {
         databaseManager.getDistinctValues(for: filterType)
     }
 
+    func getTrackCountsByFolderPath() -> [String: Int] {
+        databaseManager.getTrackCountsByFolderPath()
+    }
+
     func updateSearchResults() {
         if globalSearchText.isEmpty {
             // When not searching, don't populate searchResults with all tracks

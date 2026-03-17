@@ -12,6 +12,7 @@ class FolderNode: Identifiable, ObservableObject {
 
     // Counts for immediate contents only
     var immediateTrackCount: Int = 0
+    var displayTrackCount: Int = 0
     var immediateFolderCount: Int {
         children.count
     }

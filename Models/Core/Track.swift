@@ -342,9 +342,11 @@ extension Track {
     
     /// Request for fetching lightweight tracks
     static func lightweightRequest() -> QueryInterfaceRequest<Track> {
-        Track
-            .select(lightweightSelection)
-            .filter(Columns.isDuplicate == false)
+        let request = Track.select(lightweightSelection)
+        if UserDefaults.standard.bool(forKey: "hideDuplicateTracks") {
+            return request.filter(Columns.isDuplicate == false)
+        }
+        return request
     }
 }
 
@@ -354,13 +356,14 @@ extension Track {
     /// Generate a key for duplicate detection
     var duplicateKey: String {
         let normalizedTitle = title.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedArtist = artist.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedAlbum = album.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedYear = year.trimmingCharacters(in: .whitespacesAndNewlines)
         
         // Round duration to nearest 2 seconds to handle slight variations
         let roundedDuration = Int((duration / 2.0).rounded()) * 2
         
-        return "\(normalizedTitle)|\(normalizedAlbum)|\(normalizedYear)|\(roundedDuration)"
+        return "\(normalizedTitle)|\(normalizedArtist)|\(normalizedAlbum)|\(normalizedYear)|\(roundedDuration)"
     }
 }
 // MARK: - Full Track Loading

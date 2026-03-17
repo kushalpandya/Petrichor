@@ -56,12 +56,6 @@ struct FoldersSidebarView: View {
                 .headerTitleStyle()
 
             Spacer()
-
-            if isLoadingHierarchy {
-                ProgressView()
-                    .scaleEffect(0.7)
-                    .frame(width: 16, height: 16)
-            }
         }
     }
 
@@ -69,9 +63,8 @@ struct FoldersSidebarView: View {
 
     private var loadingView: some View {
         VStack {
-            ProgressView("Building folder structure...")
+            ProgressView("Loading library folders...")
                 .font(.caption)
-            Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
@@ -99,9 +92,11 @@ struct FoldersSidebarView: View {
             isLoadingHierarchy = true
         }
 
+        let trackCounts = libraryManager.getTrackCountsByFolderPath()
+
         let nodes = await hierarchyBuilder.buildHierarchy(
             for: libraryManager.folders,
-            tracks: libraryManager.tracks
+            trackCountsByFolder: trackCounts
         )
 
         await MainActor.run {

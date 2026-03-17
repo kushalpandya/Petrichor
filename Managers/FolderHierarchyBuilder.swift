@@ -11,7 +11,7 @@ class FolderHierarchyBuilder {
     private let supportedExtensions = AudioFormat.supportedExtensions
 
     // Build hierarchy for all watched folders
-    func buildHierarchy(for folders: [Folder], tracks: [Track]) async -> [FolderNode] {
+    func buildHierarchy(for folders: [Folder], trackCountsByFolder: [String: Int]) async -> [FolderNode] {
         var rootNodes: [FolderNode] = []
 
         for folder in folders {
@@ -20,7 +20,7 @@ class FolderHierarchyBuilder {
             rootNode.databaseFolder = folder
 
             // Build the hierarchy for this root folder
-            await buildSubtree(for: rootNode, allTracks: tracks)
+            await buildSubtree(for: rootNode, tracksByFolder: trackCountsByFolder)
 
             rootNodes.append(rootNode)
         }
@@ -29,7 +29,7 @@ class FolderHierarchyBuilder {
     }
 
     // Recursively build subtree for a node
-    private func buildSubtree(for node: FolderNode, allTracks: [Track]) async {
+    private func buildSubtree(for node: FolderNode, tracksByFolder: [String: Int]) async {
         do {
             let contents = try fileManager.contentsOfDirectory(
                 at: node.url,
@@ -48,7 +48,7 @@ class FolderHierarchyBuilder {
                     let childNode = FolderNode(url: itemURL)
 
                     // Recursively build its subtree
-                    await buildSubtree(for: childNode, allTracks: allTracks)
+                    await buildSubtree(for: childNode, tracksByFolder: tracksByFolder)
 
                     // Only add folders that contain tracks (directly or in subfolders)
                     if childNode.immediateTrackCount > 0 || !childNode.children.isEmpty {
@@ -65,10 +65,12 @@ class FolderHierarchyBuilder {
 
             let finalSubfolders = subfolders
             let finalTrackCount = trackCount
+            let dbTrackCount = tracksByFolder[node.url.path] ?? 0
 
             await MainActor.run {
                 node.children = finalSubfolders.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
                 node.immediateTrackCount = finalTrackCount
+                node.displayTrackCount = dbTrackCount
             }
         } catch {
             Logger.error("Failed to scan folder \(node.url.path): \(error)")

@@ -35,10 +35,14 @@ extension DatabaseManager {
                 
                 // Create all PlaylistTrack objects at once
                 let now = Date()
-                let playlistTracks = playlist.tracks.enumerated().compactMap { index, track -> PlaylistTrack?
-                    in
+                var seenTrackIds = Set<Int64>()
+                let playlistTracks = playlist.tracks.enumerated().compactMap { index, track -> PlaylistTrack? in
                     guard let trackId = track.trackId else {
                         Logger.warning("Track '\(track.title)' has no database ID, skipping")
+                        return nil
+                    }
+                    guard seenTrackIds.insert(trackId).inserted else {
+                        Logger.info("Skipping duplicate trackId \(trackId) in playlist '\(playlist.name)'")
                         return nil
                     }
                     
