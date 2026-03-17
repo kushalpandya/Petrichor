@@ -86,16 +86,16 @@ extension DatabaseManager {
 
     /// Update artist artwork
     func updateArtistArtwork(_ artistId: Int64, artworkData: Data?, in db: Database) throws {
-        guard let artworkData = artworkData else { return }
+        guard let artworkData = artworkData, !artworkData.isEmpty else { return }
 
-        // Check if artist already has artwork
-        guard let artist = try Artist.fetchOne(db, key: artistId),
-              artist.artworkData == nil else { return }
-
-        // Update artwork
-        artist.artworkData = artworkData
-        artist.updatedAt = Date()
-        try artist.update(db)
+        // Only update if artist doesn't already have artwork
+        try Artist
+            .filter(Artist.Columns.id == artistId && Artist.Columns.artworkData == nil)
+            .updateAll(
+                db,
+                Artist.Columns.artworkData.set(to: artworkData),
+                Artist.Columns.updatedAt.set(to: Date())
+            )
     }
 
     // MARK: - Album Management

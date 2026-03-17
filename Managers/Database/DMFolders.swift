@@ -596,6 +596,9 @@ extension DatabaseManager {
         // Detect and avoid duplicates
         await detectAndMarkDuplicates()
         
+        // Clean up orphaned artists, albums, genres, and other data
+        try await cleanupOrphanedData()
+        
         // Get final counts
         let processedCount = await scanState.getProcessedCount()
         let failedFiles = await scanState.getFailedFiles()
