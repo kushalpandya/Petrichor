@@ -5,7 +5,7 @@ struct ArtistParser {
     private static let separators = [
         " feat. ", " feat ", " featuring ", " ft. ", " ft ",
         " & ", " and ", " x ", " X ", " vs. ", " vs ",
-        ", ", " with ", " / ", "／", "/", "、", ";"
+        ", ", " with ", " / ", "／", "、", ";"
     ]
 
     // MARK: - Caching

@@ -289,12 +289,23 @@ extension DatabaseManager {
         try processTrackArtists(mutableTrack, metadata: metadata, in: db)
         try processTrackGenres(mutableTrack, in: db)
         
-        // Update album artwork with updated external artwork
-        if let artworkData = metadata.artworkData,
-           !artworkData.isEmpty,
-           let albumId = mutableTrack.albumId {
-            try updateAlbumArtwork(albumId, artworkData: artworkData, in: db)
-            Logger.info("Updated album artwork for album ID: \(albumId)")
+        // Update artwork for artists and album if this track has artwork
+        if let artworkData = metadata.artworkData, !artworkData.isEmpty {
+            // Update artist artwork
+            let artistIds = try TrackArtist
+                .filter(TrackArtist.Columns.trackId == trackId)
+                .select(TrackArtist.Columns.artistId, as: Int64.self)
+                .distinct()
+                .fetchAll(db)
+            
+            for artistId in artistIds {
+                try updateArtistArtwork(artistId, artworkData: artworkData, in: db)
+            }
+            
+            // Update album artwork
+            if let albumId = mutableTrack.albumId {
+                try updateAlbumArtwork(albumId, artworkData: artworkData, in: db)
+            }
         }
     }
     
