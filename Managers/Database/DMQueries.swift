@@ -591,6 +591,27 @@ extension DatabaseManager {
         }
     }
 
+    func getTrackCountsByFolderPath() -> [String: Int] {
+        do {
+            return try dbQueue.read { db in
+                let paths = try applyDuplicateFilter(Track.all())
+                    .select(Track.Columns.path)
+                    .asRequest(of: String.self)
+                    .fetchAll(db)
+
+                var counts: [String: Int] = [:]
+                for path in paths {
+                    let parentPath = URL(fileURLWithPath: path).deletingLastPathComponent().path
+                    counts[parentPath, default: 0] += 1
+                }
+                return counts
+            }
+        } catch {
+            Logger.error("Failed to get track counts by folder path: \(error)")
+            return [:]
+        }
+    }
+
     /// Apply duplicate filtering to a Track query if the user preference is enabled
     func applyDuplicateFilter(_ query: QueryInterfaceRequest<Track>) -> QueryInterfaceRequest<Track> {
         let hideDuplicates = UserDefaults.standard.bool(forKey: "hideDuplicateTracks")

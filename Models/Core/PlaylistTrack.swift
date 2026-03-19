@@ -50,6 +50,6 @@ struct PlaylistTrack: Codable, FetchableRecord, PersistableRecord {
 extension PlaylistTrack {
     /// Insert multiple PlaylistTrack records efficiently
     static func insertMany(_ playlistTracks: [PlaylistTrack], db: Database) throws {
-        try playlistTracks.forEach { try $0.insert(db) }
+        try playlistTracks.forEach { try $0.insert(db, onConflict: .ignore) }
     }
 }

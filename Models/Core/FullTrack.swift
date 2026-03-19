@@ -319,13 +319,14 @@ struct FullTrack: Identifiable, Equatable, Hashable, FetchableRecord, Persistabl
     /// Generate a normalized key for duplicate detection
     var duplicateKey: String {
         let normalizedTitle = title.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedArtist = artist.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedAlbum = album.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedYear = year.trimmingCharacters(in: .whitespacesAndNewlines)
         
         // Round duration to nearest 2 seconds to handle slight variations
         let roundedDuration = Int((duration / 2.0).rounded()) * 2
         
-        return "\(normalizedTitle)|\(normalizedAlbum)|\(normalizedYear)|\(roundedDuration)"
+        return "\(normalizedTitle)|\(normalizedArtist)|\(normalizedAlbum)|\(normalizedYear)|\(roundedDuration)"
     }
     
     /// Check if this track is a duplicate candidate of another track

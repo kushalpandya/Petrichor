@@ -234,12 +234,13 @@ struct FolderNodeSidebarItem: SidebarItem {
             self.icon = folderNode.isExpanded ? Icons.folderFillBadgeMinus : Icons.folderFillBadgePlus
         }
 
-        if folderNode.immediateFolderCount > 0 && folderNode.immediateTrackCount > 0 {
-            self.subtitle = "\(folderNode.immediateFolderCount) folders, \(folderNode.immediateTrackCount) tracks"
+        let trackCount = folderNode.displayTrackCount
+        if folderNode.immediateFolderCount > 0 && trackCount > 0 {
+            self.subtitle = "\(folderNode.immediateFolderCount) folders, \(trackCount) tracks"
         } else if folderNode.immediateFolderCount > 0 {
             self.subtitle = "\(folderNode.immediateFolderCount) folders"
-        } else if folderNode.immediateTrackCount > 0 {
-            self.subtitle = "\(folderNode.immediateTrackCount) tracks"
+        } else if trackCount > 0 {
+            self.subtitle = "\(trackCount) tracks"
         } else {
             self.subtitle = nil
         }
