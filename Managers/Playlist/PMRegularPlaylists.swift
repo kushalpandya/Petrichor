@@ -119,6 +119,12 @@ extension PlaylistManager {
             return
         }
 
+        await MainActor.run {
+            if self.playlists[index].tracks.isEmpty, let dbManager = libraryManager?.databaseManager {
+                self.playlists[index].tracks = dbManager.loadTracksForPlaylist(playlistID)
+            }
+        }
+
         // Check if track already exists
         let alreadyExists = await MainActor.run {
             self.playlists[index].tracks.contains { $0.trackId == track.trackId }
@@ -132,6 +138,7 @@ extension PlaylistManager {
         // Add track on main thread
         await MainActor.run {
             self.playlists[index].addTrack(track)
+            self.playlists[index].trackCount = self.playlists[index].tracks.count
         }
 
         // Save to database - use efficient single track method
