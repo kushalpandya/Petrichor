@@ -304,8 +304,8 @@ struct TrackTableView: View {
     // MARK: - Helper Methods
     
     private func initializeSortedTracks() {
-        // Follow overridden sort order for entities
-        if entityID != nil {
+        // Follow overridden sort order for entities and playlists
+        if entityID != nil || playlistID != nil {
             sortedTracks = tracks.sorted(using: sortOrder)
             return
         }
