@@ -40,11 +40,10 @@ extension PlaylistManager {
     
     /// Create a new basic playlist
     func createPlaylist(name: String, tracks: [Track] = []) -> Playlist {
-        var newPlaylist = Playlist(name: name, tracks: tracks)
-        newPlaylist.trackCount = tracks.count
+        let newPlaylist = Playlist(name: name, tracks: [])
         playlists.append(newPlaylist)
-        
-        // Save to database
+
+        // Save to database and add tracks
         Task {
             do {
                 if let dbManager = libraryManager?.databaseManager {
@@ -53,8 +52,12 @@ extension PlaylistManager {
             } catch {
                 Logger.error("Failed to save new playlist: \(error)")
             }
+
+            if !tracks.isEmpty {
+                await addTracksToPlaylist(tracks: tracks, playlistID: newPlaylist.id)
+            }
         }
-        
+
         return newPlaylist
     }
     
@@ -135,9 +138,11 @@ extension PlaylistManager {
             return
         }
 
-        // Add track on main thread
+        // Add track on main thread with playlist-specific dateAdded
         await MainActor.run {
-            self.playlists[index].addTrack(track)
+            var playlistTrack = track
+            playlistTrack.dateAdded = Date()
+            self.playlists[index].addTrack(playlistTrack)
             self.playlists[index].trackCount = self.playlists[index].tracks.count
         }
 
@@ -199,8 +204,14 @@ extension PlaylistManager {
                 return !existingTrackIds.contains(trackId)
             }
             
-            // Batch append all new tracks
-            self.playlists[index].tracks.append(contentsOf: newTracks)
+            // Batch append all new tracks with playlist-specific dateAdded
+            let now = Date()
+            let playlistTracks = newTracks.map { track -> Track in
+                var t = track
+                t.dateAdded = now
+                return t
+            }
+            self.playlists[index].tracks.append(contentsOf: playlistTracks)
             
             // Update metadata
             self.playlists[index].dateModified = Date()

@@ -11,7 +11,7 @@ struct PlaylistDetailView: View {
     @AppStorage("trackTableRowSize")
     private var trackTableRowSize: TableRowSize = .expanded
     
-    @State private var playlistSortOrder = [KeyPathComparator(\Track.title)]
+    @State private var playlistSortOrder = [KeyPathComparator(\Track.sortableDateAdded)]
 
     // Convenience initializer for when you have a Playlist object
     init(playlist: Playlist) {

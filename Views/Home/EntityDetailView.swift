@@ -32,7 +32,7 @@ struct EntityDetailView: View {
                     tracks: tracks,
                     selectedTrackID: $selectedTrackID,
                     playlistID: nil,
-                    entityID: entity.id,
+                    entityID: entity is ArtistEntity ? nil : entity.id,
                     sortOrder: $trackTableSortOrder,
                     onPlayTrack: { track in
                         playTrack(track)
