@@ -5,6 +5,29 @@
         <description>Updates for Petrichor</description>
         <language>en</language>
         <item>
+            <title>Version 1.4.2</title>
+            <pubDate>Mon, 23 Mar 2026 21:36:56 -0400</pubDate>
+            <sparkle:version>142</sparkle:version>
+            <sparkle:shortVersionString>1.4.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.4.2/Petrichor-1.4.2-Universal.dmg"
+                sparkle:edSignature="12KJg994lOx7ZEGk0e3nYjJFO9s2+V609LNneBkp5tQJa+ODiNPUU8nDBnGaSGBSJmlekG+b8bapJNzU11P/BA=="
+                length="13656578"
+                type="application/octet-stream"
+            />
+            <description><![CDATA[
+                <h2>Fixes</h2>
+                <ul>
+                    <li>Fix artist name with "/" being split incorrectly (<a href="https://github.com/kushalpandya/Petrichor/pull/210">#210</a>)</li>
+                    <li>Fix duplicate tracks detection and Folders sidebar (<a href="https://github.com/kushalpandya/Petrichor/pull/212">#212</a>)</li>
+                    <li>Fix playlist and its count not updating reliably (<a href="https://github.com/kushalpandya/Petrichor/pull/213">#213</a>)</li>
+                    <li>Fix default tracks order in Artists and Playlists (<a href="https://github.com/kushalpandya/Petrichor/pull/214">#214</a>)</li>
+                </ul>
+                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.4.1...v1.4.2">Full Changelog</a></p>
+            ]]></description>
+        </item>
+        <item>
             <title>Version 1.4.1</title>
             <pubDate>Sat, 07 Mar 2026 20:07:38 -0500</pubDate>
             <sparkle:version>141</sparkle:version>
