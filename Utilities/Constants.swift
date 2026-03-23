@@ -95,8 +95,8 @@ enum About {
     static let appWiki = "https://github.com/kushalpandya/Petrichor/wiki"
     static let appAcknowledgements = "https://github.com/kushalpandya/Petrichor/blob/main/ACKNOWLEDGEMENTS.md"
     static let sponsor = "https://github.com/sponsors/kushalpandya"
-    static let appVersion = "1.4.1"
-    static let appBuild = "141"
+    static let appVersion = "1.4.2"
+    static let appBuild = "142"
 }
 
 // MARK: - Audio File Formats
