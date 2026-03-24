@@ -13,28 +13,33 @@ jobs:
   update-sponsors:
     name: Update Sponsors List
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        
-      - name: Update Sponsors
-        uses: JamesIves/github-sponsors-readme-action@v1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          token: ${{ secrets.SPONSORS_PAT }}
-          file: 'README.md'
-          active-only: false
-          include-private: true
-          
+          node-version: 22
+
+      - name: Generate Sponsors SVG
+        run: |
+          cd .github/scripts
+          npm install sponsorkit
+          npx sponsorkit
+        env:
+          SPONSORKIT_GITHUB_TOKEN: ${{ secrets.SPONSORS_PAT }}
+
       - name: Commit and Push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
+
           if git diff --quiet; then
             echo "No changes to commit"
           else
-            git add README.md
+            git add .github/assets/sponsors.svg
             git commit -m "chore: update sponsors list [skip ci]"
             git push
           fi
