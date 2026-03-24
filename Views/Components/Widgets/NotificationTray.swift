@@ -355,11 +355,13 @@ struct NotificationPopover: View {
                 }
             }
             
-            Text("You can continue using the app while scanning completes")
-                .font(.caption)
-                .foregroundColor(.secondary.opacity(0.8))
-                .multilineTextAlignment(.center)
-                .padding(.top, 4)
+            if manager.scanProgress != nil {
+                Text("You can continue using the app while scanning completes")
+                    .font(.caption)
+                    .foregroundColor(.secondary.opacity(0.8))
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 4)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.vertical, 24)
