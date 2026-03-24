@@ -42,6 +42,32 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         return !closeToMenubar
     }
     
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard NotificationManager.shared.isActivityInProgress,
+              let coordinator = AppCoordinator.shared else {
+            return .terminateNow
+        }
+
+        let isResumable = coordinator.libraryManager.databaseManager.isActiveBackgroundMigrationResumable()
+
+        let alert = NSAlert()
+        alert.alertStyle = isResumable ? .informational : .warning
+        alert.messageText = "Library Optimization in Progress"
+
+        if isResumable {
+            alert.informativeText = "This will automatically continue where it left off on next launch."
+            alert.addButton(withTitle: "Quit")
+            alert.addButton(withTitle: "Continue")
+        } else {
+            alert.informativeText = "Quitting now will cancel the current operation. It will need to start over on next launch, which may take a while."
+            alert.addButton(withTitle: "Quit Anyway")
+            alert.addButton(withTitle: "Cancel")
+        }
+
+        let response = alert.runModal()
+        return response == .alertFirstButtonReturn ? .terminateNow : .terminateCancel
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         Logger.info("App is terminating...")
         

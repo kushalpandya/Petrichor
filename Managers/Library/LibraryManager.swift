@@ -117,6 +117,11 @@ class LibraryManager: ObservableObject {
             }
         }
 
+        Task {
+            try? await Task.sleep(nanoseconds: TimeConstants.fiftyMilliseconds)
+            await databaseManager.runPendingBackgroundMigrations()
+        }
+
         // Observe auto-scan interval changes
         NotificationCenter.default.addObserver(
             self,

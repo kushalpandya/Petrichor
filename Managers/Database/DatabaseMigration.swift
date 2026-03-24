@@ -123,18 +123,28 @@ struct DatabaseMigrator {
             Logger.info("v6_update_most_played_criteria migration completed")
         }
 
+        migrator.registerMigration("v7_create_background_migrations_table") { db in
+            try db.create(table: "background_migrations") { t in
+                t.column("identifier", .text).primaryKey()
+                t.column("completed_at", .datetime)
+                t.column("progress", .text)
+                t.column("resumable", .boolean).defaults(to: true)
+            }
+            Logger.info("v7_create_background_migrations_table migration completed")
+        }
+        
         // TODO: Uncomment in next minor release to add filename index for playlist import performance
-        // migrator.registerMigration("v7_add_filename_index_for_playlist_import") { db in
+        // migrator.registerMigration("v9_add_filename_index_for_playlist_import") { db in
         //     try db.createIndexIfNotExists(
         //         name: "idx_tracks_filename",
         //         table: "tracks",
         //         columns: ["filename"]
         //     )
-        //     Logger.info("v7_add_filename_index_for_playlist_import migration completed")
+        //     Logger.info("v9_add_filename_index_for_playlist_import migration completed")
         // }
 
         // MARK: - Future Migrations
-        // Add new migrations here as: migrator.registerMigration("v2_description") { db in ... }
+        // Add new migrations here as: migrator.registerMigration("v10_description") { db in ... }
         
         return migrator
     }
