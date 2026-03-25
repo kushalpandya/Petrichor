@@ -133,6 +133,14 @@ struct DatabaseMigrator {
             Logger.info("v7_create_background_migrations_table migration completed")
         }
         
+        migrator.registerMigration("v8_convert_artwork_to_heic") { db in
+            try db.execute(
+                sql: "INSERT INTO background_migrations (identifier, resumable) VALUES (?, ?)",
+                arguments: ["v8_background_convert_artwork_to_heic", true]
+            )
+            Logger.info("v8_convert_artwork_to_heic: flagged for background artwork conversion")
+        }
+        
         // TODO: Uncomment in next minor release to add filename index for playlist import performance
         // migrator.registerMigration("v9_add_filename_index_for_playlist_import") { db in
         //     try db.createIndexIfNotExists(

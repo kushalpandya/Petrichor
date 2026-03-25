@@ -80,7 +80,7 @@ class MetadataExtractor {
         extractMetadata(from: audioFile.metadata, into: &metadata)
 
         // Extract artwork
-        extractArtwork(from: audioFile.metadata, into: &metadata)
+        extractArtwork(from: audioFile.metadata, into: &metadata, source: url.lastPathComponent)
 
         // Use external artwork if no artwork found
         if metadata.artworkData == nil, let externalArtwork = externalArtwork {
@@ -136,7 +136,7 @@ class MetadataExtractor {
                     && AlbumArtFormat.isSupported(ext)
                 {
                     if let data = try? Data(contentsOf: url) {
-                        artworkMap[directory] = data
+                        artworkMap[directory] = ImageResizer.compressImage(from: data, source: url.path) ?? data
                         foundArtworkInCurrentDir = true
                     }
                 }
@@ -594,11 +594,13 @@ class MetadataExtractor {
 
     private static func extractArtwork(
         from audioMetadata: AudioMetadata,
-        into metadata: inout TrackMetadata
+        into metadata: inout TrackMetadata,
+        source: String? = nil
     ) {
         // Get the first attached picture
         if let firstPicture = audioMetadata.attachedPictures.first {
-            metadata.artworkData = firstPicture.imageData
+            metadata.artworkData = ImageResizer.compressImage(from: firstPicture.imageData, source: source)
+                ?? firstPicture.imageData
         }
     }
 
