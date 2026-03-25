@@ -94,10 +94,10 @@ extension DatabaseManager {
                     
                     await MainActor.run {
                         // Update NotificationManager with progress
-                        NotificationManager.shared.updateScanProgress(
-                            processedFiles: globalProcessed,
-                            totalFiles: globalTotal,
-                            tracksFound: tracksFound
+                        NotificationManager.shared.updateActivityProgress(
+                            current: globalProcessed,
+                            total: globalTotal,
+                            detail: "\(globalProcessed) of \(globalTotal) files • \(tracksFound) tracks found"
                         )
                         
                         // Check threshold during initial scan

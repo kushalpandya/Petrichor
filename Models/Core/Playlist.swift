@@ -380,14 +380,11 @@ struct Playlist: Identifiable, FetchableRecord, PersistableRecord {
         
         collageImage.unlockFocus()
         
-        // Convert to PNG data
-        guard let tiffData = collageImage.tiffRepresentation,
-              let bitmapRep = NSBitmapImageRep(data: tiffData),
-              let pngData = bitmapRep.representation(using: .png, properties: [:]) else {
+        guard let cgImage = collageImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            Logger.warning("Failed to create CGImage from collage")
             return nil
         }
-        
-        return pngData
+        return ImageResizer.encodeHEIC(cgImage)
     }
 }
 

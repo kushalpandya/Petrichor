@@ -44,28 +44,20 @@ class NotificationManager: ObservableObject {
     
     @Published var isActivityInProgress = false
     @Published var activityMessage = ""
-    @Published var scanProgress: ScanProgress?
+    @Published var activityProgress: ActivityProgress?
     @Published var messages: [NotificationMessage] = []
     
     private var lastProgressUpdateTime: Date = .distantPast
     private let progressUpdateInterval: TimeInterval = 0.5
     
-    struct ScanProgress {
-        let processedFiles: Int
-        let totalFiles: Int
-        let tracksFound: Int
-        
-        var progressPercentage: Int {
-            guard totalFiles > 0 else { return 0 }
-            return Int((Double(processedFiles) / Double(totalFiles)) * 100)
-        }
-        
-        var displayText: String {
-            if totalFiles > 0 {
-                return "\(processedFiles) of \(totalFiles) files • \(tracksFound) tracks found"
-            } else {
-                return "\(tracksFound) tracks found"
-            }
+    struct ActivityProgress {
+        let current: Int
+        let total: Int
+        let detail: String?
+
+        var fraction: Double {
+            guard total > 0 else { return 0 }
+            return Double(current) / Double(total)
         }
     }
     
@@ -88,20 +80,20 @@ class NotificationManager: ObservableObject {
         DispatchQueue.main.async {
             self.isActivityInProgress = false
             self.activityMessage = ""
-            self.scanProgress = nil
+            self.activityProgress = nil
         }
     }
     
-    func updateScanProgress(processedFiles: Int, totalFiles: Int, tracksFound: Int) {
+    func updateActivityProgress(current: Int, total: Int, detail: String? = nil) {
         let now = Date()
         guard now.timeIntervalSince(lastProgressUpdateTime) >= progressUpdateInterval else { return }
         lastProgressUpdateTime = now
         
         DispatchQueue.main.async {
-            self.scanProgress = ScanProgress(
-                processedFiles: processedFiles,
-                totalFiles: totalFiles,
-                tracksFound: tracksFound
+            self.activityProgress = ActivityProgress(
+                current: current,
+                total: total,
+                detail: detail
             )
         }
     }
@@ -342,21 +334,23 @@ struct NotificationPopover: View {
                     .font(.headline)
                     .multilineTextAlignment(.center)
                 
-                if let progress = manager.scanProgress {
-                    Text(progress.displayText)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                if let progress = manager.activityProgress {
+                    if let detail = progress.detail {
+                        Text(detail)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
                     
-                    if progress.totalFiles > 0 {
-                        ProgressView(value: Double(progress.processedFiles), total: Double(progress.totalFiles))
+                    if progress.total > 0 {
+                        ProgressView(value: progress.fraction)
                             .progressViewStyle(.linear)
                             .frame(width: 250)
                     }
                 }
             }
             
-            if manager.scanProgress != nil {
-                Text("You can continue using the app while scanning completes")
+            if manager.activityProgress != nil {
+                Text("You can continue using the app while this completes")
                     .font(.caption)
                     .foregroundColor(.secondary.opacity(0.8))
                     .multilineTextAlignment(.center)
