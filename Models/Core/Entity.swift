@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import SwiftUI
 
 // MARK: - Entity Protocol
 protocol Entity: Identifiable {
@@ -33,7 +34,7 @@ struct ArtistEntity: Entity {
             return cached as Data
         }
         
-        if let jpegData = ImageResizer.resizeImage(from: original, to: ImageResizer.Size.medium) {
+        if let jpegData = ImageUtils.resizeImage(from: original, to: ImageUtils.Size.medium) {
             ArtistEntity.artworkCache.setObject(jpegData as NSData, forKey: cacheKey)
             return jpegData
         }
@@ -48,7 +49,7 @@ struct ArtistEntity: Entity {
             return cached as Data
         }
         
-        if let jpegData = ImageResizer.resizeImage(from: original, to: ImageResizer.Size.large) {
+        if let jpegData = ImageUtils.resizeImage(from: original, to: ImageUtils.Size.large) {
             ArtistEntity.artworkCache.setObject(jpegData as NSData, forKey: cacheKey)
             return jpegData
         }
@@ -102,7 +103,7 @@ struct AlbumEntity: Entity {
             return cached as Data
         }
         
-        if let jpegData = ImageResizer.resizeImage(from: original, to: ImageResizer.Size.medium) {
+        if let jpegData = ImageUtils.resizeImage(from: original, to: ImageUtils.Size.medium) {
             AlbumEntity.artworkCache.setObject(jpegData as NSData, forKey: cacheKey)
             return jpegData
         }
@@ -117,11 +118,21 @@ struct AlbumEntity: Entity {
             return cached as Data
         }
         
-        if let jpegData = ImageResizer.resizeImage(from: original, to: ImageResizer.Size.large) {
+        if let jpegData = ImageUtils.resizeImage(from: original, to: ImageUtils.Size.large) {
             AlbumEntity.artworkCache.setObject(jpegData as NSData, forKey: cacheKey)
             return jpegData
         }
         return nil
+    }
+
+    var dominantColors: [NSColor] {
+        guard let original = artworkData else { return [] }
+        return ImageUtils.cachedDominantColors(id: id, imageData: original)
+    }
+
+    func backgroundGradientColors(isDark: Bool) -> [Color] {
+        guard let original = artworkData else { return [] }
+        return ImageUtils.cachedBackgroundGradientColors(id: id, imageData: original, isDark: isDark)
     }
 
     init(name: String, tracks: [Track]) {

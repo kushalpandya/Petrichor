@@ -11,9 +11,15 @@ struct EntityDetailView: View {
     @State private var selectedTrackID: UUID?
     @State private var isLoading = true
     @State private var isBackButtonHovered = false
-    
+    @State private var gradientColors: [Color] = []
+
+    @AppStorage("useArtworkColors")
+    private var useArtworkColors = true
+
     @AppStorage("trackTableRowSize")
     private var trackTableRowSize: TableRowSize = .expanded
+
+    @Environment(\.colorScheme) var colorScheme
 
     @State private var trackTableSortOrder = [KeyPathComparator(\Track.title)]
     
@@ -50,14 +56,22 @@ struct EntityDetailView: View {
         }
         .onAppear {
             loadTracks()
+            updateGradientColors()
         }
         .onChange(of: entity.id) { oldValue, newValue in
             if oldValue != newValue {
                 loadTracks()
+                updateGradientColors()
             }
         }
+        .onChange(of: colorScheme) {
+            updateGradientColors()
+        }
+        .onChange(of: useArtworkColors) {
+            updateGradientColors()
+        }
     }
-    
+
     // MARK: - Header
     
     private var entityHeader: some View {
@@ -88,10 +102,10 @@ struct EntityDetailView: View {
                     }
                     .help("Back to all \(entity is ArtistEntity ? "artists" : "albums")")
                 }
-                
+
                 // Artwork
                 entityArtwork
-                
+
                 // Info and controls
                 VStack(alignment: .leading, spacing: 12) {
                     if entity is ArtistEntity {
@@ -99,14 +113,25 @@ struct EntityDetailView: View {
                     } else {
                         albumEntityInfo
                     }
-                    
+
                     entityControls
                 }
-                
+                .frame(maxHeight: 120)
+
                 Spacer()
             }
         }
-        .background(.regularMaterial)
+        .background {
+            if !gradientColors.isEmpty {
+                GradientBackground(colors: gradientColors)
+                    .animation(
+                        .easeInOut(duration: AnimationDuration.standardDuration),
+                        value: gradientColors
+                    )
+            } else {
+                Rectangle().fill(.regularMaterial)
+            }
+        }
         .overlay(alignment: .bottomTrailing) {
             HStack(spacing: 12) {
                 TrackTableOptionsDropdown(
@@ -341,7 +366,15 @@ struct EntityDetailView: View {
     }
     
     // MARK: - Methods
-    
+
+    private func updateGradientColors() {
+        guard useArtworkColors, let album = entity as? AlbumEntity else {
+            gradientColors = []
+            return
+        }
+        gradientColors = album.backgroundGradientColors(isDark: colorScheme == .dark)
+    }
+
     private func loadTracks() {
         isLoading = true
         

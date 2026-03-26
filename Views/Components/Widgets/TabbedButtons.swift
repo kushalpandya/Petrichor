@@ -359,18 +359,6 @@ struct TabbedButtonStyle {
     )
 }
 
-// MARK: - Convenience Extensions for Existing Types
-
-extension View {
-    @ViewBuilder
-    func `if`<Transform: View>(_ condition: Bool, transform: (Self) -> Transform) -> some View {
-        if condition {
-            transform(self)
-        } else {
-            self
-        }
-    }
-}
 
 extension TabbedButtonStyle: Equatable {
     static func == (lhs: TabbedButtonStyle, rhs: TabbedButtonStyle) -> Bool {

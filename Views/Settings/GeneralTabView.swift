@@ -22,6 +22,9 @@ struct GeneralTabView: View {
 
     @AppStorage("showFoldersTab")
     private var showFoldersTab = false
+
+    @AppStorage("useArtworkColors")
+    private var useArtworkColors = true
     
     @AppStorage("discoverUpdateInterval")
     private var discoverUpdateInterval: DiscoverUpdateInterval = .weekly
@@ -92,6 +95,9 @@ struct GeneralTabView: View {
 
                 Toggle("Show folders tab in main window", isOn: $showFoldersTab)
                     .help("Shows Folders tab within the main window to browse music directly from added folders")
+
+                Toggle("Use album artwork colors in backgrounds", isOn: $useArtworkColors)
+                    .help("Applies a gradient background derived from album artwork colors across the app")
             }
 
             Section("Library") {

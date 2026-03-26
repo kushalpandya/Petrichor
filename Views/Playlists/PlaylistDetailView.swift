@@ -7,9 +7,15 @@ struct PlaylistDetailView: View {
     @EnvironmentObject var playlistManager: PlaylistManager
     @State private var selectedTrackID: UUID?
     @State private var showingAddSongs = false
-    
+    @State private var gradientColors: [Color] = []
+
+    @AppStorage("useArtworkColors")
+    private var useArtworkColors = true
+
     @AppStorage("trackTableRowSize")
     private var trackTableRowSize: TableRowSize = .expanded
+
+    @Environment(\.colorScheme) var colorScheme
     
     @State private var playlistSortOrder = [KeyPathComparator(\Track.sortableDateAdded)]
 
@@ -45,12 +51,24 @@ struct PlaylistDetailView: View {
             }
             .onChange(of: playlist.dateModified) {
                 loadPlaylistTracksIfNeeded()
+                updateGradientColors()
             }
             .onAppear {
                 loadPlaylistTracksIfNeeded()
+                updateGradientColors()
             }
             .onChange(of: playlist.id) {
                 loadPlaylistTracksIfNeeded()
+                updateGradientColors()
+            }
+            .onChange(of: playlist.tracks.count) {
+                updateGradientColors()
+            }
+            .onChange(of: colorScheme) {
+                updateGradientColors()
+            }
+            .onChange(of: useArtworkColors) {
+                updateGradientColors()
             }
         } else {
             playlistNotFoundView
@@ -72,6 +90,15 @@ struct PlaylistDetailView: View {
                     }
 
                     Spacer()
+                }
+            }
+            .background {
+                if !gradientColors.isEmpty {
+                    GradientBackground(colors: gradientColors)
+                        .animation(
+                            .easeInOut(duration: AnimationDuration.standardDuration),
+                            value: gradientColors
+                        )
                 }
             }
             .overlay(alignment: .bottomTrailing) {
@@ -321,7 +348,21 @@ struct PlaylistDetailView: View {
     }
 
     // MARK: - Action Methods
-    
+
+    private func updateGradientColors() {
+        guard useArtworkColors,
+              let playlist = playlist,
+              let artworkData = playlist.effectiveCoverArtwork else {
+            gradientColors = []
+            return
+        }
+        gradientColors = ImageUtils.cachedBackgroundGradientColors(
+            id: playlist.id,
+            imageData: artworkData,
+            isDark: colorScheme == .dark
+        )
+    }
+
     private func loadPlaylistTracksIfNeeded() {
         guard let playlist = playlist else { return }
             
