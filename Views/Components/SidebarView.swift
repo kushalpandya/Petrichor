@@ -18,7 +18,14 @@ struct SidebarView<Item: SidebarItem>: View {
     let showIcon: Bool
     let iconColor: Color
     let showCount: Bool
-    
+
+    // Reordering
+    let reorderableFromIndex: Int?
+    let onReorder: (([Item]) -> Void)?
+
+    // External editing trigger
+    @Binding var externalEditingItemID: UUID?
+
     init(
         items: [Item],
         selectedItem: Binding<Item?>,
@@ -30,7 +37,10 @@ struct SidebarView<Item: SidebarItem>: View {
         showIcon: Bool = true,
         iconColor: Color = .secondary,
         showCount: Bool = false,
-        trailingContent: ((Item) -> AnyView)? = nil
+        trailingContent: ((Item) -> AnyView)? = nil,
+        reorderableFromIndex: Int? = nil,
+        onReorder: (([Item]) -> Void)? = nil,
+        externalEditingItemID: Binding<UUID?> = .constant(nil)
     ) {
         self.items = items
         self._selectedItem = selectedItem
@@ -43,8 +53,11 @@ struct SidebarView<Item: SidebarItem>: View {
         self.iconColor = iconColor
         self.showCount = showCount
         self.trailingContent = trailingContent
+        self.reorderableFromIndex = reorderableFromIndex
+        self.onReorder = onReorder
+        self._externalEditingItemID = externalEditingItemID
     }
-    
+
     var body: some View {
         SidebarListView(
             items: items,
@@ -57,7 +70,10 @@ struct SidebarView<Item: SidebarItem>: View {
             showIcon: showIcon,
             iconColor: iconColor,
             showCount: showCount,
-            trailingContent: trailingContent
+            trailingContent: trailingContent,
+            reorderableFromIndex: reorderableFromIndex,
+            onReorder: onReorder,
+            externalEditingItemID: $externalEditingItemID
         )
     }
 }

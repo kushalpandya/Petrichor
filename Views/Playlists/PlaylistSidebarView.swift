@@ -7,6 +7,7 @@ struct PlaylistSidebarView: View {
     @State private var selectedSidebarItem: PlaylistSidebarItem?
     @State private var playlistToDelete: Playlist?
     @State private var showingDeleteConfirmation = false
+    @State private var editingPlaylistID: UUID?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -96,6 +97,10 @@ struct PlaylistSidebarView: View {
 
     // MARK: - Playlists List
 
+    private var nonEditableCount: Int {
+        playlistManager.playlists.prefix { !$0.isUserEditable }.count
+    }
+
     private var playlistsList: some View {
         SidebarView(
             items: allPlaylistItems,
@@ -111,12 +116,72 @@ struct PlaylistSidebarView: View {
             },
             showIcon: true,
             iconColor: .secondary,
-            showCount: false
+            showCount: false,
+            trailingContent: { item in
+                kebabMenu(for: item)
+            },
+            reorderableFromIndex: nonEditableCount,
+            onReorder: { reorderedItems in
+                handlePlaylistReorder(reorderedItems)
+            },
+            externalEditingItemID: $editingPlaylistID
+        )
+    }
+
+    // MARK: - Kebab Menu
+
+    private func kebabMenu(for item: PlaylistSidebarItem) -> AnyView {
+        guard item.playlist.isUserEditable else { return AnyView(EmptyView()) }
+
+        let isSelected = selectedSidebarItem?.id == item.id
+        let isPinned = playlistManager.isPlaylistPinned(item.playlist)
+
+        return AnyView(
+            Menu {
+                Button(isPinned ? "Remove from Home" : "Pin to Home") {
+                    Task {
+                        if isPinned {
+                            await playlistManager.unpinPlaylist(item.playlist)
+                        } else {
+                            await playlistManager.pinPlaylist(item.playlist)
+                        }
+                    }
+                }
+
+                Divider()
+
+                Button("Rename") {
+                    editingPlaylistID = item.id
+                }
+
+                Divider()
+
+                Button("Delete", role: .destructive) {
+                    playlistToDelete = item.playlist
+                    showingDeleteConfirmation = true
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 11))
+                    .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
+                    .imageScale(.large)
+                    .frame(width: 16, height: 16)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
         )
     }
 
     private var allPlaylistItems: [PlaylistSidebarItem] {
         playlistManager.playlists.map { PlaylistSidebarItem(playlist: $0) }
+    }
+
+    // MARK: - Reorder Playlists
+
+    private func handlePlaylistReorder(_ reorderedItems: [PlaylistSidebarItem]) {
+        let reorderedPlaylists = reorderedItems.map { $0.playlist }
+        playlistManager.reorderPlaylists(reorderedPlaylists)
     }
 
     // MARK: - Context Menu

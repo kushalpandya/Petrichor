@@ -160,13 +160,30 @@ class PlaylistManager: ObservableObject {
         return playlist.tracks
     }
     
-    /// Sort playlists according to type and predefined order
+    /// Sort playlists: smart playlists first (by dateCreated), then regular playlists (by sortOrder, dateCreated as tiebreaker)
     func sortPlaylists(smart: [Playlist], regular: [Playlist]) -> [Playlist] {
-        // Combine all playlists and sort by creation date (oldest first)
-        let allPlaylists = smart + regular
-        return allPlaylists.sorted { $0.dateCreated < $1.dateCreated }
+        let sortedSmart = smart.sorted { $0.dateCreated < $1.dateCreated }
+        let sortedRegular = regular.sorted {
+            $0.sortOrder == $1.sortOrder ? $0.dateCreated < $1.dateCreated : $0.sortOrder < $1.sortOrder
+        }
+        return sortedSmart + sortedRegular
     }
-    
+
+    /// Reorder user playlists and persist the new order
+    func reorderPlaylists(_ reorderedPlaylists: [Playlist]) {
+        guard let dbManager = libraryManager?.databaseManager else { return }
+
+        playlists = reorderedPlaylists
+
+        Task {
+            do {
+                try await dbManager.updatePlaylistsOrder(reorderedPlaylists)
+            } catch {
+                Logger.error("Failed to reorder playlists: \(error)")
+            }
+        }
+    }
+
     /// Get all playlists that a track belongs to
     func getPlaylistsContainingTrack(_ track: Track) -> [Playlist] {
         playlists.filter { playlist in
