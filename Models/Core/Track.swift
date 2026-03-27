@@ -1,6 +1,7 @@
 import Foundation
 import GRDB
 import AppKit
+import SwiftUI
 
 struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord {
     let id = UUID()
@@ -58,7 +59,7 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
                 return cached as Data
             }
             
-            if let jpegData = ImageResizer.resizeImage(from: original, to: ImageResizer.Size.small) {
+            if let jpegData = ImageUtils.resizeImage(from: original, to: ImageUtils.Size.small) {
                 Track.artworkCache.setObject(jpegData as NSData, forKey: cacheKey)
                 return jpegData
             }
@@ -81,7 +82,7 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
                 return cached as Data
             }
             
-            if let jpegData = ImageResizer.resizeImage(from: original, to: ImageResizer.Size.medium) {
+            if let jpegData = ImageUtils.resizeImage(from: original, to: ImageUtils.Size.medium) {
                 Track.artworkCache.setObject(jpegData as NSData, forKey: cacheKey)
                 return jpegData
             }
@@ -104,7 +105,7 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
                 return cached as Data
             }
             
-            if let jpegData = ImageResizer.resizeImage(from: original, to: ImageResizer.Size.large) {
+            if let jpegData = ImageUtils.resizeImage(from: original, to: ImageUtils.Size.large) {
                 Track.artworkCache.setObject(jpegData as NSData, forKey: cacheKey)
                 return jpegData
             }
@@ -118,6 +119,16 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
         }
     }
     
+    var dominantColors: [NSColor] {
+        guard let original = albumArtworkData else { return [] }
+        return ImageUtils.cachedDominantColors(id: id, imageData: original)
+    }
+
+    func backgroundGradientColors(isDark: Bool) -> [Color] {
+        guard let original = albumArtworkData else { return [] }
+        return ImageUtils.cachedBackgroundGradientColors(id: id, imageData: original, isDark: isDark)
+    }
+
     // MARK: - Initialization
     
     init(url: URL) {
@@ -385,7 +396,7 @@ extension Track {
     /// - Returns: FullTrack with all metadata, or nil if not found
     func fullTrack(using dbQueue: DatabaseQueue) async throws -> FullTrack? {
         guard let trackId = trackId else { return nil }
-        
+
         return try await dbQueue.read { db in
             try FullTrack
                 .filter(FullTrack.Columns.trackId == trackId)

@@ -183,7 +183,7 @@ struct LibraryTabView: View {
                 }
                 .padding(.vertical, 6)
             }
-            .frame(height: 350)
+            .frame(height: 400)
             .background(Color.secondary.opacity(0.08))
             .cornerRadius(6)
             .overlay(refreshOverlay)

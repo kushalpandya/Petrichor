@@ -384,7 +384,7 @@ struct Playlist: Identifiable, FetchableRecord, PersistableRecord {
             Logger.warning("Failed to create CGImage from collage")
             return nil
         }
-        return ImageResizer.encodeHEIC(cgImage)
+        return ImageUtils.encodeHEIC(cgImage)
     }
 }
 

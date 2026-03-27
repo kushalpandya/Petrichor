@@ -6,76 +6,114 @@ struct TrackDetailView: View {
     
     @State private var fullTrack: FullTrack?
     @State private var isLoading = true
+    @State private var gradientColors: [Color] = []
+
+    @AppStorage("useArtworkColors")
+    private var useArtworkColors = true
+
     @EnvironmentObject var libraryManager: LibraryManager
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header with close button
-            headerSection
+        ZStack {
+            // Background gradient layer
+            if !gradientColors.isEmpty {
+                LinearGradient(
+                    colors: gradientColors + [.clear],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .overlay(.ultraThinMaterial)
+                .animation(
+                    .easeInOut(duration: AnimationDuration.standardDuration),
+                    value: gradientColors
+                )
+            }
 
-            Divider()
+            VStack(spacing: 0) {
+                // Header with close button
+                headerSection
 
-            // Show loading or content based on state
-            if isLoading && fullTrack == nil {
-                // Loading state
-                VStack {
-                    ProgressView()
-                        .progressViewStyle(.circular)
-                        .scaleEffect(0.8)
-                    Text("Loading track details...")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .padding(.top, 8)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if let fullTrack = fullTrack {
-                ScrollView {
-                    VStack(spacing: 24) {
-                        // Album artwork
-                        artworkSection(for: fullTrack)
+                Divider()
 
-                        // Track info
-                        trackInfoSection(for: fullTrack)
-
-                        // Combined Track Information section
-                        let items = trackInformationItems(for: fullTrack)
-                        if !items.isEmpty {
-                            metadataSection(title: "Details", items: items)
-                        }
-
-                        // Collapsible File Details section
-                        FileDetailsSection(fullTrack: fullTrack)
+                // Show loading or content based on state
+                if isLoading && fullTrack == nil {
+                    // Loading state
+                    VStack {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .scaleEffect(0.8)
+                        Text("Loading track details...")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 8)
                     }
-                    .padding(20)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if let fullTrack = fullTrack {
+                    ScrollView {
+                        VStack(spacing: 24) {
+                            // Album artwork
+                            artworkSection(for: fullTrack)
+
+                            // Track info
+                            trackInfoSection(for: fullTrack)
+
+                            // Combined Track Information section
+                            let items = trackInformationItems(for: fullTrack)
+                            if !items.isEmpty {
+                                metadataSection(title: "Details", items: items)
+                            }
+
+                            // Collapsible File Details section
+                            FileDetailsSection(fullTrack: fullTrack)
+                        }
+                        .padding(20)
+                    }
+                } else {
+                    VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 48))
+                            .foregroundColor(.secondary)
+                        Text("Unable to load track details")
+                            .font(.headline)
+                        Text("The track information could not be retrieved.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-            } else {
-                VStack(spacing: 16) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 48))
-                        .foregroundColor(.secondary)
-                    Text("Unable to load track details")
-                        .font(.headline)
-                    Text("The track information could not be retrieved.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .onAppear {
             if fullTrack == nil {
                 loadFullTrack()
             }
+            updateGradientColors()
         }
         .onChange(of: track.id) { oldId, newId in
             if oldId != newId {
                 isLoading = true
                 fullTrack = nil
                 loadFullTrack()
+                updateGradientColors()
             }
         }
+        .onChange(of: colorScheme) {
+            updateGradientColors()
+        }
+        .onChange(of: useArtworkColors) {
+            updateGradientColors()
+        }
     }
-    
+
+    private func updateGradientColors() {
+        guard useArtworkColors else {
+            gradientColors = []
+            return
+        }
+        gradientColors = track.backgroundGradientColors(isDark: colorScheme == .dark)
+    }
+
     // MARK: - Load Full Track
     
     private func loadFullTrack() {
@@ -221,7 +259,7 @@ struct TrackDetailView: View {
             .padding(12)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(Color(NSColor.controlBackgroundColor))
+                    .fill(.thinMaterial)
             )
         }
     }
@@ -438,7 +476,7 @@ private struct FileDetailsSection: View {
                 .padding(12)
                 .background(
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(NSColor.controlBackgroundColor))
+                        .fill(.thinMaterial)
                 )
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }

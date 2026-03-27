@@ -136,7 +136,7 @@ class MetadataExtractor {
                     && AlbumArtFormat.isSupported(ext)
                 {
                     if let data = try? Data(contentsOf: url) {
-                        artworkMap[directory] = ImageResizer.compressImage(from: data, source: url.path) ?? data
+                        artworkMap[directory] = ImageUtils.compressImage(from: data, source: url.path) ?? data
                         foundArtworkInCurrentDir = true
                     }
                 }
@@ -599,7 +599,7 @@ class MetadataExtractor {
     ) {
         // Get the first attached picture
         if let firstPicture = audioMetadata.attachedPictures.first {
-            metadata.artworkData = ImageResizer.compressImage(from: firstPicture.imageData, source: source)
+            metadata.artworkData = ImageUtils.compressImage(from: firstPicture.imageData, source: source)
                 ?? firstPicture.imageData
         }
     }

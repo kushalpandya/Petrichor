@@ -15,34 +15,6 @@ struct EntityView<T: Entity>: View {
     }
 }
 
-// MARK: - NSImage Extension
-extension NSImage {
-    func resized(to size: NSSize) -> NSImage? {
-        guard let bitmapRep = NSBitmapImageRep(
-            bitmapDataPlanes: nil,
-            pixelsWide: Int(size.width),
-            pixelsHigh: Int(size.height),
-            bitsPerSample: 8,
-            samplesPerPixel: 4,
-            hasAlpha: true,
-            isPlanar: false,
-            colorSpaceName: .deviceRGB,
-            bytesPerRow: 0,
-            bitsPerPixel: 0
-        ) else { return nil }
-
-        bitmapRep.size = size
-        NSGraphicsContext.saveGraphicsState()
-        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmapRep)
-        draw(in: NSRect(origin: .zero, size: size), from: .zero, operation: .copy, fraction: 1.0)
-        NSGraphicsContext.restoreGraphicsState()
-
-        let resizedImage = NSImage(size: size)
-        resizedImage.addRepresentation(bitmapRep)
-        return resizedImage
-    }
-}
-
 // MARK: - Async Entity Artwork Loading
 
 extension View {

@@ -71,7 +71,7 @@ extension DatabaseManager {
                     guard let rowId: Int64 = row[Album.Columns.id],
                           let original: Data = row[Album.Columns.artworkData] else { continue }
                     let name: String? = row[Album.Columns.title]
-                    guard let compressed = ImageResizer.compressImage(
+                    guard let compressed = ImageUtils.compressImage(
                         from: original, source: "album: \(name ?? "id=\(rowId)")"
                     ) else { continue }
                     guard compressed.count < original.count else { continue }
@@ -101,7 +101,7 @@ extension DatabaseManager {
                     guard let rowId: Int64 = row[Artist.Columns.id],
                           let original: Data = row[Artist.Columns.artworkData] else { continue }
                     let name: String? = row[Artist.Columns.name]
-                    guard let compressed = ImageResizer.compressImage(
+                    guard let compressed = ImageUtils.compressImage(
                         from: original, source: "artist: \(name ?? "id=\(rowId)")"
                     ) else { continue }
                     guard compressed.count < original.count else { continue }
@@ -131,7 +131,7 @@ extension DatabaseManager {
                     guard let rowId: Int64 = row[FullTrack.Columns.trackId],
                           let original: Data = row[FullTrack.Columns.trackArtworkData] else { continue }
                     let name: String? = row[FullTrack.Columns.filename]
-                    guard let compressed = ImageResizer.compressImage(
+                    guard let compressed = ImageUtils.compressImage(
                         from: original, source: "track: \(name ?? "id=\(rowId)")"
                     ) else { continue }
                     guard compressed.count < original.count else { continue }
@@ -161,7 +161,7 @@ extension DatabaseManager {
                     guard let rowId: String = row[Playlist.Columns.id],
                           let original: Data = row[Playlist.Columns.coverArtworkData] else { continue }
                     let name: String? = row[Playlist.Columns.name]
-                    guard let compressed = ImageResizer.compressImage(
+                    guard let compressed = ImageUtils.compressImage(
                         from: original, source: "playlist: \(name ?? "id=\(rowId)")"
                     ) else { continue }
                     guard compressed.count < original.count else { continue }

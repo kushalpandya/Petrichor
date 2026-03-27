@@ -9,7 +9,13 @@ struct PlayerView: View {
     
     @Environment(\.scenePhase)
     var scenePhase
+    @Environment(\.colorScheme)
+    var colorScheme
 
+    @AppStorage("useArtworkColors")
+    private var useArtworkColors = true
+
+    @State private var gradientColors: [Color] = []
     @State private var isDraggingProgress = false
     @State private var tempProgressValue: Double = 0
     @State private var currentTrackId: UUID?
@@ -21,25 +27,54 @@ struct PlayerView: View {
     @State private var isDraggingVolume = false
 
     var body: some View {
-        HStack(spacing: 20) {
-            // Left section: Album art and track info
-            leftSection
+        ZStack {
+            // Background gradient layer
+            if !gradientColors.isEmpty {
+                GeometryReader { geometry in
+                    RadialGradient(
+                        colors: gradientColors + [.clear],
+                        center: .leading,
+                        startRadius: 0,
+                        endRadius: geometry.size.width * 0.25
+                    )
+                    .overlay(.ultraThinMaterial)
+                }
+                .animation(
+                    .easeInOut(duration: AnimationDuration.standardDuration),
+                    value: gradientColors
+                )
+            }
 
-            Spacer()
+            // Content layer
+            HStack(spacing: 20) {
+                // Left section: Album art and track info
+                leftSection
 
-            // Center section: Playback controls and progress
-            centerSection
+                Spacer()
 
-            Spacer()
+                // Center section: Playback controls and progress
+                centerSection
 
-            // Right section: Volume and queue controls
-            rightSection
+                Spacer()
+
+                // Right section: Volume and queue controls
+                rightSection
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
         .frame(maxWidth: .infinity)
         .onAppear {
             setupInitialState()
+        }
+        .onChange(of: playbackManager.currentTrack?.id) {
+            updateGradientColors()
+        }
+        .onChange(of: colorScheme) {
+            updateGradientColors()
+        }
+        .onChange(of: useArtworkColors) {
+            updateGradientColors()
         }
     }
 
@@ -427,6 +462,19 @@ struct PlayerView: View {
         } else {
             previousVolume = playbackManager.volume
         }
+
+        updateGradientColors()
+    }
+
+    private func updateGradientColors() {
+        guard useArtworkColors,
+              let track = playbackManager.currentTrack,
+              !track.dominantColors.isEmpty else {
+            gradientColors = []
+            return
+        }
+
+        gradientColors = track.backgroundGradientColors(isDark: colorScheme == .dark)
     }
 
     private func progressDragGesture(in geometry: GeometryProxy) -> some Gesture {
