@@ -5,10 +5,12 @@ import SwiftUI
 struct ListHeaderStyle: ViewModifier {
     let height: CGFloat
     let padding: EdgeInsets
+    let opaque: Bool
 
-    init(height: CGFloat = 36, padding: EdgeInsets? = nil) {
+    init(height: CGFloat = 36, padding: EdgeInsets? = nil, opaque: Bool = false) {
         self.height = height
         self.padding = padding ?? EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12)
+        self.opaque = opaque
     }
 
     func body(content: Content) -> some View {
@@ -16,15 +18,15 @@ struct ListHeaderStyle: ViewModifier {
             .padding(padding)
             .frame(maxWidth: .infinity)
             .frame(height: height)
-            .background(Color(NSColor.clear))
+            .background(opaque ? Color(NSColor.controlBackgroundColor) : Color(NSColor.clear))
     }
 }
 
 // MARK: - View Extension
 
 extension View {
-    func listHeaderStyle(height: CGFloat = 36, padding: EdgeInsets? = nil) -> some View {
-        modifier(ListHeaderStyle(height: height, padding: padding))
+    func listHeaderStyle(height: CGFloat = 36, padding: EdgeInsets? = nil, opaque: Bool = false) -> some View {
+        modifier(ListHeaderStyle(height: height, padding: padding, opaque: opaque))
     }
 }
 
@@ -39,17 +41,20 @@ struct ListHeader<Content: View>: View {
     let type: HeaderType
     let height: CGFloat?
     let padding: EdgeInsets?
+    let opaque: Bool
     let content: () -> Content
 
     init(
         type: HeaderType = .simple,
         height: CGFloat? = nil,
         padding: EdgeInsets? = nil,
+        opaque: Bool = false,
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.type = type
         self.height = height
         self.padding = padding
+        self.opaque = opaque
         self.content = content
     }
 
@@ -59,7 +64,8 @@ struct ListHeader<Content: View>: View {
         }
         .listHeaderStyle(
             height: height ?? (type == .simple ? 36 : 120),
-            padding: padding
+            padding: padding,
+            opaque: opaque
         )
     }
 }
@@ -99,9 +105,43 @@ struct EntityHeader<Content: View>: View {
 struct TrackListHeader<Trailing: View>: View {
     let title: String
     let subtitle: String?
-    let trackCount: Int
+    let trackCount: Int?
+    let sortOrder: Binding<[KeyPathComparator<Track>]>?
+    let tableRowSize: Binding<TableRowSize>?
     let trailing: (() -> Trailing)?
 
+    // With sort options + trailing content
+    init(
+        title: String,
+        subtitle: String? = nil,
+        sortOrder: Binding<[KeyPathComparator<Track>]>,
+        tableRowSize: Binding<TableRowSize>,
+        @ViewBuilder trailingContent: @escaping () -> Trailing
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.trackCount = nil
+        self.sortOrder = sortOrder
+        self.tableRowSize = tableRowSize
+        self.trailing = trailingContent
+    }
+
+    // With sort options, no trailing content
+    init(
+        title: String,
+        subtitle: String? = nil,
+        sortOrder: Binding<[KeyPathComparator<Track>]>,
+        tableRowSize: Binding<TableRowSize>
+    ) where Trailing == EmptyView {
+        self.title = title
+        self.subtitle = subtitle
+        self.trackCount = nil
+        self.sortOrder = sortOrder
+        self.tableRowSize = tableRowSize
+        self.trailing = nil
+    }
+
+    // With track count + trailing content, no sort options
     init(
         title: String,
         subtitle: String? = nil,
@@ -111,9 +151,12 @@ struct TrackListHeader<Trailing: View>: View {
         self.title = title
         self.subtitle = subtitle
         self.trackCount = trackCount
+        self.sortOrder = nil
+        self.tableRowSize = nil
         self.trailing = trailing
     }
 
+    // With track count only, no sort options, no trailing
     init(
         title: String,
         subtitle: String? = nil,
@@ -122,11 +165,13 @@ struct TrackListHeader<Trailing: View>: View {
         self.title = title
         self.subtitle = subtitle
         self.trackCount = trackCount
+        self.sortOrder = nil
+        self.tableRowSize = nil
         self.trailing = nil
     }
 
     var body: some View {
-        ListHeader {
+        ListHeader(opaque: true) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .headerTitleStyle()
@@ -141,68 +186,17 @@ struct TrackListHeader<Trailing: View>: View {
 
             if let trailing = trailing {
                 trailing()
-            } else {
+            } else if let trackCount = trackCount {
                 Text("\(trackCount) tracks")
                     .headerSubtitleStyle()
             }
-        }
-    }
-}
 
-struct TrackListHeaderWithOptions<TrailingContent: View>: View {
-    let title: String
-    let subtitle: String?
-    @Binding var sortOrder: [KeyPathComparator<Track>]
-    @Binding var tableRowSize: TableRowSize
-    let trailingContent: TrailingContent
-
-    init(
-        title: String,
-        subtitle: String? = nil,
-        sortOrder: Binding<[KeyPathComparator<Track>]>,
-        tableRowSize: Binding<TableRowSize>,
-        @ViewBuilder trailingContent: () -> TrailingContent
-    ) {
-        self.title = title
-        self.subtitle = subtitle
-        self._sortOrder = sortOrder
-        self._tableRowSize = tableRowSize
-        self.trailingContent = trailingContent()
-    }
-    
-    init(
-        title: String,
-        subtitle: String? = nil,
-        sortOrder: Binding<[KeyPathComparator<Track>]>,
-        tableRowSize: Binding<TableRowSize>
-    ) where TrailingContent == EmptyView {
-        self.title = title
-        self.subtitle = subtitle
-        self._sortOrder = sortOrder
-        self._tableRowSize = tableRowSize
-        self.trailingContent = EmptyView()
-    }
-
-    var body: some View {
-        ListHeader {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .headerTitleStyle()
-
-                if let subtitle = subtitle {
-                    Text(subtitle)
-                        .headerSubtitleStyle()
-                }
+            if let sortOrder = sortOrder, let tableRowSize = tableRowSize {
+                TrackTableOptionsDropdown(
+                    sortOrder: sortOrder,
+                    tableRowSize: tableRowSize
+                )
             }
-
-            Spacer()
-            
-            trailingContent
-
-            TrackTableOptionsDropdown(
-                sortOrder: $sortOrder,
-                tableRowSize: $tableRowSize
-            )
         }
     }
 }

@@ -13,9 +13,6 @@ struct ContentView: View {
     @EnvironmentObject var libraryManager: LibraryManager
     @EnvironmentObject var playlistManager: PlaylistManager
         
-    @AppStorage("rightSidebarSplitPosition")
-    private var splitPosition: Double = 200
-    
     @AppStorage("showFoldersTab")
     private var showFoldersTab = false
     
@@ -28,6 +25,15 @@ struct ContentView: View {
     @State private var isSettingsHovered = false
     @State private var shouldFocusSearch = false
     @State private var showingExportPlaylistSheet = false
+
+    // Sidebar selection state (owned here, passed as bindings to sidebars + content views)
+    @State private var selectedHomeSidebarItem: HomeSidebarItem?
+    @State private var selectedPlaylist: Playlist?
+    @State private var selectedFolderNode: FolderNode?
+    @AppStorage("librarySelectedFilterType")
+    private var libraryFilterType: LibraryFilterType = .artists
+    @State private var libraryFilterItem: LibraryFilterItem?
+    @State private var libraryPendingSearchText: String?
     
     @ObservedObject private var notificationManager = NotificationManager.shared
 
@@ -124,36 +130,68 @@ struct ContentView: View {
 
     private var mainContentArea: some View {
         PersistentSplitView(
-            main: {
+            left: {
+                leftSidebar
+            },
+            center: {
                 sectionContent
             },
             right: {
                 sidePanel
-            },
-            rightStorageKey: "rightSidebarSplitPosition"
+            }
         )
         .frame(minHeight: 0, maxHeight: .infinity)
     }
 
+    @ViewBuilder
+    private var leftSidebar: some View {
+        ZStack {
+            HomeSidebarView(selectedItem: $selectedHomeSidebarItem)
+                .opacity(selectedTab == .home ? 1 : 0)
+                .allowsHitTesting(selectedTab == .home)
+
+            if selectedTab == .library {
+                LibrarySidebarView(
+                    selectedFilterType: $libraryFilterType,
+                    selectedFilterItem: $libraryFilterItem,
+                    pendingSearchText: $libraryPendingSearchText
+                )
+            }
+
+            if selectedTab == .playlists {
+                PlaylistSidebarView(selectedPlaylist: $selectedPlaylist)
+            }
+
+            if selectedTab == .folders {
+                FoldersSidebarView(selectedNode: $selectedFolderNode)
+            }
+        }
+    }
+
     private var sectionContent: some View {
         ZStack {
-            HomeView(isShowingEntities: .constant(false))
+            HomeView(selectedSidebarItem: $selectedHomeSidebarItem, isShowingEntities: .constant(false))
                 .opacity(selectedTab == .home ? 1 : 0)
                 .allowsHitTesting(selectedTab == .home)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             if selectedTab == .library {
-                LibraryView(pendingFilter: $pendingLibraryFilter)
+                LibraryView(
+                    selectedFilterType: $libraryFilterType,
+                    selectedFilterItem: $libraryFilterItem,
+                    pendingSearchText: $libraryPendingSearchText,
+                    pendingFilter: $pendingLibraryFilter
+                )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
 
             if selectedTab == .playlists {
-                PlaylistsView()
+                PlaylistsView(selectedPlaylist: $selectedPlaylist)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
 
             if selectedTab == .folders && showFoldersTab {
-                FoldersView()
+                FoldersView(selectedFolderNode: $selectedFolderNode)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
@@ -168,6 +206,7 @@ struct ContentView: View {
                 get: { rightSidebarContent == .queue },
                 set: { if !$0 { rightSidebarContent = .none } }
             ))
+            .background(.ultraThinMaterial)
         case .trackDetail(let track):
             TrackDetailView(track: track) {
                 rightSidebarContent = .none
@@ -176,6 +215,7 @@ struct ContentView: View {
             TrackLyricsView {
                 rightSidebarContent = .none
             }
+            .background(.ultraThinMaterial)
         case .none:
             EmptyView()
         }

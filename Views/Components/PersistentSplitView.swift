@@ -111,6 +111,7 @@ struct PersistentSplitView<Left: View, Center: View, Right: View>: View {
                 left()
                     .frame(width: leftWidth)
                     .frame(maxHeight: .infinity)
+                    .background(.ultraThinMaterial)
                     .layoutPriority(1)
 
                 SplitDivider(

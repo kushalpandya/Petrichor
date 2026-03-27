@@ -315,7 +315,6 @@ struct EntityDetailView: View {
                 .padding(.top, 8)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(NSColor.textBackgroundColor))
     }
     
     private var emptyView: some View {
@@ -333,7 +332,6 @@ struct EntityDetailView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
-        .background(Color(NSColor.textBackgroundColor))
     }
     
     // MARK: - Computed Properties

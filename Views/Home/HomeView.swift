@@ -21,7 +21,7 @@ struct HomeView: View {
     @AppStorage("trackTableRowSize")
     private var trackTableRowSize: TableRowSize = .expanded
     
-    @State private var selectedSidebarItem: HomeSidebarItem?
+    @Binding var selectedSidebarItem: HomeSidebarItem?
     @State private var selectedTrackID: UUID?
     @State private var pinnedItemTracks: [Track] = []
     @State private var sortedArtistEntities: [ArtistEntity] = []
@@ -38,61 +38,54 @@ struct HomeView: View {
         if !libraryManager.shouldShowMainUI {
             NoMusicEmptyStateView(context: .mainWindow)
         } else {
-            PersistentSplitView(
-                left: {
-                    HomeSidebarView(selectedItem: $selectedSidebarItem)
-                },
-                main: {
-                    ZStack {
-                        // Base content (always rendered)
-                        VStack(spacing: 0) {
-                            if let selectedItem = selectedSidebarItem {
-                                switch selectedItem.source {
-                                case .fixed(let type):
-                                    switch type {
-                                    case .discover:
-                                        discoverView
-                                    case .tracks:
-                                        tracksView
-                                    case .artists:
-                                        artistsView
-                                    case .albums:
-                                        albumsView
-                                    }
-                                case .pinned:
-                                    pinnedItemTracksView
-                                        .id(selectedSidebarItem?.id)
-                                }
-                            } else {
-                                emptySelectionView
+            ZStack {
+                // Base content (always rendered)
+                VStack(spacing: 0) {
+                    if let selectedItem = selectedSidebarItem {
+                        switch selectedItem.source {
+                        case .fixed(let type):
+                            switch type {
+                            case .discover:
+                                discoverView
+                            case .tracks:
+                                tracksView
+                            case .artists:
+                                artistsView
+                            case .albums:
+                                albumsView
                             }
+                        case .pinned:
+                            pinnedItemTracksView
+                                .id(selectedSidebarItem?.id)
                         }
-                        .navigationTitle(selectedSidebarItem?.title ?? "Home")
-                        .navigationSubtitle("")
-                        
-                        // Entity detail overlay
-                        if isShowingEntityDetail {
-                            if let artist = selectedArtistEntity {
-                                EntityDetailView(
-                                    entity: artist,
-                                ) {
-                                    isShowingEntityDetail = false
-                                    selectedArtistEntity = nil
-                                }
-                                .zIndex(1)
-                            } else if let album = selectedAlbumEntity {
-                                EntityDetailView(
-                                    entity: album,
-                                ) {
-                                    isShowingEntityDetail = false
-                                    selectedAlbumEntity = nil
-                                }
-                                .zIndex(1)
-                            }
-                        }
+                    } else {
+                        emptySelectionView
                     }
                 }
-            )
+                .navigationTitle(selectedSidebarItem?.title ?? "Home")
+                .navigationSubtitle("")
+
+                // Entity detail overlay
+                if isShowingEntityDetail {
+                    if let artist = selectedArtistEntity {
+                        EntityDetailView(
+                            entity: artist,
+                        ) {
+                            isShowingEntityDetail = false
+                            selectedArtistEntity = nil
+                        }
+                        .zIndex(1)
+                    } else if let album = selectedAlbumEntity {
+                        EntityDetailView(
+                            entity: album,
+                        ) {
+                            isShowingEntityDetail = false
+                            selectedAlbumEntity = nil
+                        }
+                        .zIndex(1)
+                    }
+                }
+            }
             .onChange(of: selectedSidebarItem) { _, newItem in
                 isShowingEntityDetail = false
                 selectedArtistEntity = nil
@@ -143,7 +136,7 @@ struct HomeView: View {
 
     private var discoverView: some View {
         VStack(alignment: .leading, spacing: 0) {
-            TrackListHeaderWithOptions(
+            TrackListHeader(
                 title: "Discover",
                 sortOrder: $trackTableSortOrder,
                 tableRowSize: $trackTableRowSize
@@ -212,7 +205,7 @@ struct HomeView: View {
     private var tracksView: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
-            TrackListHeaderWithOptions(
+            TrackListHeader(
                 title: "All tracks",
                 sortOrder: $trackTableSortOrder,
                 tableRowSize: $trackTableRowSize
@@ -298,7 +291,6 @@ struct HomeView: View {
                         createArtistContextMenuItems(for: artist)
                     }
                 )
-                .background(Color(NSColor.textBackgroundColor))
             }
         }
         .onAppear {
@@ -405,7 +397,6 @@ struct HomeView: View {
                         createAlbumContextMenuItems(for: album)
                     }
                 )
-                .background(Color(NSColor.textBackgroundColor))
             }
         }
         .onAppear {
@@ -457,7 +448,7 @@ struct HomeView: View {
                 // For all other pinned items (genres, years, composers, etc.)
                 else {
                     // Regular track list header
-                    TrackListHeaderWithOptions(
+                    TrackListHeader(
                         title: pinnedItem.displayName,
                         sortOrder: $trackTableSortOrder,
                         tableRowSize: $trackTableRowSize
@@ -477,8 +468,7 @@ struct HomeView: View {
                                 .foregroundColor(.secondary)
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Color(NSColor.textBackgroundColor))
-                    } else {
+                            } else {
                         TrackView(
                             tracks: pinnedItemTracks,
                             selectedTrackID: $selectedTrackID,
@@ -498,8 +488,7 @@ struct HomeView: View {
                                 )
                             }
                         )
-                        .background(Color(NSColor.textBackgroundColor))
-                    }
+                            }
                 }
             } else {
                 NoMusicEmptyStateView(context: .mainWindow)
@@ -531,9 +520,8 @@ struct HomeView: View {
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(NSColor.textBackgroundColor))
     }
-    
+
     private func sortArtistEntities() {
         sortedArtistEntities = entitySortAscending
         ? libraryManager.artistEntities.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
@@ -620,8 +608,9 @@ struct HomeView: View {
 
 #Preview {
     @Previewable @State var isShowingEntities = false
-    
-    HomeView(isShowingEntities: $isShowingEntities)
+    @Previewable @State var selectedSidebarItem: HomeSidebarItem?
+
+    HomeView(selectedSidebarItem: $selectedSidebarItem, isShowingEntities: $isShowingEntities)
         .environmentObject(LibraryManager())
         .environmentObject(PlaybackManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
         .environmentObject(PlaylistManager())

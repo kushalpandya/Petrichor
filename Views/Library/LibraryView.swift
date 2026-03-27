@@ -5,19 +5,15 @@ struct LibraryView: View {
     @EnvironmentObject var libraryManager: LibraryManager
     @EnvironmentObject var playlistManager: PlaylistManager
 
-    @AppStorage("librarySelectedFilterType")
-    private var selectedFilterType: LibraryFilterType = .artists
-    
-    @AppStorage("sidebarSplitPosition")
-    private var splitPosition: Double = 200
-    
+    @Binding var selectedFilterType: LibraryFilterType
+    @Binding var selectedFilterItem: LibraryFilterItem?
+    @Binding var pendingSearchText: String?
+
     @AppStorage("trackTableRowSize")
     private var trackTableRowSize: TableRowSize = .expanded
-    
+
     @State private var selectedTrackID: UUID?
-    @State private var selectedFilterItem: LibraryFilterItem?
     @State private var cachedFilteredTracks: [Track] = []
-    @State private var pendingSearchText: String?
     @State private var isLibrarySearchActive = false
     @State private var isViewReady = false
     @State private var trackTableSortOrder = [KeyPathComparator(\Track.title)]
@@ -25,23 +21,10 @@ struct LibraryView: View {
     @Binding var pendingFilter: LibraryFilterRequest?
 
     var body: some View {
-        VStack {
-            if !libraryManager.shouldShowMainUI {
-                NoMusicEmptyStateView(context: .mainWindow)
-            } else {
-                // Main library view with sidebar
-                PersistentSplitView(
-                    left: {
-                        LibrarySidebarView(
-                            selectedFilterType: $selectedFilterType,
-                            selectedFilterItem: $selectedFilterItem,
-                            pendingSearchText: $pendingSearchText
-                        )
-                    },
-                    main: {
-                        tracksListView
-                    }
-                )
+        if !libraryManager.shouldShowMainUI {
+            NoMusicEmptyStateView(context: .mainWindow)
+        } else {
+            tracksListView
                 .onAppear {
                     processPendingFilter()
                 }
@@ -71,7 +54,6 @@ struct LibraryView: View {
                 .onReceive(NotificationCenter.default.publisher(for: .libraryDataDidChange)) { _ in
                     updateFilteredTracks()
                 }
-            }
         }
     }
 
@@ -96,7 +78,15 @@ struct LibraryView: View {
         }
     }
 
-    init(pendingFilter: Binding<LibraryFilterRequest?> = .constant(nil)) {
+    init(
+        selectedFilterType: Binding<LibraryFilterType>,
+        selectedFilterItem: Binding<LibraryFilterItem?>,
+        pendingSearchText: Binding<String?>,
+        pendingFilter: Binding<LibraryFilterRequest?> = .constant(nil)
+    ) {
+        self._selectedFilterType = selectedFilterType
+        self._selectedFilterItem = selectedFilterItem
+        self._pendingSearchText = pendingSearchText
         self._pendingFilter = pendingFilter
     }
 
@@ -105,7 +95,7 @@ struct LibraryView: View {
     private var tracksListView: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
-            TrackListHeaderWithOptions(
+            TrackListHeader(
                 title: headerTitle,
                 sortOrder: $trackTableSortOrder,
                 tableRowSize: $trackTableRowSize
@@ -136,7 +126,6 @@ struct LibraryView: View {
                         )
                     }
                 )
-                .background(Color(NSColor.textBackgroundColor))
             }
         }
     }
@@ -250,7 +239,15 @@ struct LibraryView: View {
 }
 
 #Preview {
-    LibraryView()
+    @Previewable @State var filterType: LibraryFilterType = .artists
+    @Previewable @State var filterItem: LibraryFilterItem?
+    @Previewable @State var searchText: String?
+
+    LibraryView(
+        selectedFilterType: $filterType,
+        selectedFilterItem: $filterItem,
+        pendingSearchText: $searchText
+    )
         .environmentObject({
             let coordinator = AppCoordinator()
             return coordinator.playbackManager
