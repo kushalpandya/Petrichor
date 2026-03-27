@@ -59,7 +59,7 @@ struct PlaylistSidebarView: View {
     // MARK: - Sidebar Header
 
     private var sidebarHeader: some View {
-        ListHeader {
+        ListHeader(opaque: true) {
             Text("Playlists")
                 .headerTitleStyle()
 

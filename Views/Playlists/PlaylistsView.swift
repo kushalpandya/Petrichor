@@ -4,37 +4,25 @@ struct PlaylistsView: View {
     @EnvironmentObject var playlistManager: PlaylistManager
     @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var libraryManager: LibraryManager
-    @State private var selectedPlaylist: Playlist?
-
-    @AppStorage("sidebarSplitPosition")
-    private var splitPosition: Double = 200
+    @Binding var selectedPlaylist: Playlist?
 
     var body: some View {
         if !libraryManager.shouldShowMainUI {
             NoMusicEmptyStateView(context: .mainWindow)
         } else {
-            PersistentSplitView(
-                left: {
-                    PlaylistSidebarView(selectedPlaylist: $selectedPlaylist)
-                },
-                main: {
-                    VStack(spacing: 0) {
-                        if let playlist = selectedPlaylist {
-                            PlaylistDetailView(playlistID: playlist.id)
-                        } else {
-                            emptySelectionView
-                        }
-                    }
+            VStack(spacing: 0) {
+                if let playlist = selectedPlaylist {
+                    PlaylistDetailView(playlistID: playlist.id)
+                } else {
+                    emptySelectionView
                 }
-            )
+            }
             .onAppear {
-                // Select first playlist by default if none selected
                 if selectedPlaylist == nil && !playlistManager.playlists.isEmpty {
                     selectedPlaylist = playlistManager.playlists.first
                 }
             }
             .onChange(of: playlistManager.playlists.count) {
-                // Update selection if current playlist was removed
                 if let selected = selectedPlaylist,
                    !playlistManager.playlists.contains(where: { $0.id == selected.id }) {
                     selectedPlaylist = playlistManager.playlists.first
@@ -64,7 +52,9 @@ struct PlaylistsView: View {
 }
 
 #Preview("Playlist View") {
-    PlaylistsView()
+    @Previewable @State var selectedPlaylist: Playlist?
+
+    PlaylistsView(selectedPlaylist: $selectedPlaylist)
         .environmentObject({
             let manager = PlaylistManager()
             return manager

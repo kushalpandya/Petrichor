@@ -122,7 +122,7 @@ struct LibrarySidebarView: View {
     // MARK: - Header Section
 
     private var headerSection: some View {
-        ListHeader {
+        ListHeader(opaque: true) {
             // Filter type dropdown - now icons-only
             IconOnlyDropdown(
                 items: LibraryFilterType.allCases,

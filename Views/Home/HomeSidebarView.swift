@@ -12,7 +12,7 @@ struct HomeSidebarView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Header
-            ListHeader {
+            ListHeader(opaque: true) {
                 Text("")
                     .headerTitleStyle()
                 Spacer()

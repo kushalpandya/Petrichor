@@ -41,7 +41,7 @@ struct TrackLyricsView: View {
     // MARK: - Header
     
     private var header: some View {
-        ListHeader {
+        ListHeader(opaque: true) {
             HStack(spacing: 12) {
                 Button(action: onClose) {
                     Image(systemName: Icons.xmarkCircleFill)

@@ -297,7 +297,7 @@ struct TrackTableView: View {
                 .defaultVisibility(.visible)
             }
         }
-        .background(Color(NSColor.controlBackgroundColor))
+        .scrollContentBackground(.hidden)
         .environment(\.defaultMinListRowHeight, tableRowSize.rowHeight)
     }
     

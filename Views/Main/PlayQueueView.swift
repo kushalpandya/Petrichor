@@ -36,7 +36,7 @@ struct PlayQueueView: View {
     // MARK: - Queue Header
 
     private var queueHeader: some View {
-        ListHeader {
+        ListHeader(opaque: true) {
             HStack(spacing: 12) {
                 Button(action: {
                     showingQueue = false
@@ -109,6 +109,7 @@ struct PlayQueueView: View {
             .onMove(perform: moveTracks)
         }
         .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .safeAreaPadding(.vertical, 6)
     }
 

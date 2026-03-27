@@ -51,7 +51,7 @@ struct FoldersSidebarView: View {
     // MARK: - Header
 
     private var sidebarHeader: some View {
-        ListHeader {
+        ListHeader(opaque: true) {
             Text("Folders")
                 .headerTitleStyle()
 

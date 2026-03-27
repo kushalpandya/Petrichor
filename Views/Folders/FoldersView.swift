@@ -5,7 +5,7 @@ struct FoldersView: View {
     @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var libraryManager: LibraryManager
     @EnvironmentObject var playlistManager: PlaylistManager
-    @State private var selectedFolderNode: FolderNode?
+    @Binding var selectedFolderNode: FolderNode?
     @State private var selectedTrackID: UUID?
     @State private var showingRemoveFolderAlert = false
     @State private var folderTracks: [Track] = []
@@ -19,24 +19,11 @@ struct FoldersView: View {
         if !libraryManager.shouldShowMainUI {
             NoMusicEmptyStateView(context: .mainWindow)
         } else {
-            PersistentSplitView(
-                left: {
-                    foldersSidebar
-                },
-                main: {
-                    folderTracksView
+            folderTracksView
+                .onChange(of: selectedFolderNode) { _, newNode in
+                    handleFolderNodeSelection(newNode)
                 }
-            )
         }
-    }
-
-    // MARK: - Folders Sidebar
-
-    private var foldersSidebar: some View {
-        FoldersSidebarView(selectedNode: $selectedFolderNode)
-            .onChange(of: selectedFolderNode) { _, newNode in
-                handleFolderNodeSelection(newNode)
-            }
     }
 
     // MARK: - Folder Tracks View
@@ -54,7 +41,7 @@ struct FoldersView: View {
     @ViewBuilder
     private var folderTracksHeader: some View {
         if let node = selectedFolderNode {
-            TrackListHeaderWithOptions(
+            TrackListHeader(
                 title: node.name,
                 sortOrder: $trackTableSortOrder,
                 tableRowSize: $trackTableRowSize
@@ -193,7 +180,9 @@ struct FoldersView: View {
 }
 
 #Preview {
-    FoldersView()
+    @Previewable @State var selectedFolderNode: FolderNode?
+
+    FoldersView(selectedFolderNode: $selectedFolderNode)
         .environmentObject({
             let coordinator = AppCoordinator()
             return coordinator.playbackManager
