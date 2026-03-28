@@ -19,12 +19,21 @@ struct SidebarListView<Item: SidebarItem>: View {
     let iconColor: Color
     let showCount: Bool
 
+    // Reordering
+    let reorderableFromIndex: Int?
+    let onReorder: (([Item]) -> Void)?
+
+    // External editing trigger
+    @Binding var externalEditingItemID: UUID?
+
     @State private var hoveredItemID: UUID?
     @State private var editingItemID: UUID?
     @State private var editingText: String = ""
     @FocusState private var isEditingFieldFocused: Bool
     @State private var lastClickTime = Date()
     @State private var lastClickedItemID: UUID?
+    @State private var draggedItemID: UUID?
+    @State private var dropTargetItemID: UUID?
 
     init(
         items: [Item],
@@ -37,7 +46,10 @@ struct SidebarListView<Item: SidebarItem>: View {
         showIcon: Bool = true,
         iconColor: Color = .secondary,
         showCount: Bool = false,
-        trailingContent: ((Item) -> AnyView)? = nil
+        trailingContent: ((Item) -> AnyView)? = nil,
+        reorderableFromIndex: Int? = nil,
+        onReorder: (([Item]) -> Void)? = nil,
+        externalEditingItemID: Binding<UUID?> = .constant(nil)
     ) {
         self.items = items
         self._selectedItem = selectedItem
@@ -50,6 +62,9 @@ struct SidebarListView<Item: SidebarItem>: View {
         self.iconColor = iconColor
         self.showCount = showCount
         self.trailingContent = trailingContent
+        self.reorderableFromIndex = reorderableFromIndex
+        self.onReorder = onReorder
+        self._externalEditingItemID = externalEditingItemID
     }
 
     var body: some View {
@@ -63,16 +78,16 @@ struct SidebarListView<Item: SidebarItem>: View {
                             .foregroundColor(.secondary)
                             .textCase(.uppercase)
                     }
-                    
+
                     Spacer()
-                    
+
                     if let controls = headerControls {
                         controls
                     }
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                
+
                 Divider()
             }
 
@@ -83,6 +98,12 @@ struct SidebarListView<Item: SidebarItem>: View {
                 itemsList
             }
         }
+        .onChange(of: externalEditingItemID) { _, newID in
+            if let id = newID, let item = items.first(where: { $0.id == id }) {
+                startEditing(item)
+                externalEditingItemID = nil
+            }
+        }
     }
 
     // MARK: - Items List
@@ -90,7 +111,9 @@ struct SidebarListView<Item: SidebarItem>: View {
     private var itemsList: some View {
         ScrollView(.vertical) {
             LazyVStack(spacing: 1) {
-                ForEach(items) { item in
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    let isDraggable = isItemDraggable(at: index)
+
                     SidebarItemRow(
                         item: item,
                         isSelected: selectedItem?.id == item.id,
@@ -117,10 +140,42 @@ struct SidebarListView<Item: SidebarItem>: View {
                             cancelEditing()
                         }
                     )
+                    .opacity(draggedItemID == item.id ? 0.4 : 1.0)
+                    .overlay(alignment: .top) {
+                        if dropTargetItemID == item.id && draggedItemID != item.id && isDraggable {
+                            Rectangle()
+                                .fill(Color.accentColor)
+                                .frame(height: 2)
+                                .padding(.horizontal, 8)
+                        }
+                    }
+                    .if(isDraggable) { view in
+                        view.onDrag {
+                            draggedItemID = item.id
+                            return NSItemProvider(object: item.id.uuidString as NSString)
+                        }
+                        .onDrop(
+                            of: [.text],
+                            delegate: SidebarReorderDropDelegate(
+                                targetItem: item,
+                                targetIndex: index,
+                                items: items,
+                                reorderableFromIndex: reorderableFromIndex ?? 0,
+                                draggedItemID: $draggedItemID,
+                                dropTargetItemID: $dropTargetItemID,
+                                onReorder: onReorder ?? { _ in }
+                            )
+                        )
+                    }
                     .contextMenu {
                         if let menuItems = contextMenuItems?(item) {
                             ForEach(Array(menuItems.enumerated()), id: \.offset) { _, menuItem in
-                                contextMenuItem(menuItem)
+                                if case .button(let title, _, _, _) = menuItem,
+                                   title == "Rename", item.isEditable, onRename != nil {
+                                    Button("Rename") { startEditing(item) }
+                                } else {
+                                    contextMenuItem(menuItem)
+                                }
                             }
                         }
                     }
@@ -145,6 +200,13 @@ struct SidebarListView<Item: SidebarItem>: View {
             .padding(.horizontal, 4)
             .padding(.vertical, 4)
         }
+    }
+
+    // MARK: - Reordering Helpers
+
+    private func isItemDraggable(at index: Int) -> Bool {
+        guard let fromIndex = reorderableFromIndex, onReorder != nil else { return false }
+        return index >= fromIndex
     }
 
     // MARK: - Empty View
@@ -200,6 +262,52 @@ struct SidebarListView<Item: SidebarItem>: View {
     }
 }
 
+// MARK: - Reorder Drop Delegate
+
+private struct SidebarReorderDropDelegate<Item: SidebarItem>: DropDelegate {
+    let targetItem: Item
+    let targetIndex: Int
+    let items: [Item]
+    let reorderableFromIndex: Int
+    @Binding var draggedItemID: UUID?
+    @Binding var dropTargetItemID: UUID?
+    let onReorder: ([Item]) -> Void
+
+    func dropEntered(info: DropInfo) {
+        guard draggedItemID != targetItem.id else { return }
+        dropTargetItemID = targetItem.id
+    }
+
+    func dropExited(info: DropInfo) {
+        if dropTargetItemID == targetItem.id {
+            dropTargetItemID = nil
+        }
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        guard let draggedID = draggedItemID else { return false }
+        guard let fromIndex = items.firstIndex(where: { $0.id == draggedID }) else { return false }
+        guard fromIndex >= reorderableFromIndex else { return false }
+        guard targetIndex >= reorderableFromIndex else { return false }
+
+        var reordered = items
+        let movedItem = reordered.remove(at: fromIndex)
+
+        let toIndex = fromIndex < targetIndex ? targetIndex - 1 : targetIndex
+        let clampedIndex = max(reorderableFromIndex, min(toIndex, reordered.count))
+        reordered.insert(movedItem, at: clampedIndex)
+
+        draggedItemID = nil
+        dropTargetItemID = nil
+        onReorder(reordered)
+        return true
+    }
+}
+
 // MARK: - Convenience Extensions
 
 extension SidebarListView where Item == LibrarySidebarItem {
@@ -220,7 +328,7 @@ extension SidebarListView where Item == LibrarySidebarItem {
 
         // Convert filter items to sidebar items
         let sidebarItems = filterItems.map { LibrarySidebarItem(filterItem: $0) }
-        
+
         // Separate unknown and regular items
         let unknownItems = sidebarItems.filter { item in
             item.filterName == filterType.unknownPlaceholder ||
@@ -230,7 +338,7 @@ extension SidebarListView where Item == LibrarySidebarItem {
             item.filterName != filterType.unknownPlaceholder &&
             item.title != filterType.unknownPlaceholder
         }
-        
+
         // Add regular items first, then unknown items at the end
         items.append(contentsOf: regularItems)
         items.append(contentsOf: unknownItems)

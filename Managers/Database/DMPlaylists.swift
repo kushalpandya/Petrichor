@@ -196,7 +196,7 @@ extension DatabaseManager {
         do {
             return try dbQueue.read { db in
                 // Fetch all playlists
-                var playlists = try Playlist.fetchAll(db)
+                var playlists = try Playlist.order(Playlist.Columns.sortOrder).fetchAll(db)
                 
                 // Define the result structure for counts
                 struct PlaylistCount: FetchableRecord {
@@ -247,6 +247,17 @@ extension DatabaseManager {
         }
     }
     
+    /// Update the sort order of playlists
+    func updatePlaylistsOrder(_ playlists: [Playlist]) async throws {
+        try await dbQueue.write { db in
+            for (index, playlist) in playlists.enumerated() {
+                var updated = playlist
+                updated.sortOrder = index
+                try updated.update(db)
+            }
+        }
+    }
+
     /// Load tracks for a specific playlist on demand
     func loadTracksForPlaylist(_ playlistId: UUID) -> [Track] {
         do {

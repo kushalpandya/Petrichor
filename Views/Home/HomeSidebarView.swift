@@ -28,38 +28,19 @@ struct HomeSidebarView: View {
                     selectedItem = item
                 },
                 contextMenuItems: { item in
-                    if case .pinned(let pinnedItem) = item.source {
-                        return [
-                            .button(title: "Remove from Home", role: nil) {
-                                Task {
-                                    await libraryManager.removePinnedItem(pinnedItem)
-                                }
-                            }
-                        ]
-                    }
-                    return []
+                    createContextMenuItems(for: item)
                 },
                 showIcon: true,
                 iconColor: .secondary,
-                showCount: false
-            ) { item in
-                    if case .pinned(let pinnedItem) = item.source {
-                        return AnyView(
-                            Button(action: {
-                                Task {
-                                    await libraryManager.removePinnedItem(pinnedItem)
-                                }
-                            }) {
-                                Image(systemName: "pin.fill")
-                                    .font(.system(size: 11))
-                                    .foregroundColor(selectedItem?.id == item.id ? .white.opacity(0.8) : .secondary)
-                            }
-                            .buttonStyle(.plain)
-                            .help("Remove from Home")
-                        )
-                    }
-                    return AnyView(EmptyView())
-            }
+                showCount: false,
+                trailingContent: { item in
+                    trailingContentView(for: item)
+                },
+                reorderableFromIndex: HomeSidebarItem.HomeItemType.allCases.count,
+                onReorder: { reorderedItems in
+                    handlePinnedItemsReorder(reorderedItems)
+                }
+            )
         }
         .onAppear {
             updateAllItems()
@@ -163,6 +144,58 @@ struct HomeSidebarView: View {
                     }
                 }
             }
+        }
+    }
+
+    // MARK: - Context Menu & Trailing Content
+
+    private func createContextMenuItems(for item: HomeSidebarItem) -> [ContextMenuItem] {
+        if case .pinned(let pinnedItem) = item.source {
+            return [
+                .button(title: "Remove from Home", role: nil) {
+                    Task {
+                        await libraryManager.removePinnedItem(pinnedItem)
+                    }
+                }
+            ]
+        }
+        return []
+    }
+
+    private func trailingContentView(for item: HomeSidebarItem) -> AnyView {
+        if case .pinned(let pinnedItem) = item.source {
+            return AnyView(
+                Button(action: {
+                    Task {
+                        await libraryManager.removePinnedItem(pinnedItem)
+                    }
+                }) {
+                    Image(systemName: "pin.fill")
+                        .font(.system(size: 11))
+                        .foregroundColor(selectedItem?.id == item.id ? .white.opacity(0.8) : .secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Remove from Home")
+            )
+        }
+        return AnyView(EmptyView())
+    }
+
+    // MARK: - Reorder Pinned Items
+
+    private func handlePinnedItemsReorder(_ reorderedItems: [HomeSidebarItem]) {
+        let fixedCount = HomeSidebarItem.HomeItemType.allCases.count
+        let reorderedPinned = reorderedItems.dropFirst(fixedCount).compactMap { item -> PinnedItem? in
+            if case .pinned(let pinnedItem) = item.source {
+                return pinnedItem
+            }
+            return nil
+        }
+
+        allItems = reorderedItems
+
+        Task {
+            await libraryManager.reorderPinnedItems(reorderedPinned)
         }
     }
 
