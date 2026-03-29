@@ -36,18 +36,25 @@ extension DatabaseManager {
     
     /// Get all artist entities - already efficient, using pure GRDB
     func getArtistEntities() -> [ArtistEntity] {
+        let isImageFetchEnabled = ArtistBioManager.shared.isArtistInfoFetchEnabled
+
         do {
             return try dbQueue.read { db in
                 let artists = try Artist
                     .filter(Artist.Columns.totalTracks > 0)
                     .order(Artist.Columns.sortName)
                     .fetchAll(db)
-                
+
                 return artists.map { artist in
-                    ArtistEntity(
+                    // When fetch enabled: show fetched image or placeholder; when disabled: show album art
+                    let artworkData = isImageFetchEnabled
+                        ? (artist.imageSource != nil ? artist.artworkData : nil)
+                        : artist.artworkData
+
+                    return ArtistEntity(
                         name: artist.name,
                         trackCount: artist.totalTracks,
-                        artworkData: artist.artworkData
+                        artworkData: artworkData
                     )
                 }
             }

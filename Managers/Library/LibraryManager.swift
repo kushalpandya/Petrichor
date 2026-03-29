@@ -120,6 +120,7 @@ class LibraryManager: ObservableObject {
         Task {
             try? await Task.sleep(nanoseconds: TimeConstants.fiftyMilliseconds)
             await databaseManager.runPendingBackgroundMigrations()
+            ArtistBioManager.shared.fetchMissingArtistImages(using: self)
         }
 
         // Observe auto-scan interval changes
@@ -429,8 +430,11 @@ class LibraryManager: ObservableObject {
             self.refreshLibraryCategories()
             self.loadMusicLibrary()
             self.updateTotalCounts()
-            
+
             Logger.info("Initial scan completed, library fully loaded")
+
+            // Fetch artist images after scan
+            ArtistBioManager.shared.fetchMissingArtistImages(using: self)
         }
     }
     

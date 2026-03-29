@@ -36,11 +36,10 @@ struct HomeSidebarView: View {
                 trailingContent: { item in
                     trailingContentView(for: item)
                 },
-                reorderableFromIndex: HomeSidebarItem.HomeItemType.allCases.count,
-                onReorder: { reorderedItems in
-                    handlePinnedItemsReorder(reorderedItems)
-                }
-            )
+                reorderableFromIndex: HomeSidebarItem.HomeItemType.allCases.count
+            ) { reorderedItems in
+                handlePinnedItemsReorder(reorderedItems)
+            }
         }
         .onAppear {
             updateAllItems()

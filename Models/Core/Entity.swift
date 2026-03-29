@@ -2,6 +2,18 @@ import Foundation
 import AppKit
 import SwiftUI
 
+// MARK: - Artist Initials
+
+extension String {
+    var artistInitials: String {
+        let words = split(separator: " ")
+        if words.count >= 2 {
+            return "\(words.first!.prefix(1))\(words.last!.prefix(1))".uppercased()
+        }
+        return String(prefix(1)).uppercased()
+    }
+}
+
 // MARK: - Entity Protocol
 protocol Entity: Identifiable {
     var id: UUID { get }
@@ -56,13 +68,23 @@ struct ArtistEntity: Entity {
         return nil
     }
 
+    var dominantColors: [NSColor] {
+        guard let original = artworkData else { return [] }
+        return ImageUtils.cachedDominantColors(id: id, imageData: original)
+    }
+
+    func backgroundGradientColors(isDark: Bool) -> [Color] {
+        guard let original = artworkData else { return [] }
+        return ImageUtils.cachedBackgroundGradientColors(id: id, imageData: original, isDark: isDark)
+    }
+
     init(name: String, tracks: [Track]) {
         let namespace = UUID(uuidString: "6BA7B810-9DAD-11D1-80B4-00C04FD430C8")!
         self.id = UUID(name: name.lowercased(), namespace: namespace)
         self.name = name
         self.tracks = tracks
         self.trackCount = tracks.count
-        
+
         let trackWithArt = tracks.first { $0.albumArtworkData != nil }
         self.artworkData = trackWithArt?.albumArtworkData
     }

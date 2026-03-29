@@ -25,22 +25,15 @@ class LyricsManager {
     }
     
     // MARK: - Properties
-    
-    private let urlSession: URLSession
-    
+
     /// Whether online lyrics fetching is enabled (user preference)
     var isOnlineLyricsEnabled: Bool {
         UserDefaults.standard.bool(forKey: UserDefaultsKeys.onlineLyricsEnabled)
     }
-    
+
     // MARK: - Initialization
-    
-    private init() {
-        let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 15
-        config.timeoutIntervalForResource = 30
-        self.urlSession = URLSession(configuration: config)
-    }
+
+    private init() {}
     
     // MARK: - Public Methods
     
@@ -130,12 +123,9 @@ class LyricsManager {
         
         do {
             var request = URLRequest(url: url)
-            request.setValue(
-                "\(About.appTitle)/\(AppInfo.version) (\(About.appWebsite))",
-                forHTTPHeaderField: "User-Agent"
-            )
+            request.setValue(AppInfo.userAgent, forHTTPHeaderField: "User-Agent")
             
-            let (data, response) = try await urlSession.data(for: request)
+            let (data, response) = try await AppInfo.urlSession.data(for: request)
             
             guard let httpResponse = response as? HTTPURLResponse else {
                 Logger.error("LyricsManager: Invalid response type")

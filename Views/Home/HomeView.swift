@@ -299,9 +299,7 @@ struct HomeView: View {
             }
         }
         .onReceive(libraryManager.$cachedArtistEntities) { _ in
-            if libraryManager.artistEntities.count != lastArtistCount {
-                sortArtistEntities()
-            }
+            sortArtistEntities()
         }
     }
     

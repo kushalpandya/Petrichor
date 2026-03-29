@@ -12,6 +12,9 @@ struct OnlineTabView: View {
     
     @AppStorage("onlineLyricsEnabled")
     private var onlineLyricsEnabled: Bool = false
+
+    @AppStorage("artistInfoFetchEnabled")
+    private var artistInfoFetchEnabled: Bool = false
     
     @State private var isAuthenticating = false
     @State private var showLoveSyncInfo = false
@@ -38,9 +41,9 @@ struct OnlineTabView: View {
             }
             
             Section {
-                lyricsSection
+                onlineFeaturesSection
             } header: {
-                Text("Lyrics")
+                Text("Lyrics & Metadata")
             }
         }
         .formStyle(.grouped)
@@ -163,11 +166,16 @@ struct OnlineTabView: View {
         .padding(.vertical, 4)
     }
     
-    // MARK: - Lyrics Section
-            
-    private var lyricsSection: some View {
-        Toggle("Fetch lyrics from internet when unavailable", isOn: $onlineLyricsEnabled)
-            .help("Automatically search for lyrics online when no local lyrics are found")
+    // MARK: - Online Features Section
+
+    private var onlineFeaturesSection: some View {
+        Group {
+            Toggle("Fetch lyrics from internet when unavailable", isOn: $onlineLyricsEnabled)
+                .help("Automatically search for lyrics online when no local lyrics are found")
+
+            Toggle("Fetch artist image and bio from internet", isOn: $artistInfoFetchEnabled)
+                .help("Automatically download artist photos and bios from online sources")
+        }
     }
     
     // MARK: - Actions

@@ -109,6 +109,7 @@ brew install --cask petrichor
       write access is only used for exporting M3U playlist files.
   - **Network access**
     - To check for and install app updates.
+    - Fetch artist images and bios from online sources (disabled by default)
     - Download track lyrics from the internet (disabled by default)
     - Last.fm scrobbling (disabled by default)
         - When enabled, app may ask to store your Last.fm session information in macOS Keychain, if you choose to allow it, macOS will ask for your user account password to store the information in Keychain.
