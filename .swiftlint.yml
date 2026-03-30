@@ -172,7 +172,7 @@ custom_rules:
   space_after_comment:
     included: ".*\\.swift"
     name: "Space After Comment"
-    regex: '(\/\/\w+)'
+    regex: '(?<!:)(\/\/\w+)'
     message: "Add a space after //"
     severity: warning
   

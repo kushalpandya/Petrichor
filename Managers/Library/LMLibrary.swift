@@ -132,6 +132,17 @@ extension LibraryManager {
         }
     }
 
+    func updateArtistEntityArtwork(name: String, artworkData: Data?) {
+        if let index = cachedArtistEntities.firstIndex(where: { $0.name == name }) {
+            let old = cachedArtistEntities[index]
+            cachedArtistEntities[index] = ArtistEntity(
+                name: old.name,
+                trackCount: old.trackCount,
+                artworkData: artworkData
+            )
+        }
+    }
+
     func refreshEntities() {
         entitiesLoaded = false
         cachedArtistEntities = databaseManager.getArtistEntities()

@@ -165,8 +165,38 @@ Individual codec library licenses can be found in their respective source reposi
 
 ---
 
+## Online Data Sources
+
+Petrichor fetches artist metadata from the following online services:
+
+### Artist Images
+
+- **MusicBrainz** - https://musicbrainz.org/
+  - Used to search for artist identifiers and Wikidata links
+  - Licensed under [CC0](https://creativecommons.org/publicdomain/zero/1.0/)
+
+- **Wikidata / Wikimedia Commons** - https://www.wikidata.org/
+  - Used to resolve artist images from Wikidata entities
+  - Licensed under [CC0](https://creativecommons.org/publicdomain/zero/1.0/)
+
+- **TMDB (The Movie Database)** - https://www.themoviedb.org/
+  - Used as a fallback source for artist images
+  - This product uses the TMDB API but is not endorsed or certified by TMDB
+
+### Artist Biographies
+
+- **Last.fm** - https://www.last.fm/
+  - Used to fetch artist biography summaries
+
+### Lyrics
+
+- **LRCLIB** - https://lrclib.net/
+  - Used to fetch song lyrics when not available locally
+
+---
+
 ## Acknowledgments
 
-Petrichor is grateful to all the open source projects and their contributors that make high-quality audio playback on macOS possible.
+Petrichor is grateful to all the open source projects, data sources, and their contributors that make this app possible.
 
-_Last Updated: November 2025_
+_Last Updated: March 2026_

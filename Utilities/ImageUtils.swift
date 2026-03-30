@@ -92,12 +92,32 @@ enum ImageUtils {
     ///   - compressionFactor: JPEG compression quality (0.0 to 1.0)
     /// - Returns: Resized JPEG data, or nil if resizing fails
     static func resizeImage(from imageData: Data, to size: NSSize, compressionFactor: Float = 0.8) -> Data? {
-        guard let image = NSImage(data: imageData) else { return nil }
-        
-        guard let resized = image.resized(to: size),
-              let tiffData = resized.tiffRepresentation,
-              let bitmapRep = NSBitmapImageRep(data: tiffData) else { return nil }
-        
+        guard let imageSource = CGImageSourceCreateWithData(imageData as CFData, nil),
+              let cgImage = CGImageSourceCreateImageAtIndex(imageSource, 0, [
+                kCGImageSourceShouldCacheImmediately: true
+              ] as CFDictionary) else {
+            return nil
+        }
+
+        let width = Int(size.width)
+        let height = Int(size.height)
+
+        guard let context = CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+        ) else { return nil }
+
+        context.interpolationQuality = .high
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+        guard let resizedCG = context.makeImage() else { return nil }
+
+        let bitmapRep = NSBitmapImageRep(cgImage: resizedCG)
         return bitmapRep.representation(using: .jpeg, properties: [.compressionFactor: compressionFactor])
     }
     
@@ -269,35 +289,6 @@ enum ImageUtils {
         static let small = NSSize(width: ViewDefaults.tableArtworkSize * 2, height: ViewDefaults.tableArtworkSize * 2)    // Table view (2x retina)
         static let medium = NSSize(width: ViewDefaults.listArtworkSize * 2, height: ViewDefaults.listArtworkSize * 2)     // List view (2x retina)
         static let large = NSSize(width: ViewDefaults.gridArtworkSize * 2, height: ViewDefaults.gridArtworkSize * 2)      // Grid view (2x retina)
-    }
-}
-
-// MARK: - NSImage Extension
-
-extension NSImage {
-    func resized(to size: NSSize) -> NSImage? {
-        guard let bitmapRep = NSBitmapImageRep(
-            bitmapDataPlanes: nil,
-            pixelsWide: Int(size.width),
-            pixelsHigh: Int(size.height),
-            bitsPerSample: 8,
-            samplesPerPixel: 4,
-            hasAlpha: true,
-            isPlanar: false,
-            colorSpaceName: .deviceRGB,
-            bytesPerRow: 0,
-            bitsPerPixel: 0
-        ) else { return nil }
-
-        bitmapRep.size = size
-        NSGraphicsContext.saveGraphicsState()
-        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmapRep)
-        draw(in: NSRect(origin: .zero, size: size), from: .zero, operation: .copy, fraction: 1.0)
-        NSGraphicsContext.restoreGraphicsState()
-
-        let resizedImage = NSImage(size: size)
-        resizedImage.addRepresentation(bitmapRep)
-        return resizedImage
     }
 }
 

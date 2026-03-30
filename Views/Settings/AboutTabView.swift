@@ -2,11 +2,13 @@ import SwiftUI
 
 struct AboutTabView: View {
     @EnvironmentObject var libraryManager: LibraryManager
+    
+    @State private var isAcknowledgementsExpanded = false
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 24) {
-                Spacer(minLength: 20)
+            VStack(spacing: 16) {
+                Spacer(minLength: 4)
 
                 appInfoSection
 
@@ -16,7 +18,9 @@ struct AboutTabView: View {
 
                 footerSection
 
-                Spacer(minLength: 20)
+                acknowledgementsSection
+
+                Spacer(minLength: 4)
             }
             .padding()
         }
@@ -27,7 +31,7 @@ struct AboutTabView: View {
     // MARK: - App Info Section
 
     private var appInfoSection: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
             appIcon
             appDetails
         }
@@ -117,6 +121,50 @@ struct AboutTabView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
+    }
+
+    // MARK: - Acknowledgements Section
+
+    private var acknowledgementsSection: some View {
+        VStack(spacing: 8) {
+            FooterLink(
+                icon: "heart.fill",
+                title: "Acknowledgements",
+                action: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isAcknowledgementsExpanded.toggle()
+                    }
+                },
+                tooltip: "View data source acknowledgements"
+            )
+
+            if isAcknowledgementsExpanded {
+                HStack(spacing: 18) {
+                    Spacer()
+                    acknowledgementItem("logo-musicbrainz", url: "https://musicbrainz.org/", tooltip: "MusicBrainz")
+                    acknowledgementItem("logo-tmdb", url: "https://www.themoviedb.org/", tooltip: "The Movie Database")
+                    acknowledgementItem("logo-wikidata", url: "https://www.wikidata.org/", tooltip: "Wikimedia")
+                    acknowledgementItem("logo-lastfm", url: "https://www.last.fm/", tooltip: "Last.fm")
+                    Spacer()
+                }
+                .padding(.horizontal, 6)
+                .padding(.vertical, 12)
+                .frame(maxWidth: 350)
+                .background(Color.secondary.opacity(0.08))
+                .cornerRadius(12)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
+    private func acknowledgementItem(_ imageName: String, url: String, tooltip: String) -> some View {
+        Link(destination: URL(string: url)!) {
+            Image(imageName)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(maxHeight: 24)
+        }
+        .help(tooltip)
     }
 
     // MARK: - Footer Section

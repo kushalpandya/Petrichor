@@ -64,5 +64,9 @@
     <string>$(LASTFM_API_KEY)</string>
     <key>LASTFM_SHARED_SECRET</key>
     <string>$(LASTFM_SHARED_SECRET)</string>
+
+    <!--  TMDB  -->
+    <key>TMDB_READ_ACCESS_TOKEN</key>
+    <string>$(TMDB_READ_ACCESS_TOKEN)</string>
 </dict>
 </plist>

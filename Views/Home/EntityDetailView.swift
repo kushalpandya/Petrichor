@@ -11,6 +11,11 @@ struct EntityDetailView: View {
     @State private var selectedTrackID: UUID?
     @State private var isLoading = true
     @State private var isBackButtonHovered = false
+    @State private var isArtworkHovered = false
+    @State private var showingImagePicker = false
+    @State private var overrideArtworkData: Data?
+    @State private var artworkDeleted = false
+    @State private var artistBio: String?
     @State private var gradientColors: [Color] = []
 
     @AppStorage("useArtworkColors")
@@ -54,6 +59,7 @@ struct EntityDetailView: View {
                 )
             }
         }
+        .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
             loadTracks()
             updateGradientColors()
@@ -143,9 +149,14 @@ struct EntityDetailView: View {
         }
     }
     
+    private var displayedArtworkData: Data? {
+        if artworkDeleted { return nil }
+        return overrideArtworkData ?? entity.artworkData
+    }
+
     private var entityArtwork: some View {
         Group {
-            if let artworkData = entity.artworkData,
+            if let artworkData = displayedArtworkData,
                let nsImage = NSImage(data: artworkData) {
                 Image(nsImage: nsImage)
                     .resizable()
@@ -157,36 +168,89 @@ struct EntityDetailView: View {
                     .fill(Color.secondary.opacity(0.2))
                     .frame(width: 120, height: 120)
                     .overlay(
-                        Image(systemName: entity is ArtistEntity ? Icons.personFill : Icons.opticalDiscFill)
-                            .font(.system(size: 40))
-                            .foregroundColor(.secondary)
+                        Group {
+                            if entity is ArtistEntity {
+                                Text(entity.name.artistInitials)
+                                    .font(.system(size: 36, weight: .medium, design: .rounded))
+                                    .foregroundColor(.secondary)
+                            } else {
+                                Image(systemName: Icons.opticalDiscFill)
+                                    .font(.system(size: 40))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
                     )
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if entity is ArtistEntity {
+                showingImagePicker = true
+            }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if entity is ArtistEntity {
+                Image(systemName: "pencil.circle.fill")
+                    .font(.system(size: 22))
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(.white, Color.accentColor)
+                    .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
+                    .opacity(isArtworkHovered ? 1 : 0)
+                    .animation(.easeInOut(duration: 0.15), value: isArtworkHovered)
+                    .allowsHitTesting(false)
+            }
+        }
+        .onHover { hovering in
+            isArtworkHovered = hovering
+        }
+        .sheet(isPresented: $showingImagePicker) {
+            ArtistImageSheet(
+                artistName: entity.name,
+                artistId: libraryManager.databaseManager.getArtistId(for: entity.name),
+                isPresented: $showingImagePicker
+            ) { newImageData in
+                if let newImageData {
+                    overrideArtworkData = newImageData
+                    artworkDeleted = false
+                } else {
+                    overrideArtworkData = nil
+                    artworkDeleted = true
+                }
+                updateGradientColors()
             }
         }
     }
     
     private var artistEntityInfo: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 2) {
             Text("Artist")
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .fontWeight(.medium)
-            
+
             Text(entity.name)
-                .font(.title)
+                .font(.title2)
                 .fontWeight(.bold)
-                .lineLimit(2)
-            
+                .lineLimit(1)
+
+            if let bio = artistBio, !bio.isEmpty {
+                Text(bio)
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+                    .help(bio)
+            }
+
             HStack {
                 Text("\(tracks.count) \(tracks.count == 1 ? "song" : "songs")")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
-                
+
                 if !tracks.isEmpty {
                     Text("•")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
-                    
+
                     Text(formattedTotalDuration)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
@@ -366,11 +430,22 @@ struct EntityDetailView: View {
     // MARK: - Methods
 
     private func updateGradientColors() {
-        guard useArtworkColors, let album = entity as? AlbumEntity else {
+        guard useArtworkColors else {
             gradientColors = []
             return
         }
-        gradientColors = album.backgroundGradientColors(isDark: colorScheme == .dark)
+
+        // Use override artwork for gradient if available (e.g., after image picker save)
+        if let overrideData = overrideArtworkData {
+            let colors = ImageUtils.extractDominantColors(from: overrideData)
+            gradientColors = ImageUtils.backgroundGradientColors(from: colors, isDark: colorScheme == .dark)
+        } else if let album = entity as? AlbumEntity {
+            gradientColors = album.backgroundGradientColors(isDark: colorScheme == .dark)
+        } else if let artist = entity as? ArtistEntity {
+            gradientColors = artist.backgroundGradientColors(isDark: colorScheme == .dark)
+        } else {
+            gradientColors = []
+        }
     }
 
     private func loadTracks() {
@@ -399,6 +474,11 @@ struct EntityDetailView: View {
             }
         }
         
+        // Load artist bio
+        if entity is ArtistEntity {
+            artistBio = libraryManager.databaseManager.getArtistBio(for: entity.name)
+        }
+
         self.isLoading = false
     }
     

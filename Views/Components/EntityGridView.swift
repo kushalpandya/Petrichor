@@ -134,14 +134,16 @@ private class RenderedImageCache {
     }
     
     func getImage(for entity: any Entity) -> NSImage? {
-        let key = "\(entity.id.uuidString)-rendered" as NSString
-        
+        let artworkHash = entity.artworkData?.hashValue ?? 0
+        let key = "\(entity.id.uuidString)-\(artworkHash)-rendered" as NSString
+
         if let cached = cache.object(forKey: key) {
             return cached
         }
-        
-        guard let artworkData = entity.artworkLarge else { return nil }
-        
+
+        // Use original artworkData (not artworkLarge) to preserve aspect ratio
+        guard let artworkData = entity.artworkData else { return nil }
+
         let renderedImage = createRenderedImage(from: artworkData)
         
         if let image = renderedImage {
@@ -152,22 +154,50 @@ private class RenderedImageCache {
     }
     
     private func createRenderedImage(from data: Data) -> NSImage? {
-        guard let originalImage = NSImage(data: data) else { return nil }
-        
-        let size = NSSize(width: ViewDefaults.gridArtworkSize, height: ViewDefaults.gridArtworkSize)
-        let renderedImage = NSImage(size: size)
-        
-        renderedImage.lockFocus()
-        
-        let rect = NSRect(origin: .zero, size: size)
-        let path = NSBezierPath(roundedRect: rect, xRadius: 8, yRadius: 8)
-        path.addClip()
-        
-        originalImage.draw(in: rect, from: .zero, operation: .copy, fraction: 1.0)
-        
-        renderedImage.unlockFocus()
-        
-        return renderedImage
+        guard let imageSource = CGImageSourceCreateWithData(data as CFData, nil),
+              let cgImage = CGImageSourceCreateImageAtIndex(imageSource, 0, [
+                kCGImageSourceShouldCacheImmediately: true
+              ] as CFDictionary) else {
+            return nil
+        }
+
+        let targetSize = Int(ViewDefaults.gridArtworkSize)
+        let srcWidth = cgImage.width
+        let srcHeight = cgImage.height
+
+        // Aspect-fill: crop to centered square region from source
+        let cropRect: CGRect
+        if srcWidth > srcHeight {
+            let offset = (srcWidth - srcHeight) / 2
+            cropRect = CGRect(x: offset, y: 0, width: srcHeight, height: srcHeight)
+        } else {
+            let offset = (srcHeight - srcWidth) / 2
+            cropRect = CGRect(x: 0, y: offset, width: srcWidth, height: srcWidth)
+        }
+
+        guard let croppedCG = cgImage.cropping(to: cropRect) else { return nil }
+
+        // Draw into a square context with rounded corners via clipping path
+        guard let context = CGContext(
+            data: nil,
+            width: targetSize,
+            height: targetSize,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+        ) else { return nil }
+
+        let drawRect = CGRect(x: 0, y: 0, width: targetSize, height: targetSize)
+        let cornerRadius: CGFloat = 8
+        let path = CGPath(roundedRect: drawRect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
+        context.addPath(path)
+        context.clip()
+        context.interpolationQuality = .high
+        context.draw(croppedCG, in: drawRect)
+
+        guard let finalCG = context.makeImage() else { return nil }
+        return NSImage(cgImage: finalCG, size: NSSize(width: targetSize, height: targetSize))
     }
 }
 
@@ -194,15 +224,26 @@ private struct EntityGridItem<T: Entity>: View {
                         .fill(Color.gray.opacity(0.2))
                         .frame(width: ViewDefaults.gridArtworkSize, height: ViewDefaults.gridArtworkSize)
                         .overlay(
-                            Image(systemName: Icons.entityIcon(for: entity))
-                                .font(.system(size: 48))
-                                .foregroundColor(.gray)
+                            Group {
+                                if entity is ArtistEntity {
+                                    Text(entity.name.artistInitials)
+                                        .font(.system(size: 40, weight: .medium, design: .rounded))
+                                        .foregroundColor(.gray)
+                                } else {
+                                    Image(systemName: Icons.entityIcon(for: entity))
+                                        .font(.system(size: 48))
+                                        .foregroundColor(.gray)
+                                }
+                            }
                         )
                         .cornerRadius(8)
                         .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
                 }
             }
             .onAppear {
+                loadArtwork()
+            }
+            .onChange(of: entity.artworkData) {
                 loadArtwork()
             }
             
@@ -263,7 +304,7 @@ private struct EntityGridItem<T: Entity>: View {
     private func loadArtwork() {
         DispatchQueue.global(qos: .userInitiated).async {
             let image = RenderedImageCache.shared.getImage(for: entity)
-            
+
             DispatchQueue.main.async {
                 self.renderedImage = image
             }

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import GRDB
 
 extension DatabaseManager {
     func applyMetadataToTrack(_ track: inout FullTrack, from metadata: TrackMetadata, at fileURL: URL) {
@@ -270,6 +271,144 @@ extension DatabaseManager {
 
         return hasChanges
     }
+
+    // MARK: - Artist Info Updates
+
+    func updateArtistInfo(
+        artistId: Int64,
+        imageData: Data? = nil,
+        imageUrl: String? = nil,
+        imageSource: String? = nil,
+        bio: String? = nil,
+        bioSource: String? = nil
+    ) {
+        do {
+            _ = try dbQueue.write { db in
+                var assignments: [ColumnAssignment] = []
+
+                if let imageData { assignments.append(Artist.Columns.artworkData.set(to: imageData)) }
+                if let imageUrl { assignments.append(Artist.Columns.imageUrl.set(to: imageUrl)) }
+                if let imageSource {
+                    assignments.append(Artist.Columns.imageSource.set(to: imageSource))
+                    assignments.append(Artist.Columns.imageUpdatedAt.set(to: Date()))
+                }
+                if let bio { assignments.append(Artist.Columns.bio.set(to: bio)) }
+                if let bioSource {
+                    assignments.append(Artist.Columns.bioSource.set(to: bioSource))
+                    assignments.append(Artist.Columns.bioUpdatedAt.set(to: Date()))
+                }
+
+                guard !assignments.isEmpty else { return }
+                assignments.append(Artist.Columns.updatedAt.set(to: Date()))
+
+                try Artist
+                    .filter(Artist.Columns.id == artistId)
+                    .updateAll(db, assignments)
+            }
+        } catch {
+            Logger.error("Failed to update artist info for ID \(artistId): \(error)")
+        }
+    }
+
+    func deleteArtistImage(artistId: Int64) {
+        do {
+            _ = try dbQueue.write { db in
+                try Artist
+                    .filter(Artist.Columns.id == artistId)
+                    .updateAll(
+                        db,
+                        Artist.Columns.artworkData.set(to: nil),
+                        Artist.Columns.imageUrl.set(to: nil),
+                        Artist.Columns.imageSource.set(to: "deleted"),
+                        Artist.Columns.imageUpdatedAt.set(to: Date()),
+                        Artist.Columns.updatedAt.set(to: Date())
+                    )
+            }
+        } catch {
+            Logger.error("Failed to delete artist image for ID \(artistId): \(error)")
+        }
+    }
+
+    func markArtistImageFetchFailed(artistId: Int64) {
+        do {
+            _ = try dbQueue.write { db in
+                try Artist
+                    .filter(Artist.Columns.id == artistId)
+                    .updateAll(
+                        db,
+                        Artist.Columns.imageUpdatedAt.set(to: Date()),
+                        Artist.Columns.updatedAt.set(to: Date())
+                    )
+            }
+        } catch {
+            Logger.error("Failed to mark artist image fetch failed for ID \(artistId): \(error)")
+        }
+    }
+
+    struct ArtistFetchInfo {
+        let id: Int64
+        let name: String
+        let hasImage: Bool
+        let hasBio: Bool
+    }
+
+    func getArtistsNeedingImageOrBio() -> [ArtistFetchInfo] {
+        do {
+            return try dbQueue.read { db in
+                let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
+
+                let needsImage = Artist.Columns.imageSource == nil && (
+                    Artist.Columns.imageUpdatedAt == nil ||
+                    Artist.Columns.imageUpdatedAt < sevenDaysAgo.databaseValue
+                )
+                let needsBio = Artist.Columns.bio == nil
+
+                let rows = try Artist
+                    .select(
+                        Artist.Columns.id,
+                        Artist.Columns.name,
+                        Artist.Columns.imageSource,
+                        Artist.Columns.bio
+                    )
+                    .filter(Artist.Columns.totalTracks > 0)
+                    .filter(needsImage || needsBio)
+                    .order(Artist.Columns.totalTracks.desc)
+                    .asRequest(of: Row.self)
+                    .fetchAll(db)
+
+                return rows.compactMap { row in
+                    guard let id: Int64 = row["id"],
+                          let name: String = row["name"] else { return nil }
+                    let imageSource: String? = row["image_source"]
+                    let bio: String? = row["bio"]
+                    return ArtistFetchInfo(
+                        id: id,
+                        name: name,
+                        hasImage: imageSource != nil,
+                        hasBio: bio != nil
+                    )
+                }
+            }
+        } catch {
+            Logger.error("Failed to get artists needing image or bio: \(error)")
+            return []
+        }
+    }
+
+    func getArtistBio(for artistName: String) -> String? {
+        do {
+            return try dbQueue.read { db in
+                try Artist
+                    .filter(Artist.Columns.name == artistName)
+                    .fetchOne(db)?
+                    .bio
+            }
+        } catch {
+            Logger.error("Failed to get artist bio: \(error)")
+            return nil
+        }
+    }
+
 
     func updateFileProperties(_ track: inout FullTrack, at fileURL: URL) -> Bool {
         var hasChanges = false
