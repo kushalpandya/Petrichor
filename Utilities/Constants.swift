@@ -77,6 +77,7 @@ enum Icons {
     // Sort Icons
     static let sortAscending = "sort.ascending"
     static let sortDescending = "sort.descending"
+    static let reorderTracks = "arrow.up.and.down.text.horizontal"
     
     // Custom Icons (from project assets)
     static let customLossless = "custom.lossless"

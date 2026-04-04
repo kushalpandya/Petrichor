@@ -7,6 +7,8 @@ struct PlaylistDetailView: View {
     @EnvironmentObject var playlistManager: PlaylistManager
     @State private var selectedTrackID: UUID?
     @State private var showingAddSongs = false
+    @State private var showingReorderTracks = false
+    @State private var isCustomSort = false
     @State private var gradientColors: [Color] = []
 
     @AppStorage("useArtworkColors")
@@ -17,7 +19,7 @@ struct PlaylistDetailView: View {
 
     @Environment(\.colorScheme) var colorScheme
     
-    @State private var playlistSortOrder = [KeyPathComparator(\Track.sortableDateAdded)]
+    @State private var playlistSortOrder = [TrackSortField.dateAdded.getComparator(ascending: true)]
 
     // Convenience initializer for when you have a Playlist object
     init(playlist: Playlist) {
@@ -46,8 +48,12 @@ struct PlaylistDetailView: View {
             .sheet(isPresented: $showingAddSongs) {
                 AddSongsToPlaylistSheet(playlist: playlist)
             }
+            .sheet(isPresented: $showingReorderTracks) {
+                ReorderTracksSheet(playlist: playlist)
+            }
             .onChange(of: playlistID) {
                 selectedTrackID = nil
+                loadSortPreference()
             }
             .onChange(of: playlist.dateModified) {
                 loadPlaylistTracksIfNeeded()
@@ -56,13 +62,20 @@ struct PlaylistDetailView: View {
             .onAppear {
                 loadPlaylistTracksIfNeeded()
                 updateGradientColors()
+                loadSortPreference()
             }
             .onChange(of: playlist.id) {
                 loadPlaylistTracksIfNeeded()
                 updateGradientColors()
+                loadSortPreference()
             }
             .onChange(of: playlist.tracks.count) {
                 updateGradientColors()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .trackTableSortChanged)) { notification in
+                if let customSort = notification.userInfo?["isCustomSort"] as? Bool {
+                    isCustomSort = customSort
+                }
             }
             .onChange(of: colorScheme) {
                 updateGradientColors()
@@ -102,12 +115,26 @@ struct PlaylistDetailView: View {
                 }
             }
             .overlay(alignment: .bottomTrailing) {
-                HStack(spacing: 12) {
+                HStack(spacing: 8) {
+                    if playlist?.type == .regular && isCustomSort {
+                        Button(action: { showingReorderTracks = true }) {
+                            Image(systemName: Icons.reorderTracks)
+                                .font(.system(size: 14))
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .hoverEffect(activeBackgroundColor: Color(NSColor.controlColor))
+                        .help("Edit track order")
+                        .disabled(playlist?.tracks.isEmpty ?? true)
+                    }
+
                     TrackTableOptionsDropdown(
                         sortOrder: $playlistSortOrder,
                         tableRowSize: $trackTableRowSize,
-                        playlistID: playlistID
+                        playlistID: playlistID,
+                        showCustomSort: playlist?.type == .regular
                     )
+                    .id(playlistID)
                 }
                 .padding([.bottom, .trailing], 12)
             }
@@ -261,6 +288,7 @@ struct PlaylistDetailView: View {
                         }
                     }
                 )
+                .id(playlistID)
             }
         }
     }
@@ -361,6 +389,56 @@ struct PlaylistDetailView: View {
             imageData: artworkData,
             isDark: colorScheme == .dark
         )
+    }
+
+    private func loadSortPreference() {
+        let sortManager = PlaylistSortManager.shared
+
+        // If user has explicitly set a sort preference, use it
+        if sortManager.hasSortPreference(for: playlistID) {
+            let field = sortManager.getSortField(for: playlistID)
+            isCustomSort = field == .custom
+            if field == .custom {
+                NotificationCenter.default.post(
+                    name: .trackTableSortChanged,
+                    object: nil,
+                    userInfo: ["isCustomSort": true]
+                )
+            } else {
+                let ascending = sortManager.getSortAscending(for: playlistID)
+                playlistSortOrder = [field.getComparator(ascending: ascending)]
+            }
+            return
+        }
+
+        // No stored preference — use smart playlist default or dateAdded
+        isCustomSort = false
+        if let criteria = playlist?.smartCriteria,
+           let sortBy = criteria.sortBy {
+            let fieldMap: [String: TrackSortField] = [
+                "dateAdded": .dateAdded,
+                "title": .title,
+                "artist": .artist,
+                "album": .album,
+                "genre": .genre,
+                "year": .year,
+                "duration": .duration,
+            ]
+            if let field = fieldMap[sortBy] {
+                playlistSortOrder = [field.getComparator(ascending: criteria.sortAscending)]
+            } else {
+                // Smart criteria sort (e.g. playCount, lastPlayedDate) has no table column —
+                // tracks arrive pre-sorted from DB, so preserve that order
+                isCustomSort = true
+                NotificationCenter.default.post(
+                    name: .trackTableSortChanged,
+                    object: nil,
+                    userInfo: ["isCustomSort": true]
+                )
+            }
+        } else {
+            playlistSortOrder = [TrackSortField.dateAdded.getComparator(ascending: true)]
+        }
     }
 
     private func loadPlaylistTracksIfNeeded() {

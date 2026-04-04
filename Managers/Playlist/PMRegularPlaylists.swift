@@ -270,6 +270,28 @@ extension PlaylistManager {
         }
     }
     
+    /// Reorder tracks within a playlist
+    func reorderPlaylistTracks(playlistID: UUID, reorderedTracks: [Track]) async {
+        guard let index = playlists.firstIndex(where: { $0.id == playlistID }),
+              playlists[index].type == .regular,
+              playlists[index].isContentEditable else { return }
+
+        await MainActor.run {
+            self.playlists[index].tracks = reorderedTracks
+            self.playlists[index].dateModified = Date()
+        }
+
+        let updatedPlaylist = await MainActor.run { self.playlists[index] }
+        do {
+            if let dbManager = libraryManager?.databaseManager {
+                try await dbManager.savePlaylistAsync(updatedPlaylist)
+                Logger.info("Saved reordered playlist '\(updatedPlaylist.name)' with \(updatedPlaylist.tracks.count) tracks")
+            }
+        } catch {
+            Logger.error("Failed to save reordered playlist: \(error)")
+        }
+    }
+
     /// Refresh playlists after a folder is removed from the library
     func refreshPlaylistsAfterFolderRemoval() {
         // Remove tracks that no longer exist from regular playlists
