@@ -314,77 +314,80 @@ struct Playlist: Identifiable, FetchableRecord, PersistableRecord {
         // Check if all tracks are from the same album
         let uniqueAlbums = Set(tracks.map { $0.album })
         let isSingleAlbum = uniqueAlbums.count == 1
-        
+
         // If single album or single track, just use the first track's artwork
         if isSingleAlbum || tracks.count == 1 {
             return tracks.first?.artworkData
         }
-        
+
         // Get up to 4 tracks with artwork for collage
         let tracksWithArt = tracks.prefix(4).filter { $0.artworkData != nil }
-        
+
         guard !tracksWithArt.isEmpty else { return nil }
-        
-        let imageSize: CGFloat = 256
-        let collageImage = NSImage(size: NSSize(width: imageSize, height: imageSize))
-        
-        collageImage.lockFocus()
-        
-        // Clear background
-        NSColor.black.setFill()
-        NSRect(x: 0, y: 0, width: imageSize, height: imageSize).fill()
-        
+
+        let pixelSize = 256
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+
+        // Create opaque bitmap context (no alpha) to avoid HEIC encoder warnings
+        guard let context = CGContext(
+            data: nil,
+            width: pixelSize,
+            height: pixelSize,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+        ) else {
+            Logger.warning("Failed to create CGContext for collage")
+            return nil
+        }
+
+        // Fill black background
+        context.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: pixelSize, height: pixelSize))
+
         let count = tracksWithArt.count
-        
-        // Special handling based on track count
+        let size = CGFloat(pixelSize)
+
         if count == 1 {
-            // Single track - just draw it full size (this case is already handled above, but keeping for safety)
             if let artworkData = tracksWithArt[0].artworkData,
-               let image = NSImage(data: artworkData) {
-                image.draw(in: NSRect(x: 0, y: 0, width: imageSize, height: imageSize),
-                           from: NSRect(origin: .zero, size: image.size),
-                           operation: .copy,
-                           fraction: 1.0)
+               let source = CGImageSourceCreateWithData(artworkData as CFData, nil),
+               let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) {
+                context.draw(cgImage, in: CGRect(x: 0, y: 0, width: size, height: size))
             }
         } else {
             // 2 or more tracks - always create 2x2 grid
-            let positions = [(0, 0), (1, 0), (0, 1), (1, 1)]  // (col, row) for each quadrant
-            
+            let positions = [(0, 0), (1, 0), (0, 1), (1, 1)]
+
             for (index, (col, row)) in positions.enumerated() {
                 let trackIndex: Int
-                
+
                 if count == 2 {
-                    // For 2 tracks: diagonal pattern (0, 1, 1, 0)
                     trackIndex = (index == 0 || index == 3) ? 0 : 1
                 } else {
-                    // For 3+ tracks: use available tracks, repeating if necessary
                     trackIndex = index % count
                 }
-                
+
                 guard let artworkData = tracksWithArt[trackIndex].artworkData,
-                      let image = NSImage(data: artworkData) else { continue }
-                
-                let destRect = NSRect(
-                    x: CGFloat(col) * imageSize / 2,
-                    y: CGFloat(row) * imageSize / 2,
-                    width: imageSize / 2,
-                    height: imageSize / 2
+                      let source = CGImageSourceCreateWithData(artworkData as CFData, nil),
+                      let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else { continue }
+
+                let destRect = CGRect(
+                    x: CGFloat(col) * size / 2,
+                    y: CGFloat(row) * size / 2,
+                    width: size / 2,
+                    height: size / 2
                 )
-                
-                image.draw(in: destRect,
-                           from: NSRect(origin: .zero, size: image.size),
-                           operation: .copy,
-                           fraction: 1.0)
+
+                context.draw(cgImage, in: destRect)
             }
         }
-        
-        collageImage.unlockFocus()
-        
-        guard let cgImage = collageImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            Logger.warning("Failed to create CGImage from collage")
+
+        guard let collageImage = context.makeImage() else {
+            Logger.warning("Failed to create CGImage from collage context")
             return nil
         }
-        return ImageUtils.encodeHEIC(cgImage)
+        return ImageUtils.encodeHEIC(collageImage)
     }
 }
 
@@ -420,7 +423,7 @@ extension Playlist {
                             value: "true"
                         )
                     ],
-                    sortBy: nil, // No sorting - will maintain order as added
+                    sortBy: "dateAdded",
                     sortAscending: true
                 ),
                 isUserEditable: false
