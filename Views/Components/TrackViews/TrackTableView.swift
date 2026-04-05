@@ -18,6 +18,7 @@ struct TrackTableView: View {
     @State private var lastSelectionTime: Date = Date()
     @State private var lastSelectedTrackID: Track.ID?
     
+    @State private var isCustomSort: Bool = false
     @State private var hasInitializedCustomization = false
     @State private var columnCustomization: TableColumnCustomization<Track> = {
         if let data = UserDefaults.standard.data(forKey: "trackTableColumnCustomizationData"),
@@ -74,10 +75,20 @@ struct TrackTableView: View {
             }
             .onChange(of: sortOrder) { oldValue, newValue in
                 if oldValue != newValue {
+                    // Table column header click overrides custom sort
+                    if isCustomSort {
+                        isCustomSort = false
+                    }
+
+                    if let playlistID = playlistID {
+                        PlaylistSortManager.shared.setSortField(TrackSortField.detect(from: newValue), for: playlistID)
+                        PlaylistSortManager.shared.setSortAscending(TrackSortField.isAscending(from: newValue), for: playlistID)
+                    }
+
                     performBackgroundSort(with: newValue)
-                    
+
                     saveSortOrderToUserDefaults(newValue, key: "trackTableSortOrder")
-                    
+
                     NotificationCenter.default.post(
                         name: .trackTableSortChanged,
                         object: nil,
@@ -87,8 +98,17 @@ struct TrackTableView: View {
             }
             .onChange(of: tracks) { _, newTracks in
                 if !newTracks.isEmpty {
-                    performBackgroundSort(with: sortOrder)
-                    
+                    // Re-sync custom sort state for the current playlist
+                    if let playlistID = playlistID {
+                        isCustomSort = PlaylistSortManager.shared.getSortField(for: playlistID) == .custom
+                    }
+
+                    if isCustomSort {
+                        sortedTracks = newTracks
+                    } else {
+                        performBackgroundSort(with: sortOrder)
+                    }
+
                     trackFavorites = Dictionary(uniqueKeysWithValues:
                         newTracks.compactMap { track in
                             guard let trackId = track.trackId else { return nil }
@@ -304,6 +324,14 @@ struct TrackTableView: View {
     // MARK: - Helper Methods
     
     private func initializeSortedTracks() {
+        // Check for custom sort on playlists (position-based order from DB)
+        if let playlistID = playlistID,
+           PlaylistSortManager.shared.getSortField(for: playlistID) == .custom {
+            isCustomSort = true
+            sortedTracks = tracks
+            return
+        }
+
         // Follow overridden sort order for entities and playlists
         if entityID != nil || playlistID != nil {
             sortedTracks = tracks.sorted(using: sortOrder)
@@ -312,27 +340,12 @@ struct TrackTableView: View {
 
         if let savedSort = UserDefaults.standard.dictionary(forKey: "trackTableSortOrder"),
            let key = savedSort["key"] as? String,
-           let ascending = savedSort["ascending"] as? Bool {
-            let sortComparators: [String: KeyPathComparator<Track>] = [
-                "trackNumber": KeyPathComparator(\Track.sortableTrackNumber, order: ascending ? .forward : .reverse),
-                "discNumber": KeyPathComparator(\Track.sortableDiscNumber, order: ascending ? .forward : .reverse),
-                "favorite": KeyPathComparator(\Track.sortableIsFavorite, order: ascending ? .forward : .reverse),
-                "title": KeyPathComparator(\Track.title, order: ascending ? .forward : .reverse),
-                "artist": KeyPathComparator(\Track.artist, order: ascending ? .forward : .reverse),
-                "album": KeyPathComparator(\Track.album, order: ascending ? .forward : .reverse),
-                "genre": KeyPathComparator(\Track.genre, order: ascending ? .forward : .reverse),
-                "year": KeyPathComparator(\Track.year, order: ascending ? .forward : .reverse),
-                "composer": KeyPathComparator(\Track.composer, order: ascending ? .forward : .reverse),
-                "filename": KeyPathComparator(\Track.filename, order: ascending ? .forward : .reverse),
-                "duration": KeyPathComparator(\Track.duration, order: ascending ? .forward : .reverse),
-                "dateAdded": KeyPathComparator(\Track.dateAdded, order: ascending ? .forward : .reverse)
-            ]
-            
-            if let comparator = sortComparators[key] {
-                sortOrder = [comparator]
-                sortedTracks = tracks.sorted(using: [comparator])
-                return
-            }
+           let ascending = savedSort["ascending"] as? Bool,
+           let field = TrackSortField.from(storageKey: key) {
+            let comparator = field.getComparator(ascending: ascending)
+            sortOrder = [comparator]
+            sortedTracks = tracks.sorted(using: [comparator])
+            return
         }
         
         let defaultComparator = KeyPathComparator(\Track.title, order: .forward)
@@ -382,8 +395,13 @@ struct TrackTableView: View {
     // MARK: - Sorting Helpers
     
     private func performBackgroundSort(with newSortOrder: [KeyPathComparator<Track>]) {
+        if isCustomSort {
+            sortedTracks = tracks
+            return
+        }
+
         let initialTracks = (sortedTracks.count != tracks.count) ? tracks : sortedTracks
-        
+
         Task.detached(priority: .userInitiated) {
             let sorted = initialTracks.sorted(using: newSortOrder)
             await MainActor.run {
@@ -393,30 +411,10 @@ struct TrackTableView: View {
     }
 
     private func saveSortOrderToUserDefaults(_ sortOrder: [KeyPathComparator<Track>], key: String = "trackTableSortOrder") {
-        guard let firstSort = sortOrder.first else { return }
-        
-        let sortString = String(describing: firstSort)
-        let ascending = sortString.contains("forward")
-        
-        let sortKeys = [
-            "dateAdded": "dateAdded",
-            "sortableTrackNumber": "trackNumber",
-            "sortableDiscNumber": "discNumber",
-            "sortableIsFavorite": "favorite",
-            "title": "title",
-            "artist": "artist",
-            "album": "album",
-            "genre": "genre",
-            "year": "year",
-            "composer": "composer",
-            "filename": "filename",
-            "duration": "duration"
-        ]
-        
-        if let keyValue = sortKeys.first(where: { sortString.contains($0.key) })?.value {
-            let storage = ["key": keyValue, "ascending": ascending] as [String: Any]
-            UserDefaults.standard.set(storage, forKey: key)
-        }
+        let field = TrackSortField.detect(from: sortOrder)
+        let ascending = TrackSortField.isAscending(from: sortOrder)
+        let storage: [String: Any] = ["key": field.storageKey, "ascending": ascending]
+        UserDefaults.standard.set(storage, forKey: key)
     }
     
     // MARK: - Column Customization Persistence
@@ -473,9 +471,18 @@ struct TrackTableView: View {
     }
 
     private func handleSortChangedNotification(_ notification: Notification) {
+        // Handle custom sort flag from dropdown
+        if let customSort = notification.userInfo?["isCustomSort"] as? Bool {
+            isCustomSort = customSort
+            if customSort {
+                sortedTracks = tracks
+                return
+            }
+        }
+
         if let newSortOrder = notification.userInfo?["sortOrder"] as? [KeyPathComparator<Track>] {
             sortOrder = newSortOrder
-            
+
             if let userDefaultsKey = notification.userInfo?["userDefaultsKey"] as? String {
                 saveSortOrderToUserDefaults(newSortOrder, key: userDefaultsKey)
             } else {
@@ -499,8 +506,7 @@ struct TrackTableView: View {
         guard let index = sortedTracks.firstIndex(where: { $0.trackId == trackId }) else { return }
         
         // Check if we're sorted by favorites
-        let sortString = String(describing: sortOrder.first ?? KeyPathComparator(\Track.title))
-        let isSortedByFavorites = sortString.contains("sortableIsFavorite")
+        let isSortedByFavorites = TrackSortField.detect(from: sortOrder) == .favorite
         
         if isSortedByFavorites {
             // Create new array to ensure SwiftUI Table updates as
