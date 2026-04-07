@@ -8,9 +8,7 @@ struct TrackView: View {
     let entityID: UUID?
     @Binding var sortOrder: [KeyPathComparator<Track>]
     let onPlayTrack: (Track) -> Void
-    let contextMenuItems: ([Track]) -> [ContextMenuItem]
-    
-    @EnvironmentObject var playbackManager: PlaybackManager
+    let contextMenuItems: ([Track], PlaybackManager) -> [ContextMenuItem]
     
     @AppStorage("trackTableRowSize")
     private var tableRowSize: TableRowSize = .expanded
@@ -94,7 +92,7 @@ extension View {
         onPlayTrack: { track in
             Logger.debugPrint("Playing \(track.title)")
         },
-        contextMenuItems: { _ in [] }
+        contextMenuItems: { _, _ in [] }
     )
     .frame(height: 400)
     .environmentObject(PlaybackManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
@@ -123,7 +121,7 @@ extension View {
         onPlayTrack: { track in
             Logger.debugPrint("Playing \(track.title)")
         },
-        contextMenuItems: { _ in [] }
+        contextMenuItems: { _, _ in [] }
     )
     .frame(height: 600)
     .environmentObject(PlaybackManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))

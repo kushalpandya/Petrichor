@@ -5,7 +5,7 @@ struct TrackTableView: View {
     let playlistID: UUID?
     let entityID: UUID?
     let onPlayTrack: (Track) -> Void
-    let contextMenuItems: ([Track]) -> [ContextMenuItem]
+    let contextMenuItems: ([Track], PlaybackManager) -> [ContextMenuItem]
     @Binding var sortOrder: [KeyPathComparator<Track>]
     @Binding var tableRowSize: TableRowSize
     
@@ -18,6 +18,7 @@ struct TrackTableView: View {
     @State private var lastSelectionTime: Date = Date()
     @State private var lastSelectedTrackID: Track.ID?
     
+    @State private var currentTrackId: Int64?
     @State private var isCustomSort: Bool = false
     @State private var hasInitializedCustomization = false
     @State private var columnCustomization: TableColumnCustomization<Track> = {
@@ -32,11 +33,18 @@ struct TrackTableView: View {
     @AppStorage("trackTableColumnCustomizationData")
     private var columnCustomizationData = Data()
     
+    private static let trackFont = Font.system(size: 13, weight: .regular)
+    private static let currentTrackFont = Font.system(size: 13, weight: .medium)
+    private static let currentTrackTitleFont = Font.system(size: 13, weight: .bold)
+
     private func isCurrentTrack(_ track: Track) -> Bool {
-        guard let currentTrack = playbackManager.currentTrack else { return false }
-        return currentTrack.url.path == track.url.path
+        guard let currentId = currentTrackId, let trackId = track.trackId else {
+            guard let currentTrack = playbackManager.currentTrack else { return false }
+            return currentTrack.url.path == track.url.path
+        }
+        return currentId == trackId
     }
-    
+
     private func isPlaying(_ track: Track) -> Bool {
         isCurrentTrack(track) && playbackManager.isPlaying
     }
@@ -56,7 +64,7 @@ struct TrackTableView: View {
             .contextMenu(forSelectionType: Track.ID.self) { selectedIDs in
                 let selectedTracks = sortedTracks.filter { selectedIDs.contains($0.id) }
                 if !selectedTracks.isEmpty {
-                    ForEach(contextMenuItems(selectedTracks), id: \.id) { item in
+                    ForEach(contextMenuItems(selectedTracks, playbackManager), id: \.id) { item in
                         contextMenuItem(item)
                     }
                 }
@@ -118,8 +126,12 @@ struct TrackTableView: View {
                 }
             }
             .onAppear {
+                currentTrackId = playbackManager.currentTrack?.trackId
                 initializeSortedTracks()
                 hasInitializedCustomization = true
+            }
+            .onChange(of: playbackManager.currentTrack?.trackId) { _, newId in
+                currentTrackId = newId
             }
             .onReceive(NotificationCenter.default.publisher(for: .playEntityTracks)) { notification in
                 handlePlayEntityNotification(notification)
@@ -151,13 +163,11 @@ struct TrackTableView: View {
             Group {
                 // Track Number
                 TableColumn("#", value: \.sortableTrackNumber) { track in
-                    HStack {
-                        Text(track.trackNumber != nil ? "\(track.trackNumber!)" : "")
-                            .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
-                            .foregroundColor(.secondary)
-                            .monospacedDigit()
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(track.trackNumber != nil ? "\(track.trackNumber!)" : "")
+                        .font(isCurrentTrack(track) ? Self.currentTrackFont : Self.trackFont)
+                        .foregroundColor(.secondary)
+                        .monospacedDigit()
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .width(min: 20)
                 .customizationID("trackNumber")
@@ -177,13 +187,11 @@ struct TrackTableView: View {
                 
                 // Disc Number
                 TableColumn("Disc", value: \.sortableDiscNumber) { track in
-                    HStack {
-                        Text(track.discNumber != nil ? "\(track.discNumber!)" : "")
-                            .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
-                            .foregroundColor(.secondary)
-                            .monospacedDigit()
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(track.discNumber != nil ? "\(track.discNumber!)" : "")
+                        .font(isCurrentTrack(track) ? Self.currentTrackFont : Self.trackFont)
+                        .foregroundColor(.secondary)
+                        .monospacedDigit()
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .width(min: 20)
                 .customizationID("discNumber")
@@ -200,7 +208,7 @@ struct TrackTableView: View {
                         isPlaying: isPlaying(track),
                         isSelected: selection.contains(track.id),
                         handlePlayTrack: handlePlayTrack
-                    )
+                    ) { playbackManager.togglePlayPause() }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .width(min: 200)
@@ -209,12 +217,10 @@ struct TrackTableView: View {
                 
                 // Artist
                 TableColumn("Artist", value: \.artist) { track in
-                    HStack {
-                        Text(track.artist)
-                            .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
-                            .lineLimit(1)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(track.artist)
+                        .font(isCurrentTrack(track) ? Self.currentTrackFont : Self.trackFont)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .width(min: 100)
                 .customizationID("artist")
@@ -222,12 +228,10 @@ struct TrackTableView: View {
                 
                 // Album
                 TableColumn("Album", value: \.album) { track in
-                    HStack {
-                        Text(track.album)
-                            .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
-                            .lineLimit(1)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(track.album)
+                        .font(isCurrentTrack(track) ? Self.currentTrackFont : Self.trackFont)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .width(min: 100)
                 .customizationID("album")
@@ -235,12 +239,10 @@ struct TrackTableView: View {
                 
                 // Genre
                 TableColumn("Genre", value: \.genre) { track in
-                    HStack {
-                        Text(track.genre)
-                            .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
-                            .lineLimit(1)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(track.genre)
+                        .font(isCurrentTrack(track) ? Self.currentTrackFont : Self.trackFont)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .width(min: 80)
                 .customizationID("genre")
@@ -248,12 +250,10 @@ struct TrackTableView: View {
                 
                 // Year
                 TableColumn("Year", value: \.year) { track in
-                    HStack {
-                        Text(track.year)
-                            .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
-                            .lineLimit(1)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(track.year)
+                        .font(isCurrentTrack(track) ? Self.currentTrackFont : Self.trackFont)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .width(min: 40)
                 .customizationID("year")
@@ -261,12 +261,10 @@ struct TrackTableView: View {
                 
                 // Composer
                 TableColumn("Composer", value: \.composer) { track in
-                    HStack {
-                        Text(track.composer)
-                            .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
-                            .lineLimit(1)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(track.composer)
+                        .font(isCurrentTrack(track) ? Self.currentTrackFont : Self.trackFont)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .width(min: 100)
                 .customizationID("composer")
@@ -276,13 +274,11 @@ struct TrackTableView: View {
             Group {
                 // Filename
                 TableColumn("Filename", value: \.filename) { track in
-                    HStack {
-                        Text(track.filename)
-                            .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(track.filename)
+                        .font(isCurrentTrack(track) ? Self.currentTrackFont : Self.trackFont)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .width(min: 200)
                 .customizationID("filename")
@@ -290,13 +286,11 @@ struct TrackTableView: View {
                 
                 // Date Added
                 TableColumn("Date Added", value: \.sortableDateAdded) { track in
-                    HStack {
-                        Text(track.dateAdded != nil ? formatDate(track.dateAdded!) : "")
-                            .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(track.dateAdded != nil ? formatDate(track.dateAdded!) : "")
+                        .font(isCurrentTrack(track) ? Self.currentTrackFont : Self.trackFont)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .width(min: 100)
                 .customizationID("dateAdded")
@@ -304,13 +298,11 @@ struct TrackTableView: View {
                 
                 // Duration
                 TableColumn("Duration", value: \.duration) { track in
-                    HStack {
-                        Text(formatDuration(track.duration))
-                            .font(.system(size: 13, weight: isCurrentTrack(track) ? .medium : .regular))
-                            .foregroundColor(.secondary)
-                            .monospacedDigit()
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(formatDuration(track.duration))
+                        .font(isCurrentTrack(track) ? Self.currentTrackFont : Self.trackFont)
+                        .foregroundColor(.secondary)
+                        .monospacedDigit()
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .width(min: 40)
                 .customizationID("duration")
@@ -380,11 +372,15 @@ struct TrackTableView: View {
         return String(format: StringFormat.mmss, minutes, remainingSeconds)
     }
     
-    private func formatDate(_ date: Date) -> String {
+    private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .none
-        return formatter.string(from: date)
+        return formatter
+    }()
+
+    private func formatDate(_ date: Date) -> String {
+        Self.dateFormatter.string(from: date)
     }
     
     @ViewBuilder
@@ -520,6 +516,94 @@ struct TrackTableView: View {
     }
 }
 
+// MARK: - Track Artwork Loading
+
+/// Operation subclass that guarantees its continuation is resumed
+/// even when cancelled, unlike BlockOperation whose execution blocks
+/// are skipped entirely for cancelled operations.
+private final class ArtworkLoadOperation: Operation, @unchecked Sendable {
+    private let continuation: CheckedContinuation<NSImage?, Never>
+    private let work: () -> NSImage?
+
+    init(continuation: CheckedContinuation<NSImage?, Never>, work: @escaping () -> NSImage?) {
+        self.continuation = continuation
+        self.work = work
+        super.init()
+    }
+
+    override func main() {
+        continuation.resume(returning: isCancelled ? nil : work())
+    }
+}
+
+// MARK: - Track Artwork Cache
+
+private class TrackArtworkCache {
+    static let shared = TrackArtworkCache()
+    private let cache = NSCache<NSString, NSImage>()
+    private let loadQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.maxConcurrentOperationCount = max(2, ProcessInfo.processInfo.activeProcessorCount / 2)
+        queue.qualityOfService = .utility
+        return queue
+    }()
+
+    init() {
+        cache.countLimit = 500
+    }
+
+    private func cacheKey(for track: Track) -> NSString {
+        "\(track.trackId?.description ?? track.url.path)-trackCell" as NSString
+    }
+
+    func getCachedImage(for track: Track) -> NSImage? {
+        cache.object(forKey: cacheKey(for: track))
+    }
+
+    func loadImage(for track: Track) async -> NSImage? {
+        let key = cacheKey(for: track)
+
+        if let cached = cache.object(forKey: key) {
+            return cached
+        }
+
+        return await withCheckedContinuation { continuation in
+            let operation = ArtworkLoadOperation(continuation: continuation) { [self] in
+                // Re-check cache — another operation may have loaded it while queued
+                if let cached = cache.object(forKey: key) {
+                    return cached
+                }
+
+                // Decode with NSImage(data:) and resize via CGContext to avoid
+                // CGImageSource errors under concurrent load from rapid scrolling
+                guard let data = track.albumArtworkData,
+                      let nsImage = NSImage(data: data),
+                      let cgImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+                    return nil
+                }
+
+                let size = Int(ViewDefaults.listArtworkSize * 2)
+                guard let context = CGContext(
+                    data: nil, width: size, height: size,
+                    bitsPerComponent: 8, bytesPerRow: 0,
+                    space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+                ) else { return nil }
+
+                context.interpolationQuality = .high
+                context.draw(cgImage, in: CGRect(x: 0, y: 0, width: size, height: size))
+
+                guard let resizedCG = context.makeImage() else { return nil }
+
+                let result = NSImage(cgImage: resizedCG, size: NSSize(width: size, height: size))
+                cache.setObject(result, forKey: key)
+                return result
+            }
+            loadQueue.addOperation(operation)
+        }
+    }
+}
+
 // MARK: - Title Cell with Artwork & Playback Controls
 
 private struct TrackTitleCell: View {
@@ -529,16 +613,15 @@ private struct TrackTitleCell: View {
     let isPlaying: Bool
     let isSelected: Bool
     let handlePlayTrack: (Track) -> Void
-    
-    @EnvironmentObject var playbackManager: PlaybackManager
+    let handleTogglePlayPause: () -> Void
+
     @State private var artworkImage: NSImage?
-    
+
     var body: some View {
         HStack(spacing: 8) {
             if tableRowSize == .expanded {
                 ZStack {
-                    if let data = track.albumArtworkMedium,
-                       let image = NSImage(data: data) {
+                    if let image = artworkImage {
                         Image(nsImage: image)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
@@ -554,12 +637,12 @@ private struct TrackTitleCell: View {
                                     .foregroundColor(.secondary)
                             )
                     }
-                    
+
                     if isCurrentTrack || isSelected {
                         RoundedRectangle(cornerRadius: 4)
                             .fill(Color.black.opacity(0.5))
                             .frame(width: ViewDefaults.listArtworkSize, height: ViewDefaults.listArtworkSize)
-                        
+
                         Button(action: handleButtonAction) {
                             Image(systemName: buttonIcon)
                                 .font(.system(size: 20))
@@ -577,7 +660,7 @@ private struct TrackTitleCell: View {
                         .font(.system(size: 14))
                         .foregroundColor(.clear)
                         .frame(width: 20, height: 20)
-                    
+
                     if isSelected || isCurrentTrack {
                         Button(action: handleButtonAction) {
                             Image(systemName: buttonIcon)
@@ -589,27 +672,44 @@ private struct TrackTitleCell: View {
                 }
                 .animation(.none, value: isSelected)
             }
-            
+
             // Title text
             Text(track.title)
                 .font(.system(size: 13, weight: isCurrentTrack ? .bold : .regular))
                 .lineLimit(1)
                 .animation(.none, value: isSelected)
-            
+
             Spacer()
         }
+        .task(id: track.trackId) {
+            await loadArtwork()
+        }
     }
-    
+
     // MARK: - Private Helpers
-    
+
+    private func loadArtwork() async {
+        // Serve from cache synchronously to avoid flicker on re-render
+        if let cached = TrackArtworkCache.shared.getCachedImage(for: track) {
+            artworkImage = cached
+            return
+        }
+
+        let image = await TrackArtworkCache.shared.loadImage(for: track)
+
+        if !Task.isCancelled {
+            artworkImage = image
+        }
+    }
+
     private func handleButtonAction() {
         if isCurrentTrack {
-            playbackManager.togglePlayPause()
+            handleTogglePlayPause()
         } else {
             handlePlayTrack(track)
         }
     }
-    
+
     private var buttonIcon: String {
         if isCurrentTrack && isPlaying {
             return Icons.pauseFill

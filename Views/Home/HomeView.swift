@@ -9,7 +9,6 @@ enum AlbumSortOption: String, Codable {
 
 struct HomeView: View {
     @EnvironmentObject var libraryManager: LibraryManager
-    @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var playlistManager: PlaylistManager
     
     @AppStorage("entitySortAscending")
@@ -181,7 +180,7 @@ struct HomeView: View {
                         playlistManager.playTrack(track, fromTracks: libraryManager.discoverTracks)
                         playlistManager.currentQueueSource = .library
                     },
-                    contextMenuItems: { track in
+                    contextMenuItems: { track, playbackManager in
                         TrackContextMenu.createMenuItems(
                             for: track,
                             playbackManager: playbackManager,
@@ -239,7 +238,7 @@ struct HomeView: View {
                         playlistManager.playTrack(track, fromTracks: libraryManager.tracks)
                         playlistManager.currentQueueSource = .library
                     },
-                    contextMenuItems: { track in
+                    contextMenuItems: { track, playbackManager in
                         TrackContextMenu.createMenuItems(
                             for: track,
                             playbackManager: playbackManager,
@@ -477,7 +476,7 @@ struct HomeView: View {
                                 playlistManager.playTrack(track, fromTracks: pinnedItemTracks)
                                 playlistManager.currentQueueSource = .library
                             },
-                            contextMenuItems: { track in
+                            contextMenuItems: { track, playbackManager in
                                 TrackContextMenu.createMenuItems(
                                     for: track,
                                     playbackManager: playbackManager,

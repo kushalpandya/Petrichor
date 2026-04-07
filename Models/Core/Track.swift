@@ -54,7 +54,7 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
         get {
             guard let original = albumArtworkData else { return nil }
             
-            let cacheKey = "\(id.uuidString)-small" as NSString
+            let cacheKey = "\(trackId?.description ?? url.path)-small" as NSString
             if let cached = Track.artworkCache.object(forKey: cacheKey) {
                 return cached as Data
             }
@@ -66,7 +66,7 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
             return nil
         }
         set {
-            let cacheKey = "\(id.uuidString)-small" as NSString
+            let cacheKey = "\(trackId?.description ?? url.path)-small" as NSString
             if let data = newValue {
                 Track.artworkCache.setObject(data as NSData, forKey: cacheKey)
             }
@@ -77,7 +77,7 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
         get {
             guard let original = albumArtworkData else { return nil }
             
-            let cacheKey = "\(id.uuidString)-medium" as NSString
+            let cacheKey = "\(trackId?.description ?? url.path)-medium" as NSString
             if let cached = Track.artworkCache.object(forKey: cacheKey) {
                 return cached as Data
             }
@@ -89,7 +89,7 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
             return nil
         }
         set {
-            let cacheKey = "\(id.uuidString)-medium" as NSString
+            let cacheKey = "\(trackId?.description ?? url.path)-medium" as NSString
             if let data = newValue {
                 Track.artworkCache.setObject(data as NSData, forKey: cacheKey)
             }
@@ -100,7 +100,7 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
         get {
             guard let original = albumArtworkData else { return nil }
             
-            let cacheKey = "\(id.uuidString)-large" as NSString
+            let cacheKey = "\(trackId?.description ?? url.path)-large" as NSString
             if let cached = Track.artworkCache.object(forKey: cacheKey) {
                 return cached as Data
             }
@@ -112,7 +112,7 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
             return nil
         }
         set {
-            let cacheKey = "\(id.uuidString)-large" as NSString
+            let cacheKey = "\(trackId?.description ?? url.path)-large" as NSString
             if let data = newValue {
                 Track.artworkCache.setObject(data as NSData, forKey: cacheKey)
             }

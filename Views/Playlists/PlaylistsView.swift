@@ -2,7 +2,6 @@ import SwiftUI
 
 struct PlaylistsView: View {
     @EnvironmentObject var playlistManager: PlaylistManager
-    @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var libraryManager: LibraryManager
     @Binding var selectedPlaylist: Playlist?
 

@@ -4,7 +4,6 @@ struct EntityDetailView: View {
     let entity: any Entity
     let onBack: (() -> Void)?
     
-    @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var playlistManager: PlaylistManager
     @EnvironmentObject var libraryManager: LibraryManager
     @State private var tracks: [Track] = []
@@ -48,7 +47,7 @@ struct EntityDetailView: View {
                     onPlayTrack: { track in
                         playTrack(track)
                     },
-                    contextMenuItems: { track in
+                    contextMenuItems: { track, playbackManager in
                         TrackContextMenu.createMenuItems(
                             for: track,
                             playbackManager: playbackManager,
