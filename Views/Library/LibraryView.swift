@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct LibraryView: View {
-    @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var libraryManager: LibraryManager
     @EnvironmentObject var playlistManager: PlaylistManager
 
@@ -117,7 +116,7 @@ struct LibraryView: View {
                         playlistManager.playTrack(track, fromTracks: cachedFilteredTracks)
                         playlistManager.currentQueueSource = .library
                     },
-                    contextMenuItems: { track in
+                    contextMenuItems: { track, playbackManager in
                         TrackContextMenu.createMenuItems(
                             for: track,
                             playbackManager: playbackManager,
@@ -224,17 +223,6 @@ struct LibraryView: View {
                 cachedFilteredTracks = []
             }
         }
-    }
-
-    // MARK: - Context Menu Helper
-
-    private func createLibraryContextMenu(for tracks: [Track]) -> [ContextMenuItem] {
-        TrackContextMenu.createMenuItems(
-            for: tracks,
-            playbackManager: playbackManager,
-            playlistManager: playlistManager,
-            currentContext: .library
-        )
     }
 }
 

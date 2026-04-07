@@ -3,7 +3,6 @@ import SwiftUI
 struct PlaylistDetailView: View {
     let playlistID: UUID
 
-    @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var playlistManager: PlaylistManager
     @State private var selectedTrackID: UUID?
     @State private var showingAddSongs = false
@@ -275,7 +274,7 @@ struct PlaylistDetailView: View {
                             selectedTrackID = track.id
                         }
                     },
-                    contextMenuItems: { track in
+                    contextMenuItems: { track, playbackManager in
                         if let playlist = playlist {
                             return TrackContextMenu.createMenuItems(
                                 for: track,

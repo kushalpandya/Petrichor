@@ -2,7 +2,6 @@ import SwiftUI
 import Foundation
 
 struct FoldersView: View {
-    @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var libraryManager: LibraryManager
     @EnvironmentObject var playlistManager: PlaylistManager
     @Binding var selectedFolderNode: FolderNode?
@@ -105,7 +104,7 @@ struct FoldersView: View {
                     selectedTrackID = track.id
                 }
             },
-            contextMenuItems: { tracks in
+            contextMenuItems: { tracks, playbackManager in
                 if let node = selectedFolderNode {
                     // Create context menu items for folder node
                     if let dbFolder = node.databaseFolder {
