@@ -13,6 +13,47 @@ extension View {
     }
 }
 
+// MARK: - Adaptive Button Styles
+
+extension View {
+    @ViewBuilder
+    func adaptiveButtonStyle(prominent: Bool = false) -> some View {
+        if #available(macOS 26.0, *) {
+            if prominent {
+                self.foregroundStyle(Color.accentColor)
+                    .buttonStyle(.glass)
+                    .buttonBorderShape(.capsule)
+                    .controlSize(.small)
+            } else {
+                self.foregroundStyle(.secondary)
+                    .buttonStyle(.glass)
+                    .buttonBorderShape(.capsule)
+                    .controlSize(.small)
+            }
+        } else {
+            if prominent {
+                self.buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+            } else {
+                self.buttonStyle(.bordered)
+                    .controlSize(.small)
+            }
+        }
+    }
+
+    @ViewBuilder
+    func adaptiveCircularButtonStyle() -> some View {
+        if #available(macOS 26.0, *) {
+            self.buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+                .controlSize(.small)
+        } else {
+            self.buttonStyle(.bordered)
+                .controlSize(.small)
+        }
+    }
+}
+
 // MARK: - Gradient Background
 
 struct GradientBackground: View {
