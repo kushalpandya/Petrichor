@@ -142,7 +142,7 @@ struct PlaylistDetailView: View {
 
     private var playlistArtwork: some View {
         Group {
-            if let artworkData = playlist?.effectiveCoverArtwork,
+            if let artworkData = playlist?.artworkData,
                let nsImage = NSImage(data: artworkData) {
                 Image(nsImage: nsImage)
                     .resizable()
@@ -379,7 +379,7 @@ struct PlaylistDetailView: View {
     private func updateGradientColors() {
         guard useArtworkColors,
               let playlist = playlist,
-              let artworkData = playlist.effectiveCoverArtwork else {
+              let artworkData = playlist.artworkData else {
             gradientColors = []
             return
         }

@@ -276,110 +276,97 @@ struct Playlist: Identifiable, FetchableRecord, PersistableRecord {
         tracks.reduce(0) { $0 + $1.duration }
     }
     
-    // Get generated album art of the playlist
-    var effectiveCoverArtwork: Data? {
+    var artworkData: Data? {
         if let customCover = coverArtworkData {
             return customCover
         }
-        
-        // For playlists, check cache first
-        let currentTrackIDs = tracks.prefix(4).map { $0.id }
-        
-        if let cachedArtwork = PlaylistArtworkCache.shared.getCachedArtwork(
-            for: id,
-            currentTrackIDs: currentTrackIDs
-        ) {
-            return cachedArtwork
+
+        let selected = collageTracks()
+        let selectedIDs = selected.map { $0.id }
+
+        if let cached = PlaylistArtworkCache.shared.getCachedArtwork(for: id, currentTrackIDs: selectedIDs) {
+            return cached
         }
-        
-        // Generate new collage and cache it
-        if let newCollage = createCollageArtwork() {
-            PlaylistArtworkCache.shared.setCachedArtwork(
-                newCollage,
-                for: id,
-                trackIDs: currentTrackIDs
-            )
-            return newCollage
+
+        if let collage = generateCollageArtwork(from: selected) {
+            PlaylistArtworkCache.shared.setCachedArtwork(collage, for: id, trackIDs: selectedIDs)
+            return collage
         }
-        
+
         return nil
     }
-    
+
     // Get the effective track limit for display
     var trackLimit: Int? {
         smartCriteria?.limit
     }
-    
-    private func createCollageArtwork() -> Data? {
-        // Check if all tracks are from the same album
-        let uniqueAlbums = Set(tracks.map { $0.album })
-        let isSingleAlbum = uniqueAlbums.count == 1
 
-        // If single album or single track, just use the first track's artwork
-        if isSingleAlbum || tracks.count == 1 {
-            return tracks.first?.artworkData
+    /// Returns up to 4 tracks with artwork, preferring unique albums.
+    private func collageTracks() -> [Track] {
+        var seenAlbumIds = Set<Int64>()
+        var result: [Track] = []
+        for track in tracks {
+            guard track.artworkData != nil,
+                  let albumId = track.albumId, !seenAlbumIds.contains(albumId) else { continue }
+            seenAlbumIds.insert(albumId)
+            result.append(track)
+            if result.count == 4 { return result }
         }
+        if result.count < 4 {
+            for track in tracks where track.artworkData != nil && !result.contains(where: { $0.id == track.id }) {
+                result.append(track)
+                if result.count == 4 { break }
+            }
+        }
+        return result
+    }
 
-        // Get up to 4 tracks with artwork for collage
-        let tracksWithArt = tracks.prefix(4).filter { $0.artworkData != nil }
-
-        guard !tracksWithArt.isEmpty else { return nil }
+    /// Renders a collage image from the given tracks into a 256×256 HEIC.
+    private func generateCollageArtwork(from collageTracks: [Track]) -> Data? {
+        guard !collageTracks.isEmpty else { return nil }
 
         let pixelSize = 256
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let size = CGFloat(pixelSize)
 
-        // Create opaque bitmap context (no alpha) to avoid HEIC encoder warnings
         guard let context = CGContext(
             data: nil,
             width: pixelSize,
             height: pixelSize,
             bitsPerComponent: 8,
             bytesPerRow: 0,
-            space: colorSpace,
+            space: CGColorSpaceCreateDeviceRGB(),
             bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
         ) else {
             Logger.warning("Failed to create CGContext for collage")
             return nil
         }
 
-        // Fill black background
         context.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 1))
-        context.fill(CGRect(x: 0, y: 0, width: pixelSize, height: pixelSize))
+        context.fill(CGRect(x: 0, y: 0, width: size, height: size))
 
-        let count = tracksWithArt.count
-        let size = CGFloat(pixelSize)
+        let count = collageTracks.count
 
         if count == 1 {
-            if let artworkData = tracksWithArt[0].artworkData,
-               let source = CGImageSourceCreateWithData(artworkData as CFData, nil),
+            if let data = collageTracks[0].artworkData,
+               let source = CGImageSourceCreateWithData(data as CFData, nil),
                let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) {
                 context.draw(cgImage, in: CGRect(x: 0, y: 0, width: size, height: size))
             }
         } else {
-            // 2 or more tracks - always create 2x2 grid
             let positions = [(0, 0), (1, 0), (0, 1), (1, 1)]
-
             for (index, (col, row)) in positions.enumerated() {
-                let trackIndex: Int
+                let trackIndex = count == 2 ? (index == 0 || index == 3 ? 0 : 1) : index % count
 
-                if count == 2 {
-                    trackIndex = (index == 0 || index == 3) ? 0 : 1
-                } else {
-                    trackIndex = index % count
-                }
-
-                guard let artworkData = tracksWithArt[trackIndex].artworkData,
-                      let source = CGImageSourceCreateWithData(artworkData as CFData, nil),
+                guard let data = collageTracks[trackIndex].artworkData,
+                      let source = CGImageSourceCreateWithData(data as CFData, nil),
                       let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else { continue }
 
-                let destRect = CGRect(
+                context.draw(cgImage, in: CGRect(
                     x: CGFloat(col) * size / 2,
                     y: CGFloat(row) * size / 2,
                     width: size / 2,
                     height: size / 2
-                )
-
-                context.draw(cgImage, in: destRect)
+                ))
             }
         }
 
