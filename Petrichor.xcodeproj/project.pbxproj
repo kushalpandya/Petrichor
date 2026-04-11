@@ -23,6 +23,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		55789DCB2F8AACF300FB82A3 /* Exceptions for "Resources" folder in "Petrichor" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				known_artists_YYYYMMDD.txt,
+			);
+			target = 550F4A0D2DB45B1A005F794E /* Petrichor */;
+		};
 		55B57E812E19E5E200E57EC3 /* Exceptions for "Scripts" folder in "Petrichor" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -78,6 +85,9 @@
 		};
 		55F38A842DF8F2FE0028843B /* Resources */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				55789DCB2F8AACF300FB82A3 /* Exceptions for "Resources" folder in "Petrichor" target */,
+			);
 			path = Resources;
 			sourceTree = "<group>";
 		};

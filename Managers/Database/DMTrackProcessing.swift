@@ -232,7 +232,7 @@ extension DatabaseManager {
         Logger.info("Added new track: \(mutableTrack.title) (ID: \(trackId))")
         
         // Process normalized relationships
-        try processTrackArtists(mutableTrack, metadata: metadata, in: db)
+        try processTrackArtists(mutableTrack, in: db)
         try processTrackGenres(mutableTrack, in: db)
         
         // Update artwork for artists and album if this track has artwork
@@ -286,7 +286,7 @@ extension DatabaseManager {
             .deleteAll(db)
         
         // Re-process normalized relationships
-        try processTrackArtists(mutableTrack, metadata: metadata, in: db)
+        try processTrackArtists(mutableTrack, in: db)
         try processTrackGenres(mutableTrack, in: db)
         
         // Update artwork for artists and album if this track has artwork

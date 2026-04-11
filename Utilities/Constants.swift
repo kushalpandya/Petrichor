@@ -98,6 +98,7 @@ enum About {
     static let sponsor = "https://github.com/sponsors/kushalpandya"
     static let appVersion = "1.4.2"
     static let appBuild = "142"
+    static let knownArtistsSampleFile = "known_artists_YYYYMMDD.txt"
 }
 
 // MARK: - Audio File Formats

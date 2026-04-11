@@ -30,7 +30,7 @@ extension DatabaseManager {
     }
 
     /// Process all artists for a track (artists, composers, album artists)
-    func processTrackArtists(_ track: FullTrack, metadata: TrackMetadata, in db: Database) throws {
+    func processTrackArtists(_ track: FullTrack, in db: Database) throws {
         guard let trackId = track.trackId else { return }
 
         // Process main artists
@@ -102,11 +102,7 @@ extension DatabaseManager {
 
     /// Find or create an album with better duplicate prevention
     func findOrCreateAlbum(_ title: String, albumArtist: String?, in db: Database) throws -> Album {
-        let normalizedTitle = title.lowercased()
-            .replacingOccurrences(of: " - ", with: " ")
-            .replacingOccurrences(of: "  ", with: " ")
-            .replacingOccurrences(of: "the ", with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedTitle = Album.normalizeTitle(title)
         
         let query = Album.filter(Album.Columns.normalizedTitle == normalizedTitle)
         
@@ -192,7 +188,7 @@ extension DatabaseManager {
     private func processAlbumArtists(_ albumId: Int64, artistString: String, in db: Database) throws {
         // Parse all artists from the string
         let artistNames = ArtistParser.parse(artistString)
-        
+
         // Get existing album artists
         let existingAlbumArtists = try AlbumArtist
             .filter(AlbumArtist.Columns.albumId == albumId)

@@ -120,6 +120,7 @@ class LibraryManager: ObservableObject {
         Task {
             try? await Task.sleep(nanoseconds: TimeConstants.fiftyMilliseconds)
             await databaseManager.runPendingBackgroundMigrations()
+            await MainActor.run { refreshEntities() }
             ArtistBioManager.shared.fetchMissingArtistImages(using: self)
         }
 

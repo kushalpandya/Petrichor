@@ -193,6 +193,8 @@ extension DatabaseManager {
                 let trackCountBefore = getTracksForFolder(folder.id ?? -1).count
                 Logger.info("Starting refresh for folder \(folder.name) with \(trackCountBefore) tracks")
 
+                ArtistParser.loadKnownArtists()
+
                 // Scan the folder - this will check for metadata updates
                 try await scanSingleFolder(folder, supportedExtensions: AudioFormat.supportedExtensions, hardRefresh: hardRefresh)
 
@@ -205,6 +207,8 @@ extension DatabaseManager {
                 let trackCountAfter = getTracksForFolder(folder.id ?? -1).count
                 Logger.info("Completed refresh for folder \(folder.name) with \(trackCountAfter) tracks (was \(trackCountBefore))")
 
+                ArtistParser.unloadKnownArtists()
+
                 await MainActor.run {
                     self.isScanning = false
                     self.scanStatusMessage = ""
@@ -212,6 +216,8 @@ extension DatabaseManager {
                     completion(.success(()))
                 }
             } catch {
+                ArtistParser.unloadKnownArtists()
+
                 await MainActor.run {
                     self.isScanning = false
                     self.scanStatusMessage = ""
@@ -367,6 +373,8 @@ extension DatabaseManager {
             : totalFilesAcrossAllFolders
         let globalScanState = GlobalScanState(totalFiles: totalFiles, isInitialScan: isInitialScan)
         
+        ArtistParser.loadKnownArtists()
+
         var processedFolders = 0
 
         for folder in folders {
@@ -388,6 +396,8 @@ extension DatabaseManager {
                 await Task.yield()
             }
         }
+
+        ArtistParser.unloadKnownArtists()
 
         await MainActor.run {
             self.scanStatusMessage = "Scan complete"

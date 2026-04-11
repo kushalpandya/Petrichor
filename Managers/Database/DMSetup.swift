@@ -23,7 +23,6 @@ extension DatabaseManager {
         try createTrackArtistsTable(in: db)
         try createTrackGenresTable(in: db)
         try createPinnedItemsTable(in: db)
-
         // Create all indices
         try createIndices(in: db)
         
@@ -404,15 +403,32 @@ extension DatabaseManager {
         
         // Composite indices for duplicate-aware category queries
         try db.createIndexIfNotExists(name: "idx_tracks_duplicate_artist", table: "tracks", columns: ["is_duplicate", "artist"])
-        try db.createIndexIfNotExists(name: "idx_tracks_duplicate_album_artist", table: "tracks", columns: ["is_duplicate", "album_artist"])
+        try db.createIndexIfNotExists(
+            name: "idx_tracks_duplicate_album_artist",
+            table: "tracks",
+            columns: ["is_duplicate", "album_artist"]
+        )
         try db.createIndexIfNotExists(name: "idx_tracks_duplicate_composer", table: "tracks", columns: ["is_duplicate", "composer"])
         try db.createIndexIfNotExists(name: "idx_tracks_duplicate_genre", table: "tracks", columns: ["is_duplicate", "genre"])
         try db.createIndexIfNotExists(name: "idx_tracks_duplicate_year", table: "tracks", columns: ["is_duplicate", "year"])
-        try db.createIndexIfNotExists(name: "idx_tracks_album_id_duplicate", table: "tracks", columns: ["album_id", "is_duplicate", "disc_number", "track_number"])
-        try db.createIndexIfNotExists(name: "idx_tracks_album_name_artist", table: "tracks", columns: ["album", "album_artist", "is_duplicate", "disc_number", "track_number"])
+        try db.createIndexIfNotExists(
+            name: "idx_tracks_album_id_duplicate",
+            table: "tracks",
+            columns: ["album_id", "is_duplicate", "disc_number", "track_number"]
+        )
+        try db.createIndexIfNotExists(
+            name: "idx_tracks_album_name_artist",
+            table: "tracks",
+            columns: ["album", "album_artist", "is_duplicate", "disc_number", "track_number"]
+        )
 
         // Artists table indices
-        try db.createIndexIfNotExists(name: "idx_artists_normalized_name_unique", table: "artists", columns: ["normalized_name"], unique: true)
+        try db.createIndexIfNotExists(
+            name: "idx_artists_normalized_name_unique",
+            table: "artists",
+            columns: ["normalized_name"],
+            unique: true
+        )
         try db.createIndexIfNotExists(name: "idx_artists_name_normalized", table: "artists", columns: ["name", "normalized_name"])
 
         // Albums table indices
@@ -425,7 +441,11 @@ extension DatabaseManager {
         try db.createIndexIfNotExists(name: "idx_album_artists_artist_id", table: "album_artists", columns: ["artist_id"])
         
         // Composite index for primary artist lookups
-        try db.createIndexIfNotExists(name: "idx_album_artists_primary", table: "album_artists", columns: ["role", "position", "album_id", "artist_id"])
+        try db.createIndexIfNotExists(
+            name: "idx_album_artists_primary",
+            table: "album_artists",
+            columns: ["role", "position", "album_id", "artist_id"]
+        )
 
         // Playlist tracks index
         try db.createIndexIfNotExists(name: "idx_playlist_tracks_playlist_id", table: "playlist_tracks", columns: ["playlist_id"])
@@ -435,14 +455,18 @@ extension DatabaseManager {
         try db.createIndexIfNotExists(name: "idx_track_artists_track_id", table: "track_artists", columns: ["track_id"])
         
         // Composite index for role-based queries
-        try db.createIndexIfNotExists(name: "idx_track_artists_role_artist", table: "track_artists", columns: ["role", "artist_id", "track_id"])
+        try db.createIndexIfNotExists(
+            name: "idx_track_artists_role_artist",
+            table: "track_artists",
+            columns: ["role", "artist_id", "track_id"]
+        )
         
         try db.createIndexIfNotExists(name: "idx_track_genres_genre_id", table: "track_genres", columns: ["genre_id"])
         
         // Pinned items indices
         try db.createIndexIfNotExists(name: "idx_pinned_items_sort_order", table: "pinned_items", columns: ["sort_order"])
         try db.createIndexIfNotExists(name: "idx_pinned_items_item_type", table: "pinned_items", columns: ["item_type"])
-        
+
         Logger.info("Created column indices")
     }
     
