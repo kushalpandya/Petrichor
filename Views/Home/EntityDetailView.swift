@@ -42,7 +42,7 @@ struct EntityDetailView: View {
                     tracks: tracks,
                     selectedTrackID: $selectedTrackID,
                     playlistID: nil,
-                    entityID: entity is ArtistEntity ? nil : entity.id,
+                    entityID: entity.id,
                     sortOrder: $trackTableSortOrder,
                     onPlayTrack: { track in
                         playTrack(track)
@@ -84,28 +84,41 @@ struct EntityDetailView: View {
             HStack(alignment: .top, spacing: 20) {
                 // Back button
                 if let onBack = onBack {
-                    Button(action: onBack) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.primary)
-                            .frame(width: 28, height: 28)
-                            .background(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(isBackButtonHovered ? Color(NSColor.controlAccentColor).opacity(0.15) : Color.clear)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .strokeBorder(
-                                        isBackButtonHovered ? Color(NSColor.controlAccentColor).opacity(0.3) : Color.clear,
-                                        lineWidth: 1
-                                    )
-                            )
+                    if #available(macOS 26.0, *) {
+                        Button(action: onBack) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 28, height: 28)
+                        }
+                        .buttonStyle(.glass)
+                        .buttonBorderShape(.circle)
+                        .controlSize(.small)
+                        .help("Back to all \(entity is ArtistEntity ? "artists" : "albums")")
+                    } else {
+                        Button(action: onBack) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.primary)
+                                .frame(width: 28, height: 28)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(isBackButtonHovered ? Color(NSColor.controlAccentColor).opacity(0.15) : Color.clear)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .strokeBorder(
+                                            isBackButtonHovered ? Color(NSColor.controlAccentColor).opacity(0.3) : Color.clear,
+                                            lineWidth: 1
+                                        )
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .onHover { hovering in
+                            isBackButtonHovered = hovering
+                        }
+                        .help("Back to all \(entity is ArtistEntity ? "artists" : "albums")")
                     }
-                    .buttonStyle(.plain)
-                    .onHover { hovering in
-                        isBackButtonHovered = hovering
-                    }
-                    .help("Back to all \(entity is ArtistEntity ? "artists" : "albums")")
                 }
 
                 // Artwork
@@ -129,10 +142,6 @@ struct EntityDetailView: View {
         .background {
             if !gradientColors.isEmpty {
                 GradientBackground(colors: gradientColors)
-                    .animation(
-                        .easeInOut(duration: AnimationDuration.standardDuration),
-                        value: gradientColors
-                    )
             } else {
                 Rectangle().fill(.regularMaterial)
             }
@@ -162,6 +171,7 @@ struct EntityDetailView: View {
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 120, height: 120)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
             } else {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color.secondary.opacity(0.2))
@@ -187,13 +197,20 @@ struct EntityDetailView: View {
                 showingImagePicker = true
             }
         }
-        .overlay(alignment: .bottomTrailing) {
+        .overlay {
             if entity is ArtistEntity {
-                Image(systemName: "pencil.circle.fill")
-                    .font(.system(size: 22))
-                    .symbolRenderingMode(.palette)
-                    .foregroundStyle(.white, Color.accentColor)
-                    .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.black.opacity(0.4))
+                    .frame(width: 120, height: 120)
+                    .overlay(
+                        VStack(spacing: 4) {
+                            Image(systemName: "pencil")
+                                .font(.system(size: 20, weight: .medium))
+                            Text("Update image")
+                                .font(.system(size: 10, weight: .medium))
+                        }
+                        .foregroundStyle(.white)
+                    )
                     .opacity(isArtworkHovered ? 1 : 0)
                     .animation(.easeInOut(duration: 0.15), value: isArtworkHovered)
                     .allowsHitTesting(false)
@@ -332,12 +349,13 @@ struct EntityDetailView: View {
             Button(action: pinEntity) {
                 Image(systemName: isPinned ? "pin.fill" : "pin")
                     .font(.system(size: iconSize))
+                    .foregroundStyle(.secondary)
                     .padding(.vertical, verticalPadding)
                     .padding(.horizontal, verticalPadding)
             }
-            .buttonStyle(.bordered)
+            .adaptiveCircularButtonStyle()
             .help(isPinned ? "Remove from Home" : "Pin to Home")
-            
+
             Button(action: { playEntity() }) {
                 HStack(spacing: iconTextSpacing) {
                     Image(systemName: Icons.playFill)
@@ -348,9 +366,9 @@ struct EntityDetailView: View {
                 .frame(width: buttonWidth)
                 .padding(.vertical, verticalPadding)
             }
-            .buttonStyle(.borderedProminent)
+            .adaptiveButtonStyle(prominent: true)
             .disabled(tracks.isEmpty)
-            
+
             Button(action: { playEntity(shuffle: true) }) {
                 HStack(spacing: iconTextSpacing) {
                     Image(systemName: Icons.shuffleFill)
@@ -361,7 +379,7 @@ struct EntityDetailView: View {
                 .frame(width: buttonWidth)
                 .padding(.vertical, verticalPadding)
             }
-            .buttonStyle(.bordered)
+            .adaptiveButtonStyle()
             .disabled(tracks.isEmpty)
         }
     }
@@ -461,6 +479,16 @@ struct EntityDetailView: View {
         
         self.tracks = fetchedTracks
         
+        // Use user's saved sort order for artist tracks
+        if entity is ArtistEntity {
+            if let savedSort = UserDefaults.standard.dictionary(forKey: "trackTableSortOrder"),
+               let key = savedSort["key"] as? String,
+               let ascending = savedSort["ascending"] as? Bool,
+               let field = TrackSortField.from(storageKey: key) {
+                trackTableSortOrder = [field.getComparator(ascending: ascending)]
+            }
+        }
+
         // Sort album tracks by disc/track number by default if those values exist
         if entity is AlbumEntity {
             let hasCompleteOrdering = fetchedTracks.allSatisfy { $0.trackNumber != nil && $0.trackNumber! > 0 }

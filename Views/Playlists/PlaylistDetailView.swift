@@ -107,10 +107,6 @@ struct PlaylistDetailView: View {
             .background {
                 if !gradientColors.isEmpty {
                     GradientBackground(colors: gradientColors)
-                        .animation(
-                            .easeInOut(duration: AnimationDuration.standardDuration),
-                            value: gradientColors
-                        )
                 }
             }
             .overlay(alignment: .bottomTrailing) {
@@ -149,6 +145,7 @@ struct PlaylistDetailView: View {
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 120, height: 120)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
             } else {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color.secondary.opacity(0.2))
@@ -206,12 +203,13 @@ struct PlaylistDetailView: View {
             Button(action: pinPlaylist) {
                 Image(systemName: isPinned ? "pin.fill" : "pin")
                     .font(.system(size: iconSize))
+                    .foregroundStyle(.secondary)
                     .padding(.vertical, verticalPadding)
                     .padding(.horizontal, verticalPadding)
             }
-            .buttonStyle(.bordered)
+            .adaptiveCircularButtonStyle()
             .help(isPinned ? "Remove from Home" : "Pin to Home")
-            
+
             Button(action: { playPlaylist() }) {
                 HStack(spacing: iconTextSpacing) {
                     Image(systemName: Icons.playFill)
@@ -222,7 +220,7 @@ struct PlaylistDetailView: View {
                 .frame(width: buttonWidth)
                 .padding(.vertical, verticalPadding)
             }
-            .buttonStyle(.borderedProminent)
+            .adaptiveButtonStyle(prominent: true)
             .disabled(playlist?.trackCount == 0)
 
             Button(action: { playPlaylist(shuffle: true) }) {
@@ -235,7 +233,7 @@ struct PlaylistDetailView: View {
                 .frame(width: buttonWidth)
                 .padding(.vertical, verticalPadding)
             }
-            .buttonStyle(.bordered)
+            .adaptiveButtonStyle()
             .disabled(playlist?.trackCount == 0)
 
             if playlist?.type == .regular {
@@ -249,7 +247,7 @@ struct PlaylistDetailView: View {
                     .frame(width: buttonWidth)
                     .padding(.vertical, verticalPadding)
                 }
-                .buttonStyle(.bordered)
+                .adaptiveButtonStyle()
             }
         }
     }
