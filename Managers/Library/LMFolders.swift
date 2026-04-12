@@ -45,8 +45,7 @@ extension LibraryManager {
                     switch result {
                     case .success(let dbFolders):
                         Logger.info("Successfully added \(dbFolders.count) folders to database")
-                        self.refreshLibraryCategories()
-                        self.loadMusicLibrary()
+                        self.scheduleLibraryReload()
                     case .failure(let error):
                         Logger.error("Failed to add folders to database: \(error)")
                     }

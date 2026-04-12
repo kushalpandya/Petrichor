@@ -29,6 +29,16 @@ extension DatabaseManager {
         }
         if pending.isEmpty { return }
 
+        // Skip migrations on a fresh/empty database — nothing to migrate
+        let trackCount = (try? await dbQueue.read { db in try Track.fetchCount(db) }) ?? 0
+        if trackCount == 0 {
+            for (identifier, _) in pending {
+                completeBackgroundMigration(identifier)
+            }
+            Logger.info("Skipped \(pending.count) background migrations on empty database")
+            return
+        }
+
         for (identifier, progress) in pending {
             switch identifier {
             case "v8_background_convert_artwork_to_heic":

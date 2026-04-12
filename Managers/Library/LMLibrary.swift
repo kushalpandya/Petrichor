@@ -330,7 +330,7 @@ extension LibraryManager {
             }
             
             // Calculate current hash
-            if let currentHash = await FilesystemUtils.getHashAsync(for: folder.url) {
+            if let currentHash = await FilesystemUtils.computeFolderHash(for: folder.url) {
                 if currentHash != storedHash {
                     Logger.info("Folder \(folder.name): Content changed (hash mismatch), marking for refresh")
                     foldersToRefresh.append(folder)

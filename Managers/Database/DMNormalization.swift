@@ -9,28 +9,46 @@
 import Foundation
 import GRDB
 
+/// Cache for entity lookups within a single write transaction to avoid redundant SELECTs
+class ScanLookupCache {
+    var artists: [String: Artist] = [:]        // normalizedName -> Artist
+    var albums: [String: Album] = [:]          // compositeKey -> Album
+    var genres: [String: Genre] = [:]          // name -> Genre
+
+    static func albumKey(_ normalizedTitle: String, _ normalizedArtist: String?) -> String {
+        "\(normalizedTitle)|\(normalizedArtist ?? "")"
+    }
+}
+
 extension DatabaseManager {
     // MARK: - Artist Management
 
     /// Find or create an artist by name
-    func findOrCreateArtist(_ name: String, in db: Database) throws -> Artist {
+    func findOrCreateArtist(_ name: String, in db: Database, cache: ScanLookupCache? = nil) throws -> Artist {
         let normalizedName = ArtistParser.normalizeArtistName(name)
+
+        // Check cache first
+        if let cached = cache?.artists[normalizedName] {
+            return cached
+        }
 
         // Try to find existing artist
         if let existing = try Artist
             .filter(Artist.Columns.normalizedName == normalizedName)
             .fetchOne(db) {
+            cache?.artists[normalizedName] = existing
             return existing
         }
 
         // Create new artist
         let artist = Artist(name: name)
         try artist.insert(db)
+        cache?.artists[normalizedName] = artist
         return artist
     }
 
     /// Process all artists for a track (artists, composers, album artists)
-    func processTrackArtists(_ track: FullTrack, in db: Database) throws {
+    func processTrackArtists(_ track: FullTrack, in db: Database, cache: ScanLookupCache? = nil) throws {
         guard let trackId = track.trackId else { return }
 
         // Process main artists
@@ -39,7 +57,8 @@ extension DatabaseManager {
                 track.artist,
                 trackId: trackId,
                 role: TrackArtist.Role.artist,
-                in: db
+                in: db,
+                cache: cache
             )
         }
 
@@ -49,7 +68,8 @@ extension DatabaseManager {
                 track.composer,
                 trackId: trackId,
                 role: TrackArtist.Role.composer,
-                in: db
+                in: db,
+                cache: cache
             )
         }
 
@@ -59,16 +79,17 @@ extension DatabaseManager {
                 albumArtist,
                 trackId: trackId,
                 role: TrackArtist.Role.albumArtist,
-                in: db
+                in: db,
+                cache: cache
             )
         }
     }
 
-    private func processArtistsForField(_ field: String, trackId: Int64, role: String, in db: Database) throws {
+    private func processArtistsForField(_ field: String, trackId: Int64, role: String, in db: Database, cache: ScanLookupCache? = nil) throws {
         let artistNames = ArtistParser.parse(field)
 
         for (index, artistName) in artistNames.enumerated() {
-            let artist = try findOrCreateArtist(artistName, in: db)
+            let artist = try findOrCreateArtist(artistName, in: db, cache: cache)
 
             guard let artistId = artist.id else { continue }
 
@@ -101,15 +122,24 @@ extension DatabaseManager {
     // MARK: - Album Management
 
     /// Find or create an album with better duplicate prevention
-    func findOrCreateAlbum(_ title: String, albumArtist: String?, in db: Database) throws -> Album {
+    func findOrCreateAlbum(_ title: String, albumArtist: String?, in db: Database, cache: ScanLookupCache? = nil) throws -> Album {
         let normalizedTitle = Album.normalizeTitle(title)
-        
+        let normalizedArtistName = albumArtist.flatMap { artist in
+            (!artist.isEmpty && artist != "Unknown Artist") ? ArtistParser.normalizeArtistName(artist) : nil
+        }
+
+        // Check cache first
+        let cacheKey = ScanLookupCache.albumKey(normalizedTitle, normalizedArtistName)
+        if let cached = cache?.albums[cacheKey] {
+            return cached
+        }
+
         let query = Album.filter(Album.Columns.normalizedTitle == normalizedTitle)
-        
-        if let albumArtist = albumArtist, !albumArtist.isEmpty, albumArtist != "Unknown Artist" {
-            let normalizedArtistName = ArtistParser.normalizeArtistName(albumArtist)
+
+        if let albumArtist = albumArtist, !albumArtist.isEmpty, albumArtist != "Unknown Artist",
+           let normalizedArtist = normalizedArtistName {
             if let artist = try Artist
-                .filter((Artist.Columns.name == albumArtist) || (Artist.Columns.normalizedName == normalizedArtistName))
+                .filter((Artist.Columns.name == albumArtist) || (Artist.Columns.normalizedName == normalizedArtist))
                 .fetchOne(db),
                let artistId = artist.id {
                 // Find albums that have this artist as an album artist
@@ -117,29 +147,31 @@ extension DatabaseManager {
                     .filter(AlbumArtist.Columns.artistId == artistId)
                     .select(AlbumArtist.Columns.albumId, as: Int64.self)
                     .fetchSet(db)
-                
+
                 // Filter to albums with matching title AND this artist
                 if let existingAlbum = try Album
                     .filter(Album.Columns.normalizedTitle == normalizedTitle)
                     .filter(albumIdsWithArtist.contains(Album.Columns.id))
                     .fetchOne(db) {
+                    cache?.albums[cacheKey] = existingAlbum
                     return existingAlbum
                 }
             }
         } else {
             // No album artist info, fall back to title-only matching
             if let existingAlbum = try query.fetchOne(db) {
+                cache?.albums[cacheKey] = existingAlbum
                 return existingAlbum
             }
         }
-        
+
         // No existing album found, create new one
         let album = Album(title: title)
         try album.insert(db)
-        
+
         // If we have an album artist, create the relationship
         if let albumArtist = albumArtist, !albumArtist.isEmpty, albumArtist != "Unknown Artist" {
-            let artist = try findOrCreateArtist(albumArtist, in: db)
+            let artist = try findOrCreateArtist(albumArtist, in: db, cache: cache)
             if let artistId = artist.id, let albumId = album.id {
                 let albumArtist = AlbumArtist(
                     albumId: albumId,
@@ -150,14 +182,15 @@ extension DatabaseManager {
                 try albumArtist.insert(db)
             }
         }
-        
+
+        cache?.albums[cacheKey] = album
         return album
     }
 
     /// Process album for a track
-    func processTrackAlbum(_ track: inout FullTrack, in db: Database) throws {
+    func processTrackAlbum(_ track: inout FullTrack, in db: Database, cache: ScanLookupCache? = nil) throws {
         guard !track.album.isEmpty && track.album != "Unknown Album" else { return }
-        
+
         // Determine the album artist (prefer albumArtist field, fallback to first artist from multi-artist string)
         let albumArtistName: String?
         if let albumArtist = track.albumArtist, !albumArtist.isEmpty {
@@ -169,23 +202,23 @@ extension DatabaseManager {
         } else {
             albumArtistName = nil
         }
-        
-        let album = try findOrCreateAlbum(track.album, albumArtist: albumArtistName, in: db)
+
+        let album = try findOrCreateAlbum(track.album, albumArtist: albumArtistName, in: db, cache: cache)
         track.albumId = album.id
-        
+
         // Update album metadata if we have more info
         if let albumId = album.id {
             try updateAlbumMetadata(albumId: albumId, from: track, in: db)
-            
+
             // Process all artists from the track as album artists
             if !track.artist.isEmpty && track.artist != "Unknown Artist" {
-                try processAlbumArtists(albumId, artistString: track.artist, in: db)
+                try processAlbumArtists(albumId, artistString: track.artist, in: db, cache: cache)
             }
         }
     }
-    
+
     /// Process all artists for an album
-    private func processAlbumArtists(_ albumId: Int64, artistString: String, in db: Database) throws {
+    private func processAlbumArtists(_ albumId: Int64, artistString: String, in db: Database, cache: ScanLookupCache? = nil) throws {
         // Parse all artists from the string
         let artistNames = ArtistParser.parse(artistString)
 
@@ -198,10 +231,10 @@ extension DatabaseManager {
         let existingArtistIds = Set(existingAlbumArtists.map { $0.artistId })
         
         for (index, artistName) in artistNames.enumerated() {
-            let artist = try findOrCreateArtist(artistName, in: db)
-            
+            let artist = try findOrCreateArtist(artistName, in: db, cache: cache)
+
             guard let artistId = artist.id else { continue }
-            
+
             // Skip if this artist is already associated with the album
             if existingArtistIds.contains(artistId) {
                 continue
@@ -298,7 +331,7 @@ extension DatabaseManager {
     // MARK: - Genre Management
 
     /// Find or create genres for a track
-    func processTrackGenres(_ track: FullTrack, in db: Database) throws {
+    func processTrackGenres(_ track: FullTrack, in db: Database, cache: ScanLookupCache? = nil) throws {
         guard let trackId = track.trackId,
               !track.genre.isEmpty && track.genre != "Unknown Genre" else { return }
 
@@ -310,7 +343,7 @@ extension DatabaseManager {
             .filter { !$0.isEmpty }
 
         for genreName in genreNames {
-            let genre = try findOrCreateGenre(String(genreName), in: db)
+            let genre = try findOrCreateGenre(String(genreName), in: db, cache: cache)
 
             guard let genreId = genre.id else { continue }
 
@@ -320,15 +353,22 @@ extension DatabaseManager {
         }
     }
 
-    private func findOrCreateGenre(_ name: String, in db: Database) throws -> Genre {
+    private func findOrCreateGenre(_ name: String, in db: Database, cache: ScanLookupCache? = nil) throws -> Genre {
+        // Check cache first
+        if let cached = cache?.genres[name] {
+            return cached
+        }
+
         if let existing = try Genre
             .filter(Genre.Columns.name == name)
             .fetchOne(db) {
+            cache?.genres[name] = existing
             return existing
         }
 
         let genre = Genre(name: name)
         try genre.insert(db)
+        cache?.genres[name] = genre
         return genre
     }
 
