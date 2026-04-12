@@ -33,6 +33,8 @@ extension DatabaseManager {
             switch identifier {
             case "v8_background_convert_artwork_to_heic":
                 await convertArtworkToHEIC(progress: progress)
+            case Self.knownArtistsMigrationIdentifier:
+                await loadKnownArtistsAndRebuild(progress: progress)
             default:
                 Logger.warning("Unknown background migration: \(identifier)")
             }
@@ -267,6 +269,178 @@ extension DatabaseManager {
             NotificationManager.shared.stopActivity()
             NotificationManager.shared.addMessage(.error, "Failed to optimize library")
             Logger.error("Artwork optimization failed: \(error)")
+        }
+    }
+
+    // MARK: - v9: Load Known Artists & Rebuild Artist Associations
+
+    private static let knownArtistsMigrationIdentifier = "v9_background_rebuild_artist_associations"
+
+    private struct KnownArtistsProgress: Codable {
+        let offset: Int
+    }
+
+    private func loadKnownArtistsAndRebuild(progress: String?) async {
+        NotificationManager.shared.startActivity("Updating Artists...")
+
+        var resumeOffset = 0
+        if let progress = progress,
+           let data = progress.data(using: .utf8),
+           let state = try? JSONDecoder().decode(KnownArtistsProgress.self, from: data) {
+            resumeOffset = state.offset
+            Logger.info("Resuming known artists migration at offset \(resumeOffset)")
+        }
+
+        do {
+            try await rebuildArtistAssociations(resumeOffset: resumeOffset)
+
+            completeBackgroundMigration(Self.knownArtistsMigrationIdentifier)
+            NotificationManager.shared.stopActivity()
+            NotificationManager.shared.addMessage(.info, "Artists information updated successfully")
+            Logger.info("Known artists migration completed")
+        } catch {
+            NotificationManager.shared.stopActivity()
+            NotificationManager.shared.addMessage(.error, "Failed to update artists information")
+            Logger.error("Known artists migration failed: \(error)")
+        }
+    }
+
+    /// Rebuild all TrackArtist/AlbumArtist associations using updated parser
+    private func rebuildArtistAssociations(resumeOffset: Int) async throws {
+        let totalTracks = try await dbQueue.read { db in
+            try FullTrack.filter(FullTrack.Columns.isDuplicate == false).fetchCount(db)
+        }
+
+        guard totalTracks > 0 else {
+            Logger.info("No tracks to rebuild artist associations for")
+            return
+        }
+
+        Logger.info("Rebuilding artist associations for \(totalTracks) tracks")
+
+        try await Task.detached(priority: .utility) { [dbQueue, weak self] in
+            guard let self = self else { return }
+
+            // Snapshot pinned items before clearing associations
+            let pinnedArtists = self.snapshotPinnedItems(idColumn: PinnedItem.Columns.artistId)
+            let pinnedAlbums = self.snapshotPinnedItems(idColumn: PinnedItem.Columns.albumId)
+
+            ArtistParser.loadKnownArtists()
+
+            // Clear existing associations and reset stats
+            _ = try dbQueue.write { db in
+                try TrackArtist.deleteAll(db)
+                try AlbumArtist.deleteAll(db)
+                try Artist.updateAll(db, Artist.Columns.totalTracks.set(to: 0), Artist.Columns.totalAlbums.set(to: 0))
+                try Album.updateAll(db, Album.Columns.totalTracks.set(to: 0))
+            }
+
+            Logger.info("Cleared existing artist/album associations")
+
+            // Rebuild in batches
+            let batchSize = 500
+            var offset = resumeOffset
+
+            while offset < totalTracks {
+                let tracks = try dbQueue.read { db in
+                    try FullTrack
+                        .filter(FullTrack.Columns.isDuplicate == false)
+                        .order(FullTrack.Columns.trackId)
+                        .limit(batchSize, offset: offset)
+                        .fetchAll(db)
+                }
+
+                if tracks.isEmpty { break }
+
+                _ = try dbQueue.write { db in
+                    for var track in tracks {
+                        try self.processTrackArtists(track, in: db)
+                        try self.processTrackAlbum(&track, in: db)
+                    }
+                }
+
+                offset += tracks.count
+                NotificationManager.shared.updateActivityProgress(current: offset, total: totalTracks)
+                self.saveProgress(offset: offset)
+            }
+
+            // Update stats
+            try dbQueue.write { db in
+                try self.updateEntityStats(in: db)
+            }
+
+            // Re-link pinned items by name
+            self.relinkPinnedArtists(pinnedArtists)
+            self.relinkPinnedAlbums(pinnedAlbums)
+
+            ArtistParser.unloadKnownArtists()
+            Logger.info("Artist associations rebuild completed")
+        }.value
+
+        // Clean up orphaned entities (runs in its own dbQueue.write)
+        try await cleanupOrphanedData()
+    }
+
+    // MARK: - v9 Helpers
+
+    private func saveProgress(offset: Int) {
+        if let data = try? JSONEncoder().encode(KnownArtistsProgress(offset: offset)),
+           let json = String(data: data, encoding: .utf8) {
+            updateMigrationProgress(Self.knownArtistsMigrationIdentifier, progress: json)
+        }
+    }
+
+    private func snapshotPinnedItems(idColumn: Column) -> [(id: Int64, name: String)] {
+        (try? dbQueue.read { db in
+            try PinnedItem
+                .filter(idColumn != nil)
+                .filter(PinnedItem.Columns.filterValue != nil)
+                .select(PinnedItem.Columns.id, PinnedItem.Columns.filterValue)
+                .asRequest(of: Row.self)
+                .fetchAll(db)
+                .compactMap { row -> (Int64, String)? in
+                    guard let id: Int64 = row[PinnedItem.Columns.id],
+                          let name: String = row[PinnedItem.Columns.filterValue] else { return nil }
+                    return (id, name)
+                }
+        }) ?? []
+    }
+
+    private func relinkPinnedArtists(_ pinnedArtists: [(id: Int64, name: String)]) {
+        guard !pinnedArtists.isEmpty else { return }
+        do {
+            _ = try dbQueue.write { db in
+                for (pinnedId, artistName) in pinnedArtists {
+                    let normalized = ArtistParser.normalizeArtistName(artistName)
+                    if let artist = try Artist.filter(Artist.Columns.normalizedName == normalized).fetchOne(db),
+                       let newId = artist.id {
+                        try PinnedItem.filter(PinnedItem.Columns.id == pinnedId)
+                            .updateAll(db, PinnedItem.Columns.artistId.set(to: newId))
+                    }
+                }
+            }
+            Logger.info("Re-linked \(pinnedArtists.count) pinned artist items")
+        } catch {
+            Logger.error("Failed to re-link pinned artists: \(error)")
+        }
+    }
+
+    private func relinkPinnedAlbums(_ pinnedAlbums: [(id: Int64, name: String)]) {
+        guard !pinnedAlbums.isEmpty else { return }
+        do {
+            _ = try dbQueue.write { db in
+                for (pinnedId, albumName) in pinnedAlbums {
+                    let normalizedTitle = Album.normalizeTitle(albumName)
+                    if let album = try Album.filter(Album.Columns.normalizedTitle == normalizedTitle).fetchOne(db),
+                       let newId = album.id {
+                        try PinnedItem.filter(PinnedItem.Columns.id == pinnedId)
+                            .updateAll(db, PinnedItem.Columns.albumId.set(to: newId))
+                    }
+                }
+            }
+            Logger.info("Re-linked \(pinnedAlbums.count) pinned album items")
+        } catch {
+            Logger.error("Failed to re-link pinned albums: \(error)")
         }
     }
 

@@ -45,12 +45,17 @@ class Album: Identifiable, ObservableObject, FetchableRecord, PersistableRecord 
 
     init(title: String) {
         self.title = title
-        self.normalizedTitle = title.lowercased()
+        self.normalizedTitle = Album.normalizeTitle(title)
+        self.sortTitle = title
+    }
+
+    /// Normalizes an album title for deduplication and matching.
+    static func normalizeTitle(_ title: String) -> String {
+        title.lowercased()
             .replacingOccurrences(of: " - ", with: " ")
             .replacingOccurrences(of: "  ", with: " ")
             .replacingOccurrences(of: "the ", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        self.sortTitle = title
     }
 
     // MARK: - GRDB Configuration

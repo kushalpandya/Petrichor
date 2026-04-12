@@ -1,0 +1,349 @@
+# Known Artists Sample File
+#
+# A small list of well-known artist names demonstrating the format
+# used by the app's background migration to populate the known_artists
+# database table for improved artist name recognition.
+#
+# Format:
+#   - One normalized (lowercased) artist name per line
+#   - Lines starting with # are comments (ignored)
+#   - Empty lines are ignored
+#
+# The full data file (known_artists_YYYYMMDD.txt with a real date)
+# is generated from MusicBrainz data dumps and bundled in release
+# builds. See the project's release build documentation for details.
+
+a tribe called quest
+a-ha
+aaliyah
+abba
+above & beyond
+ac/dc
+adele
+aerosmith
+alice in chains
+alvvays
+andre previn
+angus & julia stone
+aphex twin
+arctic monkeys
+ariana grande
+art blakey & the jazz messengers
+avicii
+backstreet boys
+beach house
+beastie boys
+bee gees
+bell biv devoe
+belle & sebastian
+ben folds and the philharmonic
+benny and the jets
+berlin philharmonic
+beyonce
+big thief
+bill evans
+billie eilish
+billie holiday
+billy joel
+black sabbath
+black star
+blackpink
+blink-182
+blondie
+blood, sweat & tears
+blur
+boards of canada
+bob dylan
+bob marley & the wailers
+bon iver
+booker t. & the m.g.'s
+boston symphony orchestra
+bowling for soup
+boyz ii men
+britney spears
+brooks & dunn
+bruce springsteen
+bruno mars
+bts
+calvin harris
+camila cabello
+camo & krooked
+capital cities
+celine dion
+charles mingus
+charlie parker
+chase & status
+cher
+chicago symphony orchestra
+chick corea
+childish gambino
+christina aguilera
+cleveland orchestra
+coldplay
+count basie
+country joe & the fish
+cream
+creedence clearwater revival
+crosby, stills & nash
+crosby, stills, nash & young
+culture club
+cyndi lauper
+cypress hill
+d'angelo
+daft punk
+dan + shay
+daniel barenboim
+dave brubeck
+david bowie
+david guetta
+de la soul
+deadmau5
+deep purple
+depeche mode
+derek & the dominos
+destiny's child
+diplo
+dire straits
+disclosure
+dizzy gillespie
+dj jazzy jeff & the fresh prince
+dj shadow
+drake
+dua lipa
+duke ellington
+duran duran
+eagles
+earth, wind & fire
+echo & the bunnymen
+ed sheeran
+ella fitzgerald
+elton john
+emerson, lake & palmer
+erasure
+eric b. & rakim
+erykah badu
+esperanza spalding
+eurythmics
+fall out boy
+fatboy slim
+fleet foxes
+fleetwood mac
+florence & the machine
+florence and the machine
+florida georgia line
+flume
+foo fighters
+for king & country
+frank ocean
+fugees
+gang starr
+genesis
+george michael
+gorillaz
+grateful dead
+green day
+gustavo dudamel
+hall & oates
+harry styles
+herb alpert & the tijuana brass
+herb alpert and the tijuana brass
+herbert von karajan
+herbie hancock
+hilary hahn
+hootie & the blowfish
+huey lewis & the news
+ike & tina turner
+imagine dragons
+iron maiden
+itzhak perlman
+j. cole
+janis joplin
+japanese breakfast
+jefferson airplane
+jennifer lopez
+jimi hendrix
+jodeci
+john coltrane
+joni mitchell
+joshua bell
+josie & the pussycats
+joy division
+justin bieber
+kamasi washington
+katy perry
+kc & the sunshine band
+keith jarrett
+kendrick lamar
+khalid
+king crimson
+king gizzard & the lizard wizard
+kiss
+knife party
+kool & the gang
+kygo
+lady a
+lady gaga
+lana del rey
+lang lang
+lauryn hill
+lcd soundsystem
+led zeppelin
+leonard bernstein
+little big town
+london symphony orchestra
+louis armstrong
+lynyrd skynyrd
+mac demarco
+madonna
+manic street preachers
+mariah carey
+marshmello
+martha argerich
+martin garrix
+massive attack
+megadeth
+metallica
+mgmt
+michael jackson
+mike & the mechanics
+miles davis
+mitski
+mobb deep
+mos def
+mumford & sons
+murray perahia
+muse
+my chemical romance
+n.w.a
+neil young
+new edition
+new order
+new york philharmonic
+nine inch nails
+nirvana
+no doubt
+nsync
+oasis
+odesza
+old dominion
+one direction
+oscar peterson
+outkast
+panic! at the disco
+pantera
+paramore
+pat metheny
+peaches & herb
+pearl jam
+pet shop boys
+peter, bjorn and john
+peter, paul & mary
+phil collins
+philadelphia orchestra
+phoebe bridgers
+pierce the veil
+pink
+pink floyd
+portishead
+post malone
+prince & the revolution
+public enemy
+pulp
+queen
+r.e.m.
+radiohead
+rage against the machine
+rascal flatts
+red hot chili peppers
+rihanna
+robbie williams
+robert glasper
+royal concertgebouw orchestra
+run-d.m.c.
+rush
+salt-n-pepa
+sam & dave
+san francisco symphony
+selena gomez
+sex pistols
+shakira
+shawn mendes
+shy fx
+sigma
+simon & garfunkel
+skrillex
+slayer
+sleeping with sirens
+sly & the family stone
+smashing pumpkins
+sonny rollins
+soundgarden
+spice girls
+stereophonics
+stevie wonder
+suede
+sufjan stevens
+sugarland
+swedish house mafia
+sza
+take that
+talib kweli
+talking heads
+tame impala
+taylor swift
+tears for fears
+tegan & sara
+the 1975
+the allman brothers band
+the beach boys
+the beatles
+the byrds
+the chemical brothers
+the chicks
+the clash
+the cranberries
+the cure
+the doors
+the killers
+the mamas & the papas
+the police
+the prodigy
+the ramones
+the rolling stones
+the roots
+the smiths
+the strokes
+the velvet underground
+the verve
+the weeknd
+the who
+thee oh sees
+thelonious monk
+tiesto
+tina turner
+tlc
+tom misch x yussef dayes
+tom petty & the heartbreakers
+tom tom club
+tool
+travis scott
+twenty one pilots
+ty segall
+tyler, the creator
+u2
+underworld
+vampire weekend
+van morrison
+vienna philharmonic orchestra
+wayne shorter
+weezer
+westlife
+whitney houston
+wu-tang clan
+wynton marsalis
+yes
+yo-yo ma
+yuja wang
+zac brown band
+zedd
+zubin mehta

@@ -148,6 +148,7 @@ extension LibraryManager {
         cachedArtistEntities = databaseManager.getArtistEntities()
         cachedAlbumEntities = databaseManager.getAlbumEntities()
         entitiesLoaded = true
+        updateTotalCounts()
         Logger.info("Refreshed entities: \(cachedArtistEntities.count) artists and \(cachedAlbumEntities.count) albums")
         objectWillChange.send()
     }

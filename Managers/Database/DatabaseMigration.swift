@@ -9,7 +9,7 @@ import Foundation
 import GRDB
 
 /// Manages database migrations using GRDB's built-in migration system
-struct DatabaseMigrator {
+enum DatabaseMigrator {
     /// Creates and configures the database migrator with all migrations
     static func setupMigrator() -> GRDB.DatabaseMigrator {
         var migrator = GRDB.DatabaseMigrator()
@@ -41,7 +41,11 @@ struct DatabaseMigrator {
         
         migrator.registerMigration("v3_add_category_query_indices") { db in
             // Composite index for track_artists queries (role + artist_id for faster joins)
-            try db.createIndexIfNotExists(name: "idx_track_artists_role_artist", table: "track_artists", columns: ["role", "artist_id", "track_id"])
+            try db.createIndexIfNotExists(
+                name: "idx_track_artists_role_artist",
+                table: "track_artists",
+                columns: ["role", "artist_id", "track_id"]
+            )
             
             // Composite indices for duplicate-aware queries
             try db.createIndexIfNotExists(name: "idx_tracks_duplicate_artist", table: "tracks", columns: ["is_duplicate", "artist"])
@@ -51,12 +55,24 @@ struct DatabaseMigrator {
             try db.createIndexIfNotExists(name: "idx_tracks_duplicate_year", table: "tracks", columns: ["is_duplicate", "year"])
             
             // Composite index for album_artists primary artist lookups
-            try db.createIndexIfNotExists(name: "idx_album_artists_primary", table: "album_artists", columns: ["role", "position", "album_id", "artist_id"])
+            try db.createIndexIfNotExists(
+                name: "idx_album_artists_primary",
+                table: "album_artists",
+                columns: ["role", "position", "album_id", "artist_id"]
+            )
             
             // Entity query optimization indices
             try db.createIndexIfNotExists(name: "idx_artists_name_normalized", table: "artists", columns: ["name", "normalized_name"])
-            try db.createIndexIfNotExists(name: "idx_tracks_album_id_duplicate", table: "tracks", columns: ["album_id", "is_duplicate", "disc_number", "track_number"])
-            try db.createIndexIfNotExists(name: "idx_tracks_album_name_artist", table: "tracks", columns: ["album", "album_artist", "is_duplicate", "disc_number", "track_number"])
+            try db.createIndexIfNotExists(
+                name: "idx_tracks_album_id_duplicate",
+                table: "tracks",
+                columns: ["album_id", "is_duplicate", "disc_number", "track_number"]
+            )
+            try db.createIndexIfNotExists(
+                name: "idx_tracks_album_name_artist",
+                table: "tracks",
+                columns: ["album", "album_artist", "is_duplicate", "disc_number", "track_number"]
+            )
             
             Logger.info("Created all indices")
             
@@ -141,18 +157,26 @@ struct DatabaseMigrator {
             Logger.info("v8_convert_artwork_to_heic: flagged for background artwork conversion")
         }
         
+        migrator.registerMigration("v9_rebuild_artist_associations") { db in
+            try db.execute(
+                sql: "INSERT INTO background_migrations (identifier, resumable) VALUES (?, ?)",
+                arguments: ["v9_background_rebuild_artist_associations", true]
+            )
+            Logger.info("v9_rebuild_artist_associations: flagged for background artist rebuild")
+        }
+
         // TODO: Uncomment in next minor release to add filename index for playlist import performance
-        // migrator.registerMigration("v9_add_filename_index_for_playlist_import") { db in
+        // migrator.registerMigration("v10_add_filename_index_for_playlist_import") { db in
         //     try db.createIndexIfNotExists(
         //         name: "idx_tracks_filename",
         //         table: "tracks",
         //         columns: ["filename"]
         //     )
-        //     Logger.info("v9_add_filename_index_for_playlist_import migration completed")
+        //     Logger.info("v10_add_filename_index_for_playlist_import migration completed")
         // }
 
         // MARK: - Future Migrations
-        // Add new migrations here as: migrator.registerMigration("v10_description") { db in ... }
+        // Add new migrations here as: migrator.registerMigration("v11_description") { db in ... }
         
         return migrator
     }
