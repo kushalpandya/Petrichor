@@ -70,6 +70,7 @@ class LibraryManager: ObservableObject {
     internal let userDefaults = UserDefaults.standard
     internal let fileManager = FileManager.default
     internal var folderTrackCounts: [Int64: Int] = [:]
+    private var pendingLibraryReload: DispatchWorkItem?
 
     // Database manager
     let databaseManager: DatabaseManager
@@ -182,6 +183,19 @@ class LibraryManager: ObservableObject {
         }
     }
     
+    /// Debounced library reload to coalesce rapid completion events
+    func scheduleLibraryReload(delay: TimeInterval = 0.3) {
+        pendingLibraryReload?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            self.refreshLibraryCategories()
+            self.loadMusicLibrary()
+            self.updateTotalCounts()
+        }
+        pendingLibraryReload = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
+    }
+
     /// Check if we've reached the track threshold during initial onboarding scan
     func checkInitialScanThreshold() {
         guard isInitialOnboardingScan else { return }
@@ -195,9 +209,8 @@ class LibraryManager: ObservableObject {
                 Logger.info("Initial scan threshold reached: \(currentCount) tracks")
                 hasReachedInitialScanThreshold = true
                 
-                // Refresh library data so UI can populate
-                refreshLibraryCategories()
-                loadMusicLibrary()
+                // Refresh library data so UI can populate (debounced to coalesce with scan completion)
+                scheduleLibraryReload()
                 refreshDiscoverTracks()
             }
         }
@@ -427,10 +440,8 @@ class LibraryManager: ObservableObject {
             // Reset initial scan state
             self.resetInitialScanState()
             
-            // Final refresh of all data
-            self.refreshLibraryCategories()
-            self.loadMusicLibrary()
-            self.updateTotalCounts()
+            // Debounced final refresh of all data
+            self.scheduleLibraryReload()
 
             Logger.info("Initial scan completed, library fully loaded")
 

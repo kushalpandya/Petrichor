@@ -45,6 +45,22 @@ struct TrackMetadata {
     }
 }
 
+// MARK: - Artwork Compression Cache
+
+/// Thread-safe cache for compressed artwork data within a processing chunk.
+/// Avoids re-compressing identical album artwork across tracks in the same batch.
+actor ArtworkCompressionCache {
+    private var cache: [Int: Data] = [:]
+
+    func get(for data: Data) -> Data? {
+        cache[data.hashValue]
+    }
+
+    func store(original: Data, compressed: Data) {
+        cache[original.hashValue] = compressed
+    }
+}
+
 // MARK: - Metadata Extractor
 
 class MetadataExtractor {
@@ -55,10 +71,13 @@ class MetadataExtractor {
     /// - Parameters:
     ///   - url: The URL of the audio file
     ///   - externalArtwork: Optional external artwork to use if file has none
+    ///   - artworkCache: Optional shared cache to avoid re-compressing identical artwork
     /// - Returns: TrackMetadata containing all extracted information
-    static func extractMetadata(from url: URL, externalArtwork: Data? = nil)
-        async -> TrackMetadata
-    {
+    static func extractMetadata(
+        from url: URL,
+        externalArtwork: Data? = nil,
+        artworkCache: ArtworkCompressionCache? = nil
+    ) async -> TrackMetadata {
         var metadata = TrackMetadata(url: url)
 
         // Try to create AudioFile
@@ -80,7 +99,12 @@ class MetadataExtractor {
         extractMetadata(from: audioFile.metadata, into: &metadata)
 
         // Extract artwork
-        extractArtwork(from: audioFile.metadata, into: &metadata, source: url.lastPathComponent)
+        await extractArtwork(
+            from: audioFile.metadata,
+            into: &metadata,
+            source: url.lastPathComponent,
+            artworkCache: artworkCache
+        )
 
         // Use external artwork if no artwork found
         if metadata.artworkData == nil, let externalArtwork = externalArtwork {
@@ -164,24 +188,32 @@ class MetadataExtractor {
 
         // For MPEG audio (MP3/MP2/MP1), TagLib falls back to bitrate estimation
         // when no Xing/Info/VBRI header is present, which can be inaccurate.
-        // AVFoundation uses independent frame scanning and is more reliable for these formats.
+        // Only use AVFoundation validation when SFBAudioEngine reports a suspicious duration,
+        // since creating AVURLAsset for every MP3 is expensive.
         let isMPEG = metadata.codec == "MP3" || metadata.codec?.hasPrefix("MPEG") == true
         if isMPEG {
-            let asset = AVURLAsset(url: metadata.url)
-            let avDuration: Double
-            do {
-                let duration = try await asset.load(.duration)
-                avDuration = duration.seconds
-            } catch {
-                avDuration = 0
-            }
-            if avDuration.isFinite && avDuration > 0
-                && abs(avDuration - metadata.duration) > 1.0 {
-                Logger.warning(
-                    "MPEG duration mismatch for \(metadata.url.lastPathComponent) - " +
-                    "SFBAudioEngine: \(metadata.duration)s, AVAsset: \(avDuration)s. Using AVAsset value."
-                )
-                metadata.duration = avDuration
+            let suspicious = metadata.duration <= 0
+                || metadata.duration.isNaN
+                || metadata.duration.isInfinite
+                || metadata.duration < 1.0
+
+            if suspicious {
+                let asset = AVURLAsset(url: metadata.url)
+                let avDuration: Double
+                do {
+                    let duration = try await asset.load(.duration)
+                    avDuration = duration.seconds
+                } catch {
+                    avDuration = 0
+                }
+                if avDuration.isFinite && avDuration > 0
+                    && abs(avDuration - metadata.duration) > 1.0 {
+                    Logger.warning(
+                        "MPEG duration mismatch for \(metadata.url.lastPathComponent) - " +
+                        "SFBAudioEngine: \(metadata.duration)s, AVAsset: \(avDuration)s. Using AVAsset value."
+                    )
+                    metadata.duration = avDuration
+                }
             }
         }
 
@@ -205,94 +237,33 @@ class MetadataExtractor {
             metadata.bitrate = Int(bitrate)
         }
 
-        // Extract lossless flag from decoder
-        metadata.lossless = isTrackLossless(for: metadata.url) ?? false
+        // Extract lossless flag using codec name from SFBAudioEngine (avoids redundant file I/O)
+        metadata.lossless = isTrackLossless(codec: metadata.codec, url: metadata.url)
     }
 
-    /// Safely detect lossless status with multiple fallback strategies
-    private static func isTrackLossless(for url: URL) -> Bool? {
-        // Try reading file header to determine format reliably
-        if let formatBasedResult = detectLosslessFromFileHeader(url: url) {
-            return formatBasedResult
-        }
-        
-        return detectLosslessFromExtension(url: url)
-    }
+    /// Detect lossless status using codec name from SFBAudioEngine, falling back to file extension
+    private static func isTrackLossless(codec: String?, url: URL) -> Bool {
+        if let codec = codec {
+            let upper = codec.uppercased()
 
-    /// Detect lossless format by reading file header magic bytes
-    private static func detectLosslessFromFileHeader(url: URL) -> Bool? {
-        guard let bytes = FilesystemUtils.readFileHeader(from: url, byteCount: 12) else {
-            return nil
-        }
-        
-        // FLAC: "fLaC"
-        if bytes.count >= 4 && bytes[0] == 0x66 && bytes[1] == 0x4C &&
-           bytes[2] == 0x61 && bytes[3] == 0x43 {
-            return true
-        }
-        
-        // AIFF: "FORM" followed by "AIFF" or "AIFC"
-        if bytes.count >= 12 && bytes[0] == 0x46 && bytes[1] == 0x4F &&
-           bytes[2] == 0x52 && bytes[3] == 0x4D {
-            if bytes[8] == 0x41 && bytes[9] == 0x49 && bytes[10] == 0x46 && bytes[11] == 0x46 {
-                return true // AIFF
+            let losslessCodecs: Set<String> = [
+                "FLAC", "ALAC", "AIFF", "WAV", "WAVE", "PCM",
+                "APE", "WAVPACK", "TTA"
+            ]
+            if losslessCodecs.contains(upper)
+                || upper.hasPrefix("AIFF") || upper.hasPrefix("PCM") {
+                return true
             }
-            if bytes[8] == 0x41 && bytes[9] == 0x49 && bytes[10] == 0x46 && bytes[11] == 0x43 {
-                return true // AIFC
+
+            let lossyCodecs: Set<String> = [
+                "MP3", "AAC", "OGG VORBIS", "OPUS", "MUSEPACK"
+            ]
+            if lossyCodecs.contains(upper) || upper.hasPrefix("MPEG") {
+                return false
             }
         }
-        
-        // WAV/WAVE: "RIFF" followed by "WAVE"
-        if bytes.count >= 12 && bytes[0] == 0x52 && bytes[1] == 0x49 &&
-           bytes[2] == 0x46 && bytes[3] == 0x46 &&
-           bytes[8] == 0x57 && bytes[9] == 0x41 && bytes[10] == 0x56 && bytes[11] == 0x45 {
-            return true // Usually lossless PCM
-        }
-        
-        // APE (Monkey's Audio): "MAC "
-        if bytes.count >= 4 && bytes[0] == 0x4D && bytes[1] == 0x41 &&
-           bytes[2] == 0x43 && bytes[3] == 0x20 {
-            return true
-        }
-        
-        // WavPack: "wvpk"
-        if bytes.count >= 4 && bytes[0] == 0x77 && bytes[1] == 0x76 &&
-           bytes[2] == 0x70 && bytes[3] == 0x6B {
-            return true
-        }
-        
-        // TTA (True Audio): "TTA1"
-        if bytes.count >= 4 && bytes[0] == 0x54 && bytes[1] == 0x54 &&
-           bytes[2] == 0x41 && bytes[3] == 0x31 {
-            return true
-        }
-        
-        // MP3 detection - various sync patterns, all lossy
-        // ID3v2 tag: "ID3"
-        if bytes.count >= 3 && bytes[0] == 0x49 && bytes[1] == 0x44 && bytes[2] == 0x33 {
-            return false
-        }
-        // MP3 frame sync: 0xFF 0xFB, 0xFF 0xFA, 0xFF 0xF3, 0xFF 0xF2
-        if bytes.count >= 2 && bytes[0] == 0xFF && (bytes[1] & 0xE0) == 0xE0 {
-            return false
-        }
-        
-        // M4A/AAC: "ftyp" at offset 4
-        if bytes.count >= 8 && bytes[4] == 0x66 && bytes[5] == 0x74 &&
-           bytes[6] == 0x79 && bytes[7] == 0x70 {
-            // Could be ALAC (lossless) or AAC (lossy), inconclusive
-            return nil
-        }
-        
-        // Ogg container
-        if bytes.count >= 4 && bytes[0] == 0x4F && bytes[1] == 0x67 &&
-           bytes[2] == 0x67 && bytes[3] == 0x53 {
-            // Need more analysis, return nil to try decoder
-            return false
-        }
-        
-        // Unknown format, let decoder handle it
-        return nil
+
+        return detectLosslessFromExtension(url: url) ?? false
     }
 
     /// Fallback: detect lossless from file extension
@@ -595,12 +566,25 @@ class MetadataExtractor {
     private static func extractArtwork(
         from audioMetadata: AudioMetadata,
         into metadata: inout TrackMetadata,
-        source: String? = nil
-    ) {
-        // Get the first attached picture
-        if let firstPicture = audioMetadata.attachedPictures.first {
-            metadata.artworkData = ImageUtils.compressImage(from: firstPicture.imageData, source: source)
-                ?? firstPicture.imageData
+        source: String? = nil,
+        artworkCache: ArtworkCompressionCache? = nil
+    ) async {
+        guard let firstPicture = audioMetadata.attachedPictures.first else { return }
+
+        let rawData = firstPicture.imageData
+
+        // Check cache for previously compressed identical artwork
+        if let cache = artworkCache, let cached = await cache.get(for: rawData) {
+            metadata.artworkData = cached
+            return
+        }
+
+        let compressed = ImageUtils.compressImage(from: rawData, source: source) ?? rawData
+        metadata.artworkData = compressed
+
+        // Store in cache for subsequent tracks with identical artwork
+        if let cache = artworkCache {
+            await cache.store(original: rawData, compressed: compressed)
         }
     }
 

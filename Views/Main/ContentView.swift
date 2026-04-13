@@ -128,19 +128,25 @@ struct ContentView: View {
 
     // MARK: - View Components
 
+    @ViewBuilder
     private var mainContentArea: some View {
-        PersistentSplitView(
-            left: {
-                leftSidebar
-            },
-            center: {
-                sectionContent
-            },
-            right: {
-                sidePanel
-            }
-        )
-        .frame(minHeight: 0, maxHeight: .infinity)
+        if !libraryManager.shouldShowMainUI {
+            NoMusicEmptyStateView(context: .mainWindow)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            PersistentSplitView(
+                left: {
+                    leftSidebar
+                },
+                center: {
+                    sectionContent
+                },
+                right: {
+                    sidePanel
+                }
+            )
+            .frame(minHeight: 0, maxHeight: .infinity)
+        }
     }
 
     @ViewBuilder
