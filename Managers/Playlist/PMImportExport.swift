@@ -183,17 +183,14 @@ extension PlaylistManager {
         }
         
         let uniquePlaylistName = generateUniquePlaylistName(baseName: playlistName, existingNames: usedNames)
-        
+
+        // Populate album artwork on matched tracks before creating the playlist
+        // so that the collage artwork and gradient are available immediately
+        var tracksWithArtwork = matchResult.matchedTracks
+        libraryManager?.databaseManager.populateAlbumArtworkForTracks(&tracksWithArtwork)
+
         let createdPlaylist = await MainActor.run {
-            createPlaylist(name: uniquePlaylistName, tracks: matchResult.matchedTracks)
-        }
-        
-        await MainActor.run {
-            guard let index = playlists.firstIndex(where: { $0.id == createdPlaylist.id }),
-                  let dbManager = libraryManager?.databaseManager else {
-                return
-            }
-            playlists[index].tracks = dbManager.loadTracksForPlaylist(createdPlaylist.id)
+            createPlaylist(name: uniquePlaylistName, tracks: tracksWithArtwork)
         }
         
         return PlaylistImportResult(
