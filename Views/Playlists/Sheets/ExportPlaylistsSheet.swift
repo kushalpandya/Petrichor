@@ -8,7 +8,7 @@ struct ExportPlaylistsSheet: View {
     @State private var selectAll: Bool = false
     
     private var exportablePlaylists: [Playlist] {
-        playlistManager.playlists.filter { $0.type == .regular }
+        playlistManager.playlists
     }
     
     private var selectedCount: Int {
@@ -65,16 +65,18 @@ struct ExportPlaylistsSheet: View {
                 .padding(.bottom, 8)
             
             HStack {
-                Toggle(isOn: $selectAll) {
+                Toggle(isOn: Binding(
+                    get: { selectAll },
+                    set: { newValue in
+                        newValue ? selectAllPlaylists() : deselectAllPlaylists()
+                    }
+                )) {
                     Text("Select All (\(exportablePlaylists.count))")
                         .font(.subheadline)
                         .fontWeight(.medium)
                 }
                 .toggleStyle(.checkbox)
-                .onChange(of: selectAll) { _, newValue in
-                    newValue ? selectAllPlaylists() : deselectAllPlaylists()
-                }
-                
+
                 Spacer()
             }
             .padding(.horizontal)
