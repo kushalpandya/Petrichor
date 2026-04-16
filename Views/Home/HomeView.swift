@@ -23,6 +23,7 @@ struct HomeView: View {
     @Binding var selectedSidebarItem: HomeSidebarItem?
     @State private var selectedTrackID: UUID?
     @State private var pinnedItemTracks: [Track] = []
+    @State private var pinnedEntity: (any Entity)?
     @State private var sortedArtistEntities: [ArtistEntity] = []
     @State private var sortedAlbumEntities: [AlbumEntity] = []
     @State private var lastArtistCount: Int = 0
@@ -89,13 +90,14 @@ struct HomeView: View {
                 isShowingEntityDetail = false
                 selectedArtistEntity = nil
                 selectedAlbumEntity = nil
-                
+                pinnedEntity = nil
+
                 if let item = newItem {
                     switch item.source {
                     case .fixed(let type):
                         // Handle fixed items
                         isShowingEntities = (type == .artists || type == .albums) && !isShowingEntityDetail
-                        
+
                         // Load appropriate data
                         switch type {
                         case .discover, .tracks:
@@ -105,7 +107,7 @@ struct HomeView: View {
                         case .albums:
                             sortAlbumEntities()
                         }
-                        
+
                     case .pinned(let pinnedItem):
                         // Handle pinned items
                         isShowingEntities = false
@@ -417,80 +419,25 @@ struct HomeView: View {
         VStack(spacing: 0) {
             if let selectedItem = selectedSidebarItem,
                case .pinned(let pinnedItem) = selectedItem.source {
-                // Check if it's a playlist
                 if pinnedItem.itemType == .playlist,
                    let playlistId = pinnedItem.playlistId,
                    let playlist = playlistManager.playlists.first(where: { $0.id == playlistId }) {
-                    // Use PlaylistDetailView for playlists
                     PlaylistDetailView(playlist: playlist)
-                }
-                // Check if it's an artist entity
-                else if pinnedItem.filterType == .artists,
-                         let artistEntity = libraryManager.artistEntities.first(where: { $0.name == pinnedItem.filterValue }) {
-                    // Use EntityDetailView for artist entity
-                    EntityDetailView(
-                        entity: artistEntity,
-                        onBack: nil
-                    )
-                }
-                // Check if it's an album entity
-                else if pinnedItem.filterType == .albums,
-                         let albumEntity = libraryManager.albumEntities.first(where: { $0.name == pinnedItem.filterValue }) {
-                    // Use EntityDetailView for album entity
-                    EntityDetailView(
-                        entity: albumEntity,
-                        onBack: nil
-                    )
-                }
-                // For all other pinned items (genres, years, composers, etc.)
-                else {
-                    // Regular track list header
-                    TrackListHeader(
-                        title: pinnedItem.displayName,
-                        sortOrder: $trackTableSortOrder,
-                        tableRowSize: $trackTableRowSize
-                    )
-
-                    Divider()
-
-                    // Track list
-                    if pinnedItemTracks.isEmpty {
-                        VStack(spacing: 16) {
-                            Image(systemName: "pin.slash")
-                                .font(.system(size: 48))
-                                .foregroundColor(.gray)
-                            
-                            Text("No tracks found")
-                                .font(.headline)
-                                .foregroundColor(.secondary)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            } else {
-                        TrackView(
-                            tracks: pinnedItemTracks,
-                            selectedTrackID: $selectedTrackID,
-                            playlistID: nil,
-                            entityID: nil,
-                            sortOrder: $trackTableSortOrder,
-                            onPlayTrack: { track in
-                                playlistManager.playTrack(track, fromTracks: pinnedItemTracks)
-                                playlistManager.currentQueueSource = .library
-                            },
-                            contextMenuItems: { track, playbackManager in
-                                TrackContextMenu.createMenuItems(
-                                    for: track,
-                                    playbackManager: playbackManager,
-                                    playlistManager: playlistManager,
-                                    currentContext: .library
-                                )
-                            }
-                        )
-                            }
+                } else if let entity = pinnedEntity {
+                    EntityDetailView(entity: entity, pinnedItem: pinnedItem)
+                } else {
+                    NoMusicEmptyStateView(context: .mainWindow)
                 }
             } else {
                 NoMusicEmptyStateView(context: .mainWindow)
             }
         }
+    }
+
+    private func buildArtistEntityForPerson(name: String) -> ArtistEntity {
+        let data = libraryManager.databaseManager.getArtistArtworkAndBio(for: name)
+        let trackCount = pinnedItemTracks.count
+        return ArtistEntity(name: name, trackCount: trackCount, artworkData: data.artworkData)
     }
     
     // MARK: - Helpers
@@ -583,15 +530,31 @@ struct HomeView: View {
     
     private func loadTracksForPinnedItem(_ item: PinnedItem) {
         let tracks: [Track]
-        
+
         switch item.itemType {
         case .library:
             tracks = libraryManager.getTracksForPinnedItem(item)
         case .playlist:
             tracks = playlistManager.getTracksForPinnedPlaylist(item)
         }
-        
+
         pinnedItemTracks = tracks
+
+        // Build the entity for all library pinned types
+        if let filterType = item.filterType, let filterValue = item.filterValue {
+            switch filterType {
+            case .artists:
+                pinnedEntity = libraryManager.artistEntities.first { $0.name == filterValue }
+            case .albums:
+                pinnedEntity = libraryManager.albumEntities.first { $0.name == filterValue }
+            case .albumArtists, .composers:
+                pinnedEntity = buildArtistEntityForPerson(name: filterValue)
+            case .genres, .decades, .years:
+                pinnedEntity = CategoryEntity(name: filterValue, trackCount: tracks.count, filterType: filterType)
+            }
+        } else {
+            pinnedEntity = nil
+        }
     }
     
     private func createAlbumContextMenuItems(for album: AlbumEntity) -> [ContextMenuItem] {

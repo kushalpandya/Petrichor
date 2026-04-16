@@ -370,7 +370,7 @@ extension DatabaseManager {
                         Artist.Columns.imageSource,
                         Artist.Columns.bio
                     )
-                    .filter(Artist.Columns.totalTracks > 0)
+                    .joining(required: Artist.tracks)
                     .filter(needsImage || needsBio)
                     .order(Artist.Columns.totalTracks.desc)
                     .asRequest(of: Row.self)
