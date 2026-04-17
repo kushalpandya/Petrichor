@@ -175,6 +175,11 @@ struct OnlineTabView: View {
 
             Toggle("Fetch artist image and bio from internet", isOn: $artistInfoFetchEnabled)
                 .help("Automatically download artist photos and bios from online sources")
+                .onChange(of: artistInfoFetchEnabled) { _, enabled in
+                    if enabled, let coordinator = AppCoordinator.shared {
+                        ArtistBioManager.shared.fetchMissingArtistImages(using: coordinator.libraryManager)
+                    }
+                }
         }
     }
     

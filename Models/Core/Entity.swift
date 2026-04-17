@@ -25,47 +25,17 @@ protocol Entity: Identifiable {
     var artworkLarge: Data? { get }
 }
 
-// MARK: - Artist Entity
-struct ArtistEntity: Entity {
-    let id: UUID
-    let name: String
-    let tracks: [Track]
-    let trackCount: Int
-    let artworkData: Data?
-    static var artworkCache = NSCache<NSString, NSData>()
+// MARK: - Shared Artwork & Color Defaults
 
-    var subtitle: String? {
-        "\(trackCount) \(trackCount == 1 ? "song" : "songs")"
-    }
-    
+private var sharedArtworkCache = NSCache<NSString, NSData>()
+
+extension Entity {
     var artworkMedium: Data? {
-        guard let original = artworkData else { return nil }
-        
-        let cacheKey = "\(id.uuidString)-medium" as NSString
-        if let cached = ArtistEntity.artworkCache.object(forKey: cacheKey) {
-            return cached as Data
-        }
-        
-        if let jpegData = ImageUtils.resizeImage(from: original, to: ImageUtils.Size.medium) {
-            ArtistEntity.artworkCache.setObject(jpegData as NSData, forKey: cacheKey)
-            return jpegData
-        }
-        return nil
+        cachedResizedArtwork(suffix: "medium", size: ImageUtils.Size.medium)
     }
-    
+
     var artworkLarge: Data? {
-        guard let original = artworkData else { return nil }
-        
-        let cacheKey = "\(id.uuidString)-large" as NSString
-        if let cached = ArtistEntity.artworkCache.object(forKey: cacheKey) {
-            return cached as Data
-        }
-        
-        if let jpegData = ImageUtils.resizeImage(from: original, to: ImageUtils.Size.large) {
-            ArtistEntity.artworkCache.setObject(jpegData as NSData, forKey: cacheKey)
-            return jpegData
-        }
-        return nil
+        cachedResizedArtwork(suffix: "large", size: ImageUtils.Size.large)
     }
 
     var dominantColors: [NSColor] {
@@ -76,6 +46,34 @@ struct ArtistEntity: Entity {
     func backgroundGradientColors(isDark: Bool) -> [Color] {
         guard let original = artworkData else { return [] }
         return ImageUtils.cachedBackgroundGradientColors(id: id, imageData: original, isDark: isDark)
+    }
+
+    private func cachedResizedArtwork(suffix: String, size: NSSize) -> Data? {
+        guard let original = artworkData else { return nil }
+
+        let cacheKey = "\(id.uuidString)-\(suffix)" as NSString
+        if let cached = sharedArtworkCache.object(forKey: cacheKey) {
+            return cached as Data
+        }
+
+        if let jpegData = ImageUtils.resizeImage(from: original, to: size) {
+            sharedArtworkCache.setObject(jpegData as NSData, forKey: cacheKey)
+            return jpegData
+        }
+        return nil
+    }
+}
+
+// MARK: - Artist Entity
+struct ArtistEntity: Entity {
+    let id: UUID
+    let name: String
+    let tracks: [Track]
+    let trackCount: Int
+    let artworkData: Data?
+
+    var subtitle: String? {
+        "\(trackCount) \(trackCount == 1 ? "song" : "songs")"
     }
 
     init(name: String, tracks: [Track]) {
@@ -111,50 +109,9 @@ struct AlbumEntity: Entity {
     let duration: Double?
     let artistName: String?
     let dateAdded: Date?
-    static var artworkCache = NSCache<NSString, NSData>()
 
     var subtitle: String? {
         year
-    }
-    
-    var artworkMedium: Data? {
-        guard let original = artworkData else { return nil }
-        
-        let cacheKey = "\(id.uuidString)-medium" as NSString
-        if let cached = AlbumEntity.artworkCache.object(forKey: cacheKey) {
-            return cached as Data
-        }
-        
-        if let jpegData = ImageUtils.resizeImage(from: original, to: ImageUtils.Size.medium) {
-            AlbumEntity.artworkCache.setObject(jpegData as NSData, forKey: cacheKey)
-            return jpegData
-        }
-        return nil
-    }
-    
-    var artworkLarge: Data? {
-        guard let original = artworkData else { return nil }
-        
-        let cacheKey = "\(id.uuidString)-large" as NSString
-        if let cached = AlbumEntity.artworkCache.object(forKey: cacheKey) {
-            return cached as Data
-        }
-        
-        if let jpegData = ImageUtils.resizeImage(from: original, to: ImageUtils.Size.large) {
-            AlbumEntity.artworkCache.setObject(jpegData as NSData, forKey: cacheKey)
-            return jpegData
-        }
-        return nil
-    }
-
-    var dominantColors: [NSColor] {
-        guard let original = artworkData else { return [] }
-        return ImageUtils.cachedDominantColors(id: id, imageData: original)
-    }
-
-    func backgroundGradientColors(isDark: Bool) -> [Color] {
-        guard let original = artworkData else { return [] }
-        return ImageUtils.cachedBackgroundGradientColors(id: id, imageData: original, isDark: isDark)
     }
 
     init(name: String, tracks: [Track]) {
@@ -199,6 +156,39 @@ struct AlbumEntity: Entity {
         self.duration = duration
         self.artistName = artistName
         self.dateAdded = dateAdded
+    }
+}
+
+// MARK: - Category Entity
+struct CategoryEntity: Entity {
+    let id: UUID
+    let name: String
+    let trackCount: Int
+    let artworkData: Data?
+    let filterType: LibraryFilterType
+    private static var generatedArtworkCache = NSCache<NSString, NSData>()
+
+    var subtitle: String? {
+        "\(trackCount) \(trackCount == 1 ? "song" : "songs")"
+    }
+
+    init(name: String, trackCount: Int, filterType: LibraryFilterType) {
+        let namespace = UUID(uuidString: "6BA7B812-9DAD-11D1-80B4-00C04FD430C8")!
+        self.id = UUID(name: "\(filterType.rawValue)-\(name)".lowercased(), namespace: namespace)
+        self.name = name
+        self.trackCount = trackCount
+        self.filterType = filterType
+
+        let cacheKey = "\(filterType.rawValue)-\(name)" as NSString
+        if let cached = CategoryEntity.generatedArtworkCache.object(forKey: cacheKey) {
+            self.artworkData = cached as Data
+        } else {
+            let generated = ImageUtils.generateCategoryArtwork(text: name, seed: "\(filterType.rawValue)-\(name)")
+            if let generated {
+                CategoryEntity.generatedArtworkCache.setObject(generated as NSData, forKey: cacheKey)
+            }
+            self.artworkData = generated
+        }
     }
 }
 

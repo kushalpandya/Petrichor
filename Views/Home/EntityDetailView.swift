@@ -3,7 +3,8 @@ import SwiftUI
 struct EntityDetailView: View {
     let entity: any Entity
     let onBack: (() -> Void)?
-    
+    let pinnedItem: PinnedItem?
+
     @EnvironmentObject var playlistManager: PlaylistManager
     @EnvironmentObject var libraryManager: LibraryManager
     @State private var tracks: [Track] = []
@@ -16,6 +17,12 @@ struct EntityDetailView: View {
     @State private var artworkDeleted = false
     @State private var artistBio: String?
     @State private var gradientColors: [Color] = []
+
+    init(entity: any Entity, onBack: (() -> Void)? = nil, pinnedItem: PinnedItem? = nil) {
+        self.entity = entity
+        self.onBack = onBack
+        self.pinnedItem = pinnedItem
+    }
 
     @AppStorage("useArtworkColors")
     private var useArtworkColors = true
@@ -94,7 +101,7 @@ struct EntityDetailView: View {
                         .buttonStyle(.glass)
                         .buttonBorderShape(.circle)
                         .controlSize(.small)
-                        .help("Back to all \(entity is ArtistEntity ? "artists" : "albums")")
+                        .help("Back")
                     } else {
                         Button(action: onBack) {
                             Image(systemName: "chevron.left")
@@ -117,7 +124,7 @@ struct EntityDetailView: View {
                         .onHover { hovering in
                             isBackButtonHovered = hovering
                         }
-                        .help("Back to all \(entity is ArtistEntity ? "artists" : "albums")")
+                        .help("Back")
                     }
                 }
 
@@ -126,10 +133,10 @@ struct EntityDetailView: View {
 
                 // Info and controls
                 VStack(alignment: .leading, spacing: 12) {
-                    if entity is ArtistEntity {
-                        artistEntityInfo
-                    } else {
+                    if entity is AlbumEntity {
                         albumEntityInfo
+                    } else {
+                        artistEntityInfo
                     }
 
                     entityControls
@@ -142,6 +149,7 @@ struct EntityDetailView: View {
         .background {
             if !gradientColors.isEmpty {
                 GradientBackground(colors: gradientColors)
+                    .transaction { $0.animation = nil }
             } else {
                 Rectangle().fill(.regularMaterial)
             }
@@ -162,6 +170,10 @@ struct EntityDetailView: View {
         return overrideArtworkData ?? entity.artworkData
     }
 
+    private var isPersonEntity: Bool {
+        entity is ArtistEntity
+    }
+
     private var entityArtwork: some View {
         Group {
             if let artworkData = displayedArtworkData,
@@ -178,10 +190,16 @@ struct EntityDetailView: View {
                     .frame(width: 120, height: 120)
                     .overlay(
                         Group {
-                            if entity is ArtistEntity {
+                            if isPersonEntity {
                                 Text(entity.name.artistInitials)
                                     .font(.system(size: 36, weight: .medium, design: .rounded))
                                     .foregroundColor(.secondary)
+                            } else if entity is CategoryEntity {
+                                Text(entity.name)
+                                    .font(.system(size: entity.name.count <= 5 ? 28 : 16, weight: .medium, design: .rounded))
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+                                    .padding(8)
                             } else {
                                 Image(systemName: Icons.opticalDiscFill)
                                     .font(.system(size: 40))
@@ -193,12 +211,12 @@ struct EntityDetailView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture {
-            if entity is ArtistEntity {
+            if isPersonEntity {
                 showingImagePicker = true
             }
         }
         .overlay {
-            if entity is ArtistEntity {
+            if isPersonEntity {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color.black.opacity(0.4))
                     .frame(width: 120, height: 120)
@@ -237,9 +255,20 @@ struct EntityDetailView: View {
         }
     }
     
+    private var entityTypeLabel: String {
+        if let category = entity as? CategoryEntity {
+            return category.filterType.singularDisplayName
+        }
+        switch pinnedItem?.filterType {
+        case .albumArtists: return "Album Artist"
+        case .composers: return "Composer"
+        default: return "Artist"
+        }
+    }
+
     private var artistEntityInfo: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("Artist")
+            Text(entityTypeLabel)
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .fontWeight(.medium)
@@ -247,7 +276,7 @@ struct EntityDetailView: View {
             Text(entity.name)
                 .font(.title2)
                 .fontWeight(.bold)
-                .lineLimit(1)
+                .lineLimit(2)
 
             if let bio = artistBio, !bio.isEmpty {
                 Text(bio)
@@ -257,86 +286,73 @@ struct EntityDetailView: View {
                     .help(bio)
             }
 
-            HStack {
-                Text("\(tracks.count) \(tracks.count == 1 ? "song" : "songs")")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-
-                if !tracks.isEmpty {
-                    Text("•")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-
-                    Text(formattedTotalDuration)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-            }
+            trackStats()
         }
     }
 
     private var albumEntityInfo: some View {
         let albumEntity = entity as? AlbumEntity
-        
+
         return VStack(alignment: .leading, spacing: 4) {
             Text(entity.name)
                 .font(.title)
                 .fontWeight(.bold)
                 .lineLimit(2)
-            
+
             if let artistName = albumEntity?.artistName, !artistName.isEmpty {
                 Text(artistName)
                     .font(.title3)
                     .foregroundColor(.secondary)
                     .lineLimit(1)
             }
-            
-            HStack {
+
+            trackStats {
                 if let year = albumEntity?.year {
-                    Text(year)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    
-                    Text("•")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                    statText(year)
+                    statDot
                 }
-                
-                Text("\(tracks.count) \(tracks.count == 1 ? "song" : "songs")")
+            } trailing: {
+                if isAlbumFullyLossless {
+                    statDot
+                    HStack(spacing: 4) {
+                        Image(Icons.customLossless)
+                            .renderingMode(.template)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 15, height: 15)
+                        Text("Lossless")
+                    }
                     .font(.subheadline)
                     .foregroundColor(.secondary)
-                
-                if !tracks.isEmpty {
-                    Text("•")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    
-                    Text(formattedTotalDuration)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    
-                    if isAlbumFullyLossless {
-                        Text("•")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        
-                        HStack(spacing: 4) {
-                            Image(Icons.customLossless)
-                                .renderingMode(.template)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 15, height: 15)
-                            
-                            Text("Lossless")
-                        }
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    }
                 }
             }
         }
     }
-    
+
+    // Shared track count + duration stats line
+    private func trackStats<Leading: View, Trailing: View>(
+        @ViewBuilder leading: () -> Leading = { EmptyView() },
+        @ViewBuilder trailing: () -> Trailing = { EmptyView() }
+    ) -> some View {
+        HStack {
+            leading()
+            statText("\(tracks.count) \(tracks.count == 1 ? "song" : "songs")")
+            if !tracks.isEmpty {
+                statDot
+                statText(formattedTotalDuration)
+                trailing()
+            }
+        }
+    }
+
+    private func statText(_ text: String) -> some View {
+        Text(text).font(.subheadline).foregroundColor(.secondary)
+    }
+
+    private var statDot: some View {
+        Text("•").font(.subheadline).foregroundColor(.secondary)
+    }
+
     private var entityControls: some View {
         let buttonWidth: CGFloat = 90
         let verticalPadding: CGFloat = 6
@@ -398,16 +414,22 @@ struct EntityDetailView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
+    private var emptyViewIcon: String {
+        if entity is ArtistEntity { return "person.slash" }
+        if entity is CategoryEntity { return "music.note.slash" }
+        return "opticaldisc.slash"
+    }
+
     private var emptyView: some View {
         VStack(spacing: 20) {
-            Image(systemName: entity is ArtistEntity ? "person.slash" : "opticaldisc.slash")
+            Image(systemName: emptyViewIcon)
                 .font(.system(size: 60))
                 .foregroundColor(.gray)
-            
+
             Text("No tracks found")
                 .font(.headline)
-            
-            Text("No tracks were found for this \(entity is ArtistEntity ? "artist" : "album")")
+
+            Text("No tracks were found for \(entity.name)")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
@@ -436,7 +458,15 @@ struct EntityDetailView: View {
     }
     
     private var isPinned: Bool {
-        if let artist = entity as? ArtistEntity {
+        if let category = entity as? CategoryEntity {
+            return libraryManager.isLibraryItemPinned(filterType: category.filterType, filterValue: category.name)
+        } else if let artist = entity as? ArtistEntity {
+            if let pinnedItem = pinnedItem {
+                return libraryManager.isLibraryItemPinned(
+                    filterType: pinnedItem.filterType ?? .artists,
+                    filterValue: entity.name
+                )
+            }
             return libraryManager.isEntityPinned(artist)
         } else if let album = entity as? AlbumEntity {
             return libraryManager.isEntityPinned(album)
@@ -452,34 +482,33 @@ struct EntityDetailView: View {
             return
         }
 
-        // Use override artwork for gradient if available (e.g., after image picker save)
         if let overrideData = overrideArtworkData {
             let colors = ImageUtils.extractDominantColors(from: overrideData)
             gradientColors = ImageUtils.backgroundGradientColors(from: colors, isDark: colorScheme == .dark)
-        } else if let album = entity as? AlbumEntity {
-            gradientColors = album.backgroundGradientColors(isDark: colorScheme == .dark)
-        } else if let artist = entity as? ArtistEntity {
-            gradientColors = artist.backgroundGradientColors(isDark: colorScheme == .dark)
         } else {
-            gradientColors = []
+            gradientColors = entity.backgroundGradientColors(isDark: colorScheme == .dark)
         }
     }
 
     private func loadTracks() {
         isLoading = true
-        
+
         let fetchedTracks: [Track]
-        if entity is ArtistEntity {
+
+        // When pinnedItem is provided, use the unified pinned item track loader
+        if let pinnedItem = pinnedItem {
+            fetchedTracks = libraryManager.databaseManager.getTracksForPinnedItem(pinnedItem)
+        } else if entity is ArtistEntity {
             fetchedTracks = libraryManager.databaseManager.getTracksForArtistEntity(entity.name)
         } else if let albumEntity = entity as? AlbumEntity {
             fetchedTracks = libraryManager.databaseManager.getTracksForAlbumEntity(albumEntity)
         } else {
             fetchedTracks = []
         }
-        
+
         self.tracks = fetchedTracks
-        
-        // Use user's saved sort order for artist tracks
+
+        // Use user's saved sort order for artist tracks (including album artists/composers)
         if entity is ArtistEntity {
             if let savedSort = UserDefaults.standard.dictionary(forKey: "trackTableSortOrder"),
                let key = savedSort["key"] as? String,
@@ -492,7 +521,7 @@ struct EntityDetailView: View {
         // Sort album tracks by disc/track number by default if those values exist
         if entity is AlbumEntity {
             let hasCompleteOrdering = fetchedTracks.allSatisfy { $0.trackNumber != nil && $0.trackNumber! > 0 }
-            
+
             if hasCompleteOrdering {
                 trackTableSortOrder = [
                     KeyPathComparator(\Track.sortableDiscNumber, order: .forward),
@@ -500,8 +529,8 @@ struct EntityDetailView: View {
                 ]
             }
         }
-        
-        // Load artist bio
+
+        // Load artist bio for person entities (artists, album artists, composers)
         if entity is ArtistEntity {
             artistBio = libraryManager.databaseManager.getArtistBio(for: entity.name)
         }
@@ -511,7 +540,21 @@ struct EntityDetailView: View {
     
     private func pinEntity() {
         Task {
-            if isPinned {
+            if let category = entity as? CategoryEntity {
+                if isPinned {
+                    await libraryManager.unpinLibraryItem(filterType: category.filterType, filterValue: category.name)
+                } else {
+                    await libraryManager.pinLibraryItem(filterType: category.filterType, filterValue: category.name)
+                }
+            } else if entity is ArtistEntity, let pinnedItem = pinnedItem,
+                      let filterType = pinnedItem.filterType, filterType != .artists {
+                // Album artist or composer pinned as ArtistEntity
+                if isPinned {
+                    await libraryManager.unpinLibraryItem(filterType: filterType, filterValue: entity.name)
+                } else {
+                    await libraryManager.pinLibraryItem(filterType: filterType, filterValue: entity.name)
+                }
+            } else if isPinned {
                 await libraryManager.unpinEntity(entity)
             } else {
                 if let artist = entity as? ArtistEntity {

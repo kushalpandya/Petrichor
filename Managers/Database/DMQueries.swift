@@ -506,6 +506,30 @@ extension DatabaseManager {
         }
     }
     
+    /// Get artist artwork and bio data by name (for album artists/composers).
+    /// When artist info fetching is enabled, only returns artwork that was fetched from online
+    /// (has imageSource set), not album art carried over from track processing.
+    func getArtistArtworkAndBio(for artistName: String) -> (artworkData: Data?, bio: String?) {
+        let isImageFetchEnabled = ArtistBioManager.shared.isArtistInfoFetchEnabled
+        do {
+            return try dbQueue.read { db in
+                let normalizedName = ArtistParser.normalizeArtistName(artistName)
+                guard let artist = try Artist
+                    .filter((Artist.Columns.name == artistName) || (Artist.Columns.normalizedName == normalizedName))
+                    .fetchOne(db) else {
+                    return (nil, nil)
+                }
+                let artworkData = isImageFetchEnabled
+                    ? (artist.imageSource != nil ? artist.artworkData : nil)
+                    : artist.artworkData
+                return (artworkData, artist.bio)
+            }
+        } catch {
+            Logger.error("Failed to get artist data: \(error)")
+            return (nil, nil)
+        }
+    }
+
     /// Get album by title
     func getAlbumByTitle(_ title: String) -> Album? {
         do {
