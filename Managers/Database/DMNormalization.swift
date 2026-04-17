@@ -376,70 +376,47 @@ extension DatabaseManager {
 
     /// Update artist and album statistics
     func updateEntityStats(in db: Database) throws {
-        // Batch update artists
         try updateArtistStats(in: db)
-
-        // Batch update albums
         try updateAlbumStats(in: db)
     }
 
-    /// Update artist stats - for one artist or all if artistId is nil
-    func updateArtistStats(artistId: Int64? = nil, in db: Database) throws {
-        let artistIds: [Int64]
-        
-        if let specificId = artistId {
-            artistIds = [specificId]
-        } else {
-            artistIds = try Artist
-                .select(Artist.Columns.id, as: Int64.self)
-                .fetchAll(db)
-        }
-        
-        for id in artistIds {
-            guard let artist = try Artist.fetchOne(db, key: id) else { continue }
-            
-            artist.totalTracks = try TrackArtist
-                .joining(required: TrackArtist.track.filter(Track.Columns.isDuplicate == false))
-                .filter(TrackArtist.Columns.artistId == id)
-                .filter(TrackArtist.Columns.role == TrackArtist.Role.artist)
-                .select(TrackArtist.Columns.trackId, as: Int64.self)
-                .distinct()
-                .fetchCount(db)
-
-            artist.totalAlbums = try AlbumArtist
-                .filter(AlbumArtist.Columns.artistId == id)
-                .select(AlbumArtist.Columns.albumId, as: Int64.self)
-                .distinct()
-                .fetchCount(db)
-
-            artist.updatedAt = Date()
-            try artist.update(db)
-        }
+    /// Recompute totalTracks and totalAlbums for every artist in a single SQL statement.
+    func updateArtistStats(in db: Database) throws {
+        // GRDB's query interface can't express correlated subqueries bound
+        // to the UPDATE's outer row so we're using raw SQL here.
+        try db.execute(sql: """
+            UPDATE artists
+            SET total_tracks = (
+                    SELECT COUNT(DISTINCT ta.track_id)
+                    FROM track_artists ta
+                    JOIN tracks t ON t.id = ta.track_id
+                    WHERE ta.artist_id = artists.id
+                      AND ta.role = 'artist'
+                      AND t.is_duplicate = 0
+                ),
+                total_albums = (
+                    SELECT COUNT(DISTINCT album_id)
+                    FROM album_artists
+                    WHERE artist_id = artists.id
+                ),
+                updated_at = ?
+            """, arguments: [Date()])
     }
 
-    /// Update album stats - for one album or all if albumId is nil
-    func updateAlbumStats(albumId: Int64? = nil, in db: Database) throws {
-        let albumIds: [Int64]
-        
-        if let specificId = albumId {
-            albumIds = [specificId]
-        } else {
-            albumIds = try Album
-                .select(Album.Columns.id, as: Int64.self)
-                .fetchAll(db)
-        }
-        
-        for id in albumIds {
-            guard let album = try Album.fetchOne(db, key: id) else { continue }
-            
-            album.totalTracks = try Track
-                .filter(Track.Columns.albumId == id)
-                .filter(Track.Columns.isDuplicate == false)
-                .fetchCount(db)
-
-            album.updatedAt = Date()
-            try album.update(db)
-        }
+    /// Recompute totalTracks for every album in a single SQL statement.
+    func updateAlbumStats(in db: Database) throws {
+        // GRDB's query interface can't express correlated subqueries bound
+        // to the UPDATE's outer row so we're using raw SQL here.
+        try db.execute(sql: """
+            UPDATE albums
+            SET total_tracks = (
+                    SELECT COUNT(*)
+                    FROM tracks
+                    WHERE tracks.album_id = albums.id
+                      AND tracks.is_duplicate = 0
+                ),
+                updated_at = ?
+            """, arguments: [Date()])
     }
 
     // MARK: - Query Methods for Normalized Data

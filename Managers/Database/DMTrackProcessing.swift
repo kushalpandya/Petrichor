@@ -24,7 +24,16 @@ actor LazyArtworkLoader {
 
         // Load from file path if available
         guard let fileURL = artworkPaths[directory],
-              let data = try? Data(contentsOf: fileURL) else {
+              let size = (try? fileURL.resourceValues(forKeys: [.fileSizeKey]))?.fileSize else {
+            return nil
+        }
+
+        if size > AlbumArtFormat.maxArtworkSize {
+            Logger.warning("Skipping oversized artwork: \(fileURL.lastPathComponent) (\(size) bytes)")
+            return nil
+        }
+
+        guard let data = try? Data(contentsOf: fileURL) else {
             return nil
         }
 
