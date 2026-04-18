@@ -179,9 +179,19 @@ extension LibraryManager {
         let group = DispatchGroup()
 
         Task {
+            // Every successful start must be paired with a stop; track which URLs we took a ref on.
+            var startedScopes: [URL] = []
+            defer {
+                for url in startedScopes {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+
             // First check bookmarks
             for folder in folders {
-                if folder.bookmarkData == nil || !folder.url.startAccessingSecurityScopedResource() {
+                if folder.bookmarkData != nil && folder.url.startAccessingSecurityScopedResource() {
+                    startedScopes.append(folder.url)
+                } else {
                     await refreshBookmarkForFolder(folder)
                 }
             }

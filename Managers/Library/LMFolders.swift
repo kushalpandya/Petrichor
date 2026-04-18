@@ -84,17 +84,23 @@ extension LibraryManager {
     func refreshFolder(_ folder: Folder, hardRefresh: Bool = false) {
         // First, ensure we have a valid bookmark
         Task {
-            // Refresh bookmark if needed
-            if folder.bookmarkData == nil || !folder.url.startAccessingSecurityScopedResource() {
+            // Every successful start must be paired with a stop; track whether we took a ref.
+            let startedAccess = folder.bookmarkData != nil
+                && folder.url.startAccessingSecurityScopedResource()
+            if !startedAccess {
                 await refreshBookmarkForFolder(folder)
             }
 
             // Then proceed with scanning
             await MainActor.run { [weak self] in
-                guard let self = self else { return }
+                guard let self = self else {
+                    if startedAccess { folder.url.stopAccessingSecurityScopedResource() }
+                    return
+                }
 
                 // Delegate to database manager for refresh
                 self.databaseManager.refreshFolder(folder, hardRefresh: hardRefresh) { result in
+                    if startedAccess { folder.url.stopAccessingSecurityScopedResource() }
                     switch result {
                     case .success:
                         Logger.info("Successfully refreshed folder \(folder.name)")

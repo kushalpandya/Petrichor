@@ -540,8 +540,10 @@ extension DatabaseManager {
                     if deferArtworkLoading {
                         // On slow FS, just record the path for lazy loading later
                         artworkPaths[directory] = fileURL
-                    } else {
-                        if let data = try? Data(contentsOf: fileURL) {
+                    } else if let size = (try? fileURL.resourceValues(forKeys: [.fileSizeKey]))?.fileSize {
+                        if size > AlbumArtFormat.maxArtworkSize {
+                            Logger.warning("Skipping oversized artwork: \(fileURL.lastPathComponent) (\(size) bytes)")
+                        } else if let data = try? Data(contentsOf: fileURL) {
                             artworkMap[directory] = ImageUtils.compressImage(from: data, source: fileURL.path) ?? data
                         }
                     }
