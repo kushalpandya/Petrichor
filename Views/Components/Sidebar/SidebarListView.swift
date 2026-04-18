@@ -237,9 +237,6 @@ struct SidebarListView<Item: SidebarItem>: View {
     private func startEditing(_ item: Item) {
         editingItemID = item.id
         editingText = item.title
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            isEditingFieldFocused = true
-        }
     }
 
     private func commitEditing(for item: Item) {

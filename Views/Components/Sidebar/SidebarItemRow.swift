@@ -117,6 +117,9 @@ struct SidebarItemRow<Item: SidebarItem>: View {
             .font(.system(size: 13, weight: isSelected ? .medium : .regular))
             .foregroundColor(isSelected ? .white : .primary)
             .focused($isEditingFieldFocused)
+            .task {
+                isEditingFieldFocused = true
+            }
             .onSubmit {
                 onCommitEditing()
             }

@@ -186,11 +186,12 @@ extension PlaylistManager {
 
         // Populate album artwork on matched tracks before creating the playlist
         // so that the collage artwork and gradient are available immediately
-        var tracksWithArtwork = matchResult.matchedTracks
-        libraryManager?.databaseManager.populateAlbumArtworkForTracks(&tracksWithArtwork)
+        var mutableTracks = matchResult.matchedTracks
+        libraryManager?.databaseManager.populateAlbumArtworkForTracks(&mutableTracks)
+        let tracksWithArtwork = mutableTracks
 
-        let createdPlaylist = await MainActor.run {
-            createPlaylist(name: uniquePlaylistName, tracks: tracksWithArtwork)
+        await MainActor.run {
+            _ = createPlaylist(name: uniquePlaylistName, tracks: tracksWithArtwork)
         }
         
         return PlaylistImportResult(
