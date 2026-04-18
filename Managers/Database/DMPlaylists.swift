@@ -66,6 +66,18 @@ extension DatabaseManager {
         }
     }
     
+    /// Update playlist metadata (name, dateModified) and the display name of any pinned item referencing this playlist
+    func updatePlaylistMetadata(_ playlist: Playlist) async throws {
+        _ = try await dbQueue.write { db in
+            try playlist.update(db, columns: [Playlist.Columns.name, Playlist.Columns.dateModified])
+
+            try PinnedItem
+                .filter(PinnedItem.Columns.itemType == PinnedItem.ItemType.playlist.rawValue)
+                .filter(PinnedItem.Columns.playlistId == playlist.id.uuidString)
+                .updateAll(db, PinnedItem.Columns.displayName.set(to: playlist.name))
+        }
+    }
+
     func savePlaylist(_ playlist: Playlist) throws {
         try dbQueue.write { db in
             // Save the playlist using GRDB's save method

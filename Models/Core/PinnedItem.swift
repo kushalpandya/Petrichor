@@ -10,7 +10,7 @@ struct PinnedItem: Identifiable, FetchableRecord, PersistableRecord {
     let artistId: Int64?
     let albumId: Int64?
     let playlistId: UUID?
-    let displayName: String
+    var displayName: String
     let subtitle: String?
     let iconName: String
     var sortOrder: Int

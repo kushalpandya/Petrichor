@@ -105,7 +105,15 @@ extension PlaylistManager {
             Task {
                 do {
                     if let dbManager = libraryManager?.databaseManager {
-                        try await dbManager.savePlaylistAsync(updatedPlaylist)
+                        try await dbManager.updatePlaylistMetadata(updatedPlaylist)
+
+                        if let pinnedIndex = libraryManager?.pinnedItems.firstIndex(where: {
+                            $0.itemType == .playlist && $0.playlistId == playlist.id
+                        }) {
+                            await MainActor.run {
+                                libraryManager?.pinnedItems[pinnedIndex].displayName = newName
+                            }
+                        }
                     }
                 } catch {
                     Logger.error("Failed to save renamed playlist: \(error)")
