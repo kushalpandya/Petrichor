@@ -159,7 +159,17 @@ final class Logger {
     ) {
         shared.log(level: .critical, message: message, file: file, line: line, function: function)
     }
-    
+
+    /// Writes a diagnostic snapshot as a single multi-line entry: one
+    /// timestamped header line followed by `body` appended verbatim.
+    /// Bypasses the configured minimum log level and writes synchronously on
+    /// the log queue so the call cannot race with app termination.
+    /// `performLogRotation` preserves continuation lines alongside their
+    /// header, so the block survives rotation intact.
+    static func diagnostic(header: String, body: String? = nil) {
+        shared.writeDiagnosticEntry(header: header, body: body)
+    }
+
     // MARK: - Configuration
     
     static func setMinimumLogLevel(_ level: LogLevel) {
@@ -256,6 +266,36 @@ final class Logger {
         }
     }
     
+    private func writeDiagnosticEntry(header: String, body: String?) {
+        let entry = LogEntry(
+            timestamp: Date(),
+            level: .info,
+            message: header,
+            file: "Diagnostic",
+            line: 0,
+            function: "snapshot"
+        )
+
+        var output = entry.formattedMessage + "\n"
+        if let body = body, !body.isEmpty {
+            output += body
+            if !body.hasSuffix("\n") { output += "\n" }
+        }
+
+        if enableConsoleLogging {
+            let consoleOutput = body.map { "\(entry.consoleMessage)\n\($0)" } ?? entry.consoleMessage
+            os_log("%{public}@", log: osLog, type: .info, consoleOutput)
+        }
+
+        if enableFileLogging {
+            // Sync dispatch so the write is flushed before the caller continues —
+            // important for the termination snapshot.
+            logQueue.sync {
+                fileManager.writeRaw(output)
+            }
+        }
+    }
+
     // Force synchronous flush of pending logs
     private func flush() {
         logQueue.sync {
@@ -330,37 +370,38 @@ private final class LogFileManager {
     }
     
     func write(_ entry: LogEntry) {
+        writeRaw(entry.formattedMessage + "\n")
+    }
+
+    /// Appends `text` to the log file verbatim (no added formatting). Used by
+    /// diagnostic snapshots that ship their own multi-line content.
+    func writeRaw(_ text: String) {
         guard let logFileURL = logFileURL else { return }
-        
-        let logMessage = entry.formattedMessage + "\n"
-        
-        guard let data = logMessage.data(using: .utf8) else { return }
-        
-        // Create file if it doesn't exist
+        guard let data = text.data(using: .utf8) else { return }
+
         if !FileManager.default.fileExists(atPath: logFileURL.path) {
             FileManager.default.createFile(
                 atPath: logFileURL.path,
                 contents: data,
                 attributes: nil
             )
-        } else {
-            // Append to existing file
-            do {
-                let fileHandle = try FileHandle(forWritingTo: logFileURL)
-                defer { try? fileHandle.close() }
-                
-                fileHandle.seekToEndOfFile()
-                fileHandle.write(data)
-            } catch {
-                // Can't use Logger here as it would cause recursion
-                // Using os_log directly to avoid print statement
-                os_log(
-                    "Failed to write to log file: %{public}@",
-                    log: .default,
-                    type: .error,
-                    error.localizedDescription
-                )
-            }
+            return
+        }
+
+        do {
+            let fileHandle = try FileHandle(forWritingTo: logFileURL)
+            defer { try? fileHandle.close() }
+
+            fileHandle.seekToEndOfFile()
+            fileHandle.write(data)
+        } catch {
+            // Can't use Logger here as it would cause recursion
+            os_log(
+                "Failed to write to log file: %{public}@",
+                log: .default,
+                type: .error,
+                error.localizedDescription
+            )
         }
     }
     
@@ -375,17 +416,21 @@ private final class LogFileManager {
         
         let lines = logContent.components(separatedBy: .newlines)
         let cutoffDate = Date().addingTimeInterval(-maxLogAge)
-        
+
         var filteredLines: [String] = []
+        var keepingCurrentEntry = false
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
-        
+
+        // Multi-line entries (e.g. diagnostic snapshot JSON blocks) have a
+        // timestamped header followed by lines that don't start with `[`. Keep
+        // those continuation lines together with their header so blocks survive
+        // rotation intact.
+        let pattern = #"^\[([\d-]+ [\d:.]+)\]"#
+
         for line in lines {
-            // Skip empty lines
             guard !line.isEmpty else { continue }
-            
-            // Extract timestamp from log line
-            let pattern = #"\[([\d-]+ [\d:.]+)\]"#
+
             if let match = line.range(of: pattern, options: .regularExpression),
                let dateString = line[match]
                    .dropFirst()
@@ -393,10 +438,12 @@ private final class LogFileManager {
                    .split(separator: "]")
                    .first,
                let date = dateFormatter.date(from: String(dateString)) {
-                // Keep lines newer than cutoff date
-                if date > cutoffDate {
+                keepingCurrentEntry = date > cutoffDate
+                if keepingCurrentEntry {
                     filteredLines.append(line)
                 }
+            } else if keepingCurrentEntry {
+                filteredLines.append(line)
             }
         }
         
