@@ -70,7 +70,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         Logger.info("App is terminating...")
-        
+
         // Stop audio playback gracefully to prevent clicks/pops
         if let coordinator = AppCoordinator.shared {
             // Save playback state before terminating
@@ -78,9 +78,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
             // Stop the playback
             coordinator.playbackManager.stopGracefully()
-            
+
             // Force a database checkpoint to ensure all data is persisted
             coordinator.libraryManager.databaseManager.checkpoint()
+        }
+
+        // Capture snapshot after state save + checkpoint so counts reflect the
+        // final persisted state.
+        let semaphore = DispatchSemaphore(value: 0)
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            self?.writeDiagnosticSnapshot(phase: "Termination")
+            semaphore.signal()
+        }
+        if semaphore.wait(timeout: .now() + 2.0) == .timedOut {
+            Logger.warning("Termination diagnostic snapshot timed out")
         }
     }
     
@@ -102,6 +113,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         #else
         Logger.setMinimumLogLevel(.warning)
         #endif
+
+        // Capture snapshot after state restore and app launch is complete
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            self?.writeDiagnosticSnapshot(phase: "Launch")
+        }
 
         NSWindow.allowsAutomaticWindowTabbing = false
         
@@ -367,6 +383,108 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
     }
     
+    // MARK: - Diagnostic Snapshot
+
+    /// Writes a single-entry snapshot of the current user settings, library
+    /// statistics, and app/OS info to the log file as pretty-printed JSON.
+    /// Emitted at launch and termination so users can share the log for
+    /// diagnosis. Always written regardless of the configured log level.
+    private func writeDiagnosticSnapshot(phase: String) {
+        var payload: [String: Any] = [
+            "phase": phase,
+            "app": [
+                "name": AppInfo.name,
+                "version": AppInfo.versionWithBuild,
+                "bundleId": AppInfo.bundleIdentifier,
+                "build": AppInfo.isDebugBuild ? "debug" : "release"
+            ],
+            "os": ProcessInfo.processInfo.operatingSystemVersionString
+        ]
+
+        let defaults = UserDefaults.standard
+
+        var library: [String: Any] = [:]
+        if let coordinator = AppCoordinator.shared {
+            let lm = coordinator.libraryManager
+            let db = lm.databaseManager
+            let totalBytes = db.getTotalFileSize()
+            library["folderCount"] = lm.folders.count
+            library["trackCount"] = lm.totalTrackCount
+            library["artistCount"] = lm.artistCount
+            library["albumCount"] = lm.albumCount
+            library["playlistCount"] = coordinator.playlistManager.playlists.count
+            library["pinnedItemCount"] = lm.pinnedItems.count
+            library["totalDurationSec"] = Int(db.getTotalDuration())
+            library["totalSizeBytes"] = totalBytes
+            library["totalSizeFormatted"] = ByteCountFormatter.string(fromByteCount: totalBytes, countStyle: .file)
+            library["formats"] = db.getTrackCountsByFormat()
+            library["folders"] = lm.folders.map { ($0.url.path as NSString).abbreviatingWithTildeInPath }
+        } else {
+            library["available"] = false
+        }
+
+        if let lastScan = defaults.object(forKey: "LastScanDate") as? Date {
+            library["lastScanDate"] = ISO8601DateFormatter().string(from: lastScan)
+        } else {
+            library["lastScanDate"] = NSNull()
+        }
+        payload["library"] = library
+
+        let boolKeys = [
+            "closeToMenubar", "startAtLogin", "hideDuplicateTracks",
+            "automaticUpdatesEnabled", "showFoldersTab", "useArtworkColors",
+            "eqEnabled", "stereoWideningEnabled",
+            "onlineLyricsEnabled", "artistInfoFetchEnabled",
+            "scrobblingEnabled", "loveSyncEnabled",
+            "playlistSortAscending", "entitySortAscending"
+        ]
+        let stringKeys = [
+            "colorMode", "autoScanInterval", "eqPreset",
+            "discoverUpdateInterval",
+            "librarySelectedFilterType", "albumSortBy",
+            "trackTableRowSize", "playlistSortFields"
+        ]
+        let intKeys = ["discoverTrackCount"]
+        let doubleKeys = ["preampGain"]
+
+        var settings: [String: Any] = [:]
+        for key in boolKeys {
+            settings[key] = defaults.object(forKey: key) != nil ? defaults.bool(forKey: key) : NSNull()
+        }
+        for key in stringKeys {
+            settings[key] = defaults.string(forKey: key) ?? NSNull()
+        }
+        for key in intKeys {
+            settings[key] = defaults.object(forKey: key) != nil ? defaults.integer(forKey: key) : NSNull()
+        }
+        for key in doubleKeys {
+            settings[key] = defaults.object(forKey: key) != nil ? defaults.double(forKey: key) : NSNull()
+        }
+        if let gains = defaults.array(forKey: "customEQGains") as? [Float] {
+            settings["customEQGains"] = gains.map { Double($0) }
+        }
+
+        settings["lastfmUsername"] = defaults.string(forKey: "lastfmUsername") != nil ? "<set>" : "<unset>"
+        payload["settings"] = settings
+
+        payload["integrations"] = [
+            "lastfmSignedIn": KeychainManager.exists(key: KeychainManager.Keys.lastfmSessionKey)
+        ]
+
+        let body: String
+        do {
+            let data = try JSONSerialization.data(
+                withJSONObject: payload,
+                options: [.prettyPrinted, .sortedKeys]
+            )
+            body = String(data: data, encoding: .utf8) ?? "{}"
+        } catch {
+            body = "{\"error\": \"failed to serialize diagnostic snapshot: \(error)\"}"
+        }
+
+        Logger.diagnostic(header: "DIAGNOSTIC SNAPSHOT (\(phase))", body: body)
+    }
+
     private func registerUserDefaultsDefaults() {
         let defaults: [String: Any] = [
             "closeToMenubar": true,

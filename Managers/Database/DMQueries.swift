@@ -453,6 +453,51 @@ extension DatabaseManager {
         }
     }
 
+    /// Count of tracks grouped by file format (extension). Honors the
+    /// duplicate-hiding preference via `applyDuplicateFilter`.
+    func getTrackCountsByFormat() -> [String: Int] {
+        do {
+            return try dbQueue.read { db in
+                let rows = try applyDuplicateFilter(Track.all())
+                    .select(
+                        Track.Columns.format.lowercased.forKey("fmt"),
+                        count(Track.Columns.format).forKey("cnt")
+                    )
+                    .group(Track.Columns.format.lowercased)
+                    .asRequest(of: Row.self)
+                    .fetchAll(db)
+
+                var counts: [String: Int] = [:]
+                for row in rows {
+                    let rawFmt: String = row["fmt"] ?? ""
+                    let cnt: Int = row["cnt"] ?? 0
+                    let key = rawFmt.isEmpty ? "(none)" : rawFmt.lowercased()
+                    counts[key, default: 0] += cnt
+                }
+                return counts
+            }
+        } catch {
+            Logger.error("Failed to get track counts by format: \(error)")
+            return [:]
+        }
+    }
+
+    /// Sum of `file_size` across all tracks, in bytes. Honors the
+    /// duplicate-hiding preference.
+    func getTotalFileSize() -> Int64 {
+        do {
+            return try dbQueue.read { db in
+                let result = try applyDuplicateFilter(Track.all())
+                    .select(sum(Column("file_size")), as: Int64.self)
+                    .fetchOne(db)
+                return result ?? 0
+            }
+        } catch {
+            Logger.error("Failed to get total file size: \(error)")
+            return 0
+        }
+    }
+
     // MARK: - Library Filter Items
 
     func getAllTracks() -> [Track] {
