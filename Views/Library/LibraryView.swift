@@ -7,16 +7,17 @@ struct LibraryView: View {
     @Binding var selectedFilterType: LibraryFilterType
     @Binding var selectedFilterItem: LibraryFilterItem?
     @Binding var pendingSearchText: String?
+    @Binding var cachedFilteredTracks: [Track]
 
     @AppStorage("trackTableRowSize")
     private var trackTableRowSize: TableRowSize = .expanded
 
     @State private var selectedTrackID: UUID?
-    @State private var cachedFilteredTracks: [Track] = []
     @State private var isLibrarySearchActive = false
     @State private var isViewReady = false
     @State private var trackTableSortOrder = [KeyPathComparator(\Track.title)]
     @State private var filterUpdateTask: Task<Void, Never>?
+    @State private var lastFilterUpdateAt: Date = .distantPast
     @Binding var pendingFilter: LibraryFilterRequest?
 
     var body: some View {
@@ -26,6 +27,9 @@ struct LibraryView: View {
             tracksListView
                 .onAppear {
                     processPendingFilter()
+                    if cachedFilteredTracks.isEmpty, selectedFilterItem != nil {
+                        updateFilteredTracks()
+                    }
                 }
                 .onDisappear {
                     isViewReady = false
@@ -81,11 +85,13 @@ struct LibraryView: View {
         selectedFilterType: Binding<LibraryFilterType>,
         selectedFilterItem: Binding<LibraryFilterItem?>,
         pendingSearchText: Binding<String?>,
+        cachedFilteredTracks: Binding<[Track]>,
         pendingFilter: Binding<LibraryFilterRequest?> = .constant(nil)
     ) {
         self._selectedFilterType = selectedFilterType
         self._selectedFilterItem = selectedFilterItem
         self._pendingSearchText = pendingSearchText
+        self._cachedFilteredTracks = cachedFilteredTracks
         self._pendingFilter = pendingFilter
     }
 
@@ -180,17 +186,23 @@ struct LibraryView: View {
     // MARK: - Filtering Tracks Helper
 
     private func updateFilteredTracks() {
+        let now = Date()
+        // Only debounce when the previous request was very recent (rapid sidebar
+        // navigation). A single deliberate selection should load immediately.
+        let isRapidChange = now.timeIntervalSince(lastFilterUpdateAt) < 0.1
+        lastFilterUpdateAt = now
+
         filterUpdateTask?.cancel()
-        
+
         if !libraryManager.globalSearchText.isEmpty {
             var tracks = libraryManager.searchResults
-            
+
             if let filterItem = selectedFilterItem, !filterItem.isAllItem {
                 tracks = tracks.filter { track in
                     selectedFilterType.trackMatches(track, filterValue: filterItem.name)
                 }
             }
-            
+
             cachedFilteredTracks = tracks
         } else {
             if let filterItem = selectedFilterItem {
@@ -200,20 +212,22 @@ struct LibraryView: View {
                     let filterType = selectedFilterType
                     let filterValue = filterItem.name
                     let libManager = libraryManager
-                    
+
                     filterUpdateTask = Task {
-                        try? await Task.sleep(nanoseconds: TimeConstants.oneHundredMilliseconds)
-                        
+                        if isRapidChange {
+                            try? await Task.sleep(nanoseconds: TimeConstants.oneHundredMilliseconds)
+                        }
+
                         guard !Task.isCancelled else { return }
-                        
+
                         let tracks = await Task.detached {
                             var tracks = libManager.getTracksBy(filterType: filterType, value: filterValue)
                             libManager.databaseManager.populateAlbumArtworkForTracks(&tracks)
                             return tracks
                         }.value
-                        
+
                         guard !Task.isCancelled else { return }
-                        
+
                         await MainActor.run {
                             self.cachedFilteredTracks = tracks
                         }
@@ -230,11 +244,13 @@ struct LibraryView: View {
     @Previewable @State var filterType: LibraryFilterType = .artists
     @Previewable @State var filterItem: LibraryFilterItem?
     @Previewable @State var searchText: String?
+    @Previewable @State var cachedTracks: [Track] = []
 
     LibraryView(
         selectedFilterType: $filterType,
         selectedFilterItem: $filterItem,
-        pendingSearchText: $searchText
+        pendingSearchText: $searchText,
+        cachedFilteredTracks: $cachedTracks
     )
         .environmentObject({
             let coordinator = AppCoordinator()

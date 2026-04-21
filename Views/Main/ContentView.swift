@@ -34,6 +34,9 @@ struct ContentView: View {
     private var libraryFilterType: LibraryFilterType = .artists
     @State private var libraryFilterItem: LibraryFilterItem?
     @State private var libraryPendingSearchText: String?
+    @State private var libraryFilteredItems: [LibraryFilterItem] = []
+    @State private var libraryCachedTracks: [Track] = []
+    @State private var librarySelectedSidebarItem: LibrarySidebarItem?
     
     @ObservedObject private var notificationManager = NotificationManager.shared
 
@@ -160,7 +163,9 @@ struct ContentView: View {
                 LibrarySidebarView(
                     selectedFilterType: $libraryFilterType,
                     selectedFilterItem: $libraryFilterItem,
-                    pendingSearchText: $libraryPendingSearchText
+                    pendingSearchText: $libraryPendingSearchText,
+                    filteredItems: $libraryFilteredItems,
+                    selectedSidebarItem: $librarySelectedSidebarItem
                 )
             }
 
@@ -186,6 +191,7 @@ struct ContentView: View {
                     selectedFilterType: $libraryFilterType,
                     selectedFilterItem: $libraryFilterItem,
                     pendingSearchText: $libraryPendingSearchText,
+                    cachedFilteredTracks: $libraryCachedTracks,
                     pendingFilter: $pendingLibraryFilter
                 )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

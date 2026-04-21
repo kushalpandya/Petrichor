@@ -5,12 +5,20 @@ struct LibrarySidebarView: View {
     @Binding var selectedFilterType: LibraryFilterType
     @Binding var selectedFilterItem: LibraryFilterItem?
     @Binding var pendingSearchText: String?
+    @Binding var filteredItems: [LibraryFilterItem]
+    @Binding var selectedSidebarItem: LibrarySidebarItem?
 
-    @State private var filteredItems: [LibraryFilterItem] = []
-    @State private var selectedSidebarItem: LibrarySidebarItem?
     @State private var searchText = ""
     @State private var localSearchText = ""
     @State private var sortAscending = true
+    @State private var sortCache: SortCache?
+
+    private struct SortCache {
+        let input: [LibraryFilterItem]
+        let sortAscending: Bool
+        let filterType: LibraryFilterType
+        let output: [LibraryFilterItem]
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -166,6 +174,11 @@ struct LibrarySidebarView: View {
                 // Not in search mode, select the first available item
                 selectedFilterItem = filteredItems.first
             }
+        } else if let current = selectedFilterItem, !current.isAllItem,
+                  let matching = filteredItems.first(where: { $0.name == current.name }) {
+            // Re-anchor to the current filteredItems instance so selection IDs align after the
+            // sidebar was destroyed and recreated (e.g., after switching tabs).
+            selectedFilterItem = matching
         }
 
         // Always sync the sidebar selection with the filter selection
@@ -255,15 +268,16 @@ struct LibrarySidebarView: View {
         filteredItems = sortItemsWithUnknownLast(items)
     }
 
-    private func isValidFilterItem(_ item: LibraryFilterItem) -> Bool {
-        // Check if this filter item exists in the current (non-searched) data
-        let allItems = getFilterItems(for: selectedFilterType)
-        return allItems.contains { $0.name == item.name }
-    }
-
     // MARK: - Custom Sorting
 
     private func sortItemsWithUnknownLast(_ items: [LibraryFilterItem]) -> [LibraryFilterItem] {
+        if let cache = sortCache,
+           cache.sortAscending == sortAscending,
+           cache.filterType == selectedFilterType,
+           cache.input == items {
+            return cache.output
+        }
+
         var unknownItems: [LibraryFilterItem] = []
         var regularItems: [LibraryFilterItem] = []
 
@@ -283,38 +297,18 @@ struct LibrarySidebarView: View {
                 comparison == .orderedDescending
         }
 
-        return regularItems + unknownItems
+        let result = regularItems + unknownItems
+        sortCache = SortCache(
+            input: items,
+            sortAscending: sortAscending,
+            filterType: selectedFilterType,
+            output: result
+        )
+        return result
     }
 
     private func isUnknownItem(_ item: LibraryFilterItem) -> Bool {
         item.name == selectedFilterType.unknownPlaceholder
-    }
-
-    private func getFilterItems(for filterType: LibraryFilterType) -> [LibraryFilterItem] {
-        libraryManager.getLibraryFilterItems(for: filterType)
-    }
-
-    private func getArtistItemsForSearch(_ searchTerm: String) -> [LibraryFilterItem] {
-        let trimmedSearch = searchTerm.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedSearch.isEmpty else { return getFilterItems(for: .artists) }
-
-        var artistTrackMap: [String: Set<Track>] = [:]
-
-        for track in libraryManager.tracks {
-            let artists = ArtistParser.parse(track.artist)
-            for artist in artists {
-                if artist.localizedCaseInsensitiveContains(trimmedSearch) {
-                    if artistTrackMap[artist] == nil {
-                        artistTrackMap[artist] = []
-                    }
-                    artistTrackMap[artist]?.insert(track)
-                }
-            }
-        }
-
-        return artistTrackMap.map { artist, trackSet in
-            LibraryFilterItem(name: artist, count: trackSet.count, filterType: .artists)
-        }
     }
 
     private func createContextMenuItems(for item: LibrarySidebarItem) -> [ContextMenuItem] {
@@ -334,11 +328,15 @@ struct LibrarySidebarView: View {
     @Previewable @State var selectedFilterType: LibraryFilterType = .artists
     @Previewable @State var selectedFilterItem: LibraryFilterItem?
     @Previewable @State var pendingSearchText: String?
+    @Previewable @State var filteredItems: [LibraryFilterItem] = []
+    @Previewable @State var selectedSidebarItem: LibrarySidebarItem?
 
     LibrarySidebarView(
         selectedFilterType: $selectedFilterType,
         selectedFilterItem: $selectedFilterItem,
-        pendingSearchText: $pendingSearchText
+        pendingSearchText: $pendingSearchText,
+        filteredItems: $filteredItems,
+        selectedSidebarItem: $selectedSidebarItem
     )
     .environmentObject(LibraryManager())
     .frame(width: 250, height: 500)
