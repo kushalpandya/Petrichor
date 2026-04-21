@@ -97,7 +97,10 @@ struct HomeSidebarView: View {
 
         let pinnedSidebarItems = libraryManager.pinnedItems.map { pinnedItem in
             let cachedCount = pinnedItemTrackCounts[pinnedItem.id ?? 0] ?? 0
-            return HomeSidebarItem(pinnedItem: pinnedItem, trackCount: cachedCount)
+            let playlist = pinnedItem.playlistId.flatMap { id in
+                playlistManager.playlists.first { $0.id == id }
+            }
+            return HomeSidebarItem(pinnedItem: pinnedItem, trackCount: cachedCount, playlist: playlist)
         }
         items.append(contentsOf: pinnedSidebarItems)
         
@@ -138,7 +141,10 @@ struct HomeSidebarView: View {
                         return false
                     }) {
                         if let pinnedItem = libraryManager.pinnedItems.first(where: { $0.id == pinnedId }) {
-                            allItems[index] = HomeSidebarItem(pinnedItem: pinnedItem, trackCount: trackCount)
+                            let playlist = pinnedItem.playlistId.flatMap { id in
+                                playlistManager.playlists.first { $0.id == id }
+                            }
+                            allItems[index] = HomeSidebarItem(pinnedItem: pinnedItem, trackCount: trackCount, playlist: playlist)
                         }
                     }
                 }

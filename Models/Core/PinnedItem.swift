@@ -12,7 +12,6 @@ struct PinnedItem: Identifiable, FetchableRecord, PersistableRecord {
     let playlistId: UUID?
     var displayName: String
     let subtitle: String?
-    let iconName: String
     var sortOrder: Int
     let dateAdded: Date
     
@@ -24,7 +23,7 @@ struct PinnedItem: Identifiable, FetchableRecord, PersistableRecord {
     // MARK: - Initialization
     
     // For library sidebar items
-    init(filterType: LibraryFilterType, filterValue: String, displayName: String, subtitle: String? = nil, iconName: String) {
+    init(filterType: LibraryFilterType, filterValue: String, displayName: String, subtitle: String? = nil) {
         self.itemType = .library
         self.filterType = filterType
         self.filterValue = filterValue
@@ -34,11 +33,10 @@ struct PinnedItem: Identifiable, FetchableRecord, PersistableRecord {
         self.playlistId = nil
         self.displayName = displayName
         self.subtitle = subtitle
-        self.iconName = iconName
         self.sortOrder = 0
         self.dateAdded = Date()
     }
-    
+
     // For artist entities
     init(artistEntity: ArtistEntity, artistId: Int64? = nil) {
         self.itemType = .library
@@ -50,11 +48,10 @@ struct PinnedItem: Identifiable, FetchableRecord, PersistableRecord {
         self.playlistId = nil
         self.displayName = artistEntity.name
         self.subtitle = artistEntity.subtitle
-        self.iconName = Icons.personFill
         self.sortOrder = 0
         self.dateAdded = Date()
     }
-    
+
     // For album entities
     init(albumEntity: AlbumEntity) {
         self.itemType = .library
@@ -66,11 +63,10 @@ struct PinnedItem: Identifiable, FetchableRecord, PersistableRecord {
         self.playlistId = nil
         self.displayName = albumEntity.name
         self.subtitle = albumEntity.year
-        self.iconName = Icons.opticalDiscFill
         self.sortOrder = 0
         self.dateAdded = Date()
     }
-    
+
     // For playlists
     init(playlist: Playlist) {
         self.itemType = .playlist
@@ -82,7 +78,6 @@ struct PinnedItem: Identifiable, FetchableRecord, PersistableRecord {
         self.playlistId = playlist.id
         self.displayName = playlist.name
         self.subtitle = "\(playlist.trackCount) songs"
-        self.iconName = Icons.defaultPlaylistIcon(for: playlist)
         self.sortOrder = 0
         self.dateAdded = Date()
     }
@@ -102,50 +97,48 @@ struct PinnedItem: Identifiable, FetchableRecord, PersistableRecord {
         static let playlistId = Column("playlist_id")
         static let displayName = Column("display_name")
         static let subtitle = Column("subtitle")
-        static let iconName = Column("icon_name")
         static let sortOrder = Column("sort_order")
         static let dateAdded = Column("date_added")
     }
     
     // MARK: - FetchableRecord
-    
+
     init(row: Row) throws {
         id = row[Columns.id]
         itemType = ItemType(rawValue: row[Columns.itemType]) ?? .library
-        
+
         // Properly cast String values
         if let filterTypeString: String = row[Columns.filterType] {
             filterType = LibraryFilterType(rawValue: filterTypeString)
         } else {
             filterType = nil
         }
-        
+
         filterValue = row[Columns.filterValue]
-        
+
         if let entityIdString: String = row[Columns.entityId] {
             entityId = UUID(uuidString: entityIdString)
         } else {
             entityId = nil
         }
-        
+
         artistId = row[Columns.artistId]
         albumId = row[Columns.albumId]
-        
+
         if let playlistIdString: String = row[Columns.playlistId] {
             playlistId = UUID(uuidString: playlistIdString)
         } else {
             playlistId = nil
         }
-        
+
         displayName = row[Columns.displayName]
         subtitle = row[Columns.subtitle]
-        iconName = row[Columns.iconName]
         sortOrder = row[Columns.sortOrder]
         dateAdded = row[Columns.dateAdded]
     }
-    
+
     // MARK: - PersistableRecord
-    
+
     func encode(to container: inout PersistenceContainer) throws {
         container[Columns.id] = id
         container[Columns.itemType] = itemType.rawValue
@@ -157,7 +150,6 @@ struct PinnedItem: Identifiable, FetchableRecord, PersistableRecord {
         container[Columns.playlistId] = playlistId?.uuidString
         container[Columns.displayName] = displayName
         container[Columns.subtitle] = subtitle
-        container[Columns.iconName] = iconName
         container[Columns.sortOrder] = sortOrder
         container[Columns.dateAdded] = dateAdded
     }
@@ -226,7 +218,6 @@ extension PinnedItem: Equatable {
         lhs.playlistId == rhs.playlistId &&
         lhs.displayName == rhs.displayName &&
         lhs.subtitle == rhs.subtitle &&
-        lhs.iconName == rhs.iconName &&
         lhs.sortOrder == rhs.sortOrder
     }
 }

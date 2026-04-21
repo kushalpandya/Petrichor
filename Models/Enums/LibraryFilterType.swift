@@ -65,7 +65,7 @@ enum LibraryFilterType: String, CaseIterable {
         case .albums: return Icons.opticalDiscFill
         case .albumArtists: return Icons.person2CropSquareStackFill
         case .composers: return Icons.person2Wave2Fill
-        case .genres: return Icons.musicNoteList
+        case .genres: return Icons.musicPagesFill
         case .decades: return Icons.calendarBadgeClock
         case .years: return Icons.calendarCircleFill
         }
@@ -77,7 +77,7 @@ enum LibraryFilterType: String, CaseIterable {
         case .albums: return Icons.opticalDiscFill
         case .albumArtists: return Icons.person2CropSquareStackFill
         case .composers: return Icons.person2Wave2Fill
-        case .genres: return Icons.musicNoteList
+        case .genres: return Icons.musicPagesFill
         case .decades: return Icons.calendarBadgeClock
         case .years: return Icons.calendarCircleFill
         }

@@ -93,10 +93,16 @@ struct SidebarItemRow<Item: SidebarItem>: View {
     @ViewBuilder
     private var iconView: some View {
         if showIcon, let icon = item.icon {
-            Image(systemName: icon)
-                .foregroundColor(isSelected ? .white : iconColor)
-                .font(.system(size: 16))
-                .frame(width: 16, height: 16)
+            Group {
+                if icon.hasPrefix("custom.") {
+                    Image(icon)
+                } else {
+                    Image(systemName: icon)
+                }
+            }
+            .foregroundColor(isSelected ? .white : iconColor)
+            .font(.system(size: 16))
+            .frame(width: 16, height: 16)
         }
     }
     
