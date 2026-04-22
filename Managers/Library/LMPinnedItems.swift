@@ -34,8 +34,7 @@ extension LibraryManager {
             filterType: filterType,
             filterValue: filterValue,
             displayName: filterValue,
-            subtitle: nil,
-            iconName: filterType.icon
+            subtitle: nil
         )
         
         do {

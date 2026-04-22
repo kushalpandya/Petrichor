@@ -278,7 +278,6 @@ extension DatabaseManager {
             t.column("playlist_id", .text) // For playlist items
             t.column("display_name", .text).notNull()
             t.column("subtitle", .text) // For albums, shows artist name
-            t.column("icon_name", .text).notNull()
             t.column("sort_order", .integer).notNull().defaults(to: 0)
             t.column("date_added", .datetime).notNull()
         }

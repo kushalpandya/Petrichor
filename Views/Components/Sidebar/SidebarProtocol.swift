@@ -110,13 +110,22 @@ struct HomeSidebarItem: SidebarItem {
     }
     
     // Init for pinned items
-    init(pinnedItem: PinnedItem, trackCount: Int = 0) {
+    init(pinnedItem: PinnedItem, trackCount: Int = 0, playlist: Playlist? = nil) {
         self.id = UUID(uuidString: "pinned-\(pinnedItem.id ?? 0)") ?? UUID()
         self.type = nil
         self.source = .pinned(pinnedItem)
         self.title = pinnedItem.displayName
         self.subtitle = "\(trackCount) \(trackCount == 1 ? "song" : "songs")"
-        self.icon = pinnedItem.iconName
+        self.icon = HomeSidebarItem.deriveIcon(for: pinnedItem, playlist: playlist)
+    }
+
+    private static func deriveIcon(for pinnedItem: PinnedItem, playlist: Playlist?) -> String {
+        switch pinnedItem.itemType {
+        case .playlist:
+            return playlist.map { Icons.defaultPlaylistIcon(for: $0) } ?? Icons.musicNoteList
+        case .library:
+            return pinnedItem.filterType?.icon ?? Icons.musicNote
+        }
     }
 }
 

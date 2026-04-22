@@ -165,15 +165,15 @@ enum DatabaseMigrator {
             Logger.info("v9_rebuild_artist_associations: flagged for background artist rebuild")
         }
 
-        // TODO: Uncomment in next minor release to add filename index for playlist import performance
-        // migrator.registerMigration("v10_add_filename_index_for_playlist_import") { db in
-        //     try db.createIndexIfNotExists(
-        //         name: "idx_tracks_filename",
-        //         table: "tracks",
-        //         columns: ["filename"]
-        //     )
-        //     Logger.info("v10_add_filename_index_for_playlist_import migration completed")
-        // }
+        migrator.registerMigration("v10_add_filename_index_and_drop_pinned_icon_name") { db in
+            try db.createIndexIfNotExists(
+                name: "idx_tracks_filename",
+                table: "tracks",
+                columns: ["filename"]
+            )
+            try db.dropColumnIfExists(table: "pinned_items", column: "icon_name")
+            Logger.info("v10_add_filename_index_and_drop_pinned_icon_name migration completed")
+        }
 
         // MARK: - Future Migrations
         // Add new migrations here as: migrator.registerMigration("v11_description") { db in ... }

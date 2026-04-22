@@ -70,27 +70,36 @@ struct IconOnlyDropdownRepresentable<Item: Hashable>: NSViewRepresentable {
     
     private func updateMenu(_ popUp: NSPopUpButton) {
         popUp.removeAllItems()
-        
+
         for item in items {
             let menuItem = NSMenuItem(title: tooltipProvider(item), action: nil, keyEquivalent: "")
-            
-            if let image = NSImage(systemSymbolName: iconProvider(item), accessibilityDescription: tooltipProvider(item)) {
+
+            if let image = symbolImage(named: iconProvider(item), accessibilityDescription: tooltipProvider(item)) {
                 menuItem.image = image.withSymbolConfiguration(.init(pointSize: 12, weight: .regular))
             }
-            
+
             popUp.menu?.addItem(menuItem)
         }
-        
+
         if let index = items.firstIndex(of: selection) {
             popUp.selectItem(at: index)
             updateIcon(popUp, for: selection)
         }
     }
-    
+
     private func updateIcon(_ popUp: NSPopUpButton, for item: Item) {
-        if let image = NSImage(systemSymbolName: iconProvider(item), accessibilityDescription: tooltipProvider(item)) {
+        if let image = symbolImage(named: iconProvider(item), accessibilityDescription: tooltipProvider(item)) {
             popUp.image = image.withSymbolConfiguration(.init(pointSize: 14, weight: .medium))
         }
+    }
+
+    private func symbolImage(named name: String, accessibilityDescription: String) -> NSImage? {
+        if name.hasPrefix("custom.") {
+            let image = NSImage(named: name)
+            image?.accessibilityDescription = accessibilityDescription
+            return image
+        }
+        return NSImage(systemSymbolName: name, accessibilityDescription: accessibilityDescription)
     }
     
     func makeCoordinator() -> Coordinator {

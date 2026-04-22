@@ -8,6 +8,7 @@ enum Icons {
     static let musicNoteList = "music.note.list"
     static let musicNoteHouse = "music.note.house"
     static let musicNoteHouseFill = "music.note.house.fill"
+    static let musicPagesFill = "custom.music.pages.fill"
     static let speakerFill = "speaker.fill"
     static let speakerWave3 = "speaker.wave.3"
     static let speakerWave3Fill = "speaker.wave.3.fill"
