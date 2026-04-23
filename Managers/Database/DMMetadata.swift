@@ -345,6 +345,22 @@ extension DatabaseManager {
         }
     }
 
+    func markArtistBioFetchFailed(artistId: Int64) {
+        do {
+            _ = try dbQueue.write { db in
+                try Artist
+                    .filter(Artist.Columns.id == artistId)
+                    .updateAll(
+                        db,
+                        Artist.Columns.bioUpdatedAt.set(to: Date()),
+                        Artist.Columns.updatedAt.set(to: Date())
+                    )
+            }
+        } catch {
+            Logger.error("Failed to mark artist bio fetch failed for ID \(artistId): \(error)")
+        }
+    }
+
     struct ArtistFetchInfo {
         let id: Int64
         let name: String
@@ -361,7 +377,10 @@ extension DatabaseManager {
                     Artist.Columns.imageUpdatedAt == nil ||
                     Artist.Columns.imageUpdatedAt < sevenDaysAgo.databaseValue
                 )
-                let needsBio = Artist.Columns.bio == nil
+                let needsBio = Artist.Columns.bio == nil && (
+                    Artist.Columns.bioUpdatedAt == nil ||
+                    Artist.Columns.bioUpdatedAt < sevenDaysAgo.databaseValue
+                )
 
                 let rows = try Artist
                     .select(
