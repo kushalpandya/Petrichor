@@ -533,6 +533,8 @@ struct EntityDetailView: View {
         // Load artist bio for person entities (artists, album artists, composers)
         if entity is ArtistEntity {
             artistBio = libraryManager.databaseManager.getArtistBio(for: entity.name)
+        } else {
+            artistBio = nil
         }
 
         self.isLoading = false

@@ -134,6 +134,12 @@ class ArtistBioManager {
                     databaseManager.markArtistImageFetchFailed(artistId: artist.id)
                 }
 
+                // Stamp bioUpdatedAt when a bio fetch was attempted but returned nil,
+                // so we don't re-query the same artist on every run.
+                if !artist.hasBio && bio == nil {
+                    databaseManager.markArtistBioFetchFailed(artistId: artist.id)
+                }
+
                 // Flush pending UI updates every 2 seconds
                 if !pendingUpdates.isEmpty && Date().timeIntervalSince(lastUIUpdate) >= uiUpdateInterval {
                     await self.flushUIUpdates(pendingUpdates, using: libraryManager)
