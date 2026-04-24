@@ -4,9 +4,8 @@ import UniformTypeIdentifiers
 struct PlayQueueView: View {
     @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var playlistManager: PlaylistManager
-    @State private var draggedTrack: Track?
+    @State private var draggedIndex: Int?
     @State private var showingClearConfirmation = false
-    @State private var hasAppeared = false
     @Binding var showingQueue: Bool
 
     var body: some View {
@@ -29,8 +28,6 @@ struct PlayQueueView: View {
             Text("Are you sure you want to clear the entire queue? This will stop playback.")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear { hasAppeared = true }
-        .onDisappear { hasAppeared = false }
     }
 
     // MARK: - Queue Header
@@ -38,10 +35,10 @@ struct PlayQueueView: View {
     private var queueHeader: some View {
         ListHeader(opaque: true) {
             HStack(spacing: 12) {
-                Button(action: {
+                Button {
                     showingQueue = false
                     AppCoordinator.shared?.isQueueVisible = showingQueue
-                }) {
+                } label: {
                     Image(systemName: Icons.xmarkCircleFill)
                         .font(.system(size: 16))
                         .foregroundColor(.secondary)
@@ -69,7 +66,9 @@ struct PlayQueueView: View {
     }
 
     private var clearQueueButton: some View {
-        Button(action: { showingClearConfirmation = true }) {
+        Button {
+            showingClearConfirmation = true
+        } label: {
             Image(systemName: Icons.trash)
                 .font(.system(size: 14))
                 .foregroundColor(.secondary)
@@ -101,60 +100,40 @@ struct PlayQueueView: View {
 
     private var queueListView: some View {
         List {
-            ForEach(playlistManager.currentQueue, id: \.id) { track in
-                queueRow(for: track)
+            ForEach(Array(playlistManager.currentQueue.enumerated()), id: \.element.id) { pair in
+                queueRow(for: pair.element, at: pair.offset)
                     .listRowInsets(.init(top: 0, leading: 0, bottom: 0, trailing: 0))
                     .listRowSeparator(.hidden)
             }
-            .onMove(perform: moveTracks)
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .safeAreaPadding(.vertical, 6)
     }
 
-    private func queueRow(for track: Track) -> some View {
-        // swiftlint:disable:next trailing_closure
-        let position = playlistManager.currentQueue.firstIndex(where: { $0.id == track.id }) ?? 0
+    private func queueRow(for track: Track, at position: Int) -> some View {
         let isLastItem = position == playlistManager.currentQueue.count - 1
+        let isCurrentTrack = position == playlistManager.currentQueueIndex
 
         return PlayQueueRow(
             track: track,
             position: position,
-            isCurrentTrack: position == playlistManager.currentQueueIndex,
-            isPlaying: position == playlistManager.currentQueueIndex && playbackManager.isPlaying,
+            isCurrentTrack: isCurrentTrack,
+            isPlaying: isCurrentTrack && playbackManager.isPlaying,
             playlistManager: playlistManager,
             isLastItem: isLastItem
         ) {
             playlistManager.removeFromQueue(at: position)
         }
         .onDrag {
-            draggedTrack = track
+            draggedIndex = position
             return NSItemProvider(object: track.id.uuidString as NSString)
         }
         .onDrop(of: [UTType.text], delegate: QueueDropDelegate(
-            track: track,
-            tracks: playlistManager.currentQueue,
-            draggedTrack: $draggedTrack,
+            destinationIndex: position,
+            draggedIndex: $draggedIndex,
             playlistManager: playlistManager
         ))
-    }
-
-    // MARK: - List move/delete helpers
-
-    private func moveTracks(from offsets: IndexSet, to destination: Int) {
-        let sortedOffsets = offsets.sorted(by: >)
-        
-        for offset in sortedOffsets {
-            let adjustedDestination = destination > offset ? destination - 1 : destination
-            playlistManager.moveInQueue(from: offset, to: adjustedDestination)
-        }
-    }
-
-    private func removeTracks(at offsets: IndexSet) {
-        for offset in offsets.sorted(by: >) {
-            playlistManager.removeFromQueue(at: offset)
-        }
     }
 }
 
@@ -201,7 +180,7 @@ struct PlayQueueRow: View {
 
     private var positionIndicator: some View {
         ZStack {
-            if isCurrentTrack || isPlaying {
+            if isCurrentTrack {
                 Image(systemName: isPlaying ? Icons.playFill : Icons.pauseFill)
                     .font(.system(size: 12))
                     .foregroundColor(.white)
@@ -246,9 +225,9 @@ struct PlayQueueRow: View {
     }
 
     private var removeButton: some View {
-        Button(action: {
+        Button {
             playlistManager.removeFromQueue(at: position)
-        }) {
+        } label: {
             Image(systemName: Icons.xmarkCircleFill)
                 .font(.system(size: 14))
                 .foregroundColor(.secondary)
@@ -287,24 +266,21 @@ struct PlayQueueRow: View {
 // MARK: - Drag and Drop Delegate
 
 struct QueueDropDelegate: DropDelegate {
-    let track: Track
-    let tracks: [Track]
-    @Binding var draggedTrack: Track?
+    let destinationIndex: Int
+    @Binding var draggedIndex: Int?
     let playlistManager: PlaylistManager
 
-    func performDrop(info: DropInfo) -> Bool { true }
+    func performDrop(info: DropInfo) -> Bool {
+        draggedIndex = nil
+        return true
+    }
 
     func dropEntered(info: DropInfo) {
-        guard let draggedTrack = self.draggedTrack else { return }
-        if draggedTrack.id != track.id {
-            // swiftlint:disable:next trailing_closure
-            let from = tracks.firstIndex(where: { $0.id == draggedTrack.id }) ?? 0
-            // swiftlint:disable:next trailing_closure
-            let to = tracks.firstIndex(where: { $0.id == track.id }) ?? 0
-            withAnimation(.default) {
-                playlistManager.moveInQueue(from: from, to: to)
-            }
+        guard let from = draggedIndex, from != destinationIndex else { return }
+        withAnimation(.default) {
+            playlistManager.moveInQueue(from: from, to: destinationIndex)
         }
+        draggedIndex = destinationIndex
     }
 }
 
