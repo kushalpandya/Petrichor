@@ -5,6 +5,54 @@
         <description>Updates for Petrichor</description>
         <language>en</language>
         <item>
+            <title>Version 1.5.0</title>
+            <pubDate>Sat, 25 Apr 2026 20:58:13 -0400</pubDate>
+            <sparkle:version>150</sparkle:version>
+            <sparkle:shortVersionString>1.5.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.5.0/Petrichor-1.5.0-Universal.dmg"
+                sparkle:edSignature="Ir6nxPNP1n+ncqVT4BEFHP61AdhEVFPUScwsBPuj77zkogWEMVyDgbE2H01EUMrTAg0yDChI6DfQq+sBGmfxCQ=="
+                length="16820042"
+                type="application/octet-stream"
+            />
+            <description><![CDATA[
+                <h2>Artist images, reordering sidebar items, colorized views, &amp; big performance improvements</h2>
+                <h3>Features</h3>
+                <ul>
+                    <li>Add support for fetching and showing artist image &amp; bio (<a href="https://github.com/kushalpandya/Petrichor/pull/225">#225</a>)</li>
+                    <li>Allow reordering sidebar items in Home and Playlists (<a href="https://github.com/kushalpandya/Petrichor/pull/224">#224</a>)</li>
+                    <li>Add ability to manually reorder tracks within playlists (<a href="https://github.com/kushalpandya/Petrichor/pull/227">#227</a>)</li>
+                    <li>Improve Artists matching by using known artists database (<a href="https://github.com/kushalpandya/Petrichor/pull/232">#232</a>)</li>
+                    <li>Show album art based color gradients across views (<a href="https://github.com/kushalpandya/Petrichor/pull/222">#222</a>)</li>
+                    <li>Refresh Playlist, Artist, and Album detail view UX on macOS 26 (<a href="https://github.com/kushalpandya/Petrichor/pull/231">#231</a>)</li>
+                    <li>Update UX of pinned library categories like Genre, Decade and Years, in Home sidebar (<a href="https://github.com/kushalpandya/Petrichor/pull/235">#235</a>)</li>
+                    <li>Consolidate Library settings within its own tab (<a href="https://github.com/kushalpandya/Petrichor/pull/239">#239</a>)</li>
+                    <li>Update icon used for Genre (<a href="https://github.com/kushalpandya/Petrichor/pull/241">#241</a>)</li>
+                    <li>Use HEIC format to store album art in database, resulting in 50% smaller database size (<a href="https://github.com/kushalpandya/Petrichor/pull/217">#217</a>)</li>
+                </ul>
+                <h3>Fixes</h3>
+                <ul>
+                    <li>Fix potential app crash during periodic library refresh (<a href="https://github.com/kushalpandya/Petrichor/pull/236">#236</a>)</li>
+                    <li>Ensure renaming playlist also updates its pinned version in Home sidebar (<a href="https://github.com/kushalpandya/Petrichor/pull/237">#237</a>)</li>
+                    <li>Fix various issues around playlists import/export (<a href="https://github.com/kushalpandya/Petrichor/pull/234">#234</a>)</li>
+                    <li>Ensure playlist cover art doesn't have repeating artwork (<a href="https://github.com/kushalpandya/Petrichor/pull/230">#230</a>)</li>
+                    <li>Improve tracks list scroll performance (<a href="https://github.com/kushalpandya/Petrichor/pull/228">#228</a>)</li>
+                    <li>Improve library scanning performance (<a href="https://github.com/kushalpandya/Petrichor/pull/233">#233</a>)</li>
+                    <li>Improve tab switching performance and occasional glitches (<a href="https://github.com/kushalpandya/Petrichor/pull/240">#240</a>)</li>
+                    <li>Optimize rendering &amp; scroll performance of sidebar list views (<a href="https://github.com/kushalpandya/Petrichor/pull/243">#243</a>)</li>
+                    <li>Update views stack to cleanup unnecessary nesting (<a href="https://github.com/kushalpandya/Petrichor/pull/223">#223</a>)</li>
+                </ul>
+                <h3>Others</h3>
+                <ul>
+                    <li>Add background db migrations support (<a href="https://github.com/kushalpandya/Petrichor/pull/216">#216</a>)</li>
+                    <li>Update Dependencies (<a href="https://github.com/kushalpandya/Petrichor/pull/219">#219</a>)</li>
+                    <li>Add app diagnosis snapshot to log file (<a href="https://github.com/kushalpandya/Petrichor/pull/238">#238</a>)</li>
+                </ul>
+                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.4.2...v1.5.0">Full Changelog</a></p>
+            ]]></description>
+        </item>
+        <item>
             <title>Version 1.4.2</title>
             <pubDate>Mon, 23 Mar 2026 21:36:56 -0400</pubDate>
             <sparkle:version>142</sparkle:version>
