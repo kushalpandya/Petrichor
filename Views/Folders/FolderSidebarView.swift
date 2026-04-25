@@ -119,21 +119,40 @@ private struct FolderNodeRow: View {
     let level: Int
 
     @State private var isHovered = false
-    @State private var isTruncated = false
 
     private var isSelected: Bool {
         selectedNode?.id == node.id
     }
 
+    private var folderIcon: String {
+        if node.children.isEmpty {
+            return Icons.folderFill
+        }
+        return node.isExpanded ? Icons.folderFillBadgeMinus : Icons.folderFillBadgePlus
+    }
+
+    private var subtitle: String? {
+        let folderCount = node.immediateFolderCount
+        let trackCount = node.displayTrackCount
+        if folderCount > 0 && trackCount > 0 {
+            return "\(folderCount) folders, \(trackCount) tracks"
+        } else if folderCount > 0 {
+            return "\(folderCount) folders"
+        } else if trackCount > 0 {
+            return "\(trackCount) tracks"
+        }
+        return nil
+    }
+
     var body: some View {
         VStack(spacing: 1) {
             // Main row
-            Button(action: {
+            Button {
                 selectedNode = node
                 if !node.children.isEmpty {
                     toggleExpansion()
                 }
-            }) {
+            } label: {
                 HStack(spacing: 8) {
                     // Indentation
                     if level > 0 {
@@ -154,39 +173,22 @@ private struct FolderNodeRow: View {
                             .frame(width: 16, height: 16)
                     }
 
-                    // Create sidebar item for the row content
-                    let sidebarItem = FolderNodeSidebarItem(folderNode: node)
-
                     // Icon
-                    Image(systemName: sidebarItem.icon ?? Icons.folderFill)
+                    Image(systemName: folderIcon)
                         .foregroundColor(isSelected ? .white : .secondary)
                         .font(.system(size: 16))
                         .frame(width: 16, height: 16)
 
                     // Title and subtitle
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(sidebarItem.title)
+                        Text(node.name)
                             .font(.system(size: 13, weight: isSelected ? .medium : .regular))
                             .lineLimit(1)
                             .foregroundColor(isSelected ? .white : .primary)
                             .truncationMode(.tail)
-                            .help(isTruncated ? sidebarItem.title : "")
-                            .background(
-                                GeometryReader { geometry in
-                                    Color.clear
-                                        .onAppear {
-                                            checkIfTruncated(text: sidebarItem.title, width: geometry.size.width)
-                                        }
-                                        .onChange(of: sidebarItem.title) {
-                                            checkIfTruncated(text: sidebarItem.title, width: geometry.size.width)
-                                        }
-                                        .onChange(of: geometry.size.width) { _, newWidth in
-                                            checkIfTruncated(text: sidebarItem.title, width: newWidth)
-                                        }
-                                }
-                            )
+                            .help(node.name)
 
-                        if let subtitle = sidebarItem.subtitle {
+                        if let subtitle {
                             Text(subtitle)
                                 .font(.system(size: 11))
                                 .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
@@ -239,13 +241,6 @@ private struct FolderNodeRow: View {
         withAnimation(.easeInOut(duration: 0.15)) {
             node.isExpanded.toggle()
         }
-    }
-
-    private func checkIfTruncated(text: String, width: CGFloat) {
-        let font = NSFont.systemFont(ofSize: 13, weight: isSelected ? .medium : .regular)
-        let attributes = [NSAttributedString.Key.font: font]
-        let size = (text as NSString).size(withAttributes: attributes)
-        isTruncated = size.width > width
     }
 }
 

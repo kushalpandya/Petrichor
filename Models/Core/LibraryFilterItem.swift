@@ -22,4 +22,20 @@ struct LibraryFilterItem: Identifiable, Hashable {
             isAllItem: true
         )
     }
+
+    // Equality and hashing deliberately exclude `id` so that two items with the same content
+    // compare equal. This lets callers like `LibrarySidebarView.sortCache` actually hit.
+    static func == (lhs: LibraryFilterItem, rhs: LibraryFilterItem) -> Bool {
+        lhs.name == rhs.name
+            && lhs.count == rhs.count
+            && lhs.filterType == rhs.filterType
+            && lhs.isAllItem == rhs.isAllItem
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(name)
+        hasher.combine(count)
+        hasher.combine(filterType)
+        hasher.combine(isAllItem)
+    }
 }

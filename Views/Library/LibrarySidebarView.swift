@@ -9,7 +9,6 @@ struct LibrarySidebarView: View {
     @Binding var selectedSidebarItem: LibrarySidebarItem?
 
     @State private var searchText = ""
-    @State private var localSearchText = ""
     @State private var sortAscending = true
     @State private var sortCache: SortCache?
 
@@ -112,7 +111,6 @@ struct LibrarySidebarView: View {
                 
                 if let item = matchingItem {
                     searchText = item.name
-                    localSearchText = item.name
                     selectedFilterItem = item
                     selectedSidebarItem = LibrarySidebarItem(filterItem: item)
                     updateFilteredItems()
@@ -141,16 +139,15 @@ struct LibrarySidebarView: View {
 
             // Filter bar
             SearchInputField(
-                text: $localSearchText,
+                text: $searchText,
                 placeholder: "Filter \(selectedFilterType.rawValue.lowercased())...",
                 fontSize: 11
             )
-            .onChange(of: localSearchText) { _, newValue in
-                searchText = newValue
-            }
 
             // Sort button
-            Button(action: { sortAscending.toggle() }) {
+            Button {
+                sortAscending.toggle()
+            } label: {
                 Image(Icons.sortIcon(for: sortAscending))
                     .renderingMode(.template)
                     .scaleEffect(0.8)
@@ -243,13 +240,12 @@ struct LibrarySidebarView: View {
         }
 
         searchText = ""
-        localSearchText = ""
     }
 
     private func updateFilteredItems() {
         // Get items based on whether we're in search mode or not
         var items: [LibraryFilterItem]
-        
+
         if !libraryManager.globalSearchText.isEmpty {
             items = selectedFilterType.getFilterItems(from: libraryManager.searchResults)
         } else {
