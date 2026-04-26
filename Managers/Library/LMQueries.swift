@@ -48,11 +48,15 @@ extension LibraryManager {
             Logger.info("Returning cached library filter items for \(filterType)")
             return cachedItems
         }
-        
+
         let items = getLibraryFilterItemsFromDatabase(for: filterType)
         cachedLibraryCategories[filterType] = items
-        
+
         return items
+    }
+
+    func libraryFilterTrackCount(for filterType: LibraryFilterType, value: String) -> Int {
+        getLibraryFilterItems(for: filterType).first { $0.name == value }?.count ?? 0
     }
 
     func getDistinctValues(for filterType: LibraryFilterType) -> [String] {

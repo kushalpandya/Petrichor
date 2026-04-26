@@ -144,8 +144,32 @@ extension LibraryManager {
     func getTracksForPinnedItem(_ item: PinnedItem) -> [Track] {
         // Only handle library items here
         guard item.itemType == .library else { return [] }
-        
+
         return databaseManager.getTracksForPinnedItem(item)
+    }
+
+    /// Get track counts for multiple pinned items.
+    /// Library counts are sourced from `cachedLibraryCategories` so they cannot diverge
+    /// from what the Library sidebar displays. Playlist counts come from the database.
+    func getTrackCountForPinnedItems(_ items: [PinnedItem]) async -> [Int64: Int] {
+        var counts: [Int64: Int] = [:]
+
+        for item in items where item.itemType == .library {
+            guard let id = item.id,
+                  let filterType = item.filterType,
+                  let filterValue = item.filterValue else { continue }
+            counts[id] = libraryFilterTrackCount(for: filterType, value: filterValue)
+        }
+
+        let playlistItems = items.filter { $0.itemType == .playlist }
+        if !playlistItems.isEmpty {
+            let playlistCounts = await databaseManager.getTrackCountForPinnedPlaylists(playlistItems)
+            for (id, count) in playlistCounts {
+                counts[id] = count
+            }
+        }
+
+        return counts
     }
     
     /// Create context menu items for library sidebar

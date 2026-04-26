@@ -19,7 +19,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         // Register UserDefaults with default settings
-        registerUserDefaultsDefaults()
+        AppDelegate.registerUserDefaultsDefaults()
         
         // Apply color mode very early, before any windows are shown
         let colorMode = UserDefaults.standard.string(forKey: "colorMode") ?? "auto"
@@ -485,7 +485,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         Logger.diagnostic(header: "DIAGNOSTIC SNAPSHOT (\(phase))", body: body)
     }
 
-    private func registerUserDefaultsDefaults() {
+    static func registerUserDefaultsDefaults() {
         let defaults: [String: Any] = [
             "closeToMenubar": true,
             "startAtLogin": false,
@@ -497,7 +497,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             "discoverUpdateInterval": "weekly",
             "discoverTrackCount": 50
         ]
-        
+
         UserDefaults.standard.register(defaults: defaults)
     }
 }

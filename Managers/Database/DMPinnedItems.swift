@@ -140,8 +140,12 @@ extension DatabaseManager {
                 }
             }
             
-            // Use optimized database query for filter-based retrieval
-            var tracks = getTracksByFilterType(filterType, value: filterValue)
+            // Use the same dispatch as the Library sidebar so pinned-item track lists
+            // match Library track lists for multi-artist filter types (artists, album
+            // artists, composers).
+            var tracks = filterType.usesMultiArtistParsing && filterValue != filterType.unknownPlaceholder
+                ? getTracksByFilterTypeContaining(filterType, value: filterValue)
+                : getTracksByFilterType(filterType, value: filterValue)
 
             // Populate album artwork if needed
             populateAlbumArtworkForTracks(&tracks)
@@ -191,171 +195,47 @@ extension DatabaseManager {
         }
     }
     
-    // Get track counts for multiple pinned items in a single query
-    // swiftlint:disable:next cyclomatic_complexity
-    func getTrackCountForPinnedItems(_ items: [PinnedItem]) async -> [Int64: Int] {
+    // Get track counts for multiple pinned playlist items in a single query.
+    // Library-item counts are computed in `LibraryManager.getTrackCountForPinnedItems`
+    // by reading the same `cachedLibraryCategories` the Library sidebar renders, so
+    // pinned and Library counts can never diverge.
+    func getTrackCountForPinnedPlaylists(_ items: [PinnedItem]) async -> [Int64: Int] {
         do {
             var counts = try await dbQueue.read { db -> [Int64: Int] in
                 var counts: [Int64: Int] = [:]
-                
-                // Group items by type for efficient querying
-                let libraryItems = items.filter { $0.itemType == .library }
-                let playlistItems = items.filter { $0.itemType == .playlist }
-                
-                // Handle library items
-                for item in libraryItems {
-                    guard let id = item.id,
-                          let filterType = item.filterType,
-                          let filterValue = item.filterValue else { continue }
-                    
-                    let count: Int
-                    
-                    switch filterType {
-                    case .artists:
-                        // For artists, we need to find the artist ID first
-                        let normalizedName = ArtistParser.normalizeArtistName(filterValue)
-                        
-                        let artistId: Int64?
-                        if let storedId = item.artistId {
-                            artistId = storedId
-                        } else {
-                            artistId = try Artist
-                                .filter((Artist.Columns.name == filterValue) || (Artist.Columns.normalizedName == normalizedName))
-                                .fetchOne(db)?.id
-                        }
-                        
-                        if let artistId = artistId {
-                            // Get unique track IDs for this artist
-                            let trackIds = try TrackArtist
-                                .filter(TrackArtist.Columns.artistId == artistId)
-                                .filter(TrackArtist.Columns.role == TrackArtist.Role.artist)
-                                .select(TrackArtist.Columns.trackId, as: Int64.self)
-                                .fetchSet(db)
-                            
-                            // Count tracks, applying duplicate filter
-                            if !trackIds.isEmpty {
-                                count = try applyDuplicateFilter(Track.all())
-                                    .filter(trackIds.contains(Track.Columns.trackId))
-                                    .fetchCount(db)
-                            } else {
-                                count = 0
-                            }
-                        } else {
-                            count = 0
-                        }
-                        
-                    case .albums:
-                        if let albumId = item.albumId {
-                            count = try applyDuplicateFilter(Track.all())
-                                .filter(Track.Columns.albumId == albumId)
+
+                let playlistIds = items.compactMap { $0.playlistId?.uuidString }
+                guard !playlistIds.isEmpty else { return counts }
+
+                let playlists = try Playlist
+                    .filter(playlistIds.contains(Playlist.Columns.id))
+                    .fetchAll(db)
+
+                for item in items {
+                    guard let itemId = item.id,
+                          let playlistId = item.playlistId else { continue }
+
+                    if let playlist = playlists.first(where: { $0.id == playlistId }) {
+                        if playlist.type == .regular {
+                            let count = try PlaylistTrack
+                                .filter(PlaylistTrack.Columns.playlistId == playlistId.uuidString)
                                 .fetchCount(db)
+                            counts[itemId] = count
                         } else {
-                            // Fallback to name-based search
-                            count = try applyDuplicateFilter(Track.all())
-                                .filter(Track.Columns.album == filterValue)
-                                .fetchCount(db)
-                        }
-                        
-                    case .genres:
-                        count = try applyDuplicateFilter(Track.all())
-                            .filter(Track.Columns.genre == filterValue)
-                            .fetchCount(db)
-                        
-                    case .years:
-                        count = try applyDuplicateFilter(Track.all())
-                            .filter(Track.Columns.year == filterValue)
-                            .fetchCount(db)
-                        
-                    case .decades:
-                        // Decades need special handling
-                        let decade = filterValue.replacingOccurrences(of: "s", with: "")
-                        if let decadeInt = Int(decade) {
-                            let startYear = String(decadeInt)
-                            let endYear = String(decadeInt + 9)
-                            count = try applyDuplicateFilter(Track.all())
-                                .filter(Track.Columns.year >= startYear)
-                                .filter(Track.Columns.year <= endYear)
-                                .fetchCount(db)
-                        } else {
-                            count = 0
-                        }
-                        
-                    case .composers:
-                        let normalizedName = ArtistParser.normalizeArtistName(filterValue)
-                        let composerArtistId = try Artist
-                            .filter((Artist.Columns.name == filterValue) || (Artist.Columns.normalizedName == normalizedName))
-                            .fetchOne(db)?.id
-                        
-                        if let artistId = composerArtistId {
-                            let trackIds = try TrackArtist
-                                .filter(TrackArtist.Columns.artistId == artistId)
-                                .filter(TrackArtist.Columns.role == TrackArtist.Role.composer)
-                                .select(TrackArtist.Columns.trackId, as: Int64.self)
-                                .fetchSet(db)
-                            
-                            if !trackIds.isEmpty {
-                                count = try applyDuplicateFilter(Track.all())
-                                    .filter(trackIds.contains(Track.Columns.trackId))
-                                    .fetchCount(db)
-                            } else {
-                                count = try applyDuplicateFilter(Track.all())
-                                    .filter(Track.Columns.composer == filterValue)
-                                    .fetchCount(db)
-                            }
-                        } else {
-                            count = try applyDuplicateFilter(Track.all())
-                                .filter(Track.Columns.composer == filterValue)
-                                .fetchCount(db)
-                        }
-                        
-                    case .albumArtists:
-                        count = try applyDuplicateFilter(Track.all())
-                            .filter(Track.Columns.albumArtist == filterValue)
-                            .fetchCount(db)
-                    }
-                    
-                    counts[id] = count
-                }
-                
-                // Handle playlist items
-                if !playlistItems.isEmpty {
-                    let playlistIds = playlistItems.compactMap { $0.playlistId?.uuidString }
-                    
-                    if !playlistIds.isEmpty {
-                        // Get all playlists with their types
-                        let playlists = try Playlist
-                            .filter(playlistIds.contains(Playlist.Columns.id))
-                            .fetchAll(db)
-                        
-                        for item in playlistItems {
-                            guard let itemId = item.id,
-                                  let playlistId = item.playlistId else { continue }
-                            
-                            if let playlist = playlists.first(where: { $0.id == playlistId }) {
-                                if playlist.type == .regular {
-                                    // For regular playlists, count the tracks
-                                    let count = try PlaylistTrack
-                                        .filter(PlaylistTrack.Columns.playlistId == playlistId.uuidString)
-                                        .fetchCount(db)
-                                    counts[itemId] = count
-                                } else {
-                                    counts[itemId] = -1
-                                }
-                            }
+                            counts[itemId] = -1
                         }
                     }
                 }
-                
+
                 return counts
             }
-            
-            // Now handle smart playlists outside the database read
+
+            // Handle smart playlists outside the database read
             for item in items {
                 guard let itemId = item.id,
                       let playlistId = item.playlistId,
                       counts[itemId] == -1 else { continue }
-                
-                // Get the playlist and calculate count
+
                 if let playlist = try? await dbQueue.read({ db in
                     try Playlist
                         .filter(Playlist.Columns.id == playlistId.uuidString)
@@ -366,10 +246,10 @@ extension DatabaseManager {
                     counts[itemId] = 0
                 }
             }
-            
+
             return counts
         } catch {
-            Logger.error("Failed to get batch pinned item counts: \(error)")
+            Logger.error("Failed to get batch pinned playlist counts: \(error)")
             return [:]
         }
     }
