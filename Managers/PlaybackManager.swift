@@ -98,7 +98,7 @@ class PlaybackManager: NSObject, ObservableObject {
         tempTrack.title = uiState.trackTitle
         tempTrack.artist = uiState.trackArtist
         tempTrack.album = uiState.trackAlbum
-        tempTrack.albumArtworkMedium = uiState.artworkData
+        tempTrack.albumArtworkData = uiState.artworkData
         tempTrack.duration = uiState.trackDuration
         tempTrack.isMetadataLoaded = true
         

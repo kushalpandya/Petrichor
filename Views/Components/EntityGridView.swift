@@ -141,7 +141,6 @@ private class RenderedImageCache {
             return cached
         }
 
-        // Use original artworkData (not artworkLarge) to preserve aspect ratio
         guard let artworkData = entity.artworkData else { return nil }
 
         let renderedImage = createRenderedImage(from: artworkData)
@@ -154,14 +153,15 @@ private class RenderedImageCache {
     }
     
     private func createRenderedImage(from data: Data) -> NSImage? {
-        guard let imageSource = CGImageSourceCreateWithData(data as CFData, nil),
-              let cgImage = CGImageSourceCreateImageAtIndex(imageSource, 0, [
-                kCGImageSourceShouldCacheImmediately: true
-              ] as CFDictionary) else {
+        guard let nsImage = NSImage(data: data),
+              let cgImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             return nil
         }
 
-        let targetSize = Int(ViewDefaults.gridArtworkSize)
+        // Rasterize at 2x to provide enough pixels for Retina displays
+        let pointSize = ViewDefaults.gridArtworkSize
+        let scale: CGFloat = 2
+        let pixelSize = Int(pointSize * scale)
         let srcWidth = cgImage.width
         let srcHeight = cgImage.height
 
@@ -180,16 +180,16 @@ private class RenderedImageCache {
         // Draw into a square context with rounded corners via clipping path
         guard let context = CGContext(
             data: nil,
-            width: targetSize,
-            height: targetSize,
+            width: pixelSize,
+            height: pixelSize,
             bitsPerComponent: 8,
             bytesPerRow: 0,
             space: CGColorSpaceCreateDeviceRGB(),
             bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
         ) else { return nil }
 
-        let drawRect = CGRect(x: 0, y: 0, width: targetSize, height: targetSize)
-        let cornerRadius: CGFloat = 8
+        let drawRect = CGRect(x: 0, y: 0, width: pixelSize, height: pixelSize)
+        let cornerRadius: CGFloat = 8 * scale
         let path = CGPath(roundedRect: drawRect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
         context.addPath(path)
         context.clip()
@@ -197,7 +197,7 @@ private class RenderedImageCache {
         context.draw(croppedCG, in: drawRect)
 
         guard let finalCG = context.makeImage() else { return nil }
-        return NSImage(cgImage: finalCG, size: NSSize(width: targetSize, height: targetSize))
+        return NSImage(cgImage: finalCG, size: NSSize(width: pointSize, height: pointSize))
     }
 }
 
@@ -217,6 +217,8 @@ private struct EntityGridItem<T: Entity>: View {
             Group {
                 if let image = renderedImage {
                     Image(nsImage: image)
+                        .resizable()
+                        .interpolation(.high)
                         .frame(width: ViewDefaults.gridArtworkSize, height: ViewDefaults.gridArtworkSize)
                         .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
                 } else {

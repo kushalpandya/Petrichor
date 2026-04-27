@@ -44,81 +44,11 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
     
     // Transient properties for album artwork (populated separately)
     var albumArtworkData: Data?
-    private static var artworkCache = NSCache<NSString, NSData>()
-    
+
     var filename: String {
         url.lastPathComponent
     }
-    
-    var albumArtworkSmall: Data? {
-        get {
-            guard let original = albumArtworkData else { return nil }
-            
-            let cacheKey = "\(trackId?.description ?? url.path)-small" as NSString
-            if let cached = Track.artworkCache.object(forKey: cacheKey) {
-                return cached as Data
-            }
-            
-            if let jpegData = ImageUtils.resizeImage(from: original, to: ImageUtils.Size.small) {
-                Track.artworkCache.setObject(jpegData as NSData, forKey: cacheKey)
-                return jpegData
-            }
-            return nil
-        }
-        set {
-            let cacheKey = "\(trackId?.description ?? url.path)-small" as NSString
-            if let data = newValue {
-                Track.artworkCache.setObject(data as NSData, forKey: cacheKey)
-            }
-        }
-    }
 
-    var albumArtworkMedium: Data? {
-        get {
-            guard let original = albumArtworkData else { return nil }
-            
-            let cacheKey = "\(trackId?.description ?? url.path)-medium" as NSString
-            if let cached = Track.artworkCache.object(forKey: cacheKey) {
-                return cached as Data
-            }
-            
-            if let jpegData = ImageUtils.resizeImage(from: original, to: ImageUtils.Size.medium) {
-                Track.artworkCache.setObject(jpegData as NSData, forKey: cacheKey)
-                return jpegData
-            }
-            return nil
-        }
-        set {
-            let cacheKey = "\(trackId?.description ?? url.path)-medium" as NSString
-            if let data = newValue {
-                Track.artworkCache.setObject(data as NSData, forKey: cacheKey)
-            }
-        }
-    }
-
-    var albumArtworkLarge: Data? {
-        get {
-            guard let original = albumArtworkData else { return nil }
-            
-            let cacheKey = "\(trackId?.description ?? url.path)-large" as NSString
-            if let cached = Track.artworkCache.object(forKey: cacheKey) {
-                return cached as Data
-            }
-            
-            if let jpegData = ImageUtils.resizeImage(from: original, to: ImageUtils.Size.large) {
-                Track.artworkCache.setObject(jpegData as NSData, forKey: cacheKey)
-                return jpegData
-            }
-            return nil
-        }
-        set {
-            let cacheKey = "\(trackId?.description ?? url.path)-large" as NSString
-            if let data = newValue {
-                Track.artworkCache.setObject(data as NSData, forKey: cacheKey)
-            }
-        }
-    }
-    
     var dominantColors: [NSColor] {
         guard let original = albumArtworkData else { return [] }
         return ImageUtils.cachedDominantColors(id: id, imageData: original)
