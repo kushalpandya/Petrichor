@@ -2,8 +2,13 @@ import SwiftUI
 
 @main
 struct PetrichorApp: App {
-    @StateObject private var appCoordinator = AppCoordinator()
+    @StateObject private var appCoordinator: AppCoordinator
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+
+    init() {
+        AppDelegate.registerUserDefaultsDefaults()
+        _appCoordinator = StateObject(wrappedValue: AppCoordinator())
+    }
     
     @AppStorage("showFoldersTab")
     private var showFoldersTab = false

@@ -125,7 +125,7 @@ struct HomeSidebarView: View {
         guard !libraryManager.pinnedItems.isEmpty else { return }
         
         // Create a single batch query for all library pinned items
-        let pinnedItemCounts = await libraryManager.databaseManager.getTrackCountForPinnedItems(libraryManager.pinnedItems)
+        let pinnedItemCounts = await libraryManager.getTrackCountForPinnedItems(libraryManager.pinnedItems)
         
         // Update the UI on main thread
         await MainActor.run {
