@@ -204,14 +204,44 @@ struct ArtistImageSheet: View {
     }
 
     private func downloadImage(from url: URL) async -> [ArtistBioManager.ImageResult] {
+        // Cap download size at 50 MB to prevent a potential memory overload
+        // if image URL points an unusually large image.
+        let maxBytes: Int64 = 50 * 1024 * 1024
+
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
+            var request = URLRequest(url: url)
+            request.setValue(AppInfo.userAgent, forHTTPHeaderField: "User-Agent")
+
+            let (bytes, response) = try await AppInfo.urlSession.bytes(for: request)
             guard let httpResponse = response as? HTTPURLResponse,
-                  httpResponse.statusCode == 200,
-                  !data.isEmpty,
-                  NSImage(data: data) != nil else {
+                  httpResponse.statusCode == 200 else {
+                Logger.error("Failed to download image from URL: \(url)")
                 return []
             }
+
+            // Reject when size is over the limit
+            if response.expectedContentLength > maxBytes {
+                Logger.error("Image size is too large: \(response.expectedContentLength) > \(maxBytes)")
+                return []
+            }
+
+            var data = Data()
+            if response.expectedContentLength > 0 {
+                data.reserveCapacity(Int(response.expectedContentLength))
+            }
+            for try await byte in bytes {
+                data.append(byte)
+                if data.count > maxBytes {
+                    Logger.error("Image size is too large: \(response.expectedContentLength) > \(maxBytes)")
+                    return []
+                }
+            }
+
+            guard !data.isEmpty, NSImage(data: data) != nil else {
+                Logger.error("Image is empty or invalid: \(response.expectedContentLength)")
+                return []
+            }
+            
             return [ArtistBioManager.ImageResult(imageData: data, imageUrl: url.absoluteString, source: "url")]
         } catch {
             return []
