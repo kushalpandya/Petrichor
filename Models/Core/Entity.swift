@@ -21,23 +21,11 @@ protocol Entity: Identifiable {
     var subtitle: String? { get }
     var trackCount: Int { get }
     var artworkData: Data? { get }
-    var artworkMedium: Data? { get }
-    var artworkLarge: Data? { get }
 }
 
-// MARK: - Shared Artwork & Color Defaults
-
-private var sharedArtworkCache = NSCache<NSString, NSData>()
+// MARK: - Shared Color Defaults
 
 extension Entity {
-    var artworkMedium: Data? {
-        cachedResizedArtwork(suffix: "medium", size: ImageUtils.Size.medium)
-    }
-
-    var artworkLarge: Data? {
-        cachedResizedArtwork(suffix: "large", size: ImageUtils.Size.large)
-    }
-
     var dominantColors: [NSColor] {
         guard let original = artworkData else { return [] }
         return ImageUtils.cachedDominantColors(id: id, imageData: original)
@@ -46,21 +34,6 @@ extension Entity {
     func backgroundGradientColors(isDark: Bool) -> [Color] {
         guard let original = artworkData else { return [] }
         return ImageUtils.cachedBackgroundGradientColors(id: id, imageData: original, isDark: isDark)
-    }
-
-    private func cachedResizedArtwork(suffix: String, size: NSSize) -> Data? {
-        guard let original = artworkData else { return nil }
-
-        let cacheKey = "\(id.uuidString)-\(suffix)" as NSString
-        if let cached = sharedArtworkCache.object(forKey: cacheKey) {
-            return cached as Data
-        }
-
-        if let jpegData = ImageUtils.resizeImage(from: original, to: size) {
-            sharedArtworkCache.setObject(jpegData as NSData, forKey: cacheKey)
-            return jpegData
-        }
-        return nil
     }
 }
 
