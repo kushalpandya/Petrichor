@@ -18,7 +18,6 @@ struct TrackTableView: View {
     @State private var lastSelectionTime: Date = Date()
     @State private var lastSelectedTrackID: Track.ID?
     
-    @State private var currentTrackId: Int64?
     @State private var isCustomSort: Bool = false
     @State private var hasInitializedCustomization = false
     @State private var columnCustomization: TableColumnCustomization<Track> = {
@@ -38,11 +37,11 @@ struct TrackTableView: View {
     private static let currentTrackTitleFont = Font.system(size: 13, weight: .bold)
 
     private func isCurrentTrack(_ track: Track) -> Bool {
-        guard let currentId = currentTrackId, let trackId = track.trackId else {
-            guard let currentTrack = playbackManager.currentTrack else { return false }
-            return currentTrack.url.path == track.url.path
+        guard let currentTrack = playbackManager.currentTrack else { return false }
+        if let currentId = currentTrack.trackId, let trackId = track.trackId {
+            return currentId == trackId
         }
-        return currentId == trackId
+        return currentTrack.url.path == track.url.path
     }
 
     private func isPlaying(_ track: Track) -> Bool {
@@ -126,12 +125,8 @@ struct TrackTableView: View {
                 }
             }
             .onAppear {
-                currentTrackId = playbackManager.currentTrack?.trackId
                 initializeSortedTracks()
                 hasInitializedCustomization = true
-            }
-            .onChange(of: playbackManager.currentTrack?.trackId) { _, newId in
-                currentTrackId = newId
             }
             .onReceive(NotificationCenter.default.publisher(for: .playEntityTracks)) { notification in
                 handlePlayEntityNotification(notification)
