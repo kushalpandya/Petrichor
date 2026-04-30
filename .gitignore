@@ -16,6 +16,7 @@
 *.bak
 *.backup
 .*.swp
+.derived-data-*
 
 # Logs
 *.log
@@ -23,6 +24,7 @@
 # Project directories
 .github/
 build/
+Configuration/
 DerivedData/
 Views/
 Resources/
