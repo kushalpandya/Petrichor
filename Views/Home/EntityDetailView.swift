@@ -506,29 +506,24 @@ struct EntityDetailView: View {
             fetchedTracks = []
         }
 
+        // Albums with full track numbering force disc/track ordering; everything
+        // else follows the user's saved global sort.
+        let hasCompleteAlbumOrdering = entity is AlbumEntity
+            && fetchedTracks.allSatisfy { $0.trackNumber != nil && $0.trackNumber! > 0 }
+
+        if hasCompleteAlbumOrdering {
+            trackTableSortOrder = [
+                KeyPathComparator(\Track.sortableDiscNumber, order: .forward),
+                KeyPathComparator(\Track.sortableTrackNumber, order: .forward)
+            ]
+        } else if let savedSort = UserDefaults.standard.dictionary(forKey: "trackTableSortOrder"),
+                  let key = savedSort["key"] as? String,
+                  let ascending = savedSort["ascending"] as? Bool,
+                  let field = TrackSortField.from(storageKey: key) {
+            trackTableSortOrder = [field.getComparator(ascending: ascending)]
+        }
+
         self.tracks = fetchedTracks
-
-        // Use user's saved sort order for artist tracks (including album artists/composers)
-        if entity is ArtistEntity {
-            if let savedSort = UserDefaults.standard.dictionary(forKey: "trackTableSortOrder"),
-               let key = savedSort["key"] as? String,
-               let ascending = savedSort["ascending"] as? Bool,
-               let field = TrackSortField.from(storageKey: key) {
-                trackTableSortOrder = [field.getComparator(ascending: ascending)]
-            }
-        }
-
-        // Sort album tracks by disc/track number by default if those values exist
-        if entity is AlbumEntity {
-            let hasCompleteOrdering = fetchedTracks.allSatisfy { $0.trackNumber != nil && $0.trackNumber! > 0 }
-
-            if hasCompleteOrdering {
-                trackTableSortOrder = [
-                    KeyPathComparator(\Track.sortableDiscNumber, order: .forward),
-                    KeyPathComparator(\Track.sortableTrackNumber, order: .forward)
-                ]
-            }
-        }
 
         // Load artist bio for person entities (artists, album artists, composers)
         if entity is ArtistEntity {
