@@ -131,7 +131,7 @@ struct AboutTabView: View {
                 icon: "heart.fill",
                 title: "Acknowledgements",
                 action: {
-                    withAnimation(.easeInOut(duration: 0.2)) {
+                    withAnimation(.easeInOut(duration: AnimationDuration.mediumDuration)) {
                         isAcknowledgementsExpanded.toggle()
                     }
                 },

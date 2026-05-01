@@ -237,7 +237,7 @@ struct LibraryTabView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    withAnimation {
+                    withAnimation(.easeInOut(duration: AnimationDuration.mediumDuration)) {
                         isFoldersListExpanded.toggle()
                     }
                 }
@@ -363,7 +363,7 @@ struct LibraryTabView: View {
     private func toggleSelectMode() {
         guard !libraryManager.folders.isEmpty else { return }
 
-        withAnimation(.easeInOut(duration: 0.2)) {
+        withAnimation(.easeInOut(duration: AnimationDuration.mediumDuration)) {
             isSelectMode.toggle()
             if !isSelectMode {
                 selectedFolderIDs.removeAll()
@@ -374,7 +374,7 @@ struct LibraryTabView: View {
     private func toggleFolderSelection(_ folder: Folder) {
         guard let folderId = folder.id else { return }
 
-        withAnimation(.easeInOut(duration: 0.1)) {
+        withAnimation(.easeInOut(duration: AnimationDuration.quickDuration)) {
             if selectedFolderIDs.contains(folderId) {
                 selectedFolderIDs.remove(folderId)
             } else {
