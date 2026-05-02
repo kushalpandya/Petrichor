@@ -5,6 +5,31 @@
         <description>Updates for Petrichor</description>
         <language>en</language>
         <item>
+            <title>Version 1.5.1</title>
+            <pubDate>Sat, 02 May 2026 15:01:04 -0400</pubDate>
+            <sparkle:version>151</sparkle:version>
+            <sparkle:shortVersionString>1.5.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.5.1/Petrichor-1.5.1-Universal.dmg"
+                sparkle:edSignature="jynZKHoAsTgLKqXXziEwi/8DwGF0y9yE/ZdPK8sP0Tovu29zj9TiWaqcZPo814+WHVHpmVS+tv5L6ZYC+eaXBw=="
+                length="16813985"
+                type="application/octet-stream"
+            />
+            <description><![CDATA[
+                <h2>Fixes</h2>
+                <ul>
+                    <li>Fix inconsistency of tracks for pinned items between Library and Home (<a href="https://github.com/kushalpandya/Petrichor/pull/250">#250</a>)</li>
+                    <li>Fix album art appearing blurry in Albums &amp; Artists view (<a href="https://github.com/kushalpandya/Petrichor/pull/255">#255</a>)</li>
+                    <li>Fix Playlist track playback state not reflecting instantly (<a href="https://github.com/kushalpandya/Petrichor/pull/257">#257</a>)</li>
+                    <li>Fix global sort order not applying on pinned items (<a href="https://github.com/kushalpandya/Petrichor/pull/259">#259</a>)</li>
+                    <li>Prevent manual artist image download to exceed size limit (<a href="https://github.com/kushalpandya/Petrichor/pull/261">#261</a>)</li>
+                    <li>Speed up folders list animation in Settings (<a href="https://github.com/kushalpandya/Petrichor/pull/262">#262</a>)</li>
+                </ul>
+                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.5.0...v1.5.1">Full Changelog</a></p>
+            ]]></description>
+        </item>
+        <item>
             <title>Version 1.5.0</title>
             <pubDate>Sat, 25 Apr 2026 20:58:13 -0400</pubDate>
             <sparkle:version>150</sparkle:version>
