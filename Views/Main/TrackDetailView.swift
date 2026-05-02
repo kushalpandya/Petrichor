@@ -437,7 +437,7 @@ private struct FileDetailsSection: View {
         VStack(alignment: .leading, spacing: 12) {
             // Collapsible header
             Button(action: {
-                withAnimation(.easeInOut(duration: 0.2)) {
+                withAnimation(.easeInOut(duration: AnimationDuration.mediumDuration)) {
                     isExpanded.toggle()
                 }
             }) {
