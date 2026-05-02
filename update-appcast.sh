@@ -1,185 +1,132 @@
 #!/bin/bash
 
-# Configuration
-REPO_OWNER="kushalpandya"
-REPO_NAME="Petrichor"
+REPO="kushalpandya/Petrichor"
 APPCAST_FILE="appcast.xml"
 TEMP_DIR=$(mktemp -d)
-
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-# Cleanup on exit
 trap "rm -rf $TEMP_DIR" EXIT
 
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
+die() { echo -e "${RED}❌ $*${NC}" >&2; exit 1; }
+
 echo "🔍 Checking for new releases..."
+LATEST_RELEASE=$(curl -fsS "https://api.github.com/repos/$REPO/releases/latest") \
+    || die "Could not fetch latest release"
 
-# Get latest release from GitHub API
-LATEST_RELEASE=$(curl -s "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases/latest")
-
-# Extract version (remove 'v' prefix)
-VERSION_TAG=$(echo "$LATEST_RELEASE" | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4)
-VERSION=${VERSION_TAG#v}  # Remove 'v' prefix
-
-if [ -z "$VERSION" ]; then
-    echo -e "${RED}❌ Error: Could not fetch latest release${NC}"
-    exit 1
-fi
-
+VERSION=$(echo "$LATEST_RELEASE" | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4)
+VERSION="${VERSION#v}"
+[ -n "$VERSION" ] || die "Could not parse latest release tag"
 echo "📦 Latest release: $VERSION"
 
-# Calculate build number based on version
-if [[ "$VERSION" == *"beta"* ]]; then
-    # For beta versions, extract beta number
-    if [[ "$VERSION" =~ beta-([0-9]+) ]]; then
-        BUILD_NUMBER="${BASH_REMATCH[1]}"
-    else
-        BUILD_NUMBER="1"
-    fi
-    echo "   Beta version detected, build number: $BUILD_NUMBER"
+# Build number: beta-N → N, else major*100 + minor*10 + patch
+if [[ "$VERSION" =~ beta-([0-9]+) ]]; then
+    BUILD_NUMBER="${BASH_REMATCH[1]}"
 else
-    # For stable versions, use formula: major * 100 + minor * 10 + patch
-    CLEAN_VERSION="${VERSION#v}"
-    IFS='.' read -r major minor patch <<< "$CLEAN_VERSION"
-    patch=${patch:-0}
-    BUILD_NUMBER="$((major * 100 + minor * 10 + patch))"
-    echo "   Stable version detected, build number: $BUILD_NUMBER"
+    IFS='.' read -r maj min pat <<< "$VERSION"
+    BUILD_NUMBER="$((maj * 100 + min * 10 + ${pat:-0}))"
 fi
+echo "   Build number: $BUILD_NUMBER"
 
-# Check if version already exists in appcast
 if grep -q "<sparkle:version>$BUILD_NUMBER</sparkle:version>" "$APPCAST_FILE" 2>/dev/null; then
-    echo -e "${GREEN}✅ Appcast is already up to date with version $VERSION (build $BUILD_NUMBER)${NC}"
+    echo -e "${GREEN}✅ Appcast already has $VERSION (build $BUILD_NUMBER)${NC}"
     exit 0
 fi
-
 echo -e "${YELLOW}🆕 New version detected: $VERSION (build $BUILD_NUMBER)${NC}"
 
-# Extract release details
-RELEASE_DATE=$(echo "$LATEST_RELEASE" | grep -o '"published_at": *"[^"]*"' | cut -d'"' -f4)
-RELEASE_BODY=$(echo "$LATEST_RELEASE" | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-print(data.get('body', ''))
-")
+# Pull body, published_at, and DMG URL out of the release JSON in one shot.
+cat > "$TEMP_DIR/parse.py" <<'PYEOF'
+import json, sys
+tmp = sys.argv[1]
+d = json.load(sys.stdin)
+dmg = next((a['browser_download_url'] for a in d.get('assets', []) if a['name'].endswith('.dmg')), '')
+open(f'{tmp}/dmg_url', 'w').write(dmg)
+open(f'{tmp}/published_at', 'w').write(d.get('published_at', ''))
+open(f'{tmp}/body.md', 'w').write(d.get('body', ''))
+PYEOF
+echo "$LATEST_RELEASE" | python3 "$TEMP_DIR/parse.py" "$TEMP_DIR"
 
-# Convert GitHub timestamp to RFC 822 format
-RFC_DATE=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$RELEASE_DATE" "+%a, %d %b %Y %H:%M:%S %z" 2>/dev/null)
-if [ -z "$RFC_DATE" ]; then
-    # Fallback for different date format or Linux
-    RFC_DATE=$(date -R 2>/dev/null || date "+%a, %d %b %Y %H:%M:%S %z")
-    echo -e "${YELLOW}⚠️  Warning: Could not parse release date, using current date${NC}"
-fi
+DMG_URL=$(cat "$TEMP_DIR/dmg_url")
+RELEASE_DATE=$(cat "$TEMP_DIR/published_at")
+[ -n "$DMG_URL" ] || die "No DMG file found in release"
 
-# Find DMG download URL
-DMG_URL=$(echo "$LATEST_RELEASE" | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-for asset in data.get('assets', []):
-    if asset['name'].endswith('.dmg'):
-        print(asset['browser_download_url'])
-        break
-")
-
-if [ -z "$DMG_URL" ]; then
-    echo -e "${RED}❌ Error: No DMG file found in release${NC}"
-    exit 1
-fi
+RFC_DATE=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$RELEASE_DATE" "+%a, %d %b %Y %H:%M:%S %z" 2>/dev/null) \
+    || RFC_DATE=$(date -R 2>/dev/null || date "+%a, %d %b %Y %H:%M:%S %z")
 
 echo "📥 Downloading DMG to calculate size..."
 echo "   URL: $DMG_URL"
-
-# Download DMG to get file size
 DMG_FILE="$TEMP_DIR/temp.dmg"
-if ! curl -L -# -o "$DMG_FILE" "$DMG_URL"; then
-    echo -e "${RED}❌ Error: Failed to download DMG${NC}"
-    exit 1
-fi
-
-# Get file size in bytes
+curl -L -# -o "$DMG_FILE" "$DMG_URL" || die "Failed to download DMG"
 FILE_SIZE=$(stat -f%z "$DMG_FILE" 2>/dev/null || stat -c%s "$DMG_FILE" 2>/dev/null)
 echo "📏 DMG size: $FILE_SIZE bytes"
 
-# Convert markdown release notes to HTML
-RELEASE_HTML=$(echo "$RELEASE_BODY" | python3 -c "
-import sys
-import re
+# Markdown release notes → HTML for <description><![CDATA[...]]></description>.
+# The (?<![\w/>]) lookbehind on the bare-#NNN regex prevents re-matching the
+# digits inside an anchor tag we just emitted, so no placeholder dance is needed.
+cat > "$TEMP_DIR/convert.py" <<'PYEOF'
+import sys, re
 
-content = sys.stdin.read()
+REPO = "kushalpandya/Petrichor"
+INDENT = " " * 16
+pr_link = lambda n: f'<a href="https://github.com/{REPO}/pull/{n}">#{n}</a>'
 
-# Split into sections
-sections = []
-current_section = None
-current_items = []
+def inline(text):
+    text = re.sub(r'&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)', '&amp;', text)
+    text = re.sub(r'\[([^\]]+)\]\((https?://[^)]+)\)', r'<a href="\2">\1</a>', text)
+    text = re.sub(rf'https://github\.com/{re.escape(REPO)}/(?:pull|issues)/(\d+)',
+                  lambda m: pr_link(m.group(1)), text)
+    text = re.sub(r'(?<![\w/>])#(\d+)\b', lambda m: pr_link(m.group(1)), text)
+    text = re.sub(r'\*\*([^*]+?)\*\*', r'<strong>\1</strong>', text)
+    text = re.sub(r'`([^`]+)`', r'<code>\1</code>', text)
+    return text
 
-for line in content.split('\n'):
-    line = line.strip()
-    if line.startswith('## '):
-        if current_section and current_items:
-            sections.append((current_section, current_items))
-        current_section = line[3:]
-        current_items = []
-    elif line.startswith('* '):
-        # Remove commit hash if present
-        item = re.sub(r'^[a-f0-9]{7}\s+', '', line[2:])
-        current_items.append(item)
-    elif line.startswith('**Full Changelog**:'):
-        # Extract URL
-        url_match = re.search(r'https://[^\s]+', line)
-        if url_match:
-            current_items.append(f'<a href=\"{url_match.group()}\">Full Changelog</a>')
+def convert(content):
+    out, fc_url = [], None
+    in_list = False
+    def close():
+        nonlocal in_list
+        if in_list:
+            out.append(f'{INDENT}</ul>'); in_list = False
 
-if current_section and current_items:
-    sections.append((current_section, current_items))
+    for line in content.replace('\r\n', '\n').split('\n'):
+        line = line.strip()
+        if not line:
+            close(); continue
+        if (m := re.match(r'^\*\*Full Changelog\*\*\s*:?\s*(\S+)', line)):
+            close(); fc_url = m.group(1); continue
+        if (m := re.match(r'^(#{1,6})\s+(.+)$', line)):
+            close(); lvl = len(m.group(1))
+            out.append(f'{INDENT}<h{lvl}>{inline(m.group(2))}</h{lvl}>'); continue
+        if (m := re.match(r'^[\*\-]\s+(.+)$', line)):
+            item = re.sub(r'^[a-f0-9]{7,40}\s+', '', m.group(1))
+            if not in_list:
+                out.append(f'{INDENT}<ul>'); in_list = True
+            out.append(f'{INDENT}    <li>{inline(item)}</li>'); continue
+        close()
+        out.append(f'{INDENT}<p>{inline(line)}</p>')
+    close()
+    if fc_url:
+        out.append(f'{INDENT}<p><a href="{inline(fc_url)}">Full Changelog</a></p>')
+    return '\n'.join(out)
 
-# Generate HTML
-html_parts = []
-for section, items in sections:
-    if section.lower() != 'full changelog':
-        html_parts.append(f'<h2>{section}</h2>')
-        html_parts.append('<ul>')
-        for item in items:
-            if not item.startswith('<a href'):
-                html_parts.append(f'    <li>{item}</li>')
-        html_parts.append('</ul>')
-        
-# Add full changelog link if present
-for section, items in sections:
-    for item in items:
-        if item.startswith('<a href'):
-            html_parts.append(f'<p>{item}</p>')
-            break
+sys.stdout.write(convert(sys.stdin.read()))
+PYEOF
 
-print('\\n'.join(html_parts))
-")
+RELEASE_HTML=$(python3 "$TEMP_DIR/convert.py" < "$TEMP_DIR/body.md")
 
-# Check for EdDSA signature
-echo ""
+echo
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${BLUE}📝 Sparkle EdDSA Signature Required${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo ""
-echo "To sign your DMG for Sparkle updates, run:"
-echo ""
-echo -e "${GREEN}./sign_update \"$DMG_FILE\"${NC}"
-echo ""
-echo "Or if sign_update is in Sparkle's bin folder:"
-echo -e "${GREEN}~/path/to/Sparkle/bin/sign_update \"$DMG_FILE\"${NC}"
-echo ""
-echo "This will output something like:"
-echo 'sparkle:edSignature="MEUCIQCxxxxxxxx..."'
-echo ""
-read -p "Please enter the EdDSA signature (or press Enter to skip): " ED_SIGNATURE
+echo
+echo "Run sign_update on the downloaded DMG:"
+echo -e "  ${GREEN}./sign_update \"$DMG_FILE\"${NC}"
+echo "(or ~/path/to/Sparkle/bin/sign_update if it's not on PATH)"
+echo
+echo 'It prints something like: sparkle:edSignature="MEUCIQCxxxx..."'
+echo
+read -p "Paste the signature (or press Enter to skip): " ED_SIGNATURE
+ED_SIGNATURE="${ED_SIGNATURE#sparkle:edSignature=\"}"
+ED_SIGNATURE="${ED_SIGNATURE%\"}"
 
-# Clean up the signature input (remove sparkle:edSignature= prefix if present)
-if [[ "$ED_SIGNATURE" == sparkle:edSignature=* ]]; then
-    ED_SIGNATURE=$(echo "$ED_SIGNATURE" | sed 's/sparkle:edSignature="//' | sed 's/"$//')
-fi
-
-# Create new item XML
 NEW_ITEM=$(cat <<EOF
         <item>
             <title>Version $VERSION</title>
@@ -188,98 +135,48 @@ NEW_ITEM=$(cat <<EOF
             <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <enclosure
-                url="$DMG_URL"$([ -n "$ED_SIGNATURE" ] && echo "
-                sparkle:edSignature=\"$ED_SIGNATURE\"")
+                url="$DMG_URL"$([ -n "$ED_SIGNATURE" ] && printf '\n                sparkle:edSignature="%s"' "$ED_SIGNATURE")
                 length="$FILE_SIZE"
                 type="application/octet-stream"
             />
             <description><![CDATA[
-                $RELEASE_HTML
+$RELEASE_HTML
             ]]></description>
         </item>
 EOF
 )
 
-# Backup current appcast if it exists
-if [ -f "$APPCAST_FILE" ]; then
-    cp "$APPCAST_FILE" "${APPCAST_FILE}.bak"
-fi
-
-# Create the new appcast file
-{
-    # Write the header
-    cat <<'EOF_HEADER'
+# Splice the new item in right after <language>en</language>, or create the file.
+# (Avoid `awk -v item=...` here — BSD awk on macOS rejects multi-line -v values.)
+if [ -f "$APPCAST_FILE" ] && grep -q '<language>en</language>' "$APPCAST_FILE"; then
+    LANG_LINE=$(grep -n '<language>en</language>' "$APPCAST_FILE" | head -1 | cut -d: -f1)
+    {
+        head -n "$LANG_LINE" "$APPCAST_FILE"
+        printf '%s\n' "$NEW_ITEM"
+        tail -n +$((LANG_LINE + 1)) "$APPCAST_FILE"
+    } > "${APPCAST_FILE}.tmp" && mv "${APPCAST_FILE}.tmp" "$APPCAST_FILE"
+else
+    cat > "$APPCAST_FILE" <<EOF
 <?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
     <channel>
         <title>Petrichor Updates</title>
         <description>Updates for Petrichor</description>
         <language>en</language>
-EOF_HEADER
-
-    # Add the new item
-    echo "$NEW_ITEM"
-    
-    # If backup exists, add any existing items (except duplicates of the same build number)
-    if [ -f "${APPCAST_FILE}.bak" ]; then
-        # Extract existing items, skipping any with the same build number
-        in_item=false
-        skip_item=false
-        while IFS= read -r line; do
-            if echo "$line" | grep -q "<item>"; then
-                in_item=true
-                item_content="$line"
-            elif [ "$in_item" = true ]; then
-                item_content="$item_content
-$line"
-                if echo "$line" | grep -q "<sparkle:version>$BUILD_NUMBER</sparkle:version>"; then
-                    skip_item=true
-                fi
-                if echo "$line" | grep -q "</item>"; then
-                    if [ "$skip_item" = false ]; then
-                        echo "$item_content"
-                    fi
-                    in_item=false
-                    skip_item=false
-                    item_content=""
-                fi
-            fi
-        done < "${APPCAST_FILE}.bak"
-    fi
-    
-    # Write the footer
-    cat <<'EOF_FOOTER'
+$NEW_ITEM
     </channel>
 </rss>
-EOF_FOOTER
-} > "${APPCAST_FILE}.tmp"
-
-# Move temp file to actual appcast file
-mv "${APPCAST_FILE}.tmp" "$APPCAST_FILE"
-
-# Clean up backup if it exists
-if [ -f "${APPCAST_FILE}.bak" ]; then
-    rm "${APPCAST_FILE}.bak"
+EOF
 fi
 
-echo ""
-echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${GREEN}✅ Successfully updated appcast.xml${NC}"
-echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo ""
-echo "Summary:"
-echo "  • Version: $VERSION"
-echo "  • Build: $BUILD_NUMBER"
-echo "  • DMG Size: $FILE_SIZE bytes"
-if [ -n "$ED_SIGNATURE" ]; then
-    echo "  • Signed: ✓"
-else
-    echo -e "  • Signed: ${YELLOW}⚠️  No signature provided (updates may fail for sandboxed apps)${NC}"
-fi
-echo ""
+echo
+echo -e "${GREEN}✅ Updated $APPCAST_FILE${NC}"
+echo "  • Version: $VERSION (build $BUILD_NUMBER)"
+echo "  • Size:    $FILE_SIZE bytes"
+[ -n "$ED_SIGNATURE" ] && echo "  • Signed:  ✓" \
+    || echo -e "  • Signed:  ${YELLOW}skipped (sandboxed updates may fail)${NC}"
+echo
 echo "Next steps:"
-echo "1. Review: git diff appcast.xml"
-echo "2. Commit: git add appcast.xml && git commit -m \"Update appcast for v$VERSION\""
-echo "3. Push:   git push origin gh-pages"
-echo ""
-echo "Your beta users will receive the update automatically!"
+echo "  git diff $APPCAST_FILE"
+echo "  git add $APPCAST_FILE && git commit -m \"Update appcast for v$VERSION\""
+echo "  git push origin gh-pages"
