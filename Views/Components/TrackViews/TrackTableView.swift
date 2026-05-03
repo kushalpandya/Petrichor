@@ -391,7 +391,7 @@ struct TrackTableView: View {
             return
         }
 
-        let initialTracks = (sortedTracks.count != tracks.count) ? tracks : sortedTracks
+        let initialTracks = tracks
 
         Task.detached(priority: .userInitiated) {
             let sorted = initialTracks.sorted(using: newSortOrder)
