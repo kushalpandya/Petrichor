@@ -1,6 +1,7 @@
 import Foundation
 import AppKit
 import SwiftUI
+import CryptoKit
 
 // MARK: - Artist Initials
 
@@ -168,17 +169,22 @@ struct CategoryEntity: Entity {
 // MARK: - UUID Extension
 
 extension UUID {
+    /// Deterministic name-based UUID
     init(name: String, namespace: UUID) {
-        let combined = "\(namespace.uuidString)-\(name)"
-        let hash = combined.hashValue
-        let uuidString = String(
-            format: "%08X-%04X-%04X-%04X-%012X",
-            UInt32(hash & 0xFFFFFFFF),
-            UInt16((hash >> 32) & 0xFFFF),
-            UInt16((hash >> 48) & 0x0FFF) | 0x5000,
-            UInt16((hash >> 60) & 0x3FFF) | 0x8000,
-            UInt64(abs(hash)) & 0xFFFFFFFFFFFF
+        var input = Data()
+        withUnsafeBytes(of: namespace.uuid) { input.append(contentsOf: $0) }
+        input.append(contentsOf: name.utf8)
+
+        var digest = Array(Insecure.SHA1.hash(data: input))
+        digest[6] = (digest[6] & 0x0F) | 0x50
+        digest[8] = (digest[8] & 0x3F) | 0x80
+
+        let bytes: uuid_t = (
+            digest[0], digest[1], digest[2], digest[3],
+            digest[4], digest[5], digest[6], digest[7],
+            digest[8], digest[9], digest[10], digest[11],
+            digest[12], digest[13], digest[14], digest[15]
         )
-        self = UUID(uuidString: uuidString)!
+        self.init(uuid: bytes)
     }
 }

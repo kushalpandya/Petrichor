@@ -6,8 +6,7 @@ struct EntityGridView<T: Entity>: View {
     let contextMenuItems: (T) -> [ContextMenuItem]
 
     @State private var hoveredEntityID: UUID?
-    @State private var isScrolling = false
-    
+
     private let columns = [
         GridItem(.adaptive(minimum: ViewDefaults.gridArtworkSize, maximum: ViewDefaults.gridArtworkSize + 40), spacing: 16)
     ]
@@ -18,15 +17,12 @@ struct EntityGridView<T: Entity>: View {
                 ForEach(entities) { entity in
                     EntityGridItem(
                         entity: entity,
-                        isHovered: isScrolling ? false : (hoveredEntityID == entity.id),
-                        isScrolling: isScrolling,
+                        isHovered: hoveredEntityID == entity.id,
                         onSelect: {
                             onSelectEntity(entity)
                         },
                         onHover: { isHovered in
-                            if !isScrolling {
-                                hoveredEntityID = isHovered ? entity.id : nil
-                            }
+                            hoveredEntityID = isHovered ? entity.id : nil
                         }
                     )
                     .contextMenu {
@@ -34,14 +30,11 @@ struct EntityGridView<T: Entity>: View {
                             contextMenuItem(item)
                         }
                     }
-                    .id(entity.id)
                 }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 6)
         }
-        .coordinateSpace(name: "scroll")
-        .modifier(ScrollDetectionModifier(isScrolling: $isScrolling, hoveredEntityID: $hoveredEntityID))
     }
 
     @ViewBuilder
@@ -50,92 +43,37 @@ struct EntityGridView<T: Entity>: View {
     }
 }
 
-// MARK: - Cross-OS Scroll Detection
-
-private struct ScrollDetectionModifier: ViewModifier {
-    @Binding var isScrolling: Bool
-    @Binding var hoveredEntityID: UUID?
-    
-    func body(content: Content) -> some View {
-        if #available(macOS 15.0, *) {
-            content
-                .onScrollPhaseChange { _, newPhase in
-                    withAnimation(.none) {
-                        let wasScrolling = isScrolling
-                        isScrolling = newPhase == .interacting || newPhase == .decelerating
-                        
-                        if isScrolling && !wasScrolling {
-                            hoveredEntityID = nil
-                        }
-                    }
-                }
-        } else {
-            content
-                .background(
-                    ScrollDetectionView { isDetectedScrolling in
-                        if isDetectedScrolling != isScrolling {
-                            withAnimation(.none) {
-                                isScrolling = isDetectedScrolling
-                                if isScrolling {
-                                    hoveredEntityID = nil
-                                }
-                            }
-                        }
-                    }
-                )
-        }
-    }
-}
-
-// MARK: - Scroll Detection for macOS 14
-
-private struct ScrollDetectionView: View {
-    let onScrollingChanged: (Bool) -> Void
-    @State private var lastOffset: CGFloat = 0
-    @State private var scrollTimer: Timer?
-    
-    var body: some View {
-        GeometryReader { geometry in
-            Color.clear
-                .preference(
-                    key: ScrollOffsetKey.self,
-                    value: geometry.frame(in: .named("scroll")).origin.y
-                )
-        }
-        .onPreferenceChange(ScrollOffsetKey.self) { newOffset in
-            if abs(newOffset - lastOffset) > 1 {
-                onScrollingChanged(true)
-                lastOffset = newOffset
-                
-                scrollTimer?.invalidate()
-                scrollTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { _ in
-                    onScrollingChanged(false)
-                }
-            }
-        }
-    }
-}
-
-private struct ScrollOffsetKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
 // MARK: - Image Cache
 
-private class RenderedImageCache {
-    static let shared = RenderedImageCache()
+private final class EntityArtworkCache: @unchecked Sendable {
+    static let shared = EntityArtworkCache()
     private let cache = NSCache<NSString, NSImage>()
-    
+    private let loadQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.maxConcurrentOperationCount = max(2, ProcessInfo.processInfo.activeProcessorCount / 2)
+        queue.qualityOfService = .utility
+        return queue
+    }()
+
+    private static let pixelSize = Int(ViewDefaults.gridArtworkSize * 2)
+    private static let bytesPerImage = pixelSize * pixelSize * 4
+
     init() {
-        cache.countLimit = 1000
+        cache.countLimit = 500
+        cache.totalCostLimit = 80 * 1024 * 1024
     }
-    
-    func getImage(for entity: any Entity) -> NSImage? {
-        let artworkHash = entity.artworkData?.hashValue ?? 0
-        let key = "\(entity.id.uuidString)-\(artworkHash)-rendered" as NSString
+
+    private func cacheKey(for entity: any Entity) -> NSString {
+        let artworkSize = entity.artworkData?.count ?? 0
+        return "\(entity.id.uuidString)-\(artworkSize)-rendered" as NSString
+    }
+
+    func getCachedImage(for entity: any Entity) -> NSImage? {
+        cache.object(forKey: cacheKey(for: entity))
+    }
+
+    func loadImage(for entity: any Entity) async -> NSImage? {
+        let key = cacheKey(for: entity)
 
         if let cached = cache.object(forKey: key) {
             return cached
@@ -143,13 +81,20 @@ private class RenderedImageCache {
 
         guard let artworkData = entity.artworkData else { return nil }
 
-        let renderedImage = createRenderedImage(from: artworkData)
-        
-        if let image = renderedImage {
-            cache.setObject(image, forKey: key)
+        return await loadQueue.renderArtwork { [self] in
+            // Re-check cache, another operation may have loaded it while queued
+            if let cached = cache.object(forKey: key) {
+                return cached
+            }
+
+            let renderedImage = createRenderedImage(from: artworkData)
+
+            if let image = renderedImage {
+                cache.setObject(image, forKey: key, cost: Self.bytesPerImage)
+            }
+
+            return renderedImage
         }
-        
-        return renderedImage
     }
     
     private func createRenderedImage(from data: Data) -> NSImage? {
@@ -206,7 +151,6 @@ private class RenderedImageCache {
 private struct EntityGridItem<T: Entity>: View {
     let entity: T
     let isHovered: Bool
-    let isScrolling: Bool
     let onSelect: () -> Void
     let onHover: (Bool) -> Void
 
@@ -242,11 +186,8 @@ private struct EntityGridItem<T: Entity>: View {
                         .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
                 }
             }
-            .onAppear {
-                loadArtwork()
-            }
-            .onChange(of: entity.artworkData) {
-                loadArtwork()
+            .task(id: artworkTaskID) {
+                await loadArtwork()
             }
             
             VStack(alignment: .leading, spacing: 2) {
@@ -293,23 +234,27 @@ private struct EntityGridItem<T: Entity>: View {
         .background(
             RoundedRectangle(cornerRadius: 10)
                 .fill(isHovered ? Color(NSColor.selectedContentBackgroundColor).opacity(0.15) : Color.clear)
-                .animation(
-                    isScrolling ? .none : .easeInOut(duration: 0.08),
-                    value: isHovered
-                )
+                .animation(.easeInOut(duration: 0.08), value: isHovered)
         )
         .contentShape(Rectangle())
         .onTapGesture(perform: onSelect)
         .onHover(perform: onHover)
     }
     
-    private func loadArtwork() {
-        DispatchQueue.global(qos: .userInitiated).async {
-            let image = RenderedImageCache.shared.getImage(for: entity)
+    private var artworkTaskID: String {
+        "\(entity.id.uuidString)-\(entity.artworkData?.count ?? 0)"
+    }
 
-            DispatchQueue.main.async {
-                self.renderedImage = image
-            }
+    private func loadArtwork() async {
+        // Serve cache hits synchronously to avoid placeholder flicker on scroll recycle
+        if let cached = EntityArtworkCache.shared.getCachedImage(for: entity) {
+            renderedImage = cached
+            return
         }
+
+        let image = await EntityArtworkCache.shared.loadImage(for: entity)
+
+        guard !Task.isCancelled else { return }
+        renderedImage = image
     }
 }
