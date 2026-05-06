@@ -511,29 +511,9 @@ struct TrackTableView: View {
     }
 }
 
-// MARK: - Track Artwork Loading
-
-/// Operation subclass that guarantees its continuation is resumed
-/// even when cancelled, unlike BlockOperation whose execution blocks
-/// are skipped entirely for cancelled operations.
-private final class ArtworkLoadOperation: Operation, @unchecked Sendable {
-    private let continuation: CheckedContinuation<NSImage?, Never>
-    private let work: () -> NSImage?
-
-    init(continuation: CheckedContinuation<NSImage?, Never>, work: @escaping () -> NSImage?) {
-        self.continuation = continuation
-        self.work = work
-        super.init()
-    }
-
-    override func main() {
-        continuation.resume(returning: isCancelled ? nil : work())
-    }
-}
-
 // MARK: - Track Artwork Cache
 
-private class TrackArtworkCache {
+private final class TrackArtworkCache: @unchecked Sendable {
     static let shared = TrackArtworkCache()
     private let cache = NSCache<NSString, NSImage>()
     private let loadQueue: OperationQueue = {
@@ -543,8 +523,12 @@ private class TrackArtworkCache {
         return queue
     }()
 
+    private static let pixelSize = Int(ViewDefaults.listArtworkSize * 2)
+    private static let bytesPerImage = pixelSize * pixelSize * 4
+
     init() {
         cache.countLimit = 500
+        cache.totalCostLimit = 32 * 1024 * 1024
     }
 
     private func cacheKey(for track: Track) -> NSString {
@@ -562,39 +546,36 @@ private class TrackArtworkCache {
             return cached
         }
 
-        return await withCheckedContinuation { continuation in
-            let operation = ArtworkLoadOperation(continuation: continuation) { [self] in
-                // Re-check cache — another operation may have loaded it while queued
-                if let cached = cache.object(forKey: key) {
-                    return cached
-                }
-
-                // Decode with NSImage(data:) and resize via CGContext to avoid
-                // CGImageSource errors under concurrent load from rapid scrolling
-                guard let data = track.albumArtworkData,
-                      let nsImage = NSImage(data: data),
-                      let cgImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-                    return nil
-                }
-
-                let size = Int(ViewDefaults.listArtworkSize * 2)
-                guard let context = CGContext(
-                    data: nil, width: size, height: size,
-                    bitsPerComponent: 8, bytesPerRow: 0,
-                    space: CGColorSpaceCreateDeviceRGB(),
-                    bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
-                ) else { return nil }
-
-                context.interpolationQuality = .high
-                context.draw(cgImage, in: CGRect(x: 0, y: 0, width: size, height: size))
-
-                guard let resizedCG = context.makeImage() else { return nil }
-
-                let result = NSImage(cgImage: resizedCG, size: NSSize(width: size, height: size))
-                cache.setObject(result, forKey: key)
-                return result
+        return await loadQueue.renderArtwork { [self] in
+            // Re-check cache — another operation may have loaded it while queued
+            if let cached = cache.object(forKey: key) {
+                return cached
             }
-            loadQueue.addOperation(operation)
+
+            // Decode with NSImage(data:) and resize via CGContext to avoid
+            // CGImageSource errors under concurrent load from rapid scrolling
+            guard let data = track.albumArtworkData,
+                  let nsImage = NSImage(data: data),
+                  let cgImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+                return nil
+            }
+
+            let size = Int(ViewDefaults.listArtworkSize * 2)
+            guard let context = CGContext(
+                data: nil, width: size, height: size,
+                bitsPerComponent: 8, bytesPerRow: 0,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+            ) else { return nil }
+
+            context.interpolationQuality = .high
+            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: size, height: size))
+
+            guard let resizedCG = context.makeImage() else { return nil }
+
+            let result = NSImage(cgImage: resizedCG, size: NSSize(width: size, height: size))
+            cache.setObject(result, forKey: key, cost: Self.bytesPerImage)
+            return result
         }
     }
 }
