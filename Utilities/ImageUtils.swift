@@ -18,8 +18,11 @@ enum ImageUtils {
         quality: CGFloat = 0.8,
         source: String? = nil
     ) -> Data? {
-        guard let image = NSImage(data: imageData),
-              let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+        #if arch(x86_64)
+        return compressImageIntel(from: imageData, maxDimension: maxDimension, quality: quality, source: source)
+        #else
+        guard let imageSource = CGImageSourceCreateWithData(imageData as CFData, nil),
+              let cgImage = CGImageSourceCreateImageAtIndex(imageSource, 0, nil) else {
             let context = source.map { " from \($0)" } ?? ""
             Logger.warning("Failed to create image\(context) (\(imageData.count) bytes)")
             return nil
@@ -64,6 +67,7 @@ enum ImageUtils {
         let logContext = source.map { " from \($0)" } ?? ""
         Logger.warning("HEIC encoding failed\(logContext), falling back to JPEG")
         return resizeImage(from: imageData, to: targetSize)
+        #endif
     }
 
     /// Encode a CGImage as HEIC data.
@@ -80,6 +84,25 @@ enum ImageUtils {
         ] as CFDictionary)
         guard CGImageDestinationFinalize(destination) else {
             Logger.warning("Failed to encode image as HEIC")
+            return nil
+        }
+        return data as Data
+    }
+
+    /// Encode a CGImage as JPEG data.
+    static func encodeJPEG(_ cgImage: CGImage, quality: CGFloat = 0.8) -> Data? {
+        let data = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            data as CFMutableData,
+            UTType.jpeg.identifier as CFString,
+            1,
+            nil
+        ) else { return nil }
+        CGImageDestinationAddImage(destination, cgImage, [
+            kCGImageDestinationLossyCompressionQuality: quality
+        ] as CFDictionary)
+        guard CGImageDestinationFinalize(destination) else {
+            Logger.warning("Failed to encode image as JPEG")
             return nil
         }
         return data as Data
@@ -117,8 +140,7 @@ enum ImageUtils {
 
         guard let resizedCG = context.makeImage() else { return nil }
 
-        let bitmapRep = NSBitmapImageRep(cgImage: resizedCG)
-        return bitmapRep.representation(using: .jpeg, properties: [.compressionFactor: compressionFactor])
+        return encodeJPEG(resizedCG, quality: CGFloat(compressionFactor))
     }
     
     /// Extract dominant colors from image data using grid-based sampling with diversity selection.
@@ -391,6 +413,42 @@ enum ImageUtils {
         guard let cgImage = ctx.makeImage() else { return nil }
         return NSBitmapImageRep(cgImage: cgImage).representation(using: .jpeg, properties: [.compressionFactor: 0.85])
     }
+
+    // MARK: - Intel x86_64 fallback
+    // Software HEVC encode (VCPHEVC) on Intel deadlocks under concurrent scans (issue #265).
+    // Resize-and-JPEG bypasses the encoder entirely. Remove this block when Intel support is dropped.
+
+    #if arch(x86_64)
+    private static func compressImageIntel(
+        from imageData: Data,
+        maxDimension: CGFloat,
+        quality: CGFloat,
+        source: String?
+    ) -> Data? {
+        guard let imageSource = CGImageSourceCreateWithData(imageData as CFData, nil),
+              let props = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [CFString: Any],
+              let width = props[kCGImagePropertyPixelWidth] as? CGFloat,
+              let height = props[kCGImagePropertyPixelHeight] as? CGFloat else {
+            let context = source.map { " from \($0)" } ?? ""
+            Logger.warning("Failed to read image properties\(context) (\(imageData.count) bytes)")
+            return nil
+        }
+
+        var destWidth = width
+        var destHeight = height
+        if width > maxDimension || height > maxDimension {
+            let scale = min(maxDimension / width, maxDimension / height)
+            destWidth = (width * scale).rounded(.down)
+            destHeight = (height * scale).rounded(.down)
+        }
+
+        return resizeImage(
+            from: imageData,
+            to: NSSize(width: destWidth, height: destHeight),
+            compressionFactor: Float(quality)
+        )
+    }
+    #endif
 }
 
 // MARK: - Color Cache Object
