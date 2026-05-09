@@ -573,13 +573,21 @@ class MetadataExtractor {
 
         let rawData = firstPicture.imageData
 
+        if rawData.count > AlbumArtFormat.maxArtworkSize {
+            let context = source.map { " for \($0)" } ?? ""
+            Logger.warning("Skipping oversized embedded artwork\(context) (\(rawData.count) bytes)")
+            return
+        }
+
         // Check cache for previously compressed identical artwork
         if let cache = artworkCache, let cached = await cache.get(for: rawData) {
             metadata.artworkData = cached
             return
         }
 
-        let compressed = ImageUtils.compressImage(from: rawData, source: source) ?? rawData
+        // If compression fails, leave artworkData nil rather than persisting undecodable bytes
+        // that would re-fail on every later read (sidebar, now-playing, color extraction).
+        guard let compressed = ImageUtils.compressImage(from: rawData, source: source) else { return }
         metadata.artworkData = compressed
 
         // Store in cache for subsequent tracks with identical artwork

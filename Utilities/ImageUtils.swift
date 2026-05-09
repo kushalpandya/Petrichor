@@ -22,14 +22,26 @@ enum ImageUtils {
         return compressImageIntel(from: imageData, maxDimension: maxDimension, quality: quality, source: source)
         #else
         guard let imageSource = CGImageSourceCreateWithData(imageData as CFData, nil),
-              let cgImage = CGImageSourceCreateImageAtIndex(imageSource, 0, nil) else {
+              let props = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [CFString: Any],
+              let srcWidth = props[kCGImagePropertyPixelWidth] as? CGFloat,
+              let srcHeight = props[kCGImagePropertyPixelHeight] as? CGFloat else {
             let context = source.map { " from \($0)" } ?? ""
-            Logger.warning("Failed to create image\(context) (\(imageData.count) bytes)")
+            Logger.warning("Failed to read image properties\(context) (\(imageData.count) bytes)")
             return nil
         }
 
-        let srcWidth = CGFloat(cgImage.width)
-        let srcHeight = CGFloat(cgImage.height)
+        let pixelLimit = CGFloat(AlbumArtFormat.maxArtworkPixelDimension)
+        if srcWidth > pixelLimit || srcHeight > pixelLimit {
+            let context = source.map { " from \($0)" } ?? ""
+            Logger.warning("Skipping oversized artwork \(Int(srcWidth))x\(Int(srcHeight))\(context)")
+            return nil
+        }
+
+        guard let cgImage = CGImageSourceCreateImageAtIndex(imageSource, 0, nil) else {
+            let context = source.map { " from \($0)" } ?? ""
+            Logger.warning("Failed to decode image\(context) (\(imageData.count) bytes)")
+            return nil
+        }
 
         var destWidth = srcWidth
         var destHeight = srcHeight
@@ -431,6 +443,13 @@ enum ImageUtils {
               let height = props[kCGImagePropertyPixelHeight] as? CGFloat else {
             let context = source.map { " from \($0)" } ?? ""
             Logger.warning("Failed to read image properties\(context) (\(imageData.count) bytes)")
+            return nil
+        }
+
+        let pixelLimit = CGFloat(AlbumArtFormat.maxArtworkPixelDimension)
+        if width > pixelLimit || height > pixelLimit {
+            let context = source.map { " from \($0)" } ?? ""
+            Logger.warning("Skipping oversized artwork \(Int(width))x\(Int(height))\(context)")
             return nil
         }
 
