@@ -5,6 +5,36 @@
         <description>Updates for Petrichor</description>
         <language>en</language>
         <item>
+            <title>Version 1.5.2</title>
+            <pubDate>Sat, 09 May 2026 18:21:08 -0400</pubDate>
+            <sparkle:version>152</sparkle:version>
+            <sparkle:shortVersionString>1.5.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.5.2/Petrichor-1.5.2-Universal.dmg"
+                sparkle:edSignature="fekqBZoKOnxpphVNkdOnruY+zMkmZtNGqpx4VXVG0xq/gDMaMxx6xGJr/18CCqzF56CoaKejqMQZPNB9ow8+CA=="
+                length="16828674"
+                type="application/octet-stream"
+            />
+            <description><![CDATA[
+                <h2>Fixes</h2>
+                <ul>
+                    <li>Fix tracks not showing correctly on item select in Library tab (<a href="https://github.com/kushalpandya/Petrichor/pull/263">#263</a>)</li>
+                    <li>Fix library optimization stalling on Intel Macs when upgrading from v1.4.x to v1.5.x (<a href="https://github.com/kushalpandya/Petrichor/pull/268">#268</a>)</li>
+                    <li>Prevent high-res track album art from causing memory overload (<a href="https://github.com/kushalpandya/Petrichor/pull/278">#278</a>)</li>
+                    <li>Improve compilation album parsing to prevent album fragmentation (<a href="https://github.com/kushalpandya/Petrichor/pull/279">#279</a>)</li>
+                    <li>Prevent CJK artist names from crashing the app during library scan (<a href="https://github.com/kushalpandya/Petrichor/pull/281">#281</a>)</li>
+                    <li>Prevent potential hang risk while viewing a playlist (<a href="https://github.com/kushalpandya/Petrichor/pull/282">#282</a>)</li>
+                </ul>
+                <h2>Others</h2>
+                <ul>
+                    <li>Refactor EntityGridView for better performance &amp; memory usage (<a href="https://github.com/kushalpandya/Petrichor/pull/269">#269</a>)</li>
+                    <li>Include hardware info in diagnostic snapshot &amp; restructure properties (<a href="https://github.com/kushalpandya/Petrichor/pull/270">#270</a>)</li>
+                </ul>
+                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.5.1...v1.5.2">Full Changelog</a></p>
+            ]]></description>
+        </item>
+        <item>
             <title>Version 1.5.1</title>
             <pubDate>Sat, 02 May 2026 15:01:04 -0400</pubDate>
             <sparkle:version>151</sparkle:version>
