@@ -171,12 +171,17 @@ struct ArtistImageSheet: View {
             Button("Save") {
                 guard let index = selectedIndex, index < images.count else { return }
                 let result = images[index]
-
-                if let compressed = ImageUtils.compressImage(from: result.imageData, source: "ArtistImageSheet/\(result.source)") {
-                    let source = result.source.components(separatedBy: " – ").first ?? result.source
-                    saveArtistImage(compressed, url: result.imageUrl, source: source)
-                }
                 isPresented = false
+                Task(priority: .utility) {
+                    guard let compressed = ImageUtils.compressImage(
+                        from: result.imageData,
+                        source: "ArtistImageSheet/\(result.source)"
+                    ) else { return }
+                    let source = result.source.components(separatedBy: " – ").first ?? result.source
+                    await MainActor.run {
+                        saveArtistImage(compressed, url: result.imageUrl, source: source)
+                    }
+                }
             }
             .buttonStyle(.borderedProminent)
             .disabled(selectedIndex == nil)
