@@ -189,3 +189,9 @@ extension Array where Element: Hashable {
         }
     }
 }
+
+// MARK: - String Extension
+
+extension String {
+    var nilIfEmpty: String? { trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : self }
+}

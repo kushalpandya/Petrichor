@@ -11,12 +11,12 @@ import GRDB
 extension DatabaseManager {
     func applyMetadataToTrack(_ track: inout FullTrack, from metadata: TrackMetadata, at fileURL: URL) {
         // Core fields
-        track.title = metadata.title ?? fileURL.deletingPathExtension().lastPathComponent
-        track.artist = metadata.artist ?? "Unknown Artist"
-        track.album = metadata.album ?? "Unknown Album"
-        track.genre = metadata.genre ?? "Unknown Genre"
-        track.composer = metadata.composer ?? "Unknown Composer"
-        track.year = metadata.year ?? ""
+        track.title = metadata.title?.nilIfEmpty ?? fileURL.deletingPathExtension().lastPathComponent
+        track.artist = metadata.artist?.nilIfEmpty ?? "Unknown Artist"
+        track.album = metadata.album?.nilIfEmpty ?? "Unknown Album"
+        track.genre = metadata.genre?.nilIfEmpty ?? "Unknown Genre"
+        track.composer = metadata.composer?.nilIfEmpty ?? "Unknown Composer"
+        track.year = metadata.year?.nilIfEmpty ?? ""
         track.duration = metadata.duration
         
         // Avoid storing album art in track table for tracks with albums
