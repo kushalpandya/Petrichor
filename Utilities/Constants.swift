@@ -149,6 +149,7 @@ enum AlbumArtFormat {
     static let priorityKeywords = ["cover", "folder", "album", "artwork", "front"]
 
     static let maxArtworkSize: Int = 20 * 1024 * 1024
+    static let maxArtworkPixelDimension: Int = 8000
 
     static func isSupported(_ fileExtension: String) -> Bool {
         supportedExtensions.contains(fileExtension.lowercased())
