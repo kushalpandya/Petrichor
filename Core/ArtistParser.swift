@@ -265,23 +265,12 @@ struct ArtistParser {
         }
 
         var matches: [SeparatorMatch] = []
-        let lowercased = segment.lowercased()
-
         for separator in ambiguousSeparators {
-            let sepLower = separator.lowercased()
-            var searchStart = lowercased.startIndex
-
-            while searchStart < lowercased.endIndex {
-                if let range = lowercased.range(of: sepLower, range: searchStart..<lowercased.endIndex) {
-                    let originalRange = range.lowerBound..<range.upperBound
-                    matches.append(SeparatorMatch(
-                        range: originalRange,
-                        separator: String(segment[originalRange])
-                    ))
-                    searchStart = range.upperBound
-                } else {
-                    break
-                }
+            var searchStart = segment.startIndex
+            while searchStart < segment.endIndex,
+                  let range = segment.range(of: separator, options: .caseInsensitive, range: searchStart..<segment.endIndex) {
+                matches.append(SeparatorMatch(range: range, separator: String(segment[range])))
+                searchStart = range.upperBound
             }
         }
 
