@@ -9,6 +9,7 @@ struct PlaylistDetailView: View {
     @State private var showingReorderTracks = false
     @State private var isCustomSort = false
     @State private var gradientColors: [Color] = []
+    @State private var artworkData: Data?
 
     @AppStorage("useArtworkColors")
     private var useArtworkColors = true
@@ -50,26 +51,24 @@ struct PlaylistDetailView: View {
             .sheet(isPresented: $showingReorderTracks) {
                 ReorderTracksSheet(playlist: playlist)
             }
+            .task(id: playlistArtworkTaskID) {
+                artworkData = await playlist.warmArtworkCacheIfNeeded()
+                updateGradientColors()
+            }
             .onChange(of: playlistID) {
                 selectedTrackID = nil
                 loadSortPreference()
             }
             .onChange(of: playlist.dateModified) {
                 loadPlaylistTracksIfNeeded()
-                updateGradientColors()
             }
             .onAppear {
                 loadPlaylistTracksIfNeeded()
-                updateGradientColors()
                 loadSortPreference()
             }
             .onChange(of: playlist.id) {
                 loadPlaylistTracksIfNeeded()
-                updateGradientColors()
                 loadSortPreference()
-            }
-            .onChange(of: playlist.tracks.count) {
-                updateGradientColors()
             }
             .onReceive(NotificationCenter.default.publisher(for: .trackTableSortChanged)) { notification in
                 if let customSort = notification.userInfo?["isCustomSort"] as? Bool {
@@ -138,7 +137,7 @@ struct PlaylistDetailView: View {
 
     private var playlistArtwork: some View {
         Group {
-            if let artworkData = playlist?.artworkData,
+            if let artworkData,
                let nsImage = NSImage(data: artworkData) {
                 Image(nsImage: nsImage)
                     .resizable()
@@ -377,7 +376,7 @@ struct PlaylistDetailView: View {
     private func updateGradientColors() {
         guard useArtworkColors,
               let playlist = playlist,
-              let artworkData = playlist.artworkData else {
+              let artworkData = artworkData else {
             gradientColors = []
             return
         }
@@ -386,6 +385,11 @@ struct PlaylistDetailView: View {
             imageData: artworkData,
             isDark: colorScheme == .dark
         )
+    }
+
+    private var playlistArtworkTaskID: String {
+        guard let playlist else { return "nil" }
+        return "\(playlist.id)-\(playlist.dateModified.timeIntervalSince1970)-\(playlist.tracks.count)"
     }
 
     private func loadSortPreference() {

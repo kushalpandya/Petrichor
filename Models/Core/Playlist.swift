@@ -280,20 +280,28 @@ struct Playlist: Identifiable, FetchableRecord, PersistableRecord {
         if let customCover = coverArtworkData {
             return customCover
         }
-
         let selected = collageTracks()
         let selectedIDs = selected.map { $0.id }
+        return PlaylistArtworkCache.shared.getCachedArtwork(for: id, currentTrackIDs: selectedIDs)
+    }
 
+    func warmArtworkCacheIfNeeded() async -> Data? {
+        if let customCover = coverArtworkData {
+            return customCover
+        }
+        let selected = collageTracks()
+        let selectedIDs = selected.map { $0.id }
         if let cached = PlaylistArtworkCache.shared.getCachedArtwork(for: id, currentTrackIDs: selectedIDs) {
             return cached
         }
-
-        if let collage = generateCollageArtwork(from: selected) {
-            PlaylistArtworkCache.shared.setCachedArtwork(collage, for: id, trackIDs: selectedIDs)
-            return collage
+        let playlistID = id
+        let collage = await Task.detached(priority: .utility) {
+            Self.renderCollageArtwork(from: selected)
+        }.value
+        if let collage {
+            PlaylistArtworkCache.shared.setCachedArtwork(collage, for: playlistID, trackIDs: selectedIDs)
         }
-
-        return nil
+        return collage
     }
 
     // Get the effective track limit for display
@@ -321,8 +329,7 @@ struct Playlist: Identifiable, FetchableRecord, PersistableRecord {
         return result
     }
 
-    /// Renders a collage image from the given tracks into a 256×256 HEIC.
-    private func generateCollageArtwork(from collageTracks: [Track]) -> Data? {
+    fileprivate static func renderCollageArtwork(from collageTracks: [Track]) -> Data? {
         guard !collageTracks.isEmpty else { return nil }
 
         let pixelSize = 256
@@ -374,7 +381,14 @@ struct Playlist: Identifiable, FetchableRecord, PersistableRecord {
             Logger.warning("Failed to create CGImage from collage context")
             return nil
         }
+
+        // Software HEVC encode deadlocks under concurrent invocation on Intel (issue #265),
+        // so mirror the JPEG fallback used by ImageUtils.compressImage.
+        #if arch(x86_64)
+        return ImageUtils.encodeJPEG(collageImage)
+        #else
         return ImageUtils.encodeHEIC(collageImage)
+        #endif
     }
 }
 
