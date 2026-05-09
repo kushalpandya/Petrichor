@@ -191,10 +191,14 @@ extension DatabaseManager {
     func processTrackAlbum(_ track: inout FullTrack, in db: Database, cache: ScanLookupCache? = nil) throws {
         guard !track.album.isEmpty && track.album != "Unknown Album" else { return }
 
-        // Determine the album artist (prefer albumArtist field, fallback to first artist from multi-artist string)
+        // Determine the album artist (prefer albumArtist field, then compilation flag, then first artist from multi-artist string)
         let albumArtistName: String?
         if let albumArtist = track.albumArtist, !albumArtist.isEmpty {
             albumArtistName = albumArtist
+        } else if track.compilation {
+            // Compilation flag set but no album artist tag; group all tracks under a canonical name
+            // so a Various Artists comp doesn't fragment into one album per track artist.
+            albumArtistName = "Various Artists"
         } else if !track.artist.isEmpty && track.artist != "Unknown Artist" {
             // Parse the artist field and use the first artist as the album artist
             let artists = ArtistParser.parse(track.artist)

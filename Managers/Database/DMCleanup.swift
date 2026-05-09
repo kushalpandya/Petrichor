@@ -57,15 +57,24 @@ extension DatabaseManager {
             
             // 2. Now clean up main tables using GRDB where possible
             
-            // Get all artist IDs that are still referenced in track_artists
+            // Get all artist IDs that are still referenced in track_artists OR album_artists.
+            // Album-only artists (e.g. the canonical "Various Artists" used to anchor
+            // compilations) have no track_artists rows but must not be considered orphaned.
             let artistsWithTracks = try TrackArtist
                 .select(TrackArtist.Columns.artistId, as: Int64.self)
                 .distinct()
                 .fetchSet(db)
-            
-            // Delete artists that have NO tracks
+
+            let artistsWithAlbums = try AlbumArtist
+                .select(AlbumArtist.Columns.artistId, as: Int64.self)
+                .distinct()
+                .fetchSet(db)
+
+            let referencedArtists = artistsWithTracks.union(artistsWithAlbums)
+
+            // Delete artists that have NO references in either junction
             let allArtistIds = try Artist.select(Artist.Columns.id, as: Int64.self).fetchSet(db)
-            let artistsToDelete = allArtistIds.subtracting(artistsWithTracks)
+            let artistsToDelete = allArtistIds.subtracting(referencedArtists)
             
             if !artistsToDelete.isEmpty {
                 let orphanedArtists = try Artist
