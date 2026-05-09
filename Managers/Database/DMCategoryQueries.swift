@@ -68,6 +68,9 @@ extension DatabaseManager {
     func getAlbumEntities() -> [AlbumEntity] {
         do {
             return try dbQueue.read { db in
+                // Prefer the album's primary artist from the album_artists junction
+                // (which findOrCreateAlbum populates, including "Various Artists" for compilations)
+                // before falling back to per-track tag aggregates.
                 let sql = """
                     SELECT
                         albums.id,
@@ -76,7 +79,17 @@ extension DatabaseManager {
                         albums.artwork_data,
                         albums.release_year,
                         COALESCE(SUM(tracks.duration), 0) as totalDuration,
-                        COALESCE(NULLIF(MAX(tracks.album_artist), ''), MAX(tracks.artist)) as artistName,
+                        COALESCE(
+                            (SELECT artists.name
+                             FROM album_artists
+                             JOIN artists ON artists.id = album_artists.artist_id
+                             WHERE album_artists.album_id = albums.id
+                               AND album_artists.role = 'primary'
+                             ORDER BY album_artists.position
+                             LIMIT 1),
+                            NULLIF(MAX(tracks.album_artist), ''),
+                            MAX(tracks.artist)
+                        ) as artistName,
                         albums.created_at
                     FROM albums
                     LEFT JOIN tracks ON albums.id = tracks.album_id AND tracks.is_duplicate = 0
