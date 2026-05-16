@@ -207,7 +207,8 @@ extension DatabaseManager {
 
                 ArtistParser.unloadKnownArtists()
 
-                // Post-scan: update stats, detect duplicates, and clean up
+                // Post-scan: normalize compilation albums, update stats, detect duplicates, and clean up
+                try await normalizeCompilationAlbums()
                 try await dbQueue.write { db in
                     try self.updateEntityStats(in: db)
                 }
@@ -385,7 +386,8 @@ extension DatabaseManager {
 
         ArtistParser.unloadKnownArtists()
 
-        // Post-scan: update stats, detect duplicates, and clean up once for all folders
+        // Post-scan: normalize compilation albums, update stats, detect duplicates, and clean up once for all folders
+        try await normalizeCompilationAlbums()
         try await dbQueue.write { db in
             try self.updateEntityStats(in: db)
         }

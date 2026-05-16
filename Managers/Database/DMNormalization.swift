@@ -537,4 +537,71 @@ extension DatabaseManager {
                 .sorted { $0.decade > $1.decade }
         }
     }
+
+    // MARK: - Compilation Albums
+
+    /// Group tracks that share a parent directory and album title under a single album.
+    func normalizeCompilationAlbums() async throws {
+        try await dbQueue.write { db in
+            let tracks = try Track
+                .filter(Track.Columns.isDuplicate == false)
+                .filter(Track.Columns.albumId != nil)
+                .fetchAll(db)
+
+            // Bucket by (parent directory, normalized album title).
+            var buckets: [String: [Track]] = [:]
+            for track in tracks {
+                let title = Album.normalizeTitle(track.album)
+                guard !title.isEmpty else { continue }
+                let dir = track.url.deletingLastPathComponent().path
+                buckets["\(dir)|\(title)", default: []].append(track)
+            }
+
+            var groupedAlbums = 0
+
+            for bucket in buckets.values {
+                let albumIds = Set(bucket.compactMap { $0.albumId })
+                guard albumIds.count > 1 else { continue }  // already a single album
+
+                // Canonical album: the one with the most tracks (ties -> lowest id).
+                let counts = bucket.reduce(into: [Int64: Int]()) { tally, track in
+                    if let id = track.albumId { tally[id, default: 0] += 1 }
+                }
+                guard let canonicalId = counts.max(by: {
+                    $0.value != $1.value ? $0.value < $1.value : $0.key > $1.key
+                })?.key else { continue }
+
+                // Move the bucket's remaining tracks onto the canonical album.
+                let strays = bucket.filter { $0.albumId != canonicalId }.compactMap { $0.trackId }
+                try Track.filter(strays.contains(Track.Columns.trackId))
+                    .updateAll(db, Track.Columns.albumId.set(to: canonicalId))
+
+                try self.assignAlbumArtists(albumId: canonicalId, tracks: bucket, in: db)
+                groupedAlbums += 1
+            }
+
+            if groupedAlbums > 0 {
+                Logger.info("Normalized \(groupedAlbums) compilation album(s)")
+            }
+        }
+    }
+
+    /// Rebuild album_artists for a grouped album, using "Various Artists" as primary when tracks span multiple artists.
+    private func assignAlbumArtists(albumId: Int64, tracks: [Track], in db: Database) throws {
+        var names: [String] = []
+        var seen = Set<String>()
+        for track in tracks where !track.artist.isEmpty && track.artist != "Unknown Artist" {
+            guard let primary = ArtistParser.parse(track.artist).first else { continue }
+            if seen.insert(ArtistParser.normalizeArtistName(primary)).inserted { names.append(primary) }
+        }
+
+        try AlbumArtist.filter(AlbumArtist.Columns.albumId == albumId).deleteAll(db)
+
+        let ordered = names.count > 1 ? ["Various Artists"] + names : names
+        for (index, name) in ordered.enumerated() {
+            guard let artistId = try findOrCreateArtist(name, in: db).id else { continue }
+            let role = index == 0 ? AlbumArtist.Role.primary : AlbumArtist.Role.featured
+            try AlbumArtist(albumId: albumId, artistId: artistId, role: role, position: index).insert(db)
+        }
+    }
 }
