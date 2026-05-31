@@ -2,188 +2,110 @@ import Foundation
 import GRDB
 
 struct LyricsLoader {
-    /// Load lyrics for a track, checking external files first, then embedded lyrics, then online
+    /// Load structured lyrics for a track
     /// - Parameters:
     ///   - track: The track to load lyrics for
     ///   - dbQueue: Database queue for fetching embedded lyrics
     ///   - databaseManager: Database manager for online lyrics storage (optional)
-    /// - Returns: Tuple containing lyrics text and source type
+    /// - Returns: Tuple containing parsed lyrics lines and source type
     static func loadLyrics(
         for track: Track,
         using dbQueue: DatabaseQueue,
         databaseManager: DatabaseManager? = nil
-    ) async throws -> (lyrics: String, source: LyricsSource) {
-        var rawLyrics: String?
+    ) async throws -> (lyrics: [LyricLine], source: LyricsSource) {
+        var lines: [LyricLine]?
         var source: LyricsSource = .none
         
-        // First, check for external LRC/SRT files
-        if let externalLyrics = try? loadExternalLyrics(for: track) {
-            rawLyrics = externalLyrics.lyrics
-            source = externalLyrics.source
+        // 1. External LRC/SRT files
+        if let external = try? loadExternalLyrics(for: track) {
+            lines = external.lyrics
+            source = external.source
         }
         
-        // Second, check for embedded lyrics (stored in db during library scan)
+        // 2. Embedded lyrics from database
         let fullTrack = try? await track.fullTrack(using: dbQueue)
-        if rawLyrics == nil,
+        if lines == nil,
            let fullTrack = fullTrack,
-           let embeddedLyrics = fullTrack.extendedMetadata?.lyrics,
-           !embeddedLyrics.isEmpty {
-            rawLyrics = embeddedLyrics
+           let embeddedText = fullTrack.extendedMetadata?.lyrics,
+           !embeddedText.isEmpty {
+            lines = parseAnyLyrics(embeddedText)
             source = .embedded
         }
         
-        // Finally, try fetching from online source
-        if rawLyrics == nil,
+        // 3. Online lyrics
+        if lines == nil,
            let fullTrack = fullTrack,
            let databaseManager = databaseManager,
-           let onlineLyrics = await LyricsManager.shared.fetchLyrics(for: fullTrack, using: databaseManager) {
-            rawLyrics = onlineLyrics
+           let onlineText = await LyricsManager.shared.fetchLyrics(for: fullTrack, using: databaseManager) {
+            lines = parseAnyLyrics(onlineText)
             source = .online
         }
         
-        // Strip timestamps for display
-        guard let lyrics = rawLyrics else {
-            return ("", .none)
-        }
-        
-        let displayLyrics = stripTimestamps(lyrics)
-        return (displayLyrics, source)
+        // Fallback to empty array
+        return (lines ?? [], source)
     }
     
-    /// Check for and load external lyrics files (.lrc or .srt)
-    private static func loadExternalLyrics(for track: Track) throws -> (lyrics: String, source: LyricsSource)? {
-        let trackURL = track.url
-        let baseURL = trackURL.deletingPathExtension()
+    // MARK: - External files
+    
+    private static func loadExternalLyrics(for track: Track) throws -> (lyrics: [LyricLine], source: LyricsSource)? {
+        let baseURL = track.url.deletingPathExtension()
         
-        // Define file extensions to check in priority order
-        let lyricsFormats: [(extension: String, source: LyricsSource, parser: (String) -> String)] = [
-            ("lrc", .lrc, parseLRC),
-            ("srt", .srt, parseSRT)
-        ]
+        // LRC
+        let lrcURL = baseURL.appendingPathExtension("lrc")
+        if FileManager.default.fileExists(atPath: lrcURL.path),
+           let content = loadFileWithEncodingDetection(lrcURL),
+           !content.isEmpty {
+            let parsed = LyricLine.parseLRC(from: content)   // Using your LRC parser
+            if !parsed.isEmpty {
+                return (parsed, .lrc)
+            }
+        }
         
-        for format in lyricsFormats {
-            let lyricsURL = baseURL.appendingPathExtension(format.extension)
-            if FileManager.default.fileExists(atPath: lyricsURL.path),
-               let content = loadFileWithEncodingDetection(lyricsURL),
-               !content.isEmpty {
-                return (format.parser(content), format.source)
+        // SRT
+        let srtURL = baseURL.appendingPathExtension("srt")
+        if FileManager.default.fileExists(atPath: srtURL.path),
+           let content = loadFileWithEncodingDetection(srtURL),
+           !content.isEmpty {
+            let parsed = LyricLine.parseSRT(from: content) // Using your SRT parser
+            if !parsed.isEmpty {
+                return (parsed, .srt)
             }
         }
         
         return nil
     }
-
+    
+    // MARK: - Helpers
+    
+    /// Try to parse as LRC first, then fallback to plain text lines
+    private static func parseAnyLyrics(_ raw: String) -> [LyricLine] {
+        // Attempt LRC parsing (covers embedded/online that already have timestamps)
+        let lrcResult = LyricLine.parseLRC(from: raw)
+        if !lrcResult.isEmpty {
+            return lrcResult
+        }
+        
+        // Plain text: split by newlines, each line with startTime=0
+        let lines = raw.components(separatedBy: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+            .map { LyricLine(text: $0, startTime: 0, endTime: nil) }
+        return lines
+    }
+    
     /// Load file content with automatic encoding detection
     private static func loadFileWithEncodingDetection(_ url: URL) -> String? {
         guard let data = try? Data(contentsOf: url) else { return nil }
-        
-        // Try UTF-8 first
         if let content = String(data: data, encoding: .utf8) {
             return content
         }
-        
-        // Fall back to automatic detection for other encodings
-        let usedEncoding: UInt = 0
-        if let nsString = NSString(data: data, encoding: usedEncoding) {
-            return nsString as String
+        // Fallback for other encodings
+        let cfEncoding = CFStringConvertIANACharSetNameToEncoding("EUC_KR" as CFString)
+        let nsEncoding = CFStringConvertEncodingToNSStringEncoding(cfEncoding)
+        if let content = String(data: data, encoding: String.Encoding(rawValue: nsEncoding)) {
+            return content
         }
-        
         return nil
-    }
-    
-    // MARK: - Timestamp Stripping
-            
-    /// Strip LRC-style timestamps from lyrics for display
-    private static func stripTimestamps(_ content: String) -> String {
-        let lines = content.components(separatedBy: .newlines)
-        var strippedLines: [String] = []
-        
-        for line in lines {
-            var currentLine = line
-            
-            // Remove all timestamp tags [mm:ss.xx] from the line
-            while currentLine.hasPrefix("[") {
-                if let endBracket = currentLine.firstIndex(of: "]") {
-                    let tag = String(currentLine[currentLine.index(after: currentLine.startIndex)..<endBracket])
-                    // Check if it's a timestamp (contains digits and colons/periods)
-                    let isTimestamp = tag.contains(":") && tag.rangeOfCharacter(from: .decimalDigits) != nil
-                    
-                    if isTimestamp {
-                        currentLine = String(currentLine[currentLine.index(after: endBracket)...])
-                    } else {
-                        break
-                    }
-                } else {
-                    break
-                }
-            }
-            
-            let trimmed = currentLine.trimmingCharacters(in: .whitespaces)
-            if !trimmed.isEmpty {
-                strippedLines.append(trimmed)
-            }
-        }
-        
-        return strippedLines.joined(separator: "\n")
-    }
-    
-    // MARK: - Format Parsing
-    
-    /// Parse LRC file format and extract lyrics text
-    private static func parseLRC(_ content: String) -> String {
-        let lines = content.components(separatedBy: .newlines)
-        var lyricsLines: [String] = []
-        
-        for line in lines {
-            if line.hasPrefix("[") {
-                if let endBracket = line.firstIndex(of: "]") {
-                    let tag = String(line[line.index(after: line.startIndex)..<endBracket])
-                    
-                    // Skip metadata lines (ar:, ti:, al:, etc.) but not timestamps
-                    let isMetadata = tag.contains(":") && tag.rangeOfCharacter(from: .decimalDigits) == nil
-                    if isMetadata {
-                        continue
-                    }
-                    
-                    // Keep the full line (with timestamps) for now
-                    lyricsLines.append(line)
-                }
-            } else if !line.trimmingCharacters(in: .whitespaces).isEmpty {
-                lyricsLines.append(line)
-            }
-        }
-        
-        // Strip timestamps at the end
-        return stripTimestamps(lyricsLines.joined(separator: "\n"))
-    }
-    
-    /// Parse SRT file format and extract lyrics text
-    private static func parseSRT(_ content: String) -> String {
-        let lines = content.components(separatedBy: .newlines)
-        var lyricsLines: [String] = []
-        
-        for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            
-            // Skip empty lines
-            if trimmed.isEmpty {
-                continue
-            }
-            
-            // Skip timestamp lines (format: 00:00:00,000 --> 00:00:00,000)
-            if trimmed.contains("-->") {
-                continue
-            }
-            
-            // Skip sequence numbers (just digits)
-            if trimmed.allSatisfy({ $0.isNumber }) {
-                continue
-            }
-            
-            lyricsLines.append(trimmed)
-        }
-        
-        return lyricsLines.joined(separator: "\n")
     }
 }
 
