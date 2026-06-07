@@ -105,6 +105,7 @@ public class PAudioPlayer: NSObject {
             } catch {
                 Logger.error("Failed to set volume: \(error)")
             }
+            spatialRenderer?.volume = newValue
         }
     }
     
@@ -120,12 +121,18 @@ public class PAudioPlayer: NSObject {
     
     /// Current playback progress in seconds
     public var currentPlaybackProgress: Double {
-        sfbPlayer.currentTime ?? 0
+        if systemSpatialAudioEnabled, let spatialRenderer {
+            return spatialRenderer.currentTime
+        }
+        return sfbPlayer.currentTime ?? 0
     }
-    
+
     /// Total duration of current file in seconds
     public var duration: Double {
-        sfbPlayer.totalTime ?? 0
+        if systemSpatialAudioEnabled, let spatialRenderer {
+            return spatialRenderer.duration
+        }
+        return sfbPlayer.totalTime ?? 0
     }
     
     /// Legacy property name for backwards compatibility
@@ -156,7 +163,13 @@ public class PAudioPlayer: NSObject {
     private var userPreampGain: Float = 0.0
     private var currentEQGains: [Float] = Array(repeating: 0.0, count: 10)
     private let eqFrequencies: [Float] = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
-    
+
+    /// System Spatial Audio
+    /// When enabled, playback renders through `SpatialAudioRenderer` so macOS offers
+    /// Spatialize Stereo (Fixed / Head Tracked) in the Sound menu for AirPods
+    private var systemSpatialAudioEnabled: Bool = false
+    private var spatialRenderer: SpatialAudioRenderer?
+
     // MARK: - Initialization
     
     public override init() {
@@ -169,6 +182,7 @@ public class PAudioPlayer: NSObject {
     }
     
     deinit {
+        spatialRenderer?.stop()
         sfbPlayer.stop()
     }
     
@@ -182,9 +196,14 @@ public class PAudioPlayer: NSObject {
         currentURL = url
         let entryId = AudioEntryId(id: url.lastPathComponent)
         currentEntryId = entryId
-        
+
         let shouldPreBuffer = Self.shouldPreBuffer(url: url)
-        
+
+        if systemSpatialAudioEnabled {
+            playUsingSpatialRenderer(url: url, entryId: entryId, startPaused: startPaused, preBuffer: shouldPreBuffer)
+            return
+        }
+
         if shouldPreBuffer {
             state = .ready
             
@@ -249,15 +268,26 @@ public class PAudioPlayer: NSObject {
     /// Pause playback
     public func pause() {
         guard state == .playing else { return }
-        sfbPlayer.pause()
+        if systemSpatialAudioEnabled {
+            spatialRenderer?.pause()
+        } else {
+            sfbPlayer.pause()
+        }
         state = .paused
         Logger.info("Playback paused")
     }
-    
+
     /// Resume playback
     public func resume() {
         guard state == .paused else { return }
-        
+
+        if systemSpatialAudioEnabled {
+            spatialRenderer?.resume()
+            notifySpatialPlaybackStarted()
+            Logger.info("Playback resumed")
+            return
+        }
+
         do {
             try sfbPlayer.play()
             state = .playing
@@ -267,16 +297,17 @@ public class PAudioPlayer: NSObject {
             delegate?.audioPlayerUnexpectedError(player: self, error: .engineError(error))
         }
     }
-    
+
     /// Stop playback
     public func stop() {
         guard state != .stopped else { return }
-        
+
         let wasPlaying = state == .playing
         let currentProgress = currentPlaybackProgress
         let currentDuration = duration
         let entryId = currentEntryId
-        
+
+        spatialRenderer?.stop()
         sfbPlayer.stop()
         state = .stopped
         
@@ -298,6 +329,18 @@ public class PAudioPlayer: NSObject {
     
     /// Toggle between play and pause
     public func togglePlayPause() {
+        if systemSpatialAudioEnabled {
+            switch state {
+            case .playing:
+                pause()
+            case .paused:
+                resume()
+            default:
+                break
+            }
+            return
+        }
+
         do {
             try sfbPlayer.togglePlayPause()
             
@@ -324,35 +367,91 @@ public class PAudioPlayer: NSObject {
     @discardableResult
     public func seek(to time: Double) -> Bool {
         guard time >= 0 else { return false }
-        
-        let success = sfbPlayer.seek(time: time)
-        
+
+        let success: Bool
+        if systemSpatialAudioEnabled {
+            success = spatialRenderer?.seek(to: time) ?? false
+        } else {
+            success = sfbPlayer.seek(time: time)
+        }
+
         if !success {
             Logger.error("Failed to seek to time: \(time)")
             delegate?.audioPlayerUnexpectedError(player: self, error: .seekError)
         }
-        
+
         return success
     }
-    
+
     /// Seek forward by a number of seconds
     /// - Parameter seconds: Number of seconds to skip forward
     /// - Returns: true if seek was successful
     @discardableResult
     public func seekForward(_ seconds: Double) -> Bool {
+        if systemSpatialAudioEnabled {
+            return seek(to: currentPlaybackProgress + seconds)
+        }
         return sfbPlayer.seek(forward: seconds)
     }
-    
+
     /// Seek backward by a number of seconds
     /// - Parameter seconds: Number of seconds to skip backward
     /// - Returns: true if seek was successful
     @discardableResult
     public func seekBackward(_ seconds: Double) -> Bool {
+        if systemSpatialAudioEnabled {
+            return seek(to: max(0, currentPlaybackProgress - seconds))
+        }
         return sfbPlayer.seek(backward: seconds)
     }
     
+    // MARK: - System Spatial Audio
+
+    /// Enable or disable system spatial audio output
+    /// - Parameter enabled: true to render through `AVSampleBufferAudioRenderer` so that
+    ///   macOS offers Spatialize Stereo (Fixed / Head Tracked) in the Sound menu when
+    ///   AirPods are connected; the OS performs all spatialization and head tracking
+    /// - Note: The in-app Equalizer and Stereo Widening do not apply in this mode since
+    ///   audio bypasses the AVAudioEngine processing graph
+    public func setSystemSpatialAudio(enabled: Bool) {
+        guard systemSpatialAudioEnabled != enabled else { return }
+
+        let resumeURL = currentURL
+        let resumePosition = currentPlaybackProgress
+        let wasPlaying = state == .playing
+        let wasActive = state == .playing || state == .paused
+
+        // Silence the output path being switched away from
+        if systemSpatialAudioEnabled {
+            spatialRenderer?.stop()
+        } else if wasActive {
+            sfbPlayer.stop()
+        }
+
+        systemSpatialAudioEnabled = enabled
+        Logger.info("System spatial audio \(enabled ? "enabled" : "disabled")")
+
+        // Restart the current track in the new output mode, preserving position
+        guard wasActive, let url = resumeURL else { return }
+
+        play(url: url, startPaused: !wasPlaying)
+        if resumePosition > 0 {
+            // Wait for the new output to be ready before seeking, matching the
+            // playback restoration pattern used in PlaybackManager
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+                self?.seek(to: resumePosition)
+            }
+        }
+    }
+
+    /// Check if system spatial audio output is currently enabled
+    /// - Returns: true if enabled, false otherwise
+    public func isSystemSpatialAudioEnabled() -> Bool {
+        return systemSpatialAudioEnabled
+    }
+
     // MARK: - Audio Equalizer
-    
+
     /// Enable or disable stereo widening effect
     /// - Parameter enabled: boolean for the current state of stereo widening
     public func setStereoWidening(enabled: Bool) {
@@ -460,9 +559,12 @@ public class PAudioPlayer: NSObject {
     // MARK: - Internal Methods (called by delegate bridge)
     
     internal func handlePlaybackStateChanged(_ newState: SFBPlayerPlaybackState) {
+        // Ignore stale engine events while the spatial renderer owns playback
+        guard !systemSpatialAudioEnabled else { return }
+
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            
+
             switch newState {
             case .playing:
                 if self.state != .playing {
@@ -486,6 +588,13 @@ public class PAudioPlayer: NSObject {
     }
     
     internal func handleEndOfAudio() {
+        // Ignore stale engine events while the spatial renderer owns playback
+        guard !systemSpatialAudioEnabled else { return }
+        finishCurrentTrack()
+    }
+
+    /// Common end-of-track handling for both output paths
+    private func finishCurrentTrack() {
         let finalProgress = currentPlaybackProgress
         let finalDuration = duration
         
@@ -578,6 +687,68 @@ public class PAudioPlayer: NSObject {
         return false
     }
     
+    // MARK: - Spatial Renderer Playback
+
+    /// Returns the spatial renderer, creating it on first use
+    private func ensureSpatialRenderer() -> SpatialAudioRenderer {
+        if let spatialRenderer {
+            return spatialRenderer
+        }
+        let renderer = SpatialAudioRenderer()
+        renderer.delegate = self
+        renderer.volume = sfbPlayer.volume
+        spatialRenderer = renderer
+        return renderer
+    }
+
+    /// Plays a URL through the spatial renderer so macOS can apply system spatial audio
+    private func playUsingSpatialRenderer(url: URL, entryId: AudioEntryId, startPaused: Bool, preBuffer: Bool) {
+        sfbPlayer.stop()
+        state = .ready
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+
+            do {
+                let decoder: AudioDecoder
+                if preBuffer {
+                    let inputSource = try InputSource(for: url, flags: .loadFilesInMemory)
+                    decoder = try AudioDecoder(inputSource: inputSource)
+                } else {
+                    decoder = try AudioDecoder(url: url)
+                }
+                try decoder.open()
+
+                DispatchQueue.main.async {
+                    do {
+                        try self.ensureSpatialRenderer().play(decoder: decoder, startPaused: startPaused)
+                        if startPaused {
+                            self.state = .paused
+                        } else {
+                            self.notifySpatialPlaybackStarted()
+                        }
+                        Logger.info("Started playing (system spatial audio): \(url.lastPathComponent)")
+                    } catch {
+                        self.handlePlaybackError(error, entryId: entryId)
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.handlePlaybackError(error, entryId: entryId)
+                }
+            }
+        }
+    }
+
+    /// Mirrors the SFB delegate behavior: fires didStartPlaying on transitions into .playing
+    private func notifySpatialPlaybackStarted() {
+        guard state != .playing else { return }
+        state = .playing
+        if let entryId = currentEntryId {
+            delegate?.audioPlayerDidStartPlaying(player: self, with: entryId)
+        }
+    }
+
     /// Handle playback errors
     private func handlePlaybackError(_ error: Error, entryId: AudioEntryId) {
         Logger.error("Failed to play audio: \(error)")
@@ -683,6 +854,20 @@ public class PAudioPlayer: NSObject {
         }
         
         eqNode?.globalGain = preampGain
+    }
+}
+
+// MARK: - SpatialAudioRendererDelegate
+
+extension PAudioPlayer: SpatialAudioRendererDelegate {
+    func spatialAudioRendererDidReachEnd(_ renderer: SpatialAudioRenderer) {
+        guard systemSpatialAudioEnabled else { return }
+        finishCurrentTrack()
+    }
+
+    func spatialAudioRenderer(_ renderer: SpatialAudioRenderer, encounteredError error: Error) {
+        guard systemSpatialAudioEnabled else { return }
+        handleError(error)
     }
 }
 
