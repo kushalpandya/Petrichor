@@ -288,6 +288,34 @@ class PlaybackManager: NSObject, ObservableObject {
         audioPlayer.isStereoWideningEnabled()
     }
 
+    /// Enable or disable Spatialize Stereo (spatial audio)
+    /// - Parameter enabled: true to enable, false to disable
+    func setSpatialAudio(enabled: Bool) {
+        audioPlayer.setSpatialAudio(enabled: enabled)
+        UserDefaults.standard.set(enabled, forKey: "spatialAudioEnabled")
+        Logger.info("Spatialize Stereo \(enabled ? "enabled" : "disabled") via PlaybackManager")
+    }
+
+    /// Check if spatial audio is currently enabled
+    /// - Returns: true if enabled, false otherwise
+    func isSpatialAudioEnabled() -> Bool {
+        audioPlayer.isSpatialAudioEnabled()
+    }
+
+    /// Enable or disable head tracking for spatial audio
+    /// - Parameter enabled: true to enable, false to disable
+    func setHeadTracking(enabled: Bool) {
+        audioPlayer.setHeadTracking(enabled: enabled)
+        UserDefaults.standard.set(enabled, forKey: "headTrackingEnabled")
+        Logger.info("Head tracking \(enabled ? "enabled" : "disabled") via PlaybackManager")
+    }
+
+    /// Check if head tracking is currently enabled
+    /// - Returns: true if enabled, false otherwise
+    func isHeadTrackingEnabled() -> Bool {
+        audioPlayer.isHeadTrackingEnabled()
+    }
+
     /// Enable or disable the equalizer
     /// - Parameter enabled: true to enable, false to disable
     func setEQEnabled(_ enabled: Bool) {
@@ -428,6 +456,20 @@ class PlaybackManager: NSObject, ObservableObject {
             Logger.info("Restored stereo widening: enabled")
         }
         
+        // Restore spatial audio; the head tracking flag is set first so that
+        // motion updates start as soon as spatial audio is enabled
+        let headTrackingEnabled = UserDefaults.standard.bool(forKey: "headTrackingEnabled")
+        if headTrackingEnabled {
+            audioPlayer.setHeadTracking(enabled: true)
+            Logger.info("Restored head tracking: enabled")
+        }
+
+        let spatialAudioEnabled = UserDefaults.standard.bool(forKey: "spatialAudioEnabled")
+        if spatialAudioEnabled {
+            audioPlayer.setSpatialAudio(enabled: true)
+            Logger.info("Restored Spatialize Stereo: enabled")
+        }
+
         // Restore EQ enabled state
         let eqEnabled = UserDefaults.standard.bool(forKey: "eqEnabled")
         if eqEnabled {

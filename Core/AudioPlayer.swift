@@ -1,4 +1,5 @@
 import AVFoundation
+import CoreMotion
 import Foundation
 import SFBAudioEngine
 
@@ -156,6 +157,12 @@ public class PAudioPlayer: NSObject {
     private var userPreampGain: Float = 0.0
     private var currentEQGains: [Float] = Array(repeating: 0.0, count: 10)
     private let eqFrequencies: [Float] = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
+
+    /// Spatial Audio (Spatialize Stereo)
+    private var spatialAudioEnabled: Bool = false
+    private var headTrackingEnabled: Bool = false
+    private var environmentNode: AVAudioEnvironmentNode?
+    private var headphoneMotionManager: CMHeadphoneMotionManager?
     
     // MARK: - Initialization
     
@@ -169,6 +176,7 @@ public class PAudioPlayer: NSObject {
     }
     
     deinit {
+        headphoneMotionManager?.stopDeviceMotionUpdates()
         sfbPlayer.stop()
     }
     
@@ -374,7 +382,46 @@ public class PAudioPlayer: NSObject {
     public func isStereoWideningEnabled() -> Bool {
         return stereoWideningEnabled
     }
-    
+
+    // MARK: - Spatial Audio
+
+    /// Enable or disable Spatialize Stereo (spatial audio rendering)
+    /// - Parameter enabled: boolean for the current state of spatial audio
+    public func setSpatialAudio(enabled: Bool) {
+        spatialAudioEnabled = enabled
+
+        if !effectsAttached {
+            setupAudioEffects()
+        }
+
+        applySpatialSourceMode()
+        updateHeadTrackingState()
+
+        Logger.info("Spatialize Stereo \(enabled ? "enabled" : "disabled")")
+    }
+
+    /// Check if spatial audio is currently enabled
+    /// - Returns: true if Spatialize Stereo is enabled, false otherwise
+    public func isSpatialAudioEnabled() -> Bool {
+        return spatialAudioEnabled
+    }
+
+    /// Enable or disable head tracking for spatial audio
+    /// - Parameter enabled: boolean for the current state of head tracking
+    /// - Note: Head tracking only takes effect while spatial audio is enabled, and
+    ///   requires headphones that provide motion data (e.g. AirPods Pro / AirPods Max)
+    public func setHeadTracking(enabled: Bool) {
+        headTrackingEnabled = enabled
+        updateHeadTrackingState()
+        Logger.info("Head tracking \(enabled ? "enabled" : "disabled")")
+    }
+
+    /// Check if head tracking is currently enabled
+    /// - Returns: true if head tracking is enabled, false otherwise
+    public func isHeadTrackingEnabled() -> Bool {
+        return headTrackingEnabled
+    }
+
     /// Enable or disable the equalizer
     /// - Parameter enabled: boolean for the current state Equalizer
     public func setEQEnabled(_ enabled: Bool) {
@@ -519,30 +566,44 @@ public class PAudioPlayer: NSObject {
         }
         
         // Detach and recreate effect nodes with the new format
+        if let oldEnvironmentNode = environmentNode {
+            engine.detach(oldEnvironmentNode)
+            environmentNode = nil
+        }
+
         if let oldStereoNode = stereoWideningNode {
             engine.detach(oldStereoNode)
             stereoWideningNode = nil
         }
-        
+
         if let oldEQNode = eqNode {
             engine.detach(oldEQNode)
             eqNode = nil
         }
-        
+
         // Recreate the effects chain
+        setupSpatialAudio(engine: engine)
         setupStereoWidening(engine: engine)
         setupEqualizer(engine: engine)
-        
+
         let mainMixer = engine.mainMixerNode
-        
-        if let stereoNode = stereoWideningNode, let equalizer = eqNode {
-            engine.connect(stereoNode, to: equalizer, format: format)
-            engine.connect(equalizer, to: mainMixer, format: format)
-            Logger.info("Reconfigured audio graph: playerNode -> stereoWidening -> EQ -> mainMixer")
-            
-            return stereoNode
+
+        if let environment = environmentNode, let stereoNode = stereoWideningNode, let equalizer = eqNode {
+            let chainFormat = spatialChainFormat(for: format)
+            engine.connect(environment, to: stereoNode, format: chainFormat)
+            engine.connect(stereoNode, to: equalizer, format: chainFormat)
+            engine.connect(equalizer, to: mainMixer, format: chainFormat)
+            Logger.info("Reconfigured audio graph: playerNode -> spatialAudio -> stereoWidening -> EQ -> mainMixer")
+
+            // SFBAudioEngine connects sourceNode to the returned node; the source mode is
+            // re-applied async since the new mixing destination doesn't exist yet
+            DispatchQueue.main.async { [weak self] in
+                self?.applySpatialSourceMode()
+            }
+
+            return environment
         }
-        
+
         Logger.warning("Failed to reconfigure effects chain, falling back to mixer")
         return mainMixer
     }
@@ -607,25 +668,121 @@ public class PAudioPlayer: NSObject {
         Logger.info("Source node: \(sourceNode), Format: \(format.sampleRate)Hz, \(format.channelCount)ch")
         
         sfbPlayer.modifyProcessingGraph { [self] engine in
+            setupSpatialAudio(engine: engine)
             setupStereoWidening(engine: engine)
             setupEqualizer(engine: engine)
-            
-            guard let stereoNode = stereoWideningNode, let equalizer = eqNode else {
+
+            guard let environment = environmentNode,
+                  let stereoNode = stereoWideningNode,
+                  let equalizer = eqNode else {
                 Logger.warning("Failed to create effect nodes")
                 return
             }
-            
+
+            // The environment node renders to stereo regardless of the source channel count
+            let chainFormat = spatialChainFormat(for: format)
+
             // Disconnect sourceNode from mainMixer
             engine.disconnectNodeOutput(sourceNode)
-            
-            // Connect: sourceNode -> stereoWidening -> EQ -> mainMixer
-            engine.connect(sourceNode, to: stereoNode, format: format)
-            engine.connect(stereoNode, to: equalizer, format: format)
-            engine.connect(equalizer, to: mainMixer, format: format)
-            
+
+            // Connect: sourceNode -> spatialAudio -> stereoWidening -> EQ -> mainMixer
+            engine.connect(sourceNode, to: environment, format: format)
+            engine.connect(environment, to: stereoNode, format: chainFormat)
+            engine.connect(stereoNode, to: equalizer, format: chainFormat)
+            engine.connect(equalizer, to: mainMixer, format: chainFormat)
+
+            // Apply the source mode after connecting so the mixing destination exists
+            applySpatialSourceMode()
+
             effectsAttached = true
             Logger.info("Audio effects setup complete")
         }
+    }
+
+    private func setupSpatialAudio(engine: AVAudioEngine) {
+        let environment = AVAudioEnvironmentNode()
+        // Spatialize Stereo is a headphones feature; .headphones selects binaural rendering
+        environment.outputType = .headphones
+        environment.listenerPosition = AVAudio3DPoint(x: 0, y: 0, z: 0)
+        environment.listenerAngularOrientation = AVAudio3DAngularOrientation(yaw: 0, pitch: 0, roll: 0)
+
+        engine.attach(environment)
+        self.environmentNode = environment
+
+        Logger.info("Attached environment node (Spatialize Stereo)")
+    }
+
+    /// Stereo output format matching the source sample rate, used downstream of the environment node
+    private func spatialChainFormat(for format: AVAudioFormat) -> AVAudioFormat {
+        AVAudioFormat(standardFormatWithSampleRate: format.sampleRate, channels: 2) ?? format
+    }
+
+    /// Applies the spatialization mode to the player's source node feeding the environment node
+    private func applySpatialSourceMode() {
+        let sourceNode = sfbPlayer.sourceNode
+        // .auto picks the highest-quality binaural algorithm for the configured output type
+        sourceNode.renderingAlgorithm = .auto
+        // .ambienceBed spatializes the stereo channels as far-field sources anchored to
+        // global space (i.e. "Spatialize Stereo"); .bypass passes audio through untouched
+        sourceNode.sourceMode = spatialAudioEnabled ? .ambienceBed : .bypass
+    }
+
+    // MARK: - Head Tracking
+
+    private func updateHeadTrackingState() {
+        if spatialAudioEnabled && headTrackingEnabled {
+            startHeadTracking()
+        } else {
+            stopHeadTracking()
+        }
+    }
+
+    private func startHeadTracking() {
+        if headphoneMotionManager == nil {
+            headphoneMotionManager = CMHeadphoneMotionManager()
+        }
+
+        guard let motionManager = headphoneMotionManager, !motionManager.isDeviceMotionActive else {
+            return
+        }
+
+        if !motionManager.isDeviceMotionAvailable {
+            Logger.info("Headphone motion currently unavailable; head tracking will engage when supported headphones connect")
+        }
+
+        motionManager.startDeviceMotionUpdates(to: .main) { [weak self] motion, error in
+            guard let self = self else { return }
+
+            if let error = error {
+                // e.g. motion access denied; fall back to fixed spatialization
+                Logger.warning("Headphone motion error, disabling head tracking: \(error.localizedDescription)")
+                self.stopHeadTracking()
+                return
+            }
+
+            guard let motion = motion, self.spatialAudioEnabled, self.headTrackingEnabled else { return }
+
+            // CMAttitude: positive yaw is counterclockwise (head turning left), while
+            // AVAudio3DAngularOrientation: positive yaw is clockwise (head turning right),
+            // so yaw is negated to keep the sound stage anchored in space
+            self.environmentNode?.listenerAngularOrientation = AVAudio3DAngularOrientation(
+                yaw: -Float(motion.attitude.yaw * 180 / .pi),
+                pitch: Float(motion.attitude.pitch * 180 / .pi),
+                roll: Float(motion.attitude.roll * 180 / .pi)
+            )
+        }
+
+        Logger.info("Started headphone motion updates for head tracking")
+    }
+
+    private func stopHeadTracking() {
+        guard let motionManager = headphoneMotionManager, motionManager.isDeviceMotionActive else {
+            return
+        }
+
+        motionManager.stopDeviceMotionUpdates()
+        environmentNode?.listenerAngularOrientation = AVAudio3DAngularOrientation(yaw: 0, pitch: 0, roll: 0)
+        Logger.info("Stopped headphone motion updates")
     }
 
     private func setupStereoWidening(engine: AVAudioEngine) {

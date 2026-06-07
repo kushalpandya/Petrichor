@@ -7,6 +7,8 @@ struct EqualizerView: View {
 
     @State private var isEnabled = false
     @State private var stereoWideningEnabled = false
+    @State private var spatializeStereoEnabled = false
+    @State private var headTrackingEnabled = false
     @State private var selectedPreset: EqualizerPreset = .flat
     @State private var isCustomMode = false
     @State private var customGains: [Float] = Array(repeating: 0.0, count: 10)
@@ -19,13 +21,15 @@ struct EqualizerView: View {
     var body: some View {
         VStack(spacing: 20) {
             topControlsRow
-            
+
+            spatialAudioRow
+
             eqSlidersSection
                 .disabled(!isEnabled)
                 .opacity(isEnabled ? 1.0 : 0.5)
         }
         .padding(20)
-        .frame(width: 500, height: 300)
+        .frame(width: 500, height: 330)
         .onAppear {
             loadCurrentSettings()
         }
@@ -55,6 +59,29 @@ struct EqualizerView: View {
 
             presetPicker
                 .disabled(!isEnabled)
+        }
+    }
+
+    // MARK: - Spatial Audio Row
+
+    private var spatialAudioRow: some View {
+        HStack(spacing: 16) {
+            Toggle("Spatialize Stereo", isOn: $spatializeStereoEnabled)
+                .toggleStyle(.checkbox)
+                .onChange(of: spatializeStereoEnabled) {
+                    playbackManager.setSpatialAudio(enabled: spatializeStereoEnabled)
+                }
+                .help("Render stereo audio as immersive spatial audio when using headphones")
+
+            Toggle("Head Tracking", isOn: $headTrackingEnabled)
+                .toggleStyle(.checkbox)
+                .disabled(!spatializeStereoEnabled)
+                .onChange(of: headTrackingEnabled) {
+                    playbackManager.setHeadTracking(enabled: headTrackingEnabled)
+                }
+                .help("Keep the sound stage anchored in space as you move your head (requires AirPods with head tracking)")
+
+            Spacer()
         }
     }
 
@@ -164,6 +191,8 @@ struct EqualizerView: View {
     private func loadCurrentSettings() {
         isEnabled = playbackManager.isEQEnabled()
         stereoWideningEnabled = playbackManager.isStereoWideningEnabled()
+        spatializeStereoEnabled = playbackManager.isSpatialAudioEnabled()
+        headTrackingEnabled = playbackManager.isHeadTrackingEnabled()
         preampGain = playbackManager.getPreamp()
 
         if let presetRawValue = UserDefaults.standard.string(forKey: "eqPreset") {
@@ -231,5 +260,5 @@ private struct EqualizerWindowConfigurator: NSViewRepresentable {
                 playlistManager: playlistManager
             )
         }())
-        .frame(width: 500, height: 300)
+        .frame(width: 500, height: 330)
 }

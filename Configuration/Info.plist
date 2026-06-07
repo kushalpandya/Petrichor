@@ -48,6 +48,8 @@
     <true/>
     <key>NSSupportsAutomaticGraphicsSwitching</key>
     <true/>
+    <key>NSMotionUsageDescription</key>
+    <string>Petrichor uses headphone motion data to provide head-tracked spatial audio.</string>
     
     <!-- Sparkle Configuration -->
     <key>SUPublicEDKey</key>
