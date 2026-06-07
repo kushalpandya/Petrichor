@@ -288,21 +288,6 @@ class PlaybackManager: NSObject, ObservableObject {
         audioPlayer.isStereoWideningEnabled()
     }
 
-    /// Enable or disable system spatial audio output
-    /// When enabled, macOS offers Spatialize Stereo in the Sound menu for AirPods
-    /// - Parameter enabled: true to enable, false to disable
-    func setSystemSpatialAudio(enabled: Bool) {
-        audioPlayer.setSystemSpatialAudio(enabled: enabled)
-        UserDefaults.standard.set(enabled, forKey: "systemSpatialAudioEnabled")
-        Logger.info("System spatial audio \(enabled ? "enabled" : "disabled") via PlaybackManager")
-    }
-
-    /// Check if system spatial audio output is currently enabled
-    /// - Returns: true if enabled, false otherwise
-    func isSystemSpatialAudioEnabled() -> Bool {
-        audioPlayer.isSystemSpatialAudioEnabled()
-    }
-
     /// Enable or disable the equalizer
     /// - Parameter enabled: true to enable, false to disable
     func setEQEnabled(_ enabled: Bool) {
@@ -436,13 +421,6 @@ class PlaybackManager: NSObject, ObservableObject {
     
     /// Restore audio effects settings from UserDefaults
     private func restoreAudioEffectsSettings() {
-        // Restore system spatial audio output
-        let systemSpatialAudioEnabled = UserDefaults.standard.bool(forKey: "systemSpatialAudioEnabled")
-        if systemSpatialAudioEnabled {
-            audioPlayer.setSystemSpatialAudio(enabled: true)
-            Logger.info("Restored system spatial audio: enabled")
-        }
-
         // Restore stereo widening
         let stereoWideningEnabled = UserDefaults.standard.bool(forKey: "stereoWideningEnabled")
         if stereoWideningEnabled {

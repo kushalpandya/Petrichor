@@ -23,6 +23,9 @@ protocol SpatialAudioRendererDelegate: AnyObject {
 final class SpatialAudioRenderer {
     weak var delegate: SpatialAudioRendererDelegate?
 
+    /// In-app effects (stereo widening, EQ, preamp) applied to PCM before enqueueing
+    let effects = AudioEffectsChain()
+
     // MARK: - Private Properties
 
     private let renderer = AVSampleBufferAudioRenderer()
@@ -110,6 +113,7 @@ final class SpatialAudioRenderer {
             self.decoder = decoder
             framesDecoded = max(decoder.position, 0)
             decodingComplete = false
+            effects.configure(format: decoder.processingFormat)
             return CMTime(value: framesDecoded, timescale: CMTimeScale(decoder.processingFormat.sampleRate))
         }
 
@@ -212,8 +216,10 @@ final class SpatialAudioRenderer {
                 return
             }
 
+            let processed = effects.process(buffer)
+
             let presentationTime = CMTime(value: framesDecoded, timescale: CMTimeScale(format.sampleRate))
-            guard let sampleBuffer = makeSampleBuffer(from: buffer, presentationTime: presentationTime) else {
+            guard let sampleBuffer = makeSampleBuffer(from: processed, presentationTime: presentationTime) else {
                 Logger.error("Failed to create sample buffer for spatial audio renderer")
                 finishDecoding()
                 return

@@ -71,7 +71,7 @@ struct PetrichorApp: App {
                 .environmentObject(appCoordinator.playbackManager)
         }
         .handlesExternalEvents(matching: [])
-        .defaultSize(width: 500, height: 330)
+        .defaultSize(width: 500, height: 300)
         .windowResizability(.contentSize)
     }
     
