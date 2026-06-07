@@ -38,6 +38,9 @@ final class SpatialAudioRenderer {
     private var endObserver: Any?
     private var rendererStatusObservation: NSKeyValueObservation?
 
+    /// Converter used to interleave PCM before enqueueing (cached per input format)
+    private var interleaveConverter: AVAudioConverter?
+
     /// Incremented on every play/stop so stale media-request callbacks are ignored
     private var generation = 0
 
@@ -218,8 +221,14 @@ final class SpatialAudioRenderer {
 
             let processed = effects.process(buffer)
 
+            guard let interleaved = interleavedIfNeeded(processed) else {
+                Logger.error("Failed to interleave audio for the sample buffer renderer")
+                finishDecoding()
+                return
+            }
+
             let presentationTime = CMTime(value: framesDecoded, timescale: CMTimeScale(format.sampleRate))
-            guard let sampleBuffer = makeSampleBuffer(from: processed, presentationTime: presentationTime) else {
+            guard let sampleBuffer = makeSampleBuffer(from: interleaved, presentationTime: presentationTime) else {
                 Logger.error("Failed to create sample buffer for spatial audio renderer")
                 finishDecoding()
                 return
@@ -248,6 +257,44 @@ final class SpatialAudioRenderer {
             synchronizer.removeTimeObserver(endObserver)
             self.endObserver = nil
         }
+    }
+
+    /// Returns an interleaved copy of the buffer when needed; runs on decodeQueue.
+    ///
+    /// `AVSampleBufferAudioRenderer` renders through an AudioQueue, which only
+    /// accepts interleaved linear PCM — non-interleaved buffers (e.g. FLAC decoder
+    /// output or the effects chain's standard format) enqueue without error but
+    /// render as silence ("SSP::Render: CopySlice" failures in the system log).
+    private func interleavedIfNeeded(_ buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
+        guard !buffer.format.isInterleaved else { return buffer }
+
+        if interleaveConverter?.inputFormat != buffer.format {
+            guard let outputFormat = AVAudioFormat(
+                commonFormat: .pcmFormatFloat32,
+                sampleRate: buffer.format.sampleRate,
+                channels: buffer.format.channelCount,
+                interleaved: true
+            ), let converter = AVAudioConverter(from: buffer.format, to: outputFormat) else {
+                return nil
+            }
+            interleaveConverter = converter
+        }
+
+        // A fresh output buffer per chunk so enqueued sample buffers never share memory
+        guard let converter = interleaveConverter,
+              let output = AVAudioPCMBuffer(pcmFormat: converter.outputFormat, frameCapacity: buffer.frameLength) else {
+            return nil
+        }
+
+        do {
+            try converter.convert(to: output, from: buffer)
+        } catch {
+            Logger.error("Interleave conversion failed: \(error.localizedDescription)")
+            return nil
+        }
+
+        guard output.frameLength == buffer.frameLength else { return nil }
+        return output
     }
 
     /// Wraps decoded PCM in a CMSampleBuffer for the renderer
