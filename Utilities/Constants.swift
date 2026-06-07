@@ -220,32 +220,32 @@ extension DefaultPlaylists {
         if playlist.type == .smart && !playlist.isUserEditable {
             switch playlist.name {
             case DefaultPlaylists.favorites:
-                return "No Favorite Songs"
+                return String(localized: "No Favorite Songs")
             case DefaultPlaylists.mostPlayed:
-                return "No Frequently Played Songs"
+                return String(localized: "No Frequently Played Songs")
             case DefaultPlaylists.recentlyPlayed:
-                return "No Recently Played Songs"
+                return String(localized: "No Recently Played Songs")
             default:
-                return "Empty Smart Playlist"
+                return String(localized: "Empty Smart Playlist")
             }
         }
-        return "Empty Playlist"
+        return String(localized: "Empty Playlist")
     }
     
     static func emptyStateText(for playlist: Playlist) -> String {
         if playlist.type == .smart && !playlist.isUserEditable {
             switch playlist.name {
             case DefaultPlaylists.favorites:
-                return "Mark songs as favorites to see them here"
+                return String(localized: "Mark songs as favorites to see them here")
             case DefaultPlaylists.mostPlayed:
-                return "Songs played 5 or more times will appear here"
+                return String(localized: "Songs played 5 or more times will appear here")
             case DefaultPlaylists.recentlyPlayed:
-                return "Songs played in the last week will appear here"
+                return String(localized: "Songs played in the last week will appear here")
             default:
-                return "This smart playlist will update automatically based on its criteria"
+                return String(localized: "This smart playlist will update automatically based on its criteria")
             }
         }
-        return "Add some tracks to this playlist to get started"
+        return String(localized: "Add some tracks to this playlist to get started")
     }
 }
 

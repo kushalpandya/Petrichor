@@ -112,7 +112,7 @@ class MenuBarManager: NSObject {
 
         // Play/Pause
         let playPauseItem = NSMenuItem(
-            title: playbackManager.isPlaying ? "Pause" : "Play",
+            title: playbackManager.isPlaying ? String(localized: "Pause") : String(localized: "Play"),
             action: #selector(togglePlayPause),
             keyEquivalent: ""
         )
@@ -127,7 +127,7 @@ class MenuBarManager: NSObject {
 
         // Next
         let nextItem = NSMenuItem(
-            title: "Next",
+            title: String(localized: "Next"),
             action: #selector(playNext),
             keyEquivalent: ""
         )
@@ -142,7 +142,7 @@ class MenuBarManager: NSObject {
 
         // Previous
         let previousItem = NSMenuItem(
-            title: "Previous",
+            title: String(localized: "Previous"),
             action: #selector(playPrevious),
             keyEquivalent: ""
         )
@@ -159,7 +159,7 @@ class MenuBarManager: NSObject {
 
         // Shuffle
         let shuffleItem = NSMenuItem(
-            title: "Shuffle",
+            title: String(localized: "Shuffle"),
             action: #selector(toggleShuffle),
             keyEquivalent: ""
         )
@@ -177,7 +177,7 @@ class MenuBarManager: NSObject {
 
         // Show App Window
         let showWindowItem = NSMenuItem(
-            title: "Show Petrichor",
+            title: String(localized: "Show Petrichor"),
             action: #selector(showMainWindow),
             keyEquivalent: ""
         )
@@ -194,7 +194,7 @@ class MenuBarManager: NSObject {
 
         // Quit
         let quitItem = NSMenuItem(
-            title: "Quit Petrichor",
+            title: String(localized: "Quit Petrichor"),
             action: #selector(quitApp),
             keyEquivalent: ""
         )

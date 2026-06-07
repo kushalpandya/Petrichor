@@ -132,7 +132,7 @@ struct EqualizerView: View {
                     playbackManager.setPreamp(newValue)
                 }
             ),
-            label: "Preamp"
+            label: String(localized: "Preamp")
         )
     }
 

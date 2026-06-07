@@ -10,7 +10,7 @@ struct SearchInputField: NSViewRepresentable {
     
     init(
         text: Binding<String>,
-        placeholder: String = "Search...",
+        placeholder: String = String(localized: "Search..."),
         fontSize: CGFloat = 12,
         width: CGFloat? = nil,
         shouldFocus: Bool = false

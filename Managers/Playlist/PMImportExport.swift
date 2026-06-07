@@ -16,11 +16,11 @@ enum M3UImportError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .fileReadFailed(let filename):
-            return "Could not read file '\(filename)'"
+            return String(localized: "Could not read file '\(filename)'")
         case .invalidFormat(let filename):
-            return "File '\(filename)' has invalid M3U format"
+            return String(localized: "File '\(filename)' has invalid M3U format")
         case .emptyFile(let filename):
-            return "File '\(filename)' contains no tracks"
+            return String(localized: "File '\(filename)' contains no tracks")
         }
     }
 }

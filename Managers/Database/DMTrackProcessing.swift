@@ -138,16 +138,16 @@ extension DatabaseManager {
                     let (globalProcessed, globalTotal, tracksFound, isInitial) = await globalState.getProgress()
                     
                     if globalTotal > 0 {
-                        updateScanStatus("Processing: \(globalProcessed)/\(globalTotal) files")
+                        updateScanStatus(String(localized: "Processing: \(globalProcessed)/\(globalTotal) files"))
                     } else {
-                        updateScanStatus("Processing: \(globalProcessed) files")
+                        updateScanStatus(String(localized: "Processing: \(globalProcessed) files"))
                     }
 
                     await MainActor.run {
                         // Update NotificationManager with progress
                         let detail = globalTotal > 0
-                            ? "\(globalProcessed) of \(globalTotal) files • \(tracksFound) tracks found"
-                            : "\(globalProcessed) files processed • \(tracksFound) tracks found"
+                            ? String(localized: "\(globalProcessed) of \(globalTotal) files • \(tracksFound) tracks found")
+                            : String(localized: "\(globalProcessed) files processed • \(tracksFound) tracks found")
                         NotificationManager.shared.updateActivityProgress(
                             current: globalProcessed,
                             total: globalTotal > 0 ? globalTotal : globalProcessed,
@@ -164,7 +164,7 @@ extension DatabaseManager {
                     let currentProcessed = await scanState.getProcessedCount()
                     
                     await MainActor.run {
-                        self.scanStatusMessage = "Processing: \(currentProcessed)/\(totalFiles) files in \(folderName)"
+                        self.scanStatusMessage = String(localized: "Processing: \(currentProcessed)/\(totalFiles) files in \(folderName)")
                     }
                 }
             }

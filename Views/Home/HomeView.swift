@@ -62,7 +62,7 @@ struct HomeView: View {
                         emptySelectionView
                     }
                 }
-                .navigationTitle(selectedSidebarItem?.title ?? "Home")
+                .navigationTitle(selectedSidebarItem?.title ?? String(localized: "Home"))
                 .navigationSubtitle("")
 
                 // Entity detail overlay
@@ -138,7 +138,7 @@ struct HomeView: View {
     private var discoverView: some View {
         VStack(alignment: .leading, spacing: 0) {
             TrackListHeader(
-                title: "Discover",
+                title: String(localized: "Discover"),
                 sortOrder: $trackTableSortOrder,
                 tableRowSize: $trackTableRowSize
             ) {
@@ -207,7 +207,7 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
             TrackListHeader(
-                title: "All tracks",
+                title: String(localized: "All tracks"),
                 sortOrder: $trackTableSortOrder,
                 tableRowSize: $trackTableRowSize
             )
@@ -259,7 +259,7 @@ struct HomeView: View {
         VStack(spacing: 0) {
             // Header
             TrackListHeader(
-                title: "All Artists",
+                title: String(localized: "All Artists"),
                 trackCount: libraryManager.artistEntities.count
             ) {
                 Button(action: {
@@ -272,7 +272,7 @@ struct HomeView: View {
                 }
                 .buttonStyle(.borderless)
                 .hoverEffect(scale: 1.1)
-                .help("Sort \(entitySortAscending ? "descending" : "ascending")")
+                .help(String(localized: "Sort \(entitySortAscending ? "descending" : "ascending")"))
             }
             
             Divider()
@@ -310,7 +310,7 @@ struct HomeView: View {
         VStack(spacing: 0) {
             // Header
             TrackListHeader(
-                title: "All Albums",
+                title: String(localized: "All Albums"),
                 trackCount: libraryManager.albumEntities.count
             ) {
                 Menu {

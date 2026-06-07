@@ -14,8 +14,8 @@ extension LibraryManager {
         openPanel.canChooseFiles = false
         openPanel.canChooseDirectories = true
         openPanel.allowsMultipleSelection = true
-        openPanel.prompt = "Add Music Folder"
-        openPanel.message = "Select folders containing your music files"
+        openPanel.prompt = String(localized: "Add Music Folder")
+        openPanel.message = String(localized: "Select folders containing your music files")
 
         openPanel.beginSheetModal(for: NSApp.keyWindow!) { [weak self] response in
             guard let self = self, response == .OK else { return }
@@ -76,7 +76,7 @@ extension LibraryManager {
                 // Stop the activity indicator on failure too
                 NotificationManager.shared.stopActivity()
                 // Show error message
-                NotificationManager.shared.addMessage(.error, "Failed to remove folder '\(folder.name)'")
+                NotificationManager.shared.addMessage(.error, String(localized: "Failed to remove folder '\(folder.name)'"))
             }
         }
     }
@@ -135,7 +135,7 @@ extension LibraryManager {
         }
         
         Logger.info("Found \(foldersToRemove.count) missing folders to optimize")
-        NotificationManager.shared.startActivity("Optimizing database...")
+        NotificationManager.shared.startActivity(String(localized: "Optimizing database..."))
         
         let group = DispatchGroup()
         var removedFolders: [String] = []
@@ -163,13 +163,13 @@ extension LibraryManager {
             
             if !removedFolders.isEmpty {
                 let message = removedFolders.count == 1
-                    ? "Folder '\(removedFolders[0])' was removed as it no longer exists"
-                    : "\(removedFolders.count) folders were removed as they no longer exist"
+                    ? String(localized: "Folder '\(removedFolders[0])' was removed as it no longer exists")
+                    : String(localized: "\(removedFolders.count) folders were removed as they no longer exist")
                 NotificationManager.shared.addMessage(.info, message)
             }
             
             if !failedRemovals.isEmpty {
-                let message = "Failed to remove \(failedRemovals.count) missing folder\(failedRemovals.count == 1 ? "" : "s")"
+                let message = String(localized: "Failed to remove \(failedRemovals.count) missing folder\(failedRemovals.count == 1 ? "" : "s")")
                 NotificationManager.shared.addMessage(.error, message)
             }
             
@@ -230,16 +230,16 @@ extension LibraryManager {
                         let savedMB = Double(spaceSaved) / (1024.0 * 1024.0)
                         NotificationManager.shared.addMessage(
                             .info,
-                            "Database optimization completed - reclaimed \(String(format: "%.1f", savedMB)) MB"
+                            String(localized: "Database optimization completed - reclaimed \(String(format: "%.1f", savedMB)) MB")
                         )
                     } else {
-                        NotificationManager.shared.addMessage(.info, "Database optimization completed")
+                        NotificationManager.shared.addMessage(.info, String(localized: "Database optimization completed"))
                     }
                 }
             } catch {
                 Logger.error("Database \(context) failed: \(error)")
                 await MainActor.run {
-                    NotificationManager.shared.addMessage(.error, "Database optimization failed")
+                    NotificationManager.shared.addMessage(.error, String(localized: "Database optimization failed"))
                 }
             }
         }

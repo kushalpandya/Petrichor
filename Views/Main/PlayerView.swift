@@ -238,9 +238,9 @@ struct PlayerView: View {
     
     private var repeatModeTooltip: String {
         switch playlistManager.repeatMode {
-        case .off: return "Repeat: Off"
-        case .one: return "Repeat: Current Track"
-        case .all: return "Repeat: All"
+        case .off: return String(localized: "Repeat: Off")
+        case .one: return String(localized: "Repeat: Current Track")
+        case .all: return String(localized: "Repeat: All")
         }
     }
 

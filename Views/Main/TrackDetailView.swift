@@ -61,7 +61,7 @@ struct TrackDetailView: View {
                             // Combined Track Information section
                             let items = trackInformationItems(for: fullTrack)
                             if !items.isEmpty {
-                                metadataSection(title: "Details", items: items)
+                                metadataSection(title: String(localized: "Details"), items: items)
                             }
 
                             // Collapsible File Details section
@@ -271,75 +271,75 @@ struct TrackDetailView: View {
 
         // Album (added as requested)
         if !fullTrack.album.isEmpty && fullTrack.album != "Unknown Album" {
-            items.append(("Album", fullTrack.album))
+            items.append((String(localized: "Album"), fullTrack.album))
         }
 
         // Album Artist
         if let albumArtist = fullTrack.albumArtist, !albumArtist.isEmpty {
-            items.append(("Album Artist", albumArtist))
+            items.append((String(localized: "Album Artist"), albumArtist))
         }
 
         // Duration
-        items.append(("Duration", formatDuration(fullTrack.duration)))
+        items.append((String(localized: "Duration"), formatDuration(fullTrack.duration)))
 
         // Track Number
         if let trackNumber = fullTrack.trackNumber {
             var trackStr = "\(trackNumber)"
             if let totalTracks = fullTrack.totalTracks {
-                trackStr += " of \(totalTracks)"
+                trackStr += String(localized: " of \(totalTracks)")
             }
-            items.append(("Track", trackStr))
+            items.append((String(localized: "Track"), trackStr))
         }
 
         // Disc Number
         if let discNumber = fullTrack.discNumber {
             var discStr = "\(discNumber)"
             if let totalDiscs = fullTrack.totalDiscs {
-                discStr += " of \(totalDiscs)"
+                discStr += String(localized: " of \(totalDiscs)")
             }
-            items.append(("Disc", discStr))
+            items.append((String(localized: "Disc"), discStr))
         }
 
         // Genre
         if !fullTrack.genre.isEmpty && fullTrack.genre != "Unknown Genre" {
-            items.append(("Genre", fullTrack.genre))
+            items.append((String(localized: "Genre"), fullTrack.genre))
         }
 
         // Year
         if !fullTrack.year.isEmpty && fullTrack.year != "Unknown Year" {
-            items.append(("Year", fullTrack.year))
+            items.append((String(localized: "Year"), fullTrack.year))
         }
 
         // Composer
         if !fullTrack.composer.isEmpty && fullTrack.composer != "Unknown Composer" {
-            items.append(("Composer", fullTrack.composer))
+            items.append((String(localized: "Composer"), fullTrack.composer))
         }
 
         // Release Dates
         if let releaseDate = fullTrack.releaseDate, !releaseDate.isEmpty {
-            items.append(("Release Date", formatDate(releaseDate)))
+            items.append((String(localized: "Release Date"), formatDate(releaseDate)))
         }
 
         if let originalDate = fullTrack.originalReleaseDate, !originalDate.isEmpty {
-            items.append(("Original Release", formatDate(originalDate)))
+            items.append((String(localized: "Original Release"), formatDate(originalDate)))
         }
 
         // Additional metadata from extended
         if let ext = fullTrack.extendedMetadata {
             if let conductor = ext.conductor, !conductor.isEmpty {
-                items.append(("Conductor", conductor))
+                items.append((String(localized: "Conductor"), conductor))
             }
 
             if let producer = ext.producer, !producer.isEmpty {
-                items.append(("Producer", producer))
+                items.append((String(localized: "Producer"), producer))
             }
 
             if let label = ext.label, !label.isEmpty {
-                items.append(("Label", label))
+                items.append((String(localized: "Label"), label))
             }
 
             if let publisher = ext.publisher, !publisher.isEmpty {
-                items.append(("Publisher", publisher))
+                items.append((String(localized: "Publisher"), publisher))
             }
 
             if let isrc = ext.isrc, !isrc.isEmpty {
@@ -354,27 +354,27 @@ struct TrackDetailView: View {
 
         // Rating
         if let rating = fullTrack.rating, rating > 0 {
-            items.append(("Rating", String(repeating: "★", count: rating) + String(repeating: "☆", count: 5 - rating)))
+            items.append((String(localized: "Rating"), String(repeating: "★", count: rating) + String(repeating: "☆", count: 5 - rating)))
         }
 
         // Play Count
         if fullTrack.playCount > 0 {
-            items.append(("Play Count", "\(fullTrack.playCount)"))
+            items.append((String(localized: "Play Count"), "\(fullTrack.playCount)"))
         }
 
         // Last Played
         if let lastPlayed = fullTrack.lastPlayedDate {
-            items.append(("Last Played", formatDate(lastPlayed)))
+            items.append((String(localized: "Last Played"), formatDate(lastPlayed)))
         }
 
         // Favorite
         if fullTrack.isFavorite {
-            items.append(("Favorite", "Yes"))
+            items.append((String(localized: "Favorite"), String(localized: "Yes")))
         }
 
         // Compilation
         if fullTrack.compilation {
-            items.append(("Compilation", "Yes"))
+            items.append((String(localized: "Compilation"), String(localized: "Yes")))
         }
 
         return items
@@ -487,50 +487,50 @@ private struct FileDetailsSection: View {
         var items: [(label: String, value: String)] = []
 
         // File format
-        items.append(("Format", fullTrack.format.uppercased()))
+        items.append((String(localized: "Format"), fullTrack.format.uppercased()))
 
         // Audio properties
         if let codec = fullTrack.codec, !codec.isEmpty {
-            items.append(("Codec", codec))
+            items.append((String(localized: "Codec"), codec))
         }
 
         if let bitrate = fullTrack.bitrate, bitrate > 0 {
-            items.append(("Bitrate", "\(bitrate) kbps"))
+            items.append((String(localized: "Bitrate"), String(localized: "\(bitrate) kbps")))
         }
 
         if let sampleRate = fullTrack.sampleRate, sampleRate > 0 {
             let formatted = formatSampleRate(sampleRate)
-            items.append(("Sample Rate", formatted))
+            items.append((String(localized: "Sample Rate"), formatted))
         }
 
         if let bitDepth = fullTrack.bitDepth, bitDepth > 0 {
-            items.append(("Bit Depth", "\(bitDepth)-bit"))
+            items.append((String(localized: "Bit Depth"), String(localized: "\(bitDepth)-bit")))
         }
 
         if let channels = fullTrack.channels, channels > 0 {
-            items.append(("Channels", formatChannels(channels)))
+            items.append((String(localized: "Channels"), formatChannels(channels)))
         }
 
         // File info
         if let fileSize = fullTrack.fileSize, fileSize > 0 {
-            items.append(("File Size", formatFileSize(fileSize)))
+            items.append((String(localized: "File Size"), formatFileSize(fileSize)))
         }
 
         // File path
-        items.append(("File Path", fullTrack.url.path))
+        items.append((String(localized: "File Path"), fullTrack.url.path))
 
         // Dates
         if let dateAdded = fullTrack.dateAdded {
-            items.append(("Date Added", formatDate(dateAdded)))
+            items.append((String(localized: "Date Added"), formatDate(dateAdded)))
         }
 
         if let dateModified = fullTrack.dateModified {
-            items.append(("Date Modified", formatDate(dateModified)))
+            items.append((String(localized: "Date Modified"), formatDate(dateModified)))
         }
 
         // Media Type
         if let mediaType = fullTrack.mediaType, !mediaType.isEmpty {
-            items.append(("Media Type", mediaType))
+            items.append((String(localized: "Media Type"), mediaType))
         }
 
         return items
@@ -546,12 +546,12 @@ private struct FileDetailsSection: View {
 
     private func formatChannels(_ channels: Int) -> String {
         switch channels {
-        case 1: return "Mono"
-        case 2: return "Stereo"
-        case 4: return "Quadraphonic"
-        case 6: return "5.1 Surround"
-        case 8: return "7.1 Surround"
-        default: return "\(channels) channels"
+        case 1: return String(localized: "Mono")
+        case 2: return String(localized: "Stereo")
+        case 4: return String(localized: "Quadraphonic")
+        case 6: return String(localized: "5.1 Surround")
+        case 8: return String(localized: "7.1 Surround")
+        default: return String(localized: "\(channels) channels")
         }
     }
 

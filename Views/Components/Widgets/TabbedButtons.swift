@@ -139,7 +139,7 @@ private struct TabbedButton<Item: TabbedItem>: View {
                 }
 
                 if style.showTitle {
-                    Text(item.title)
+                    Text(LocalizedStringKey(item.title))
                         .font(.system(size: style.textSize, weight: .medium))
                         .foregroundColor(foregroundColor)
                         .animation(
@@ -170,7 +170,7 @@ private struct TabbedButton<Item: TabbedItem>: View {
             }
         }
         .if(item.tooltip != nil) { view in
-            view.help(item.tooltip!)
+            view.help(LocalizedStringKey(item.tooltip!))
         }
     }
 

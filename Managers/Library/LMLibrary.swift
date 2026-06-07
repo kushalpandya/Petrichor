@@ -209,7 +209,7 @@ extension LibraryManager {
 
             // Start activity before processing
             await MainActor.run {
-                NotificationManager.shared.startActivity("Refreshing \(foldersToRefresh.count) folder\(foldersToRefresh.count == 1 ? "" : "s")...")
+                NotificationManager.shared.startActivity(String(localized: "Refreshing \(foldersToRefresh.count) folder\(foldersToRefresh.count == 1 ? "" : "s")..."))
             }
 
             // Process folders
@@ -266,19 +266,19 @@ extension LibraryManager {
                 if !refreshedFolders.isEmpty {
                     let message: String
                     if refreshedFolders.count == 1 {
-                        message = "Folder '\(refreshedFolders[0])' was refreshed for changes"
+                        message = String(localized: "Folder '\(refreshedFolders[0])' was refreshed for changes")
                     } else if refreshedFolders.count <= 3 {
-                        message = "Folders \(refreshedFolders.joined(separator: ", ")) were refreshed for changes"
+                        message = String(localized: "Folders \(refreshedFolders.joined(separator: ", ")) were refreshed for changes")
                     } else {
-                        message = "\(refreshedFolders.count) folders were refreshed for changes"
+                        message = String(localized: "\(refreshedFolders.count) folders were refreshed for changes")
                     }
                     NotificationManager.shared.addMessage(.info, message)
                 }
                 
                 if !errorFolders.isEmpty {
                     let message = errorFolders.count == 1
-                        ? "Failed to refresh folder '\(errorFolders[0])'"
-                        : "Failed to refresh \(errorFolders.count) folders"
+                        ? String(localized: "Failed to refresh folder '\(errorFolders[0])'")
+                        : String(localized: "Failed to refresh \(errorFolders.count) folders")
                     NotificationManager.shared.addMessage(.error, message)
                 }
             }

@@ -20,7 +20,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     func applicationWillFinishLaunching(_ notification: Notification) {
         // Register UserDefaults with default settings
         AppDelegate.registerUserDefaultsDefaults()
-        
+
+        // Apply the selected language very early, before any windows are shown,
+        // so bundle-based localized lookups resolve correctly from launch.
+        LocalizationManager.shared.applyLanguage()
+
         // Apply color mode very early, before any windows are shown
         let colorMode = UserDefaults.standard.string(forKey: "colorMode") ?? "auto"
         

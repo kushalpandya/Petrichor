@@ -215,9 +215,9 @@ struct ExportPlaylistsSheet: View {
         let playlistsToExport = exportablePlaylists.filter { selectedPlaylistIds.contains($0.id) }
         
         let panel = NSOpenPanel()
-        panel.title = "Export Playlists"
-        panel.message = "Choose where to save \(playlistsToExport.count) playlist file\(playlistsToExport.count == 1 ? "" : "s")"
-        panel.prompt = "Export"
+        panel.title = String(localized: "Export Playlists")
+        panel.message = String(localized: "Choose where to save \(playlistsToExport.count) playlist file\(playlistsToExport.count == 1 ? "" : "s")")
+        panel.prompt = String(localized: "Export")
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.canCreateDirectories = true
@@ -227,7 +227,7 @@ struct ExportPlaylistsSheet: View {
             guard response == .OK, let directoryURL = panel.url else { return }
             
             isPresented = false
-            NotificationManager.shared.startActivity("Exporting playlists...")
+            NotificationManager.shared.startActivity(String(localized: "Exporting playlists..."))
             
             Task {
                 let result = await playlistManager.exportPlaylists(playlistsToExport, to: directoryURL)
@@ -248,16 +248,16 @@ struct ExportPlaylistsSheet: View {
         var notifications: [(type: NotificationType, message: String)] = []
         
         for (playlistName, error) in result.failed {
-            notifications.append((.error, "Failed to export '\(playlistName)': \(error.localizedDescription)"))
+            notifications.append((.error, String(localized: "Failed to export '\(playlistName)': \(error.localizedDescription)")))
         }
-        
+
         if result.successful > 0 {
-            let message = "Exported \(result.successful) \(pluralize(result.successful, singular: "playlist")) to \(directory.lastPathComponent)"
+            let message = String(localized: "Exported \(result.successful) \(pluralize(result.successful, singular: "playlist")) to \(directory.lastPathComponent)")
             notifications.append((.info, message))
         }
-        
+
         if result.totalPlaylists > 0 && result.successful == 0 {
-            let message = "Failed to export all \(result.totalPlaylists) \(pluralize(result.totalPlaylists, singular: "playlist"))"
+            let message = String(localized: "Failed to export all \(result.totalPlaylists) \(pluralize(result.totalPlaylists, singular: "playlist"))")
             notifications.append((.error, message))
         }
         

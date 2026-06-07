@@ -349,9 +349,9 @@ struct PlaylistDetailView: View {
 
         switch playlist.type {
         case .smart:
-            return "SMART PLAYLIST"
+            return String(localized: "SMART PLAYLIST")
         case .regular:
-            return "PLAYLIST"
+            return String(localized: "PLAYLIST")
         }
     }
 

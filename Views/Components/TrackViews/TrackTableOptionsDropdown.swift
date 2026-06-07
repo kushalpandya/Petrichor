@@ -19,19 +19,19 @@ enum TrackSortField: String, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .trackNumber: return "Track number (#)"
-        case .discNumber: return "Disc number"
-        case .favorite: return "Favorite"
-        case .title: return "Title"
-        case .artist: return "Artist"
-        case .album: return "Album"
-        case .genre: return "Genre"
-        case .year: return "Year"
-        case .composer: return "Composer"
-        case .filename: return "Filename"
-        case .duration: return "Duration"
-        case .dateAdded: return "Date added"
-        case .custom: return "Custom"
+        case .trackNumber: return String(localized: "Track number (#)")
+        case .discNumber: return String(localized: "Disc number")
+        case .favorite: return String(localized: "Favorite")
+        case .title: return String(localized: "Title")
+        case .artist: return String(localized: "Artist")
+        case .album: return String(localized: "Album")
+        case .genre: return String(localized: "Genre")
+        case .year: return String(localized: "Year")
+        case .composer: return String(localized: "Composer")
+        case .filename: return String(localized: "Filename")
+        case .duration: return String(localized: "Duration")
+        case .dateAdded: return String(localized: "Date added")
+        case .custom: return String(localized: "Custom")
         }
     }
 

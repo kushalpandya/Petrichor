@@ -23,6 +23,8 @@ struct GeneralTabView: View {
     @AppStorage("useArtworkColors")
     private var useArtworkColors = true
 
+    @ObservedObject private var localizationManager = LocalizationManager.shared
+
     enum ColorMode: String, CaseIterable, TabbedItem {
         case light = "Light"
         case dark = "Dark"
@@ -87,6 +89,15 @@ struct GeneralTabView: View {
 
                 Toggle("Use album artwork colors in backgrounds", isOn: $useArtworkColors)
                     .help("Applies a gradient background derived from album artwork colors across the app")
+            }
+
+            Section("Language") {
+                Picker("App language", selection: $localizationManager.currentLanguage) {
+                    ForEach(AppLanguage.allCases) { language in
+                        Text(language.displayNameKey).tag(language)
+                    }
+                }
+                .help("Changes the language used throughout the app")
             }
         }
         .formStyle(.grouped)

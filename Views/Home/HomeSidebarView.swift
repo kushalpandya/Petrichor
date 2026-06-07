@@ -157,7 +157,7 @@ struct HomeSidebarView: View {
     private func createContextMenuItems(for item: HomeSidebarItem) -> [ContextMenuItem] {
         if case .pinned(let pinnedItem) = item.source {
             return [
-                .button(title: "Remove from Home", role: nil) {
+                .button(title: String(localized: "Remove from Home"), role: nil) {
                     Task {
                         await libraryManager.removePinnedItem(pinnedItem)
                     }

@@ -62,7 +62,7 @@ struct AboutTabView: View {
                 .font(.subheadline)
                 .foregroundColor(.secondary)
 
-            Text(About.appSubtitle)
+            Text(String(localized: "An offline macOS music player"))
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
