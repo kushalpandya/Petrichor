@@ -30,9 +30,7 @@ struct SettingsView: View {
             switch self {
             case .general: return Icons.settings
             case .library: return Icons.customMusicNoteRectangleStack
-            // Keep the same globe symbol in both states so the tab doesn't
-            // change glyph (and width) between selected/unselected.
-            case .online: return Icons.globe
+            case .online: return Icons.globeFill
             case .about: return Icons.infoCircleFill
             }
         }

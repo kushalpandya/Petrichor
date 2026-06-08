@@ -341,7 +341,9 @@ struct TabbedButtonStyle {
         verticalPadding: 4,
         contentShapeRadius: 6,
         backgroundViewRadius: 6,
-        expandButtons: true
+        // Each button sizes to its own label (with consistent horizontal
+        // padding) instead of all sharing an equal width.
+        expandButtons: false
     )
 
     static let viewToggle = TabbedButtonStyle(

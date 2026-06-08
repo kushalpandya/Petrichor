@@ -81,7 +81,6 @@ struct GeneralTabView: View {
                         selection: $colorMode,
                         style: .flexible
                     )
-                    .frame(minWidth: 200)
                 }
 
                 Toggle("Show folders tab in main window", isOn: $showFoldersTab)
