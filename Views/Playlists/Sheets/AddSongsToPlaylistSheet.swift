@@ -31,7 +31,12 @@ struct AddSongsToPlaylistSheet: View {
         case dateAdded = "Date Added"
 
         var displayName: String {
-            String(localized: rawValue)
+            switch self {
+            case .title: return String(localized: "Title")
+            case .artist: return String(localized: "Artist")
+            case .album: return String(localized: "Album")
+            case .dateAdded: return String(localized: "Date Added")
+            }
         }
     }
 
