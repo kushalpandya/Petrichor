@@ -50,9 +50,15 @@ struct TabbedButtons<Item: TabbedItem>: View {
         self.isDisabled = isDisabled
     }
 
+    // Tracks each button's measured frame so the moving highlight and layout
+    // adapt to content-sized buttons (important for longer localized labels).
+    @State private var buttonFrames: [Int: CGRect] = [:]
+
+    private var selectedIndex: Int { items.firstIndex(of: selection) ?? 0 }
+
     var body: some View {
         HStack(spacing: 1) {
-            ForEach(Array(items.enumerated()), id: \.element) { _, item in
+            ForEach(Array(items.enumerated()), id: \.element) { index, item in
                 TabbedButton(
                     item: item,
                     isSelected: selection == item,
@@ -64,47 +70,50 @@ struct TabbedButtons<Item: TabbedItem>: View {
                         selection = item
                     }
                 }
+                .background(
+                    GeometryReader { geometry in
+                        Color.clear.preference(
+                            key: TabButtonFramePreferenceKey.self,
+                            value: [index: geometry.frame(in: .named(tabbedButtonsCoordinateSpace))]
+                        )
+                    }
+                )
             }
         }
         .padding(4)
         .background(
-            ZStack {
+            ZStack(alignment: .topLeading) {
                 if style != .modern {
                     // Container background
                     RoundedRectangle(cornerRadius: style == .moderncompact ? 16 : 8)
                         .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
                 }
 
-                // Moving background for transform animation
-                if animation == .transform {
-                    movingBackground
+                // Moving highlight for transform animation, tracking the
+                // selected button's actual (content-sized) frame.
+                if animation == .transform, let frame = buttonFrames[selectedIndex] {
+                    RoundedRectangle(cornerRadius: style.backgroundViewRadius ?? 8)
+                        .fill(Color.accentColor)
+                        .frame(width: frame.width, height: frame.height)
+                        .offset(x: frame.minX, y: frame.minY)
+                        .animation(.easeInOut(duration: AnimationConstants.transformDuration), value: selectedIndex)
                 }
             }
         )
+        .coordinateSpace(name: tabbedButtonsCoordinateSpace)
+        .onPreferenceChange(TabButtonFramePreferenceKey.self) { buttonFrames = $0 }
         .opacity(isDisabled ? 0.5 : 1.0)
     }
+}
 
-    @ViewBuilder
-    private var movingBackground: some View {
-        if let selectedIndex = items.firstIndex(of: selection) {
-            GeometryReader { geometry in
-                let totalWidth = geometry.size.width - 8 // Account for padding
-                let buttonWidth = totalWidth / CGFloat(items.count)
-                let xOffset = CGFloat(selectedIndex) * buttonWidth + 4 // Account for padding
+// Shared coordinate-space name for measuring tab button frames.
+private let tabbedButtonsCoordinateSpace = "TabbedButtonsContainer"
 
-                RoundedRectangle(cornerRadius: style.backgroundViewRadius ?? 8)
-                    .fill(Color.accentColor)
-                    .frame(
-                        width: buttonWidth - 1, // Account for spacing
-                        height: geometry.size.height - 8 // Account for padding
-                    )
-                    .position(
-                        x: xOffset + (buttonWidth - 1) / 2,
-                        y: geometry.size.height / 2
-                    )
-                    .animation(.easeInOut(duration: AnimationConstants.transformDuration), value: selectedIndex)
-            }
-        }
+// MARK: - Button Frame Preference
+private struct TabButtonFramePreferenceKey: PreferenceKey {
+    static let defaultValue: [Int: CGRect] = [:]
+    static func reduce(value: inout [Int: CGRect], nextValue: () -> [Int: CGRect]) {
+        value.merge(nextValue()) { _, new in new }
     }
 }
 
@@ -142,6 +151,8 @@ private struct TabbedButton<Item: TabbedItem>: View {
                     Text(LocalizedStringKey(item.title))
                         .font(.system(size: style.textSize, weight: .medium))
                         .foregroundColor(foregroundColor)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
                         .animation(
                             .easeInOut(duration: AnimationConstants.transformDuration)
                                 .delay(animation == .transform && isSelected
@@ -153,7 +164,7 @@ private struct TabbedButton<Item: TabbedItem>: View {
             }
             .frame(
                 minWidth: style.buttonWidth,
-                maxWidth: style.expandButtons ? .infinity : style.buttonWidth,
+                maxWidth: style.expandButtons ? .infinity : nil,
                 minHeight: style.buttonHeight,
                 maxHeight: style.buttonHeight
             )

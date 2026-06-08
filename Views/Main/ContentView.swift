@@ -404,7 +404,8 @@ struct ContentView: View {
 
     private func showImportNotifications(result: BulkImportResult) {
         func pluralize(_ count: Int, singular: String) -> String {
-            count == 1 ? singular : "\(singular)s"
+            // Localize the (English) noun so it appears translated in the message.
+            NSLocalizedString(count == 1 ? singular : "\(singular)s", comment: "Pluralized noun")
         }
         
         var notifications: [(type: NotificationType, message: String)] = []

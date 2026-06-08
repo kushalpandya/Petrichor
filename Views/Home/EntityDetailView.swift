@@ -336,7 +336,7 @@ struct EntityDetailView: View {
     ) -> some View {
         HStack {
             leading()
-            statText(String(localized: "\(tracks.count) \(tracks.count == 1 ? "song" : "songs")"))
+            statText(tracks.count == 1 ? String(localized: "\(tracks.count) song") : String(localized: "\(tracks.count) songs"))
             if !tracks.isEmpty {
                 statDot
                 statText(formattedTotalDuration)

@@ -222,7 +222,7 @@ private struct EntityGridItem<T: Entity>: View {
                 }
 
                 if entity is AlbumEntity {
-                    Text("\(entity.trackCount) \(entity.trackCount == 1 ? "song" : "songs")")
+                    Text(entity.trackCount == 1 ? String(localized: "\(entity.trackCount) song") : String(localized: "\(entity.trackCount) songs"))
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                         .lineLimit(1)

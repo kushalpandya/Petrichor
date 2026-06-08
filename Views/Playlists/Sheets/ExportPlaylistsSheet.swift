@@ -148,7 +148,7 @@ struct ExportPlaylistsSheet: View {
                     .font(.body)
                     .lineLimit(1)
                 
-                Text("\(playlist.trackCount) \(playlist.trackCount == 1 ? "track" : "tracks")")
+                Text(playlist.trackCount == 1 ? String(localized: "\(playlist.trackCount) track") : String(localized: "\(playlist.trackCount) tracks"))
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -242,7 +242,8 @@ struct ExportPlaylistsSheet: View {
     
     private func showExportNotifications(result: BulkExportResult, directory: URL) {
         func pluralize(_ count: Int, singular: String) -> String {
-            count == 1 ? singular : "\(singular)s"
+            // Localize the (English) noun so it appears translated in the message.
+            NSLocalizedString(count == 1 ? singular : "\(singular)s", comment: "Pluralized noun")
         }
         
         var notifications: [(type: NotificationType, message: String)] = []

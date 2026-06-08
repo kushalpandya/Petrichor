@@ -1,6 +1,7 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "": {},
     " of %lld": {
       "comment": "TrackDetailView track/disc number suffix, e.g. '5 of 12' — the ' of N' part (wrapped with String(localized:))",
       "localizations": {
@@ -34,6 +35,17 @@
         }
       }
     },
+    "%@ • %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ • %2$@"
+          }
+        }
+      }
+    },
+    "%lld": {},
     "%lld %@": {
       "comment": "Track count stat line; %lld is the count, %@ is 'song' or 'songs'",
       "localizations": {
@@ -267,6 +279,7 @@
     },
     "%lld song": {
       "comment": "ArtistEntity and CategoryEntity subtitle — singular form of track count shown in entity grid (e.g. '1 song'). Part of ternary pattern: trackCount == 1 ? 'song' : 'songs'",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -331,6 +344,16 @@
         }
       }
     },
+    "%lld track": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld morceau"
+          }
+        }
+      }
+    },
     "%lld tracks": {
       "comment": "Track count label in folder row in LibraryTabView (Text concatenation: Text(\"\\(trackCount)\") + Text(\" tracks\"))",
       "localizations": {
@@ -355,6 +378,7 @@
     },
     "%lld%": {
       "comment": "PlayerView volume percentage label shown while dragging (Text with Int interpolation, auto-localizes)",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -364,6 +388,7 @@
         }
       }
     },
+    "%lld%%": {},
     "%lld-bit": {
       "comment": "TrackDetailView file details bit depth value, e.g. '24-bit' (wrapped with String(localized:))",
       "localizations": {
@@ -375,6 +400,7 @@
         }
       }
     },
+    "(%@)": {},
     "(%lld already in playlist)": {
       "comment": "Secondary label next to select-all in AddSongsToPlaylistSheet; %lld is the count already in the playlist",
       "localizations": {
@@ -386,6 +412,7 @@
         }
       }
     },
+    "+%lld": {},
     "+12 dB": {
       "comment": "EQ scale label in EqualizerView",
       "localizations": {
@@ -397,6 +424,7 @@
         }
       }
     },
+    "-%lld": {},
     "-12 dB": {
       "comment": "EQ scale label in EqualizerView",
       "localizations": {
@@ -531,6 +559,7 @@
     },
     "About": {
       "comment": "Settings tab title (SettingsTab rawValue, displayed via TabbedButtons)",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -553,6 +582,7 @@
     },
     "Acknowledgements": {
       "comment": "FooterLink title for acknowledgements section in AboutTabView",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -850,6 +880,7 @@
     },
     "App Data": {
       "comment": "FooterLink title in AboutTabView",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -1004,6 +1035,7 @@
     },
     "Auto": {
       "comment": "ColorMode.auto rawValue displayed via TabbedButtons",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -1466,6 +1498,7 @@
     },
     "Daily": {
       "comment": "DiscoverUpdateInterval.daily rawValue/displayName (rawValue-as-label, not edited)",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -1488,6 +1521,7 @@
     },
     "Dark": {
       "comment": "ColorMode.dark rawValue displayed via TabbedButtons",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -1906,6 +1940,7 @@
     },
     "Every 2 weeks": {
       "comment": "DiscoverUpdateInterval.biweekly rawValue/displayName (rawValue-as-label, not edited)",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -1939,6 +1974,7 @@
     },
     "Every month": {
       "comment": "DiscoverUpdateInterval.monthly rawValue/displayName (rawValue-as-label, not edited)",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -1950,6 +1986,7 @@
     },
     "Every week": {
       "comment": "DiscoverUpdateInterval.weekly rawValue/displayName (rawValue-as-label, not edited)",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -2082,6 +2119,7 @@
     },
     "Failed to import all %lld %@": {
       "comment": "Error notification when all playlist imports fail: %lld = file count, %@ = 'playlist'/'playlists'. Built by pluralize() helper (ContentView showImportNotifications).",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -2445,6 +2483,7 @@
     },
     "General": {
       "comment": "Settings tab title (SettingsTab rawValue, displayed via TabbedButtons)",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -2478,6 +2517,7 @@
     },
     "Help": {
       "comment": "FooterLink title in AboutTabView",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -2588,6 +2628,7 @@
     },
     "Imported %lld %@ with %lld missing %@": {
       "comment": "Warning notification after partial import: first %lld = playlist count, first %@ = 'playlist'/'playlists', second %lld = missing track count, second %@ = 'track'/'tracks'. Note: pluralization is handled by a local pluralize() helper; this key represents the runtime-constructed string (ContentView showImportNotifications). This string uses the multi-line builder and cannot be straightforwardly wrapped without refactoring the pluralize logic.",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -2830,6 +2871,7 @@
     },
     "License": {
       "comment": "FooterLink title in AboutTabView",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -2841,6 +2883,7 @@
     },
     "Light": {
       "comment": "ColorMode.light rawValue displayed via TabbedButtons",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -2995,6 +3038,7 @@
     },
     "MusicBrainz": {
       "comment": "Tooltip for MusicBrainz acknowledgement logo in AboutTabView",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -3369,6 +3413,7 @@
     },
     "Online": {
       "comment": "Settings tab title (SettingsTab rawValue, displayed via TabbedButtons)",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -3572,6 +3617,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Lecture/Pause"
+          }
+        }
+      }
+    },
+    "Playback": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lecture"
           }
         }
       }
@@ -4689,6 +4744,7 @@
     },
     "Show app data directory in Finder": {
       "comment": "Tooltip for App Data footer link in AboutTabView",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -4898,6 +4954,7 @@
     },
     "Successfully imported %lld %@ (%lld %@)": {
       "comment": "Info notification after successful import: first %lld = successful count, first %@ = 'playlist'/'playlists', second %lld = total tracks imported, second %@ = 'track'/'tracks'. Built by pluralize() helper (ContentView showImportNotifications).",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -4964,6 +5021,7 @@
     },
     "The Movie Database": {
       "comment": "Tooltip for TMDB acknowledgement logo in AboutTabView",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -5206,6 +5264,7 @@
     },
     "View data source acknowledgements": {
       "comment": "Tooltip for Acknowledgements footer link in AboutTabView",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -5217,6 +5276,7 @@
     },
     "View third-party licenses and acknowledgements": {
       "comment": "Tooltip for License footer link in AboutTabView",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -5228,6 +5288,7 @@
     },
     "Visit Help Wiki": {
       "comment": "Tooltip for Help footer link in AboutTabView",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -5239,6 +5300,7 @@
     },
     "Visit project website": {
       "comment": "Tooltip for Website footer link in AboutTabView",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -5294,6 +5356,7 @@
     },
     "Website": {
       "comment": "FooterLink title in AboutTabView",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -5305,6 +5368,7 @@
     },
     "Wikimedia": {
       "comment": "Tooltip for Wikidata acknowledgement logo in AboutTabView",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -5437,6 +5501,7 @@
     },
     "ascending": {
       "comment": "LibrarySidebarView sort direction used in the 'Sort %@' tooltip",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -5448,6 +5513,7 @@
     },
     "descending": {
       "comment": "LibrarySidebarView sort direction used in the 'Sort %@' tooltip",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -5470,6 +5536,7 @@
     },
     "playlist": {
       "comment": "Singular form used by pluralize() helper in ExportPlaylistsSheet export notifications",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -5481,6 +5548,7 @@
     },
     "playlists": {
       "comment": "Plural form produced by pluralize() helper (appends 's' to singular) in ExportPlaylistsSheet export notifications",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -5492,6 +5560,7 @@
     },
     "track": {
       "comment": "Singular unit in playlist row track count (ExportPlaylistsSheet); part of '%lld track/tracks'",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -5503,6 +5572,7 @@
     },
     "tracks": {
       "comment": "Plural unit in playlist row track count (ExportPlaylistsSheet)",
+      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -5512,6 +5582,7 @@
         }
       }
     },
+    "•": {},
     "⌘ + Click for deep refresh (re-scans all metadata)": {
       "comment": "Tooltip for folder refresh button when ⌘ held in LibraryTabView",
       "localizations": {

@@ -115,7 +115,7 @@ struct HomeSidebarItem: SidebarItem {
         self.type = nil
         self.source = .pinned(pinnedItem)
         self.title = pinnedItem.displayName
-        self.subtitle = String(localized: "\(trackCount) \(trackCount == 1 ? "song" : "songs")")
+        self.subtitle = trackCount == 1 ? String(localized: "\(trackCount) song") : String(localized: "\(trackCount) songs")
         self.icon = HomeSidebarItem.deriveIcon(for: pinnedItem, playlist: playlist)
     }
 
@@ -164,7 +164,7 @@ struct LibrarySidebarItem: SidebarItem {
     init(filterItem: LibraryFilterItem) {
         self.id = filterItem.id
         self.title = filterItem.name
-        self.subtitle = String(localized: "\(filterItem.count) \(filterItem.count == 1 ? "song" : "songs")")
+        self.subtitle = filterItem.count == 1 ? String(localized: "\(filterItem.count) song") : String(localized: "\(filterItem.count) songs")
         self.icon = Self.getIcon(for: filterItem.filterType, isAllItem: false)
         self.count = nil
         self.filterType = filterItem.filterType
@@ -175,7 +175,7 @@ struct LibrarySidebarItem: SidebarItem {
     init(allItemFor filterType: LibraryFilterType, count: Int) {
         self.id = UUID(uuidString: "00000000-0000-0000-0000-\(String(format: "%012d", filterType.stableIndex))") ?? UUID()
         self.title = String(localized: "All \(filterType.rawValue)")
-        self.subtitle = String(localized: "\(count) \(count == 1 ? "song" : "songs")")
+        self.subtitle = count == 1 ? String(localized: "\(count) song") : String(localized: "\(count) songs")
         self.icon = Self.getIcon(for: filterType, isAllItem: true)
         self.count = nil
         self.filterType = filterType

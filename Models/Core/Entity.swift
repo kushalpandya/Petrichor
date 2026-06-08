@@ -47,7 +47,7 @@ struct ArtistEntity: Entity {
     let artworkData: Data?
 
     var subtitle: String? {
-        String(localized: "\(trackCount) \(trackCount == 1 ? "song" : "songs")")
+        trackCount == 1 ? String(localized: "\(trackCount) song") : String(localized: "\(trackCount) songs")
     }
 
     init(name: String, tracks: [Track]) {
@@ -143,7 +143,7 @@ struct CategoryEntity: Entity {
     private static var generatedArtworkCache = NSCache<NSString, NSData>()
 
     var subtitle: String? {
-        String(localized: "\(trackCount) \(trackCount == 1 ? "song" : "songs")")
+        trackCount == 1 ? String(localized: "\(trackCount) song") : String(localized: "\(trackCount) songs")
     }
 
     init(name: String, trackCount: Int, filterType: LibraryFilterType) {

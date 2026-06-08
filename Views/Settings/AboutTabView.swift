@@ -84,27 +84,27 @@ struct AboutTabView: View {
         HStack(spacing: 30) {
             statisticItem(
                 value: "\(libraryManager.folders.count)",
-                label: "Folders"
+                label: String(localized: "Folders")
             )
 
             statisticItem(
                 value: "\(libraryManager.totalTrackCount)",
-                label: "Tracks"
+                label: String(localized: "Tracks")
             )
 
             statisticItem(
                 value: "\(libraryManager.artistCount)",
-                label: "Artists"
+                label: String(localized: "Artists")
             )
 
             statisticItem(
                 value: "\(libraryManager.albumCount)",
-                label: "Albums"
+                label: String(localized: "Albums")
             )
 
             statisticItem(
                 value: formatTotalDuration(),
-                label: "Duration"
+                label: String(localized: "Duration")
             )
         }
         .padding()
@@ -129,13 +129,13 @@ struct AboutTabView: View {
         VStack(spacing: 8) {
             FooterLink(
                 icon: "heart.fill",
-                title: "Acknowledgements",
+                title: String(localized: "Acknowledgements"),
                 action: {
                     withAnimation(.easeInOut(duration: AnimationDuration.mediumDuration)) {
                         isAcknowledgementsExpanded.toggle()
                     }
                 },
-                tooltip: "View data source acknowledgements"
+                tooltip: String(localized: "View data source acknowledgements")
             )
 
             if isAcknowledgementsExpanded {
@@ -173,28 +173,28 @@ struct AboutTabView: View {
         HStack(spacing: 20) {
             FooterLink(
                 icon: "globe",
-                title: "Website",
+                title: String(localized: "Website"),
                 url: URL(string: About.appWebsite)!,
-                tooltip: "Visit project website"
+                tooltip: String(localized: "Visit project website")
             )
-            
+
             FooterLink(
                 icon: "questionmark.circle",
-                title: "Help",
+                title: String(localized: "Help"),
                 url: URL(string: About.appWiki)!,
-                tooltip: "Visit Help Wiki"
+                tooltip: String(localized: "Visit Help Wiki")
             )
-            
+
             FooterLink(
                 icon: "doc.text",
-                title: "License",
+                title: String(localized: "License"),
                 url: URL(string: About.appAcknowledgements)!,
-                tooltip: "View third-party licenses and acknowledgements"
+                tooltip: String(localized: "View third-party licenses and acknowledgements")
             )
-            
+
             FooterLink(
                 icon: "folder",
-                title: "App Data",
+                title: String(localized: "App Data"),
                 action: {
                     let appDataURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
                         .appendingPathComponent(Bundle.main.bundleIdentifier ?? About.bundleIdentifier)
@@ -203,7 +203,7 @@ struct AboutTabView: View {
                         NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: url.path)
                     }
                 },
-                tooltip: "Show app data directory in Finder"
+                tooltip: String(localized: "Show app data directory in Finder")
             )
         }
     }

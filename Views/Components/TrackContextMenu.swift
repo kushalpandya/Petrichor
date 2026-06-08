@@ -411,7 +411,7 @@ struct ContextMenuItemView: View {
                         Image(systemName: icon)
                             .frame(width: 16)
                     }
-                    Text(item.title)
+                    Text(LocalizedStringKey(item.title))
                     Spacer()
                 }
             }
@@ -428,7 +428,7 @@ struct ContextMenuItemView: View {
                         Image(systemName: icon)
                             .frame(width: 16)
                     }
-                    Text(item.title)
+                    Text(LocalizedStringKey(item.title))
                     Spacer()
                 }
             }
