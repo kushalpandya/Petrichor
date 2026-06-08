@@ -6,8 +6,8 @@ enum TableRowSize: String, CaseIterable, Codable {
     
     var displayName: String {
         switch self {
-        case .expanded: return "Expanded"
-        case .compact: return "Compact"
+        case .expanded: return String(localized: "Expanded")
+        case .compact: return String(localized: "Compact")
         }
     }
     

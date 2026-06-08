@@ -116,8 +116,8 @@ struct LibraryTabView: View {
                 Task {
                     await MainActor.run {
                         let message = folders.count == 1
-                            ? "Removing folder '\(folders[0].name)'..."
-                            : "Removing \(folders.count) folders..."
+                            ? String(localized: "Removing folder '\(folders[0].name)'...")
+                            : String(localized: "Removing \(folders.count) folders...")
                         NotificationManager.shared.startActivity(message)
                     }
 
@@ -130,8 +130,8 @@ struct LibraryTabView: View {
 
                     await MainActor.run {
                         let message = folders.count == 1
-                            ? "Removed folder '\(folders[0].name)'"
-                            : "Removed \(folders.count) folders"
+                            ? String(localized: "Removed folder '\(folders[0].name)'")
+                            : String(localized: "Removed \(folders.count) folders")
                         NotificationManager.shared.addMessage(.info, message)
 
                         selectedFolderIDs.removeAll()
@@ -155,7 +155,7 @@ struct LibraryTabView: View {
     private var refreshRow: some View {
         HStack {
             Text("Refresh added library folders for updates")
-            infoButton(isPresented: $showRefreshInfo, text: "Hold the ⌘ key while clicking Refresh for a forced deep re-scan of all metadata.")
+            infoButton(isPresented: $showRefreshInfo, text: String(localized: "Hold the ⌘ key while clicking Refresh for a forced deep re-scan of all metadata."))
 
             Spacer()
 
@@ -247,7 +247,7 @@ struct LibraryTabView: View {
     private var optimizeRow: some View {
         HStack {
             Text("Optimize library database")
-            infoButton(isPresented: $showOptimizeInfo, text: "Removes references to library data that no longer exists on disk and compacts the database to reclaim space.")
+            infoButton(isPresented: $showOptimizeInfo, text: String(localized: "Removes references to library data that no longer exists on disk and compacts the database to reclaim space."))
 
             Spacer()
 
@@ -261,7 +261,7 @@ struct LibraryTabView: View {
     private var resetRow: some View {
         HStack {
             Text("Reset all library data")
-            infoButton(isPresented: $showResetInfo, text: "Removes all folders, tracks, playlists, and pinned items. Use the checkbox in the confirmation dialog to optionally reset app preferences.")
+            infoButton(isPresented: $showResetInfo, text: String(localized: "Removes all folders, tracks, playlists, and pinned items. Use the checkbox in the confirmation dialog to optionally reset app preferences."))
 
             Spacer()
 
@@ -426,11 +426,11 @@ struct LibraryTabView: View {
 
     private func showRestartAlert() {
         let alert = NSAlert()
-        alert.messageText = "Restart Required"
-        alert.informativeText = "App preferences have been reset. Please restart Petrichor for changes to take full effect."
+        alert.messageText = String(localized: "Restart Required")
+        alert.informativeText = String(localized: "App preferences have been reset. Please restart Petrichor for changes to take full effect.")
         alert.alertStyle = .informational
-        alert.addButton(withTitle: "Quit Now")
-        alert.addButton(withTitle: "Later")
+        alert.addButton(withTitle: String(localized: "Quit Now"))
+        alert.addButton(withTitle: String(localized: "Later"))
 
         if alert.runModal() == .alertFirstButtonReturn {
             exit(0)
@@ -439,18 +439,18 @@ struct LibraryTabView: View {
 
     private func showResetConfirmation() {
         let alert = NSAlert()
-        alert.messageText = "Reset Library Data"
-        alert.informativeText = "This will permanently remove all library data, including added folders, tracks, playlists, and pinned items. This action cannot be undone."
+        alert.messageText = String(localized: "Reset Library Data")
+        alert.informativeText = String(localized: "This will permanently remove all library data, including added folders, tracks, playlists, and pinned items. This action cannot be undone.")
         alert.alertStyle = .critical
         alert.icon = nil
 
-        let resetButton = alert.addButton(withTitle: "Reset All Data")
+        let resetButton = alert.addButton(withTitle: String(localized: "Reset All Data"))
         resetButton.hasDestructiveAction = true
 
-        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: String(localized: "Cancel"))
 
         alert.showsSuppressionButton = true
-        alert.suppressionButton?.title = "Also reset app preferences"
+        alert.suppressionButton?.title = String(localized: "Also reset app preferences")
 
         let response = alert.runModal()
 

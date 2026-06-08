@@ -85,7 +85,8 @@ struct EqualizerView: View {
         }
         .pickerStyle(.menu)
         .labelsHidden()
-        .frame(width: 140)
+        .frame(minWidth: 140)
+        .fixedSize()
         .disabled(!isEnabled)
     }
 
@@ -132,7 +133,7 @@ struct EqualizerView: View {
                     playbackManager.setPreamp(newValue)
                 }
             ),
-            label: "Preamp"
+            label: String(localized: "Preamp")
         )
     }
 

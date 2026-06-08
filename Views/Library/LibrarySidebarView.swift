@@ -140,7 +140,7 @@ struct LibrarySidebarView: View {
             // Filter bar
             SearchInputField(
                 text: $searchText,
-                placeholder: "Filter \(selectedFilterType.rawValue.lowercased())...",
+                placeholder: String(localized: "Filter \(selectedFilterType.rawValue.lowercased())..."),
                 fontSize: 11
             )
 
@@ -154,7 +154,7 @@ struct LibrarySidebarView: View {
             }
             .buttonStyle(.borderless)
             .hoverEffect(scale: 1.1)
-            .help("Sort \(sortAscending ? "descending" : "ascending")")
+            .help(String(localized: "Sort \(sortAscending ? "descending" : "ascending")"))
         }
     }
 

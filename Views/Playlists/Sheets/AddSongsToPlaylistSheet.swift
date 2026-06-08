@@ -29,6 +29,15 @@ struct AddSongsToPlaylistSheet: View {
         case artist = "Artist"
         case album = "Album"
         case dateAdded = "Date Added"
+
+        var displayName: String {
+            switch self {
+            case .title: return String(localized: "Title")
+            case .artist: return String(localized: "Artist")
+            case .album: return String(localized: "Album")
+            case .dateAdded: return String(localized: "Date Added")
+            }
+        }
     }
 
     var body: some View {
@@ -220,12 +229,13 @@ struct AddSongsToPlaylistSheet: View {
             // Sort picker
             Picker("Sort by", selection: $sortOrder) {
                 ForEach(SortOrder.allCases, id: \.self) { order in
-                    Text(order.rawValue)
+                    Text(order.displayName)
                         .tag(order)
                 }
             }
             .pickerStyle(.menu)
-            .frame(width: 150)
+            .frame(minWidth: 150)
+            .fixedSize()
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
@@ -366,13 +376,13 @@ struct AddSongsToPlaylistSheet: View {
         let removeCount = tracksToRemove.count
 
         if addCount > 0 && removeCount > 0 {
-            return "\(addCount) to add, \(removeCount) to remove"
+            return String(localized: "\(addCount) to add, \(removeCount) to remove")
         } else if addCount > 0 {
-            return "\(addCount) song\(addCount == 1 ? "" : "s") to add"
+            return String(localized: "\(addCount) song\(addCount == 1 ? "" : "s") to add")
         } else if removeCount > 0 {
-            return "\(removeCount) song\(removeCount == 1 ? "" : "s") to remove"
+            return String(localized: "\(removeCount) song\(removeCount == 1 ? "" : "s") to remove")
         } else {
-            return "\(visibleTracks.count) song\(visibleTracks.count == 1 ? "" : "s")"
+            return String(localized: "\(visibleTracks.count) song\(visibleTracks.count == 1 ? "" : "s")")
         }
     }
 
@@ -381,13 +391,13 @@ struct AddSongsToPlaylistSheet: View {
         let removeCount = tracksToRemove.count
 
         if addCount > 0 && removeCount > 0 {
-            return "Apply Changes"
+            return String(localized: "Apply Changes")
         } else if addCount > 0 {
-            return "Add \(addCount) Song\(addCount == 1 ? "" : "s")"
+            return String(localized: "Add \(addCount) Song\(addCount == 1 ? "" : "s")")
         } else if removeCount > 0 {
-            return "Remove \(removeCount) Song\(removeCount == 1 ? "" : "s")"
+            return String(localized: "Remove \(removeCount) Song\(removeCount == 1 ? "" : "s")")
         } else {
-            return "Done"
+            return String(localized: "Done")
         }
     }
 

@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct PetrichorApp: App {
     @StateObject private var appCoordinator: AppCoordinator
+    @StateObject private var localizationManager = LocalizationManager.shared
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     init() {
@@ -26,6 +27,7 @@ struct PetrichorApp: App {
                 .environmentObject(appCoordinator.playbackManager.playbackProgressState)
                 .environmentObject(appCoordinator.libraryManager)
                 .environmentObject(appCoordinator.playlistManager)
+                .environmentObject(localizationManager)
                 .onReceive(appCoordinator.playlistManager.$repeatMode) { _ in
                     menuUpdateTrigger = UUID()
                 }
@@ -69,6 +71,7 @@ struct PetrichorApp: App {
         WindowGroup("Equalizer", id: "equalizer") {
             EqualizerView()
                 .environmentObject(appCoordinator.playbackManager)
+                .environmentObject(localizationManager)
         }
         .handlesExternalEvents(matching: [])
         .defaultSize(width: 500, height: 300)
@@ -662,9 +665,9 @@ struct PetrichorApp: App {
     
     private var repeatModeLabel: String {
         switch appCoordinator.playlistManager.repeatMode {
-        case .off: return "Repeat: Off"
-        case .one: return "Repeat: Current Track"
-        case .all: return "Repeat: All"
+        case .off: return String(localized: "Repeat: Off")
+        case .one: return String(localized: "Repeat: Current Track")
+        case .all: return String(localized: "Repeat: All")
         }
     }
 }

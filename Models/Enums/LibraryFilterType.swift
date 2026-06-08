@@ -49,13 +49,13 @@ enum LibraryFilterType: String, CaseIterable {
 
     var singularDisplayName: String {
         switch self {
-        case .artists: return "Artist"
-        case .albums: return "Album"
-        case .albumArtists: return "Album Artist"
-        case .composers: return "Composer"
-        case .genres: return "Genre"
-        case .decades: return "Decade"
-        case .years: return "Year"
+        case .artists: return String(localized: "Artist")
+        case .albums: return String(localized: "Album")
+        case .albumArtists: return String(localized: "Album Artist")
+        case .composers: return String(localized: "Composer")
+        case .genres: return String(localized: "Genre")
+        case .decades: return String(localized: "Decade")
+        case .years: return String(localized: "Year")
         }
     }
 

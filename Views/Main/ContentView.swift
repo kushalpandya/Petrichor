@@ -269,7 +269,7 @@ struct ContentView: View {
 
                 SearchInputField(
                     text: $libraryManager.globalSearchText,
-                    placeholder: "Search",
+                    placeholder: String(localized: "Search"),
                     fontSize: 12,
                     width: 280,
                     shouldFocus: shouldFocusSearch
@@ -305,7 +305,7 @@ struct ContentView: View {
         ToolbarItem(placement: .confirmationAction) {
             SearchInputField(
                 text: $libraryManager.globalSearchText,
-                placeholder: "Search",
+                placeholder: String(localized: "Search"),
                 fontSize: 12,
                 shouldFocus: shouldFocusSearch
             )
@@ -361,8 +361,8 @@ struct ContentView: View {
 
     private func importPlaylists() {
          let panel = NSOpenPanel()
-         panel.title = "Import Playlists"
-         panel.message = "Select up to 25 playlist files to import"
+         panel.title = String(localized: "Import Playlists")
+         panel.message = String(localized: "Select up to 25 playlist files to import")
          panel.canChooseFiles = true
          panel.canChooseDirectories = false
          panel.allowsMultipleSelection = true
@@ -379,7 +379,7 @@ struct ContentView: View {
              guard urls.count <= 25 else {
                  NotificationManager.shared.addMessage(
                      .warning,
-                     "Selected \(urls.count) files. Please select up to 25 files at a time."
+                     String(localized: "Selected \(urls.count) files. Please select up to 25 files at a time.")
                  )
                  DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                      importPlaylists()
@@ -389,7 +389,7 @@ struct ContentView: View {
              
              guard !urls.isEmpty else { return }
              
-             NotificationManager.shared.startActivity("Importing playlists...")
+             NotificationManager.shared.startActivity(String(localized: "Importing playlists..."))
              
              Task {
                  let importResult = await playlistManager.importPlaylists(from: urls)
@@ -404,7 +404,8 @@ struct ContentView: View {
 
     private func showImportNotifications(result: BulkImportResult) {
         func pluralize(_ count: Int, singular: String) -> String {
-            count == 1 ? singular : "\(singular)s"
+            // Localize the (English) noun so it appears translated in the message.
+            NSLocalizedString(count == 1 ? singular : "\(singular)s", comment: "Pluralized noun")
         }
         
         var notifications: [(type: NotificationType, message: String)] = []

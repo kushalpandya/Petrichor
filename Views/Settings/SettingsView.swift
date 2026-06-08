@@ -3,7 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var libraryManager: LibraryManager
     @State private var selectedTab: SettingsTab = .general
-    
+
     @Environment(\.dismiss)
     var dismiss
 

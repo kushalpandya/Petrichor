@@ -23,6 +23,8 @@ struct GeneralTabView: View {
     @AppStorage("useArtworkColors")
     private var useArtworkColors = true
 
+    @ObservedObject private var localizationManager = LocalizationManager.shared
+
     enum ColorMode: String, CaseIterable, TabbedItem {
         case light = "Light"
         case dark = "Dark"
@@ -79,7 +81,9 @@ struct GeneralTabView: View {
                         selection: $colorMode,
                         style: .flexible
                     )
-                    .frame(width: 200)
+                    // Size to content (each button to its own label) instead of
+                    // being stretched to fill the row.
+                    .fixedSize(horizontal: true, vertical: false)
                 }
 
                 Toggle("Show folders tab in main window", isOn: $showFoldersTab)
@@ -87,6 +91,31 @@ struct GeneralTabView: View {
 
                 Toggle("Use album artwork colors in backgrounds", isOn: $useArtworkColors)
                     .help("Applies a gradient background derived from album artwork colors across the app")
+            }
+
+            Section("Language") {
+                Picker("App language", selection: $localizationManager.selectedLanguage) {
+                    ForEach(AppLanguage.allCases) { language in
+                        Text(language.displayNameKey).tag(language)
+                    }
+                }
+                .help("Changes the language used throughout the app")
+
+                if localizationManager.needsRestart {
+                    Text("The language change will take effect after you restart the app.")
+                        .font(.callout)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                HStack {
+                    Spacer()
+                    Button("Restart Now") {
+                        localizationManager.restart()
+                    }
+                    .disabled(!localizationManager.needsRestart)
+                }
             }
         }
         .formStyle(.grouped)

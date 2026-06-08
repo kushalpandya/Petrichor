@@ -118,7 +118,7 @@ enum TrackContextMenu {
         var items: [ContextMenuItem] = []
         
         // Play
-        items.append(.button(title: "Play", icon: Icons.playFill) {
+        items.append(.button(title: String(localized: "Play"), icon: Icons.playFill) {
             switch currentContext {
             case .library:
                 playlistManager.playTrack(track, fromTracks: [track])
@@ -130,14 +130,14 @@ enum TrackContextMenu {
                 }
             }
         })
-        
+
         // Play Next
-        items.append(.button(title: "Play Next", icon: "text.line.first.and.arrowtriangle.forward") {
+        items.append(.button(title: String(localized: "Play Next"), icon: "text.line.first.and.arrowtriangle.forward") {
             playlistManager.playNext(track)
         })
-        
+
         // Add to Queue
-        items.append(.button(title: "Add to Queue", icon: "text.append") {
+        items.append(.button(title: String(localized: "Add to Queue"), icon: "text.append") {
             playlistManager.addToQueue(track)
         })
         
@@ -152,21 +152,21 @@ enum TrackContextMenu {
         var items: [ContextMenuItem] = []
         
         // Play
-        items.append(.button(title: "Play", icon: Icons.playFill) {
+        items.append(.button(title: String(localized: "Play"), icon: Icons.playFill) {
             if let firstTrack = tracks.first {
                 playlistManager.playTrack(firstTrack, fromTracks: tracks)
             }
         })
-        
+
         // Play Next
-        items.append(.button(title: "Play Next", icon: "text.line.first.and.arrowtriangle.forward") {
+        items.append(.button(title: String(localized: "Play Next"), icon: "text.line.first.and.arrowtriangle.forward") {
             for track in tracks.reversed() {
                 playlistManager.playNext(track)
             }
         })
-        
+
         // Add to Queue
-        items.append(.button(title: "Add to Queue", icon: "text.append") {
+        items.append(.button(title: String(localized: "Add to Queue"), icon: "text.append") {
             for track in tracks {
                 playlistManager.addToQueue(track)
             }
@@ -176,7 +176,7 @@ enum TrackContextMenu {
     }
     
     private static func createShowInfoItem(for track: Track) -> ContextMenuItem {
-        .button(title: "Show Info", icon: Icons.infoCircle) {
+        .button(title: String(localized: "Show Info"), icon: Icons.infoCircle) {
             NotificationCenter.default.post(
                 name: NSNotification.Name("ShowTrackInfo"),
                 object: nil,
@@ -186,7 +186,7 @@ enum TrackContextMenu {
     }
     
     private static func createRevealInFinderItem(for track: Track) -> ContextMenuItem {
-        .button(title: "Reveal in Finder", icon: "finder") {
+        .button(title: String(localized: "Reveal in Finder"), icon: "finder") {
             NSWorkspace.shared.selectFile(track.url.path, inFileViewerRootedAtPath: "")
         }
     }
@@ -208,7 +208,7 @@ enum TrackContextMenu {
             }
         }
         
-        return .menu(title: "Go to", icon: "arrow.up.right.square", items: goToItems)
+        return .menu(title: String(localized: "Go to"), icon: "arrow.up.right.square", items: goToItems)
     }
     
     private static func createMultiValueFilterItems(
@@ -275,7 +275,7 @@ enum TrackContextMenu {
         var playlistItems: [ContextMenuItem] = []
         
         // Create new playlist item
-        playlistItems.append(.button(title: "New Playlist...") {
+        playlistItems.append(.button(title: String(localized: "New Playlist...")) {
             playlistManager.showCreatePlaylistModal(with: [track])
         })
         
@@ -301,11 +301,11 @@ enum TrackContextMenu {
             }
         }
         
-        items.append(.menu(title: "Add to Playlist", icon: "text.badge.plus", items: playlistItems))
-        
+        items.append(.menu(title: String(localized: "Add to Playlist"), icon: "text.badge.plus", items: playlistItems))
+
         items.append(
             .button(
-                title: track.isFavorite ? "Remove from Favorites" : "Add to Favorites",
+                title: track.isFavorite ? String(localized: "Remove from Favorites") : String(localized: "Add to Favorites"),
                 icon: track.isFavorite ? Icons.starFill : Icons.star
             ) { playlistManager.toggleFavorite(for: track) }
         )
@@ -323,7 +323,7 @@ enum TrackContextMenu {
         let playlists = playlistManager.playlists.filter { $0.type == .regular }
         var playlistItems: [ContextMenuItem] = []
         
-        playlistItems.append(.button(title: "New Playlist...") {
+        playlistItems.append(.button(title: String(localized: "New Playlist...")) {
             playlistManager.showCreatePlaylistModal(with: tracks)
         })
         
@@ -339,16 +339,16 @@ enum TrackContextMenu {
             }
         }
         
-        items.append(.menu(title: "Add to Playlist", icon: "text.badge.plus", items: playlistItems))
-        
+        items.append(.menu(title: String(localized: "Add to Playlist"), icon: "text.badge.plus", items: playlistItems))
+
         let allFavorited = tracks.allSatisfy { $0.isFavorite }
-        let title = allFavorited ? "Remove from Favorites" : "Add to Favorites"
+        let title = allFavorited ? String(localized: "Remove from Favorites") : String(localized: "Add to Favorites")
         items.append(.button(title: title, icon: Icons.star) {
             playlistManager.toggleFavorite(for: tracks, setTo: !allFavorited)
         })
         
         if case .playlist(let playlist) = currentContext, playlist.type == .regular {
-            items.append(.button(title: "Remove from Playlist", icon: Icons.trash, role: .destructive) {
+            items.append(.button(title: String(localized: "Remove from Playlist"), icon: Icons.trash, role: .destructive) {
                 Task {
                     await playlistManager.removeTracksFromPlaylist(tracks: tracks, playlistID: playlist.id)
                 }
@@ -368,7 +368,7 @@ enum TrackContextMenu {
         switch currentContext {
         case .folder:
             items.append(.divider)
-            items.append(.button(title: "Show in Finder", icon: "finder") {
+            items.append(.button(title: String(localized: "Show in Finder"), icon: "finder") {
                 NSWorkspace.shared.selectFile(
                     track.url.path,
                     inFileViewerRootedAtPath: track.url.deletingLastPathComponent().path
@@ -377,7 +377,7 @@ enum TrackContextMenu {
             
         case .playlist(let playlist):
             if playlist.type == .regular {
-                items.append(.button(title: "Remove from Playlist", icon: Icons.trash, role: .destructive) {
+                items.append(.button(title: String(localized: "Remove from Playlist"), icon: Icons.trash, role: .destructive) {
                     playlistManager.removeTrackFromPlaylist(
                         track: track,
                         playlistID: playlist.id
@@ -411,7 +411,7 @@ struct ContextMenuItemView: View {
                         Image(systemName: icon)
                             .frame(width: 16)
                     }
-                    Text(item.title)
+                    Text(LocalizedStringKey(item.title))
                     Spacer()
                 }
             }
@@ -428,7 +428,7 @@ struct ContextMenuItemView: View {
                         Image(systemName: icon)
                             .frame(width: 16)
                     }
-                    Text(item.title)
+                    Text(LocalizedStringKey(item.title))
                     Spacer()
                 }
             }

@@ -20,7 +20,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     func applicationWillFinishLaunching(_ notification: Notification) {
         // Register UserDefaults with default settings
         AppDelegate.registerUserDefaultsDefaults()
-        
+
         // Apply color mode very early, before any windows are shown
         let colorMode = UserDefaults.standard.string(forKey: "colorMode") ?? "auto"
         

@@ -260,9 +260,9 @@ struct EntityDetailView: View {
             return category.filterType.singularDisplayName
         }
         switch pinnedItem?.filterType {
-        case .albumArtists: return "Album Artist"
-        case .composers: return "Composer"
-        default: return "Artist"
+        case .albumArtists: return String(localized: "Album Artist")
+        case .composers: return String(localized: "Composer")
+        default: return String(localized: "Artist")
         }
     }
 
@@ -336,7 +336,7 @@ struct EntityDetailView: View {
     ) -> some View {
         HStack {
             leading()
-            statText("\(tracks.count) \(tracks.count == 1 ? "song" : "songs")")
+            statText(tracks.count == 1 ? String(localized: "\(tracks.count) song") : String(localized: "\(tracks.count) songs"))
             if !tracks.isEmpty {
                 statDot
                 statText(formattedTotalDuration)
@@ -446,9 +446,9 @@ struct EntityDetailView: View {
         let minutes = (Int(totalSeconds) % 3600) / 60
         
         if hours > 0 {
-            return "\(hours) hr \(minutes) min"
+            return String(localized: "\(hours) hr \(minutes) min")
         } else {
-            return "\(minutes) min"
+            return String(localized: "\(minutes) min")
         }
     }
     

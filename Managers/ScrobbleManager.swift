@@ -70,7 +70,7 @@ class ScrobbleManager: ObservableObject {
     func authenticationURL() -> URL? {
         guard let apiKey = apiKey, !apiKey.isEmpty else {
             Logger.error("Last.fm API key not configured")
-            NotificationManager.shared.addMessage(.error, "Last.fm API key not configured")
+            NotificationManager.shared.addMessage(.error, String(localized: "Last.fm API key not configured"))
             return nil
         }
         
@@ -127,7 +127,7 @@ class ScrobbleManager: ObservableObject {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               let token = components.queryItems?.first(where: { $0.name == "token" })?.value else {
             Logger.error("Auth callback missing token")
-            NotificationManager.shared.addMessage(.error, "Last.fm authorization failed: missing token")
+            NotificationManager.shared.addMessage(.error, String(localized: "Last.fm authorization failed: missing token"))
             return
         }
         
@@ -145,7 +145,7 @@ class ScrobbleManager: ObservableObject {
               let sharedSecret = sharedSecret else {
             Logger.error("API credentials not configured")
             await MainActor.run {
-                NotificationManager.shared.addMessage(.error, "Last.fm API credentials not configured")
+                NotificationManager.shared.addMessage(.error, String(localized: "Last.fm API credentials not configured"))
             }
             return
         }
@@ -181,7 +181,7 @@ class ScrobbleManager: ObservableObject {
                 
                 await MainActor.run {
                     UserDefaults.standard.set(username, forKey: "lastfmUsername")
-                    NotificationManager.shared.addMessage(.info, "Connected to Last.fm as \(username)")
+                    NotificationManager.shared.addMessage(.info, String(localized: "Connected to Last.fm as \(username)"))
                 }
                 
                 Logger.info("Authenticated as \(username)")
@@ -191,13 +191,13 @@ class ScrobbleManager: ObservableObject {
                       let message = json["message"] as? String {
                 Logger.error("API error \(error): \(message)")
                 await MainActor.run {
-                    NotificationManager.shared.addMessage(.error, "Last.fm error: \(message)")
+                    NotificationManager.shared.addMessage(.error, String(localized: "Last.fm error: \(message)"))
                 }
             }
         } catch {
             Logger.error("Session request failed - \(error.localizedDescription)")
             await MainActor.run {
-                NotificationManager.shared.addMessage(.error, "Failed to connect to Last.fm")
+                NotificationManager.shared.addMessage(.error, String(localized: "Failed to connect to Last.fm"))
             }
         }
     }

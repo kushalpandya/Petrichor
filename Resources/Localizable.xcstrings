@@ -1,0 +1,5630 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "": {},
+    " of %lld": {
+      "comment": "TrackDetailView track/disc number suffix, e.g. '5 of 12' — the ' of N' part (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " sur %lld"
+          }
+        }
+      }
+    },
+    " tracks": {
+      "comment": "Suffix in Text concatenation for track count in CompactFolderRowView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " morceaux"
+          }
+        }
+      }
+    },
+    "#": {
+      "comment": "Table column header for track number (symbol)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "#"
+          }
+        }
+      }
+    },
+    "%@ • %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ • %2$@"
+          }
+        }
+      }
+    },
+    "%lld": {},
+    "%lld %@": {
+      "comment": "Track count stat line; %lld is the count, %@ is 'song' or 'songs'",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld %@"
+          }
+        }
+      }
+    },
+    "%lld / %lld songs": {
+      "comment": "Smart playlist sidebar subtitle showing current track count vs limit, e.g. '5 / 25 songs'",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld / %lld morceaux"
+          }
+        }
+      }
+    },
+    "%lld albums": {
+      "comment": "Sidebar subtitle showing count of albums (e.g. '8 albums')",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld albums"
+          }
+        }
+      }
+    },
+    "%lld artists": {
+      "comment": "Sidebar subtitle showing count of artists (e.g. '12 artists')",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld artistes"
+          }
+        }
+      }
+    },
+    "%lld channels": {
+      "comment": "TrackDetailView formatChannels fallback value for N channels (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld canaux"
+          }
+        }
+      }
+    },
+    "%lld dB": {
+      "comment": "Drag tooltip label on the vertical equalizer slider showing the current dB value; %lld is the integer dB value",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld dB"
+          }
+        }
+      }
+    },
+    "%lld days ago": {
+      "comment": "Relative timestamp on a notification row; %lld is the number of days (2 or more)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il y a %lld jours"
+          }
+        }
+      }
+    },
+    "%lld files processed • %lld tracks found": {
+      "comment": "Activity tray detail during scan when total file count is unknown; first %lld is processed, second %lld is tracks found",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld fichier(s) traité(s) • %2$lld morceau(x) trouvé(s)"
+          }
+        }
+      }
+    },
+    "%lld files skipped in '%@' - unsupported formats: %@": {
+      "comment": "Warning notification when multiple files are skipped; %lld is count, first %@ is folder name, second %@ is list of extensions",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld fichiers ignorés dans « %2$@ » — formats non pris en charge : %3$@"
+          }
+        }
+      }
+    },
+    "%lld folders": {
+      "comment": "Folder node sidebar subtitle showing only subfolder count, e.g. '3 folders'",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld dossiers"
+          }
+        }
+      }
+    },
+    "%lld folders were refreshed for changes": {
+      "comment": "Info notification when more than 3 folders are refreshed; %lld is count",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld dossiers ont été actualisés"
+          }
+        }
+      }
+    },
+    "%lld folders were removed as they no longer exist": {
+      "comment": "Info notification when multiple missing folders are removed; %lld is count",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld dossiers ont été supprimés car ils n'existent plus"
+          }
+        }
+      }
+    },
+    "%lld folders, %lld tracks": {
+      "comment": "Folder node sidebar subtitle showing subfolder count and track count, e.g. '3 folders, 12 tracks'",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld dossiers, %lld morceaux"
+          }
+        }
+      }
+    },
+    "%lld hours ago": {
+      "comment": "Relative timestamp on a notification row; %lld is the number of hours (2 or more)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il y a %lld heures"
+          }
+        }
+      }
+    },
+    "%lld hr %lld min": {
+      "comment": "Total duration format when duration is one hour or more; first %lld is hours, second is minutes",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld h %lld min"
+          }
+        }
+      }
+    },
+    "%lld kbps": {
+      "comment": "TrackDetailView file details bitrate value, e.g. '320 kbps' (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld kbps"
+          }
+        }
+      }
+    },
+    "%lld min": {
+      "comment": "Total duration format when duration is less than one hour; %lld is minutes",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld min"
+          }
+        }
+      }
+    },
+    "%lld mins ago": {
+      "comment": "Relative timestamp on a notification row; %lld is the number of minutes (2 or more)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il y a %lld min"
+          }
+        }
+      }
+    },
+    "%lld notifications": {
+      "comment": "Tooltip on notification tray when multiple notifications are present; %lld is the count",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld notifications"
+          }
+        }
+      }
+    },
+    "%lld of %lld files • %lld tracks found": {
+      "comment": "Activity tray detail during scan when total file count is known; first %lld is processed, second %lld is total, third %lld is tracks found",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld fichier(s) sur %2$lld • %3$lld morceau(x) trouvé(s)"
+          }
+        }
+      }
+    },
+    "%lld selected": {
+      "comment": "Count of selected folders in select mode in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld sélectionné(s)"
+          }
+        }
+      }
+    },
+    "%lld song": {
+      "comment": "ArtistEntity and CategoryEntity subtitle — singular form of track count shown in entity grid (e.g. '1 song'). Part of ternary pattern: trackCount == 1 ? 'song' : 'songs'",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld morceau"
+          }
+        }
+      }
+    },
+    "%lld song%@": {
+      "comment": "Selection info text when no changes are pending; %lld = visible track count, %@ = '' or 's' (AddSongsToPlaylistSheet selectionInfoText)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld morceau%@"
+          }
+        }
+      }
+    },
+    "%lld song%@ to add": {
+      "comment": "Selection info text when only additions are pending; %lld = count, %@ = '' or 's' for plural (AddSongsToPlaylistSheet selectionInfoText)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld morceau%@ à ajouter"
+          }
+        }
+      }
+    },
+    "%lld song%@ to remove": {
+      "comment": "Selection info text when only removals are pending; %lld = count, %@ = '' or 's' for plural (AddSongsToPlaylistSheet selectionInfoText)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld morceau%@ à retirer"
+          }
+        }
+      }
+    },
+    "%lld songs": {
+      "comment": "Track count label in PlaylistDetailView playlist info (playlist.trackCount: Int)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld morceaux"
+          }
+        }
+      }
+    },
+    "%lld to add, %lld to remove": {
+      "comment": "Selection info text when both additions and removals are pending; first %lld = add count, second %lld = remove count (AddSongsToPlaylistSheet selectionInfoText)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld à ajouter, %lld à retirer"
+          }
+        }
+      }
+    },
+    "%lld track": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld morceau"
+          }
+        }
+      }
+    },
+    "%lld tracks": {
+      "comment": "Track count label in folder row in LibraryTabView (Text concatenation: Text(\"\\(trackCount)\") + Text(\" tracks\"))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld morceaux"
+          }
+        }
+      }
+    },
+    "%lld tracks found": {
+      "comment": "Track count shown during an initial library scan; %lld is the number of tracks found so far",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld morceaux trouvés"
+          }
+        }
+      }
+    },
+    "%lld%": {
+      "comment": "PlayerView volume percentage label shown while dragging (Text with Int interpolation, auto-localizes)",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld %"
+          }
+        }
+      }
+    },
+    "%lld%%": {},
+    "%lld-bit": {
+      "comment": "TrackDetailView file details bit depth value, e.g. '24-bit' (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld bits"
+          }
+        }
+      }
+    },
+    "(%@)": {},
+    "(%lld already in playlist)": {
+      "comment": "Secondary label next to select-all in AddSongsToPlaylistSheet; %lld is the count already in the playlist",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(%lld déjà dans la liste de lecture)"
+          }
+        }
+      }
+    },
+    "+%lld": {},
+    "+12 dB": {
+      "comment": "EQ scale label in EqualizerView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+12 dB"
+          }
+        }
+      }
+    },
+    "-%lld": {},
+    "-12 dB": {
+      "comment": "EQ scale label in EqualizerView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "-12 dB"
+          }
+        }
+      }
+    },
+    "0 albums": {
+      "comment": "Sidebar subtitle fallback when album count is zero or unavailable",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "0 album"
+          }
+        }
+      }
+    },
+    "0 artists": {
+      "comment": "Sidebar subtitle fallback when artist count is zero or unavailable",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "0 artiste"
+          }
+        }
+      }
+    },
+    "0 dB": {
+      "comment": "EQ scale label in EqualizerView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "0 dB"
+          }
+        }
+      }
+    },
+    "0 songs": {
+      "comment": "Sidebar subtitle fallback when song count is zero or unavailable",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "0 morceau"
+          }
+        }
+      }
+    },
+    "1 day ago": {
+      "comment": "Relative timestamp on a notification row when the message was received exactly 1 day ago",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il y a 1 jour"
+          }
+        }
+      }
+    },
+    "1 file skipped in '%@' - unsupported format": {
+      "comment": "Warning notification when 1 file is skipped due to unsupported format; %@ is folder name",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 fichier ignoré dans « %@ » — format non pris en charge"
+          }
+        }
+      }
+    },
+    "1 hour ago": {
+      "comment": "Relative timestamp on a notification row when the message was received exactly 1 hour ago",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il y a 1 heure"
+          }
+        }
+      }
+    },
+    "1 min ago": {
+      "comment": "Relative timestamp on a notification row when the message was received exactly 1 minute ago",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il y a 1 min"
+          }
+        }
+      }
+    },
+    "1 notification": {
+      "comment": "Tooltip on notification tray when exactly one notification is present",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 notification"
+          }
+        }
+      }
+    },
+    "5.1 Surround": {
+      "comment": "TrackDetailView formatChannels value for 6 channels (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Son Surround 5.1"
+          }
+        }
+      }
+    },
+    "7.1 Surround": {
+      "comment": "TrackDetailView formatChannels value for 8 channels (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Son Surround 7.1"
+          }
+        }
+      }
+    },
+    "About": {
+      "comment": "Settings tab title (SettingsTab rawValue, displayed via TabbedButtons)",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À propos"
+          }
+        }
+      }
+    },
+    "About Petrichor": {
+      "comment": "App menu item",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À propos de Petrichor"
+          }
+        }
+      }
+    },
+    "Acknowledgements": {
+      "comment": "FooterLink title for acknowledgements section in AboutTabView",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remerciements"
+          }
+        }
+      }
+    },
+    "Acoustic": {
+      "comment": "EqualizerPreset.acoustic displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acoustique"
+          }
+        }
+      }
+    },
+    "Add %lld Song%@": {
+      "comment": "Action button title when only additions are pending; %lld = count, %@ = '' or 's' (AddSongsToPlaylistSheet actionButtonTitle)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter %lld morceau%@"
+          }
+        }
+      }
+    },
+    "Add Folder": {
+      "comment": "Button label to add a folder in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter un dossier"
+          }
+        }
+      }
+    },
+    "Add Folder(s) to Library": {
+      "comment": "File menu item",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter des dossiers à la bibliothèque"
+          }
+        }
+      }
+    },
+    "Add Music Folder": {
+      "comment": "Label on the primary action button in the empty-state view",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter un dossier de musique"
+          }
+        }
+      }
+    },
+    "Add Songs": {
+      "comment": "Button label in PlaylistDetailView playlist controls and empty-playlist state (regular playlists only)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter des morceaux"
+          }
+        }
+      }
+    },
+    "Add Songs to Playlist": {
+      "comment": "Sheet header subtitle in AddSongsToPlaylistSheet",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter des morceaux à la liste de lecture"
+          }
+        }
+      }
+    },
+    "Add a folder to library": {
+      "comment": "Tooltip for Add Folder button in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter un dossier à la bibliothèque"
+          }
+        }
+      }
+    },
+    "Add folders containing your music to get started": {
+      "comment": "Primary subtitle in the empty-state view encouraging the user to add a folder",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajoutez des dossiers contenant votre musique pour commencer"
+          }
+        }
+      }
+    },
+    "Add some tracks to this playlist to get started": {
+      "comment": "Empty-state body for a regular playlist (Utilities/Constants.swift — model-owned)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajoutez des morceaux à cette liste de lecture pour commencer"
+          }
+        }
+      }
+    },
+    "Add to Favorites": {
+      "comment": "PlayerView / FavoriteButtonView tooltip when track is not a favorite",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter aux favoris"
+          }
+        }
+      }
+    },
+    "Add to Playlist": {
+      "comment": "Context menu submenu label: add selected track(s) to a playlist",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter à la liste de lecture"
+          }
+        }
+      }
+    },
+    "Add to Queue": {
+      "comment": "Context menu item: add selected track(s) to the play queue",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter à la file d'attente"
+          }
+        }
+      }
+    },
+    "Added %lld folder%@ to library": {
+      "comment": "Completion notification when folders are added to the library; %lld is the folder count, %@ is '' or 's' from the inline ternary. Contains inline singular/plural. Singular: '1 dossier ajouté à la bibliothèque' Plural: '%lld dossiers ajoutés à la bibliothèque'",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld dossier(s) ajouté(s) à la bibliothèque"
+          }
+        }
+      }
+    },
+    "Adding folders...": {
+      "comment": "Scan status message shown while folders are being added",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajout des dossiers ..."
+          }
+        }
+      }
+    },
+    "Album": {
+      "comment": "Toggle label in Sort by menu: sort albums by album name",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Album"
+          }
+        }
+      }
+    },
+    "Album Artist": {
+      "comment": "Entity type label shown above the entity name when viewing an album artist",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Artiste de l'album"
+          }
+        }
+      }
+    },
+    "Album artist": {
+      "comment": "Toggle label in Sort by menu: sort albums by album artist",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Artiste de l'album"
+          }
+        }
+      }
+    },
+    "Albums": {
+      "comment": "Statistic item label in AboutTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Albums"
+          }
+        }
+      }
+    },
+    "All %@": {
+      "comment": "Sidebar 'All <category>' item title, e.g. 'All Artists', 'All Albums'. The argument is the category rawValue string from LibraryFilterType.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tous %@"
+          }
+        }
+      }
+    },
+    "All Albums": {
+      "comment": "TrackListHeader title for the All Albums section",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tous les albums"
+          }
+        }
+      }
+    },
+    "All Artists": {
+      "comment": "TrackListHeader title for the All Artists section",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tous les artistes"
+          }
+        }
+      }
+    },
+    "All Tracks": {
+      "comment": "LibraryView header title when showing all tracks (no filter item or 'All' item selected)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tous les morceaux"
+          }
+        }
+      }
+    },
+    "All tracks": {
+      "comment": "TrackListHeader title for the All Tracks section",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tous les morceaux"
+          }
+        }
+      }
+    },
+    "Also reset app preferences": {
+      "comment": "NSAlert suppression checkbox title in showResetConfirmation in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réinitialiser également les préférences"
+          }
+        }
+      }
+    },
+    "An offline macOS music player": {
+      "comment": "App subtitle shown in AboutTabView (source: About.appSubtitle in Constants.swift)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un lecteur de musique macOS hors ligne"
+          }
+        }
+      }
+    },
+    "App Data": {
+      "comment": "FooterLink title in AboutTabView",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Données de l'app"
+          }
+        }
+      }
+    },
+    "App language": {
+      "comment": "Picker label for language selection in GeneralTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Langue de l'app"
+          }
+        }
+      }
+    },
+    "App preferences have been reset. Please restart Petrichor for changes to take full effect.": {
+      "comment": "NSAlert message in showRestartAlert in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les préférences de l'app ont été réinitialisées. Veuillez redémarrer Petrichor pour que les modifications prennent pleinement effet."
+          }
+        }
+      }
+    },
+    "Appearance": {
+      "comment": "Section header in GeneralTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apparence"
+          }
+        }
+      }
+    },
+    "Applies a gradient background derived from album artwork colors across the app": {
+      "comment": "Tooltip for artwork colors toggle",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Applique un dégradé d'arrière-plan dérivé des couleurs de la pochette dans toute l'app"
+          }
+        }
+      }
+    },
+    "Apply Changes": {
+      "comment": "Action button title when both additions and removals are pending (AddSongsToPlaylistSheet actionButtonTitle)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appliquer les modifications"
+          }
+        }
+      }
+    },
+    "Are you sure you want to clear the entire queue? This will stop playback.": {
+      "comment": "Body message of the Clear Queue confirmation alert (PlayQueueView)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voulez-vous vraiment effacer toute la file d'attente ? La lecture s'arrêtera."
+          }
+        }
+      }
+    },
+    "Are you sure you want to delete \"%@\"? This action cannot be undone.": {
+      "comment": "Alert message in PlaylistSidebarView delete confirmation; %@ is the playlist name (String)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voulez-vous vraiment supprimer « %@ » ? Cette action est irréversible."
+          }
+        }
+      }
+    },
+    "Are you sure you want to remove %lld folders? This will remove all tracks from these folders from your library.": {
+      "comment": "Alert message when removing multiple folders in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voulez-vous vraiment retirer %lld dossiers ? Cela supprimera tous les morceaux de ces dossiers de votre bibliothèque."
+          }
+        }
+      }
+    },
+    "Are you sure you want to stop watching \"%@\"? This will remove all tracks from this folder from your library.": {
+      "comment": "Alert message when removing a single folder in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voulez-vous vraiment arrêter de surveiller « %@ » ? Cela supprimera tous les morceaux de ce dossier de votre bibliothèque."
+          }
+        }
+      }
+    },
+    "Artist": {
+      "comment": "Entity type label shown above the entity name when viewing an artist",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Artiste"
+          }
+        }
+      }
+    },
+    "Artists": {
+      "comment": "Statistic item label in AboutTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Artistes"
+          }
+        }
+      }
+    },
+    "Artists information updated successfully": {
+      "comment": "Info notification when artist data rebuild completes successfully",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Informations sur les artistes mises à jour"
+          }
+        }
+      }
+    },
+    "Ascending": {
+      "comment": "Toggle label for ascending sort order",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Croissant"
+          }
+        }
+      }
+    },
+    "Auto": {
+      "comment": "ColorMode.auto rawValue displayed via TabbedButtons",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatique"
+          }
+        }
+      }
+    },
+    "Automatically download and install updates when available": {
+      "comment": "Tooltip for auto-update toggle",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Télécharge et installe automatiquement les mises à jour disponibles"
+          }
+        }
+      }
+    },
+    "Automatically download artist photos and bios from online sources": {
+      "comment": "Tooltip for artist info toggle",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Télécharge automatiquement les photos et biographies d'artistes depuis des sources en ligne"
+          }
+        }
+      }
+    },
+    "Automatically scan for new music in the library on selected interval": {
+      "comment": "Tooltip for auto-scan interval picker",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analyse automatiquement la bibliothèque pour détecter de nouveaux morceaux à l'intervalle choisi"
+          }
+        }
+      }
+    },
+    "Automatically search for lyrics online when no local lyrics are found": {
+      "comment": "Tooltip for online lyrics toggle",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recherche automatiquement les paroles en ligne lorsqu'aucune parole locale n'est trouvée"
+          }
+        }
+      }
+    },
+    "Back": {
+      "comment": "Tooltip on the back button in EntityDetailView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retour"
+          }
+        }
+      }
+    },
+    "Bass Booster": {
+      "comment": "EqualizerPreset.increaseBass displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amplificateur de basses"
+          }
+        }
+      }
+    },
+    "Bass Reducer": {
+      "comment": "EqualizerPreset.reduceBass displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réducteur de basses"
+          }
+        }
+      }
+    },
+    "Behavior": {
+      "comment": "Section header in GeneralTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comportement"
+          }
+        }
+      }
+    },
+    "Bit Depth": {
+      "comment": "TrackDetailView file details row label for bit depth (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profondeur de bits"
+          }
+        }
+      }
+    },
+    "Bitrate": {
+      "comment": "TrackDetailView file details row label for bitrate (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Débit binaire"
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "comment": "Cancel button (used in multiple alerts)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annuler"
+          }
+        }
+      }
+    },
+    "Cannot play '%@': File not found": {
+      "comment": "PlaybackManager: error shown when a track file is missing; %@ is the track title",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de lire « %@ » : fichier introuvable"
+          }
+        }
+      }
+    },
+    "Cannot play track - missing data": {
+      "comment": "PlaybackManager: error shown when full track data cannot be fetched",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de lire le morceau - données manquantes"
+          }
+        }
+      }
+    },
+    "Changes the language used throughout the app": {
+      "comment": "Tooltip for language picker",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change la langue utilisée dans toute l'app"
+          }
+        }
+      }
+    },
+    "Channels": {
+      "comment": "TrackDetailView file details row label for audio channels (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Canaux"
+          }
+        }
+      }
+    },
+    "Check for Updates...": {
+      "comment": "App menu item",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rechercher des mises à jour…"
+          }
+        }
+      }
+    },
+    "Check for updates automatically": {
+      "comment": "Toggle label in GeneralTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rechercher les mises à jour automatiquement"
+          }
+        }
+      }
+    },
+    "Choose Artist Image": {
+      "comment": "ArtistImageSheet sheet header title",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisir une image d'artiste"
+          }
+        }
+      }
+    },
+    "Choose a folder from the list to view its music files": {
+      "comment": "FoldersView empty state body when no folder is selected",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez un dossier dans la liste pour afficher ses fichiers musicaux"
+          }
+        }
+      }
+    },
+    "Choose a playlist from the sidebar to view its contents": {
+      "comment": "Subheadline in PlaylistsView empty-selection state",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez une liste de lecture dans la barre latérale pour afficher son contenu"
+          }
+        }
+      }
+    },
+    "Choose where to save %lld playlist file%@": {
+      "comment": "NSOpenPanel message in ExportPlaylistsSheet; %lld = playlist count, %@ = '' or 's' for plural (non-literal, wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez où enregistrer %lld fichier%@ de liste de lecture"
+          }
+        }
+      }
+    },
+    "Classical": {
+      "comment": "EqualizerPreset.classical displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Classique"
+          }
+        }
+      }
+    },
+    "Clear": {
+      "comment": "Destructive confirm button in the Clear Queue alert (PlayQueueView)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Effacer"
+          }
+        }
+      }
+    },
+    "Clear Queue": {
+      "comment": "Tooltip for the trash button in the queue header, and title of the confirmation alert (PlayQueueView)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Effacer la file d'attente"
+          }
+        }
+      }
+    },
+    "Clear all notifications": {
+      "comment": "Tooltip on the Clear button in the notification popover",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Effacer toutes les notifications"
+          }
+        }
+      }
+    },
+    "Close": {
+      "comment": "File menu item",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fermer"
+          }
+        }
+      }
+    },
+    "Codec": {
+      "comment": "TrackDetailView file details row label for codec (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codec"
+          }
+        }
+      }
+    },
+    "Color mode": {
+      "comment": "Label for color mode selector in GeneralTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mode de couleur"
+          }
+        }
+      }
+    },
+    "Compact": {
+      "comment": "TableRowSize.displayName — row size option shown in track table options dropdown toggle",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compact"
+          }
+        }
+      }
+    },
+    "Compilation": {
+      "comment": "TrackDetailView metadata row label for compilation flag (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compilation"
+          }
+        }
+      }
+    },
+    "Composer": {
+      "comment": "Entity type label shown above the entity name when viewing a composer",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compositeur"
+          }
+        }
+      }
+    },
+    "Conductor": {
+      "comment": "TrackDetailView metadata row label for conductor (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chef d'orchestre"
+          }
+        }
+      }
+    },
+    "Connect": {
+      "comment": "Button to connect Last.fm in OnlineTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecter"
+          }
+        }
+      }
+    },
+    "Connect your Last.fm account to start scrobbling": {
+      "comment": "Subtitle in Last.fm disconnected view",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connectez votre compte Last.fm pour commencer à scrobbler"
+          }
+        }
+      }
+    },
+    "Connected": {
+      "comment": "Last.fm connection status label in OnlineTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecté"
+          }
+        }
+      }
+    },
+    "Connected to Last.fm as %@": {
+      "comment": "ScrobbleManager: info shown after successful Last.fm authentication; %@ is the username",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecté à Last.fm en tant que %@"
+          }
+        }
+      }
+    },
+    "Could not read file '%@'": {
+      "comment": "PMImportExport M3UImportError.fileReadFailed: shown when an M3U file cannot be read; %@ is the filename",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de lire le fichier « %@ »"
+          }
+        }
+      }
+    },
+    "Create": {
+      "comment": "Confirm button in the Create Playlist sheet (ContentView CreatePlaylistSheet)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Créer"
+          }
+        }
+      }
+    },
+    "Create New Playlist": {
+      "comment": "Tooltip for the + button in PlaylistSidebarView sidebar header",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Créer une nouvelle liste de lecture"
+          }
+        }
+      }
+    },
+    "Create some playlists first": {
+      "comment": "Subheadline in the empty state of ExportPlaylistsSheet",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Créez d'abord des listes de lecture"
+          }
+        }
+      }
+    },
+    "Custom": {
+      "comment": "Custom preset option in EQ picker in EqualizerView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personnalisé"
+          }
+        }
+      }
+    },
+    "Daily": {
+      "comment": "DiscoverUpdateInterval.daily rawValue/displayName (rawValue-as-label, not edited)",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quotidiennement"
+          }
+        }
+      }
+    },
+    "Dance": {
+      "comment": "EqualizerPreset.dance displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dance"
+          }
+        }
+      }
+    },
+    "Dark": {
+      "comment": "ColorMode.dark rawValue displayed via TabbedButtons",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sombre"
+          }
+        }
+      }
+    },
+    "Database optimization completed": {
+      "comment": "Info notification when database optimization completes with no space savings",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optimisation de la base de données terminée"
+          }
+        }
+      }
+    },
+    "Database optimization completed - reclaimed %@ MB": {
+      "comment": "Info notification when database optimization reclaims disk space; %@ is the MB amount formatted to 1 decimal via String(format:\"%.1f\",...)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optimisation de la base de données terminée — %@ Mo récupéré(s)"
+          }
+        }
+      }
+    },
+    "Database optimization failed": {
+      "comment": "Error notification when database optimization fails",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'optimiser la base de données"
+          }
+        }
+      }
+    },
+    "Date Added": {
+      "comment": "TrackDetailView file details row label for date added to library (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Date d'ajout"
+          }
+        }
+      }
+    },
+    "Date Modified": {
+      "comment": "TrackDetailView file details row label for file modification date (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Date de modification"
+          }
+        }
+      }
+    },
+    "Date added": {
+      "comment": "Toggle label in Sort by menu: sort albums by date added",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Date d'ajout"
+          }
+        }
+      }
+    },
+    "Decade": {
+      "comment": "LibraryFilterType.singularDisplayName — shown as entity-type caption in EntityDetailView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Décennie"
+          }
+        }
+      }
+    },
+    "Deep": {
+      "comment": "EqualizerPreset.deep displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profond"
+          }
+        }
+      }
+    },
+    "Delete": {
+      "comment": "Destructive confirm button in delete-playlist alert and kebab/context menu item (PlaylistSidebarView)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer"
+          }
+        }
+      }
+    },
+    "Delete Image": {
+      "comment": "ArtistImageSheet footer button to delete the artist image",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer l'image"
+          }
+        }
+      }
+    },
+    "Delete Playlist": {
+      "comment": "Alert title in PlaylistSidebarView when confirming playlist deletion",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer la liste de lecture"
+          }
+        }
+      }
+    },
+    "Descending": {
+      "comment": "Toggle label for descending sort order",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Décroissant"
+          }
+        }
+      }
+    },
+    "Details": {
+      "comment": "TrackDetailView metadata section title (passed as variable to metadataSection, wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Détails"
+          }
+        }
+      }
+    },
+    "Disable Shuffle": {
+      "comment": "PlayerView shuffle button tooltip when shuffle is on",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Désactiver l'aléatoire"
+          }
+        }
+      }
+    },
+    "Disc": {
+      "comment": "TrackDetailView metadata row label for disc number (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disque"
+          }
+        }
+      }
+    },
+    "Disc number": {
+      "comment": "Sort field display name for disc number",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Numéro de disque"
+          }
+        }
+      }
+    },
+    "Disconnect": {
+      "comment": "Button to disconnect Last.fm in OnlineTabView (also used as alert destructive action)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Déconnecter"
+          }
+        }
+      }
+    },
+    "Disconnect from Last.fm?": {
+      "comment": "Alert title in OnlineTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Déconnecter de Last.fm ?"
+          }
+        }
+      }
+    },
+    "Disconnected from Last.fm": {
+      "comment": "Toast notification after disconnecting from Last.fm in OnlineTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Déconnecté de Last.fm"
+          }
+        }
+      }
+    },
+    "Discover": {
+      "comment": "TrackListHeader title for the Discover section",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Découvrir"
+          }
+        }
+      }
+    },
+    "Discover & Scanning": {
+      "comment": "Section header in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Découverte et analyse"
+          }
+        }
+      }
+    },
+    "Discovering your music...": {
+      "comment": "Fallback subtitle in the scanning-progress view when no specific scan status message is available",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Découverte de votre musique…"
+          }
+        }
+      }
+    },
+    "Dismiss": {
+      "comment": "Tooltip on the close button in SettingsView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fermer"
+          }
+        }
+      }
+    },
+    "Done": {
+      "comment": "Button to exit folder select mode in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminé"
+          }
+        }
+      }
+    },
+    "Drag items to reorder": {
+      "comment": "Info bar hint in ReorderTracksSheet",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faites glisser les éléments pour les réordonner"
+          }
+        }
+      }
+    },
+    "Duration": {
+      "comment": "Statistic item label in AboutTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Durée"
+          }
+        }
+      }
+    },
+    "Edit track order": {
+      "comment": "Tooltip for the reorder-tracks button in PlaylistDetailView header overlay",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifier l'ordre des morceaux"
+          }
+        }
+      }
+    },
+    "Electronic": {
+      "comment": "EqualizerPreset.electronic displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Électronique"
+          }
+        }
+      }
+    },
+    "Empty Playlist": {
+      "comment": "Empty-state title for a regular playlist in PlaylistDetailView (fallback in playlistTypeText guard). Source literal also in Utilities/Constants.swift DefaultPlaylists.noSongsText — model-owned, needs separate agent edit.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liste de lecture vide"
+          }
+        }
+      }
+    },
+    "Empty Smart Playlist": {
+      "comment": "Empty-state title fallback for other smart playlists (Utilities/Constants.swift — model-owned)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liste de lecture intelligente vide"
+          }
+        }
+      }
+    },
+    "Enable Shuffle": {
+      "comment": "PlayerView shuffle button tooltip when shuffle is off",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activer l'aléatoire"
+          }
+        }
+      }
+    },
+    "Enable scrobbling": {
+      "comment": "Toggle label in OnlineTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activer le scrobbling"
+          }
+        }
+      }
+    },
+    "English": {
+      "comment": "AppLanguage.english displayNameKey in language picker",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anglais"
+          }
+        }
+      }
+    },
+    "Enter a search term above to find songs": {
+      "comment": "Subheadline in the initial empty state of AddSongsToPlaylistSheet",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saisissez un terme de recherche ci-dessus pour trouver des morceaux"
+          }
+        }
+      }
+    },
+    "Enter at least 2 characters to search": {
+      "comment": "Subheadline when search term is too short (AddSongsToPlaylistSheet)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saisissez au moins 2 caractères pour rechercher"
+          }
+        }
+      }
+    },
+    "Equalizer": {
+      "comment": "Window menu item",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Égaliseur"
+          }
+        }
+      }
+    },
+    "Every 15 minutes": {
+      "comment": "AutoScanInterval.every15Minutes displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toutes les 15 minutes"
+          }
+        }
+      }
+    },
+    "Every 2 weeks": {
+      "comment": "DiscoverUpdateInterval.biweekly rawValue/displayName (rawValue-as-label, not edited)",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toutes les 2 semaines"
+          }
+        }
+      }
+    },
+    "Every 30 minutes": {
+      "comment": "AutoScanInterval.every30Minutes displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toutes les 30 minutes"
+          }
+        }
+      }
+    },
+    "Every hour": {
+      "comment": "AutoScanInterval.every60Minutes displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toutes les heures"
+          }
+        }
+      }
+    },
+    "Every month": {
+      "comment": "DiscoverUpdateInterval.monthly rawValue/displayName (rawValue-as-label, not edited)",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chaque mois"
+          }
+        }
+      }
+    },
+    "Every week": {
+      "comment": "DiscoverUpdateInterval.weekly rawValue/displayName (rawValue-as-label, not edited)",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chaque semaine"
+          }
+        }
+      }
+    },
+    "Expanded": {
+      "comment": "TableRowSize.displayName — row size option shown in track table options dropdown toggle",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Développé"
+          }
+        }
+      }
+    },
+    "Export": {
+      "comment": "NSOpenPanel confirmation button label (prompt) in ExportPlaylistsSheet (non-literal, wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exporter"
+          }
+        }
+      }
+    },
+    "Export (%lld)": {
+      "comment": "Export action button label with selected count in ExportPlaylistsSheet footer; %lld = selected count",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exporter (%lld)"
+          }
+        }
+      }
+    },
+    "Export Playlists": {
+      "comment": "Sheet headline in ExportPlaylistsSheet header; also used as NSOpenPanel title (non-literal, wrapped)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exporter les listes de lecture"
+          }
+        }
+      }
+    },
+    "Export Playlists...": {
+      "comment": "Menu item in PlaylistSidebarView options kebab menu",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exporter des listes de lecture…"
+          }
+        }
+      }
+    },
+    "Exported %lld %@ to %@": {
+      "comment": "Success notification after export; %lld = count, first %@ = 'playlist'/'playlists', second %@ = directory name (ExportPlaylistsSheet). Note: uses pluralize() helper at runtime.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld %2$@ exportée(s) dans %3$@"
+          }
+        }
+      }
+    },
+    "Exporting playlists...": {
+      "comment": "Activity indicator message shown in the notification area while export is in progress (ExportPlaylistsSheet)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exportation des listes de lecture…"
+          }
+        }
+      }
+    },
+    "Failed to add folders": {
+      "comment": "Error notification when adding folders to the library fails",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'ajouter les dossiers"
+          }
+        }
+      }
+    },
+    "Failed to connect to Last.fm": {
+      "comment": "ScrobbleManager: error shown when the session request throws a network error",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de se connecter à Last.fm"
+          }
+        }
+      }
+    },
+    "Failed to export '%@': %@": {
+      "comment": "Error notification message for a single playlist export failure; first %@ = playlist name, second %@ = error description (ExportPlaylistsSheet)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Échec de l'exportation de « %1$@ » : %2$@"
+          }
+        }
+      }
+    },
+    "Failed to export all %lld %@": {
+      "comment": "Error notification when all playlists fail to export; %lld = count, %@ = 'playlist'/'playlists' (ExportPlaylistsSheet). Note: uses pluralize() helper at runtime.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Échec de l'exportation des %lld %@"
+          }
+        }
+      }
+    },
+    "Failed to import all %lld %@": {
+      "comment": "Error notification when all playlist imports fail: %lld = file count, %@ = 'playlist'/'playlists'. Built by pluralize() helper (ContentView showImportNotifications).",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Échec de l'importation des %lld %@"
+          }
+        }
+      }
+    },
+    "Failed to load track for playback": {
+      "comment": "PlaybackManager: error shown when fetching track data throws",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger le morceau pour la lecture"
+          }
+        }
+      }
+    },
+    "Failed to optimize library": {
+      "comment": "Error notification when library/artwork optimization fails",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'optimiser la bibliothèque"
+          }
+        }
+      }
+    },
+    "Failed to process %lld files in '%@'": {
+      "comment": "Warning notification when multiple files fail to process during scan; %lld is count, %@ is folder name",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de traiter %1$lld fichiers dans « %2$@ »"
+          }
+        }
+      }
+    },
+    "Failed to process 1 file in '%@'": {
+      "comment": "Warning notification when 1 file fails to process during scan; %@ is folder name",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de traiter 1 fichier dans « %@ »"
+          }
+        }
+      }
+    },
+    "Failed to refresh %lld folders": {
+      "comment": "Error notification when refreshing multiple folders fails; %lld is count",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'actualiser %lld dossiers"
+          }
+        }
+      }
+    },
+    "Failed to refresh folder %@": {
+      "comment": "Error notification when refreshing a folder fails; %@ is the folder name",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'actualiser le dossier %@"
+          }
+        }
+      }
+    },
+    "Failed to refresh folder '%@'": {
+      "comment": "Error notification when refreshing 1 specific folder fails; %@ is folder name",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'actualiser le dossier « %@ »"
+          }
+        }
+      }
+    },
+    "Failed to remove %lld missing folder%@": {
+      "comment": "Error notification when missing folder removal fails; %lld is count, %@ is '' or 's' from the inline ternary. Contains inline singular/plural.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de supprimer %lld dossier(s) manquant(s)"
+          }
+        }
+      }
+    },
+    "Failed to remove folder '%@'": {
+      "comment": "Error notification when removing a folder fails; %@ is the folder name",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de supprimer le dossier « %@ »"
+          }
+        }
+      }
+    },
+    "Failed to scan folder '%@'": {
+      "comment": "Error notification when scanning a specific folder fails; %@ is the folder name",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'analyser le dossier « %@ »"
+          }
+        }
+      }
+    },
+    "Failed to update artists information": {
+      "comment": "Error notification when artist data rebuild fails",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de mettre à jour les informations sur les artistes"
+          }
+        }
+      }
+    },
+    "Favorite": {
+      "comment": "TrackDetailView metadata row label for favorite status (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Favori"
+          }
+        }
+      }
+    },
+    "Fetch artist image and bio from internet": {
+      "comment": "Toggle label in OnlineTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Récupérer la photo et la biographie de l'artiste sur internet"
+          }
+        }
+      }
+    },
+    "Fetch lyrics from internet when unavailable": {
+      "comment": "Toggle label in OnlineTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Récupérer les paroles sur internet si indisponibles"
+          }
+        }
+      }
+    },
+    "File '%@' contains no tracks": {
+      "comment": "PMImportExport M3UImportError.emptyFile: shown when an M3U file has no track entries; %@ is the filename",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le fichier « %@ » ne contient aucun morceau"
+          }
+        }
+      }
+    },
+    "File '%@' has invalid M3U format": {
+      "comment": "PMImportExport M3UImportError.invalidFormat: shown when an M3U file has bad format; %@ is the filename",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le fichier « %@ » a un format M3U non valide"
+          }
+        }
+      }
+    },
+    "File Details": {
+      "comment": "TrackDetailView FileDetailsSection collapsible header title",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Détails du fichier"
+          }
+        }
+      }
+    },
+    "File Path": {
+      "comment": "TrackDetailView file details row label for file path (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chemin du fichier"
+          }
+        }
+      }
+    },
+    "File Size": {
+      "comment": "TrackDetailView file details row label for file size (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taille du fichier"
+          }
+        }
+      }
+    },
+    "Filename": {
+      "comment": "Table column header for filename",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nom de fichier"
+          }
+        }
+      }
+    },
+    "Filter %@...": {
+      "comment": "LibrarySidebarView search field placeholder; %@ is the lowercased filter type name (e.g. 'artists')",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filtrer %@..."
+          }
+        }
+      }
+    },
+    "Flat": {
+      "comment": "EqualizerPreset.flat displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plat"
+          }
+        }
+      }
+    },
+    "Folder '%@' is now empty, removed %lld tracks": {
+      "comment": "Info notification when a folder is empty after scanning; %@ is folder name, %lld is track count removed",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le dossier « %1$@ » est maintenant vide, %2$lld morceau(x) supprimé(s)"
+          }
+        }
+      }
+    },
+    "Folder '%@' was refreshed for changes": {
+      "comment": "Info notification when 1 folder is successfully refreshed; %@ is folder name",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le dossier « %@ » a été actualisé"
+          }
+        }
+      }
+    },
+    "Folder '%@' was removed as it no longer exists": {
+      "comment": "Info notification when 1 missing folder is removed during optimization; %@ is folder name",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le dossier « %@ » a été supprimé car il n'existe plus"
+          }
+        }
+      }
+    },
+    "Folders": {
+      "comment": "Statistic item label in AboutTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dossiers"
+          }
+        }
+      }
+    },
+    "Folders %@ were refreshed for changes": {
+      "comment": "Info notification when 2-3 folders are refreshed; %@ is a comma-joined list of folder names",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les dossiers %@ ont été actualisés"
+          }
+        }
+      }
+    },
+    "Folders (%lld)": {
+      "comment": "DisclosureGroup label showing folder count in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dossiers (%lld)"
+          }
+        }
+      }
+    },
+    "Folders Tab": {
+      "comment": "View menu toggle",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onglet Dossiers"
+          }
+        }
+      }
+    },
+    "Force Refresh": {
+      "comment": "Label button label when ⌘ is held in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualiser en profondeur"
+          }
+        }
+      }
+    },
+    "Format": {
+      "comment": "TrackDetailView file details row label for audio format (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Format"
+          }
+        }
+      }
+    },
+    "French": {
+      "comment": "AppLanguage.french displayNameKey in language picker",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Français"
+          }
+        }
+      }
+    },
+    "General": {
+      "comment": "Settings tab title (SettingsTab rawValue, displayed via TabbedButtons)",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Général"
+          }
+        }
+      }
+    },
+    "Genre": {
+      "comment": "TrackDetailView metadata row label for genre (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Genre"
+          }
+        }
+      }
+    },
+    "Go to": {
+      "comment": "Context menu submenu label: navigate to artist/album/genre etc.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aller à"
+          }
+        }
+      }
+    },
+    "Help": {
+      "comment": "FooterLink title in AboutTabView",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aide"
+          }
+        }
+      }
+    },
+    "Hide Lyrics": {
+      "comment": "PlayerView lyrics button tooltip when lyrics are visible",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masquer les paroles"
+          }
+        }
+      }
+    },
+    "Hide Queue": {
+      "comment": "PlayerView queue button tooltip when queue is visible",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masquer la file d'attente"
+          }
+        }
+      }
+    },
+    "Hide duplicate songs (requires app relaunch)": {
+      "comment": "Toggle label in GeneralTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masquer les morceaux en double (nécessite un redémarrage)"
+          }
+        }
+      }
+    },
+    "Hip-Hop": {
+      "comment": "EqualizerPreset.hipHop displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hip-hop"
+          }
+        }
+      }
+    },
+    "Hold the ⌘ key while clicking Refresh for a forced deep re-scan of all metadata.": {
+      "comment": "Info popover text for refresh row in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maintenez la touche ⌘ en cliquant sur Actualiser pour forcer une analyse approfondie de toutes les métadonnées."
+          }
+        }
+      }
+    },
+    "Home": {
+      "comment": "Navigation title fallback when no sidebar item is selected",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accueil"
+          }
+        }
+      }
+    },
+    "How often to refresh the Discover tracks list": {
+      "comment": "Tooltip for discover update interval picker",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fréquence d'actualisation de la liste de morceaux Découverte"
+          }
+        }
+      }
+    },
+    "Import Playlists": {
+      "comment": "Title of the NSOpenPanel shown when importing playlist files (ContentView)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importer des listes de lecture"
+          }
+        }
+      }
+    },
+    "Import Playlists...": {
+      "comment": "Menu item in PlaylistSidebarView options kebab menu",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importer des listes de lecture…"
+          }
+        }
+      }
+    },
+    "Imported %lld %@ with %lld missing %@": {
+      "comment": "Warning notification after partial import: first %lld = playlist count, first %@ = 'playlist'/'playlists', second %lld = missing track count, second %@ = 'track'/'tracks'. Note: pluralization is handled by a local pluralize() helper; this key represents the runtime-constructed string (ContentView showImportNotifications). This string uses the multi-line builder and cannot be straightforwardly wrapped without refactoring the pluralize logic.",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld %@ importée(s) avec %lld %@ manquant(s)"
+          }
+        }
+      }
+    },
+    "Importing playlists...": {
+      "comment": "Activity indicator message shown while playlists are being imported (ContentView)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importation des listes de lecture…"
+          }
+        }
+      }
+    },
+    "In playlist": {
+      "comment": "Status badge on a track row that is already in the playlist (AddSongsToPlaylistSheet TrackSelectionRow)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dans la liste de lecture"
+          }
+        }
+      }
+    },
+    "Jazz": {
+      "comment": "EqualizerPreset.jazz displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jazz"
+          }
+        }
+      }
+    },
+    "Just now": {
+      "comment": "Relative timestamp on a notification row when the message was received less than 60 seconds ago",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À l'instant"
+          }
+        }
+      }
+    },
+    "Keep running in menubar on close": {
+      "comment": "Toggle label in GeneralTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuer dans la barre des menus à la fermeture"
+          }
+        }
+      }
+    },
+    "Keeps the app running in the menubar even after closing": {
+      "comment": "Tooltip for menubar toggle",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maintient l'app dans la barre des menus même après sa fermeture"
+          }
+        }
+      }
+    },
+    "Label": {
+      "comment": "TrackDetailView metadata row label for record label (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Label"
+          }
+        }
+      }
+    },
+    "Language": {
+      "comment": "Section header in GeneralTabView (language picker section)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Langue"
+          }
+        }
+      }
+    },
+    "Last Played": {
+      "comment": "TrackDetailView metadata row label for last played date (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dernière lecture"
+          }
+        }
+      }
+    },
+    "Last.fm": {
+      "comment": "Section header in OnlineTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last.fm"
+          }
+        }
+      }
+    },
+    "Last.fm API credentials not configured": {
+      "comment": "ScrobbleManager: error shown when API key or shared secret is absent during token exchange",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Identifiants d'API Last.fm non configurés"
+          }
+        }
+      }
+    },
+    "Last.fm API key not configured": {
+      "comment": "ScrobbleManager: error shown when the Last.fm API key is missing",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clé d'API Last.fm non configurée"
+          }
+        }
+      }
+    },
+    "Last.fm authorization failed: missing token": {
+      "comment": "ScrobbleManager: error shown when OAuth callback has no token",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autorisation Last.fm échouée : jeton manquant"
+          }
+        }
+      }
+    },
+    "Last.fm error: %@": {
+      "comment": "ScrobbleManager: error shown when Last.fm returns an API error; %@ is the error message from the API",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erreur Last.fm : %@"
+          }
+        }
+      }
+    },
+    "Later": {
+      "comment": "NSAlert button in showRestartAlert in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plus tard"
+          }
+        }
+      }
+    },
+    "Latin": {
+      "comment": "EqualizerPreset.latin displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Latin"
+          }
+        }
+      }
+    },
+    "Library": {
+      "comment": "Settings tab title (SettingsTab rawValue, displayed via TabbedButtons)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bibliothèque"
+          }
+        }
+      }
+    },
+    "Library Statistics": {
+      "comment": "Section headline in AboutTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Statistiques de la bibliothèque"
+          }
+        }
+      }
+    },
+    "Library optimized": {
+      "comment": "Info notification when library optimization completes with no space savings",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bibliothèque optimisée"
+          }
+        }
+      }
+    },
+    "Library optimized - reclaimed %@ MB": {
+      "comment": "Info notification when library optimization reclaims disk space; %@ is the MB amount formatted to 1 decimal via String(format:\"%.1f\",...)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bibliothèque optimisée — %@ Mo récupéré(s)"
+          }
+        }
+      }
+    },
+    "Library scan complete: %lld tracks found": {
+      "comment": "Completion notification for the initial library scan; %lld is the total track count",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analyse de la bibliothèque terminée : %lld morceaux trouvés"
+          }
+        }
+      }
+    },
+    "License": {
+      "comment": "FooterLink title in AboutTabView",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Licence"
+          }
+        }
+      }
+    },
+    "Light": {
+      "comment": "ColorMode.light rawValue displayed via TabbedButtons",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clair"
+          }
+        }
+      }
+    },
+    "Loading library folders...": {
+      "comment": "FolderSidebarView ProgressView label while the folder hierarchy is being built",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chargement des dossiers de la bibliothèque…"
+          }
+        }
+      }
+    },
+    "Loading lyrics...": {
+      "comment": "Status text shown while lyrics are being fetched (TrackLyricsView loadingView)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chargement des paroles…"
+          }
+        }
+      }
+    },
+    "Loading track details...": {
+      "comment": "TrackDetailView loading state label",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chargement des détails du morceau…"
+          }
+        }
+      }
+    },
+    "Loading tracks...": {
+      "comment": "Loading state label shown while tracks are being fetched in EntityDetailView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chargement des morceaux…"
+          }
+        }
+      }
+    },
+    "Lossless": {
+      "comment": "Badge label shown next to album stats when all tracks are lossless",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sans perte"
+          }
+        }
+      }
+    },
+    "Loudness": {
+      "comment": "EqualizerPreset.loudness displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sonorité"
+          }
+        }
+      }
+    },
+    "Lounge": {
+      "comment": "EqualizerPreset.lounge displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lounge"
+          }
+        }
+      }
+    },
+    "Lyrics": {
+      "comment": "Header title of the lyrics side panel (TrackLyricsView)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paroles"
+          }
+        }
+      }
+    },
+    "Lyrics & Metadata": {
+      "comment": "Section header in OnlineTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paroles et métadonnées"
+          }
+        }
+      }
+    },
+    "Manually": {
+      "comment": "AutoScanInterval.manually displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manuellement"
+          }
+        }
+      }
+    },
+    "Mark songs as favorites to see them here": {
+      "comment": "Empty-state body for Favorites smart playlist (Utilities/Constants.swift DefaultPlaylists.emptyStateText — model-owned)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marquez des morceaux comme favoris pour les voir ici"
+          }
+        }
+      }
+    },
+    "Media Type": {
+      "comment": "TrackDetailView file details row label for media type (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type de média"
+          }
+        }
+      }
+    },
+    "Mono": {
+      "comment": "TrackDetailView formatChannels value for 1 channel (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mono"
+          }
+        }
+      }
+    },
+    "MusicBrainz": {
+      "comment": "Tooltip for MusicBrainz acknowledgement logo in AboutTabView",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MusicBrainz"
+          }
+        }
+      }
+    },
+    "Mute": {
+      "comment": "PlayerView mute button tooltip when unmuted",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couper le son"
+          }
+        }
+      }
+    },
+    "New": {
+      "comment": "File menu submenu",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouveau"
+          }
+        }
+      }
+    },
+    "New Playlist": {
+      "comment": "Headline label in the Create Playlist sheet (ContentView CreatePlaylistSheet)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouvelle liste de lecture"
+          }
+        }
+      }
+    },
+    "New Playlist...": {
+      "comment": "Context menu item: create a new playlist from selected track(s)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouvelle liste de lecture…"
+          }
+        }
+      }
+    },
+    "Next": {
+      "comment": "PlayerView next track button tooltip",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suivant"
+          }
+        }
+      }
+    },
+    "No Favorite Songs": {
+      "comment": "Empty-state title for the Favorites smart playlist (Utilities/Constants.swift DefaultPlaylists.noSongsText — model-owned, needs separate agent edit)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun morceau favori"
+          }
+        }
+      }
+    },
+    "No Folders": {
+      "comment": "FolderSidebarView empty state label when no library folders exist",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun dossier"
+          }
+        }
+      }
+    },
+    "No Frequently Played Songs": {
+      "comment": "Empty-state title for the Top 25 Most Played smart playlist (Utilities/Constants.swift — model-owned)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun morceau fréquemment lu"
+          }
+        }
+      }
+    },
+    "No Items": {
+      "comment": "Empty state label shown in sidebar list when there are no items",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun élément"
+          }
+        }
+      }
+    },
+    "No Lyrics Available": {
+      "comment": "Headline shown when no lyrics could be found for the current track (TrackLyricsView emptyLyricsView)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune parole disponible"
+          }
+        }
+      }
+    },
+    "No Music Added Yet": {
+      "comment": "Large title in the empty-state view when no library folders have been added",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune musique ajoutée"
+          }
+        }
+      }
+    },
+    "No Music Files": {
+      "comment": "FoldersView empty state headline when the selected folder contains no playable files",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun fichier musical"
+          }
+        }
+      }
+    },
+    "No Recently Played Songs": {
+      "comment": "Empty-state title for the Top 25 Recently Played smart playlist (Utilities/Constants.swift — model-owned)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun morceau lu récemment"
+          }
+        }
+      }
+    },
+    "No Search Results": {
+      "comment": "LibraryView empty state headline when no tracks match the active search query",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun résultat"
+          }
+        }
+      }
+    },
+    "No Tracks Found": {
+      "comment": "LibraryView empty state headline when no tracks match the current filter and no search is active",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun morceau trouvé"
+          }
+        }
+      }
+    },
+    "No folders added yet": {
+      "comment": "Empty state text in folders list in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun dossier ajouté"
+          }
+        }
+      }
+    },
+    "No images available": {
+      "comment": "ArtistImageSheet empty state when no images are returned",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune image disponible"
+          }
+        }
+      }
+    },
+    "No music found": {
+      "comment": "Headline in the no-content state of NoMusicEmptyStateView when folders exist but no tracks have been indexed yet",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune musique trouvée"
+          }
+        }
+      }
+    },
+    "No notifications": {
+      "comment": "Empty state label in notification popover when there are no messages",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune notification"
+          }
+        }
+      }
+    },
+    "No playable music files found in this folder": {
+      "comment": "FoldersView empty state body when the selected folder has no music",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun fichier musical lisible dans ce dossier"
+          }
+        }
+      }
+    },
+    "No playlists to export": {
+      "comment": "Headline in the empty state of ExportPlaylistsSheet",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune liste de lecture à exporter"
+          }
+        }
+      }
+    },
+    "No results found": {
+      "comment": "Headline in the no-results view when search yields nothing (AddSongsToPlaylistSheet)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun résultat"
+          }
+        }
+      }
+    },
+    "No tracks found": {
+      "comment": "Empty state headline in EntityDetailView when no tracks exist for the entity",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun morceau trouvé"
+          }
+        }
+      }
+    },
+    "No tracks found for \"%@\"": {
+      "comment": "LibraryView empty state body when a sidebar filter item yields no tracks; %@ is the filter name",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun morceau pour « %@ »"
+          }
+        }
+      }
+    },
+    "No tracks found matching \"%@\"": {
+      "comment": "LibraryView empty state body when search yields no results; %@ is the search text",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun morceau correspondant à « %@ »"
+          }
+        }
+      }
+    },
+    "No tracks match the current filter": {
+      "comment": "LibraryView empty state body for 'All' filter item with no results",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun morceau ne correspond au filtre actuel"
+          }
+        }
+      }
+    },
+    "No tracks were found for %@": {
+      "comment": "Empty state body text in EntityDetailView; %@ is the entity name (artist, album, etc.)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun morceau trouvé pour %@"
+          }
+        }
+      }
+    },
+    "No undiscovered tracks": {
+      "comment": "Empty state headline in Discover view when all tracks have been played",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun morceau à découvrir"
+          }
+        }
+      }
+    },
+    "Not connected": {
+      "comment": "Last.fm disconnected status label in OnlineTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non connecté"
+          }
+        }
+      }
+    },
+    "Notifications": {
+      "comment": "Notification popover header shown when no activity is in progress",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notifications"
+          }
+        }
+      }
+    },
+    "Number of Discover tracks": {
+      "comment": "Label for discover track count stepper in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nombre de morceaux Découverte"
+          }
+        }
+      }
+    },
+    "Number of tracks to show in Discover (1-200)": {
+      "comment": "Tooltip for discover track count stepper",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nombre de morceaux à afficher dans Découverte (1-200)"
+          }
+        }
+      }
+    },
+    "On": {
+      "comment": "Toggle label for EQ enabled in EqualizerView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activé"
+          }
+        }
+      }
+    },
+    "Online": {
+      "comment": "Settings tab title (SettingsTab rawValue, displayed via TabbedButtons)",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En ligne"
+          }
+        }
+      }
+    },
+    "Only on app launch": {
+      "comment": "AutoScanInterval.onlyOnLaunch displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uniquement au lancement"
+          }
+        }
+      }
+    },
+    "Optimize": {
+      "comment": "Button label in optimize row of LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optimiser"
+          }
+        }
+      }
+    },
+    "Optimize library database": {
+      "comment": "Label in optimize row of LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optimiser la base de données de la bibliothèque"
+          }
+        }
+      }
+    },
+    "Optimizing Library...": {
+      "comment": "Activity tray message while artwork is being converted/optimized",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optimisation de la bibliothèque ..."
+          }
+        }
+      }
+    },
+    "Optimizing database...": {
+      "comment": "Activity tray message while the database is being optimized (missing folders removed)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optimisation de la base de données ..."
+          }
+        }
+      }
+    },
+    "Order changed": {
+      "comment": "Footer status label when track order has been modified in ReorderTracksSheet",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ordre modifié"
+          }
+        }
+      }
+    },
+    "Original Release": {
+      "comment": "TrackDetailView metadata row label for original release date (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sortie originale"
+          }
+        }
+      }
+    },
+    "PLAYLIST": {
+      "comment": "Playlist type badge shown above the playlist name in PlaylistDetailView (wrapped with String(localized:) in playlistTypeText computed var)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LISTE DE LECTURE"
+          }
+        }
+      }
+    },
+    "Pause": {
+      "comment": "PlayerView play/pause button tooltip when playing",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pause"
+          }
+        }
+      }
+    },
+    "Petrichor User Guide": {
+      "comment": "Help menu item",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guide d'utilisation de Petrichor"
+          }
+        }
+      }
+    },
+    "Piano": {
+      "comment": "EqualizerPreset.piano displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Piano"
+          }
+        }
+      }
+    },
+    "Pin to Home": {
+      "comment": "Tooltip on the pin button in EntityDetailView when the entity is not yet pinned",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Épingler à l'accueil"
+          }
+        }
+      }
+    },
+    "Play": {
+      "comment": "Play button label in EntityDetailView entity controls",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lire"
+          }
+        }
+      }
+    },
+    "Play Count": {
+      "comment": "TrackDetailView metadata row label for play count (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nombre d'écoutes"
+          }
+        }
+      }
+    },
+    "Play Next": {
+      "comment": "Context menu item: play the selected track(s) next in queue",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lire ensuite"
+          }
+        }
+      }
+    },
+    "Play Queue": {
+      "comment": "Header title of the play queue side panel (PlayQueueView)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File d'attente"
+          }
+        }
+      }
+    },
+    "Play a song to start building your queue": {
+      "comment": "Caption shown below the empty queue headline (PlayQueueView emptyQueueView)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lisez un morceau pour commencer à remplir votre file d'attente"
+          }
+        }
+      }
+    },
+    "Play/Pause": {
+      "comment": "Playback menu item",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lecture/Pause"
+          }
+        }
+      }
+    },
+    "Playback": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lecture"
+          }
+        }
+      }
+    },
+    "Playback error occurred": {
+      "comment": "PlaybackManager: error shown when audio player finishes with an error stop reason",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une erreur de lecture est survenue"
+          }
+        }
+      }
+    },
+    "Playback error: %@": {
+      "comment": "PlaybackManager: error shown on unexpected audio player error; %@ is the localized error description",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erreur de lecture : %@"
+          }
+        }
+      }
+    },
+    "Playlist": {
+      "comment": "New submenu item",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liste de lecture"
+          }
+        }
+      }
+    },
+    "Playlist Name": {
+      "comment": "Placeholder text in the playlist name text field inside the Create Playlist sheet (ContentView CreatePlaylistSheet)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nom de la liste de lecture"
+          }
+        }
+      }
+    },
+    "Playlist Options": {
+      "comment": "Tooltip for the ellipsis (kebab) menu button in PlaylistSidebarView sidebar header",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Options de liste de lecture"
+          }
+        }
+      }
+    },
+    "Playlist from Selection": {
+      "comment": "New submenu item",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liste de lecture à partir de la sélection"
+          }
+        }
+      }
+    },
+    "Playlist not found": {
+      "comment": "Fallback message shown in PlaylistDetailView when the playlist UUID is not found",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liste de lecture introuvable"
+          }
+        }
+      }
+    },
+    "Playlists": {
+      "comment": "Section header title in PlaylistSidebarView sidebar header",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listes de lecture"
+          }
+        }
+      }
+    },
+    "Pop": {
+      "comment": "EqualizerPreset.pop displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pop"
+          }
+        }
+      }
+    },
+    "Preamp": {
+      "comment": "VerticalSlider label for preamp in EqualizerView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Préamplification"
+          }
+        }
+      }
+    },
+    "Previous": {
+      "comment": "PlayerView previous track button tooltip",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Précédent"
+          }
+        }
+      }
+    },
+    "Processing...": {
+      "comment": "Fallback headline in notification popover activity view when no specific activity message is set",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traitement en cours…"
+          }
+        }
+      }
+    },
+    "Processing: %lld files": {
+      "comment": "Scan status message showing processed file count when total is unknown; %lld is count",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traitement : %lld fichiers"
+          }
+        }
+      }
+    },
+    "Processing: %lld/%lld files": {
+      "comment": "Scan status message showing processed vs total file counts; first %lld is processed, second %lld is total",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traitement : %1$lld/%2$lld fichiers"
+          }
+        }
+      }
+    },
+    "Processing: %lld/%lld files in %@": {
+      "comment": "Scan status for single-folder progress; first %lld is processed, second %lld is total, %@ is folder name",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traitement : %1$lld/%2$lld fichiers dans %3$@"
+          }
+        }
+      }
+    },
+    "Producer": {
+      "comment": "TrackDetailView metadata row label for producer (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Producteur"
+          }
+        }
+      }
+    },
+    "Project Homepage": {
+      "comment": "Help menu item",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Page d'accueil du projet"
+          }
+        }
+      }
+    },
+    "Publisher": {
+      "comment": "TrackDetailView metadata row label for publisher (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Éditeur"
+          }
+        }
+      }
+    },
+    "Quadraphonic": {
+      "comment": "TrackDetailView formatChannels value for 4 channels (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quadriphonique"
+          }
+        }
+      }
+    },
+    "Queue is Empty": {
+      "comment": "Headline shown when the play queue has no tracks (PlayQueueView emptyQueueView)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File d'attente vide"
+          }
+        }
+      }
+    },
+    "Quit Now": {
+      "comment": "NSAlert button in showRestartAlert in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitter maintenant"
+          }
+        }
+      }
+    },
+    "Quit Petrichor": {
+      "comment": "MenuBarManager: menu item to quit the app",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitter Petrichor"
+          }
+        }
+      }
+    },
+    "R&B": {
+      "comment": "EqualizerPreset.rnb displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "R&B"
+          }
+        }
+      }
+    },
+    "Rating": {
+      "comment": "TrackDetailView metadata row label for rating (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Note"
+          }
+        }
+      }
+    },
+    "Refresh": {
+      "comment": "Button/Label for refreshing library in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualiser"
+          }
+        }
+      }
+    },
+    "Refresh Discover tracks": {
+      "comment": "Picker label in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualiser les morceaux Découverte"
+          }
+        }
+      }
+    },
+    "Refresh Library Folders": {
+      "comment": "File menu item",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualiser les dossiers de la bibliothèque"
+          }
+        }
+      }
+    },
+    "Refresh added folders for changes": {
+      "comment": "Picker label in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualiser les dossiers ajoutés pour les modifications"
+          }
+        }
+      }
+    },
+    "Refresh added library folders for updates": {
+      "comment": "Label in refresh row of LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualiser les dossiers de la bibliothèque ajoutés"
+          }
+        }
+      }
+    },
+    "Refresh this folder. Hold ⌘ for deep refresh": {
+      "comment": "Tooltip for folder refresh button in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualiser ce dossier. Maintenez ⌘ pour une actualisation approfondie"
+          }
+        }
+      }
+    },
+    "Refreshing %@...": {
+      "comment": "Activity tray and scan status while refreshing a specific folder; %@ is the folder name",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualisation de %@ ..."
+          }
+        }
+      }
+    },
+    "Refreshing %lld folder%@...": {
+      "comment": "Activity tray message while refreshing N folders; %lld is count, %@ is '' or 's' from the inline ternary. Contains inline singular/plural.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualisation de %1$lld dossier(s) ..."
+          }
+        }
+      }
+    },
+    "Refreshing Library": {
+      "comment": "Overlay title shown while library is scanning in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualisation de la bibliothèque"
+          }
+        }
+      }
+    },
+    "Refreshing Library...": {
+      "comment": "Overlay subtitle fallback while library is scanning in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualisation de la bibliothèque…"
+          }
+        }
+      }
+    },
+    "Release Date": {
+      "comment": "TrackDetailView metadata row label for release date (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Date de sortie"
+          }
+        }
+      }
+    },
+    "Remove": {
+      "comment": "Destructive button in remove folder alert in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer"
+          }
+        }
+      }
+    },
+    "Remove %lld Song%@": {
+      "comment": "Action button title when only removals are pending; %lld = count, %@ = '' or 's' (AddSongsToPlaylistSheet actionButtonTitle)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer %lld morceau%@"
+          }
+        }
+      }
+    },
+    "Remove Folder": {
+      "comment": "Alert title when removing a single folder in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer le dossier"
+          }
+        }
+      }
+    },
+    "Remove Folders": {
+      "comment": "Alert title when removing multiple folders in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer les dossiers"
+          }
+        }
+      }
+    },
+    "Remove Selected": {
+      "comment": "Button label to remove selected folders in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer la sélection"
+          }
+        }
+      }
+    },
+    "Remove from Favorites": {
+      "comment": "PlayerView / FavoriteButtonView tooltip when track is a favorite",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer des favoris"
+          }
+        }
+      }
+    },
+    "Remove from Home": {
+      "comment": "Context menu item and tooltip to unpin an item from the Home sidebar",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer de l'accueil"
+          }
+        }
+      }
+    },
+    "Remove from Playlist": {
+      "comment": "Context menu item: remove selected track(s) from the current playlist",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer de la liste de lecture"
+          }
+        }
+      }
+    },
+    "Remove from queue": {
+      "comment": "Tooltip for the remove button on a queue row (PlayQueueView PlayQueueRow .help)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer de la file d'attente"
+          }
+        }
+      }
+    },
+    "Remove this folder": {
+      "comment": "Tooltip for folder remove button in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer ce dossier"
+          }
+        }
+      }
+    },
+    "Removed %lld folders": {
+      "comment": "Toast notification after removing multiple folders in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld dossiers retirés"
+          }
+        }
+      }
+    },
+    "Removed %lld missing tracks from '%@'": {
+      "comment": "Info notification when multiple missing tracks are removed from a folder; %lld is count, %@ is folder name",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld morceaux manquants supprimés de « %2$@ »"
+          }
+        }
+      }
+    },
+    "Removed 1 missing track from '%@'": {
+      "comment": "Info notification when 1 missing track is removed from a folder; %@ is folder name",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 morceau manquant supprimé de « %@ »"
+          }
+        }
+      }
+    },
+    "Removed folder '%@'": {
+      "comment": "Toast notification after removing a single folder in LibraryTabView (folder name interpolated)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dossier « %@ » retiré"
+          }
+        }
+      }
+    },
+    "Removes all folders, tracks, playlists, and pinned items. Use the checkbox in the confirmation dialog to optionally reset app preferences.": {
+      "comment": "Info popover text for reset row in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprime tous les dossiers, morceaux, listes de lecture et éléments épinglés. Cochez la case dans la boîte de dialogue de confirmation pour réinitialiser également les préférences."
+          }
+        }
+      }
+    },
+    "Removes references to library data that no longer exists on disk and compacts the database to reclaim space.": {
+      "comment": "Info popover text for optimize row in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprime les références aux données de la bibliothèque qui n'existent plus sur le disque et compacte la base de données pour récupérer de l'espace."
+          }
+        }
+      }
+    },
+    "Removing %lld folders...": {
+      "comment": "Activity notification when removing multiple folders in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retrait de %lld dossiers…"
+          }
+        }
+      }
+    },
+    "Removing folder '%@'...": {
+      "comment": "Activity notification when removing a single folder in LibraryTabView (folder name interpolated)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retrait du dossier « %@ »…"
+          }
+        }
+      }
+    },
+    "Rename": {
+      "comment": "Menu item in PlaylistSidebarView kebab menu and context menu (editable playlists)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Renommer"
+          }
+        }
+      }
+    },
+    "Reorder Tracks": {
+      "comment": "Sheet header subtitle in ReorderTracksSheet",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réordonner les morceaux"
+          }
+        }
+      }
+    },
+    "Repeat: All": {
+      "comment": "PlayerView repeat button tooltip when repeating all (repeatModeTooltip, wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Répéter tout"
+          }
+        }
+      }
+    },
+    "Repeat: Current Track": {
+      "comment": "PlayerView repeat button tooltip when repeating one track (repeatModeTooltip, wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Répéter le morceau actuel"
+          }
+        }
+      }
+    },
+    "Repeat: Off": {
+      "comment": "PlayerView repeat button tooltip when repeat is off (repeatModeTooltip, wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Répétition : désactivée"
+          }
+        }
+      }
+    },
+    "Reset": {
+      "comment": "Button label in reset row of LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réinitialiser"
+          }
+        }
+      }
+    },
+    "Reset All Data": {
+      "comment": "NSAlert destructive button in showResetConfirmation in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réinitialiser toutes les données"
+          }
+        }
+      }
+    },
+    "Reset Library Data": {
+      "comment": "NSAlert title in showResetConfirmation in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réinitialiser les données de la bibliothèque"
+          }
+        }
+      }
+    },
+    "Reset all library data": {
+      "comment": "Label in reset row of LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réinitialiser toutes les données de la bibliothèque"
+          }
+        }
+      }
+    },
+    "Restart Now": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redémarrer maintenant"
+          }
+        }
+      }
+    },
+    "Restart Required": {
+      "comment": "NSAlert title in showRestartAlert in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redémarrage requis"
+          }
+        }
+      }
+    },
+    "Retry": {
+      "comment": "Label on the Retry button shown when lyrics fetch failed (TrackLyricsView emptyLyricsView Label)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réessayer"
+          }
+        }
+      }
+    },
+    "Reveal in Finder": {
+      "comment": "Context menu item: reveal track file in Finder",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher dans le Finder"
+          }
+        }
+      }
+    },
+    "Rock": {
+      "comment": "EqualizerPreset.rock displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rock"
+          }
+        }
+      }
+    },
+    "Row size": {
+      "comment": "Section header in sort/display options dropdown",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taille des lignes"
+          }
+        }
+      }
+    },
+    "SMART PLAYLIST": {
+      "comment": "Playlist type badge shown above the playlist name in PlaylistDetailView (wrapped with String(localized:) in playlistTypeText computed var)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LISTE DE LECTURE INTELLIGENTE"
+          }
+        }
+      }
+    },
+    "Sample Rate": {
+      "comment": "TrackDetailView file details row label for sample rate (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fréquence d'échantillonnage"
+          }
+        }
+      }
+    },
+    "Save": {
+      "comment": "Save button in ReorderTracksSheet footer",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistrer"
+          }
+        }
+      }
+    },
+    "Scan complete": {
+      "comment": "Scan status message shown when a scan finishes",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analyse terminée"
+          }
+        }
+      }
+    },
+    "Scanning %lld folder%@...": {
+      "comment": "Activity tray message while scanning N folders; %lld is the folder count, %@ is '' or 's' from the inline ternary. Note: catalog assembler should split into proper plural rules. Singular: 'Analyse de 1 dossier...' Plural: 'Analyse de %lld dossiers...'",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analyse de %1$lld dossier(s) ..."
+          }
+        }
+      }
+    },
+    "Scanning Music Library": {
+      "comment": "Headline in the scanning-progress state of NoMusicEmptyStateView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analyse de la bibliothèque musicale"
+          }
+        }
+      }
+    },
+    "Scanning your music library...": {
+      "comment": "Activity tray message during the initial full library scan",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analyse de votre bibliothèque musicale ..."
+          }
+        }
+      }
+    },
+    "Search": {
+      "comment": "Placeholder text in the global search field (ContentView toolbar, both legacy and modern)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rechercher"
+          }
+        }
+      }
+    },
+    "Search Library": {
+      "comment": "View menu item",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rechercher dans la bibliothèque"
+          }
+        }
+      }
+    },
+    "Search Results": {
+      "comment": "LibraryView header title when a global search is active",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Résultats de recherche"
+          }
+        }
+      }
+    },
+    "Search by artist name or paste image URL": {
+      "comment": "ArtistImageSheet search text field placeholder",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rechercher par nom d'artiste ou coller une URL d'image"
+          }
+        }
+      }
+    },
+    "Search for songs to add": {
+      "comment": "Headline in the initial (pre-search) empty state of AddSongsToPlaylistSheet",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rechercher des morceaux à ajouter"
+          }
+        }
+      }
+    },
+    "Search songs...": {
+      "comment": "Placeholder text in the search field of AddSongsToPlaylistSheet",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rechercher des morceaux…"
+          }
+        }
+      }
+    },
+    "Search term too short": {
+      "comment": "Headline in the no-results view when fewer than 2 characters entered (AddSongsToPlaylistSheet)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terme de recherche trop court"
+          }
+        }
+      }
+    },
+    "Search...": {
+      "comment": "Default placeholder text for the search field (SearchInputField) when no placeholder is provided by the caller",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rechercher…"
+          }
+        }
+      }
+    },
+    "Searching for images...": {
+      "comment": "ArtistImageSheet loading state caption while image search is in progress",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recherche d'images…"
+          }
+        }
+      }
+    },
+    "Searching...": {
+      "comment": "Loading label shown while a search is in progress in AddSongsToPlaylistSheet",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recherche en cours…"
+          }
+        }
+      }
+    },
+    "Seek Backward": {
+      "comment": "Playback menu item",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recul rapide"
+          }
+        }
+      }
+    },
+    "Seek Forward": {
+      "comment": "Playback menu item",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avance rapide"
+          }
+        }
+      }
+    },
+    "Select": {
+      "comment": "Button to enter folder select mode in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sélectionner"
+          }
+        }
+      }
+    },
+    "Select All (%lld)": {
+      "comment": "Toggle label for select-all in ExportPlaylistsSheet; %lld is the total playlist count",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tout sélectionner (%lld)"
+          }
+        }
+      }
+    },
+    "Select a Folder": {
+      "comment": "FoldersView TrackListHeader title and empty-state headline when no folder is selected",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sélectionner un dossier"
+          }
+        }
+      }
+    },
+    "Select a Playlist": {
+      "comment": "Headline in PlaylistsView empty-selection state (no playlist chosen)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sélectionner une liste de lecture"
+          }
+        }
+      }
+    },
+    "Select all %lld": {
+      "comment": "Select-all toggle label in AddSongsToPlaylistSheet; %lld is the count of selectable tracks",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tout sélectionner (%lld)"
+          }
+        }
+      }
+    },
+    "Select an item from the sidebar": {
+      "comment": "Empty state text when no sidebar item is selected in HomeView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sélectionnez un élément dans la barre latérale"
+          }
+        }
+      }
+    },
+    "Select folders containing your music files": {
+      "comment": "Instructional message shown inside the NSOpenPanel for adding music folders",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sélectionnez les dossiers contenant vos fichiers musicaux"
+          }
+        }
+      }
+    },
+    "Select playlists to export:": {
+      "comment": "Instructions label above the playlist list in ExportPlaylistsSheet",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sélectionner les listes de lecture à exporter :"
+          }
+        }
+      }
+    },
+    "Select up to 25 playlist files to import": {
+      "comment": "Message shown inside the NSOpenPanel for playlist import (ContentView)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sélectionnez jusqu'à 25 fichiers de liste de lecture à importer"
+          }
+        }
+      }
+    },
+    "Selected %lld files. Please select up to 25 files at a time.": {
+      "comment": "Warning notification when user selects more than 25 playlist files; %lld = file count (ContentView)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld fichiers sélectionnés. Veuillez en sélectionner au maximum 25 à la fois."
+          }
+        }
+      }
+    },
+    "Settings": {
+      "comment": "Tooltip for the settings gear button (ContentView .help)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réglages"
+          }
+        }
+      }
+    },
+    "Show Info": {
+      "comment": "Context menu item: show track info panel",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher les informations"
+          }
+        }
+      }
+    },
+    "Show Lyrics": {
+      "comment": "PlayerView lyrics button tooltip when lyrics are hidden",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher les paroles"
+          }
+        }
+      }
+    },
+    "Show Petrichor": {
+      "comment": "MenuBarManager: menu item to bring the main app window to front",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher Petrichor"
+          }
+        }
+      }
+    },
+    "Show Queue": {
+      "comment": "PlayerView queue button tooltip when queue is hidden",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher la file d'attente"
+          }
+        }
+      }
+    },
+    "Show app data directory in Finder": {
+      "comment": "Tooltip for App Data footer link in AboutTabView",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher le dossier de données de l'app dans le Finder"
+          }
+        }
+      }
+    },
+    "Show folders tab in main window": {
+      "comment": "Toggle label in GeneralTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher l'onglet Dossiers dans la fenêtre principale"
+          }
+        }
+      }
+    },
+    "Show in Finder": {
+      "comment": "Context menu item (folder context): show track in Finder",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher dans le Finder"
+          }
+        }
+      }
+    },
+    "Shows Folders tab within the main window to browse music directly from added folders": {
+      "comment": "Tooltip for show folders toggle",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Affiche l'onglet Dossiers dans la fenêtre principale pour parcourir la musique directement depuis les dossiers ajoutés"
+          }
+        }
+      }
+    },
+    "Shows only the highest quality version when multiple copies exist": {
+      "comment": "Tooltip for hide duplicates toggle",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Affiche uniquement la version de meilleure qualité lorsque plusieurs copies existent"
+          }
+        }
+      }
+    },
+    "Shuffle": {
+      "comment": "Shuffle button label in EntityDetailView entity controls",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aléatoire"
+          }
+        }
+      }
+    },
+    "Small Speakers": {
+      "comment": "EqualizerPreset.smallSpeakers displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Petits haut-parleurs"
+          }
+        }
+      }
+    },
+    "Songs played 5 or more times will appear here": {
+      "comment": "Empty-state body for Top 25 Most Played smart playlist (Utilities/Constants.swift — model-owned)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les morceaux lus 5 fois ou plus apparaîtront ici"
+          }
+        }
+      }
+    },
+    "Songs played in the last week will appear here": {
+      "comment": "Empty-state body for Top 25 Recently Played smart playlist (Utilities/Constants.swift — model-owned)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les morceaux lus au cours de la dernière semaine apparaîtront ici"
+          }
+        }
+      }
+    },
+    "Sort %@": {
+      "comment": "Tooltip on sort-direction toggle button; %@ is 'ascending' or 'descending'",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trier %@"
+          }
+        }
+      }
+    },
+    "Sort albums": {
+      "comment": "Tooltip on the sort/filter menu button in the Albums view",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trier les albums"
+          }
+        }
+      }
+    },
+    "Sort and display options": {
+      "comment": "Tooltip for the sort/display options dropdown button",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Options de tri et d'affichage"
+          }
+        }
+      }
+    },
+    "Sort by": {
+      "comment": "Menu section header label for album sort-by options",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trier par"
+          }
+        }
+      }
+    },
+    "Sort order": {
+      "comment": "Menu section header label for ascending/descending sort order",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ordre de tri"
+          }
+        }
+      }
+    },
+    "Spoken Word": {
+      "comment": "EqualizerPreset.spokenWord displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voix parlée"
+          }
+        }
+      }
+    },
+    "Start at login": {
+      "comment": "Toggle label in GeneralTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrir à la session"
+          }
+        }
+      }
+    },
+    "Starts app on login": {
+      "comment": "Tooltip for Start at login toggle",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvre l'app à la session"
+          }
+        }
+      }
+    },
+    "Stereo": {
+      "comment": "TrackDetailView formatChannels value for 2 channels (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stéréo"
+          }
+        }
+      }
+    },
+    "Stereo Widening": {
+      "comment": "Toggle label in EqualizerView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Élargissement stéréo"
+          }
+        }
+      }
+    },
+    "Successfully imported %lld %@ (%lld %@)": {
+      "comment": "Info notification after successful import: first %lld = successful count, first %@ = 'playlist'/'playlists', second %lld = total tracks imported, second %@ = 'track'/'tracks'. Built by pluralize() helper (ContentView showImportNotifications).",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld %@ importée(s) avec succès (%lld %@)"
+          }
+        }
+      }
+    },
+    "Support Development": {
+      "comment": "Help menu item",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soutenir le développement"
+          }
+        }
+      }
+    },
+    "Supported Formats": {
+      "comment": "Headline inside the supported audio formats popover",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Formats pris en charge"
+          }
+        }
+      }
+    },
+    "Supported formats": {
+      "comment": "Underlined link/button label that opens the supported audio formats popover",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Formats pris en charge"
+          }
+        }
+      }
+    },
+    "Sync favorites as Loved tracks": {
+      "comment": "Toggle label in OnlineTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synchroniser les favoris comme morceaux aimés"
+          }
+        }
+      }
+    },
+    "System": {
+      "comment": "AppLanguage.system displayNameKey in language picker",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Système"
+          }
+        }
+      }
+    },
+    "The Movie Database": {
+      "comment": "Tooltip for TMDB acknowledgement logo in AboutTabView",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The Movie Database"
+          }
+        }
+      }
+    },
+    "The language change will take effect after you restart the app.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le changement de langue prendra effet après le redémarrage de l'application."
+          }
+        }
+      }
+    },
+    "The track information could not be retrieved.": {
+      "comment": "TrackDetailView error state body",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les informations du morceau n'ont pas pu être récupérées."
+          }
+        }
+      }
+    },
+    "This may take a few minutes for large libraries": {
+      "comment": "Italic caption at the bottom of the scanning-progress view",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cela peut prendre quelques minutes pour les grandes bibliothèques"
+          }
+        }
+      }
+    },
+    "This smart playlist will update automatically based on its criteria": {
+      "comment": "Empty-state body fallback for other smart playlists (Utilities/Constants.swift — model-owned)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette liste de lecture intelligente se met à jour automatiquement selon ses critères"
+          }
+        }
+      }
+    },
+    "This will permanently remove all library data, including added folders, tracks, playlists, and pinned items. This action cannot be undone.": {
+      "comment": "NSAlert informative text in showResetConfirmation in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toutes les données de la bibliothèque seront supprimées de façon permanente, notamment les dossiers ajoutés, les morceaux, les listes de lecture et les éléments épinglés. Cette action est irréversible."
+          }
+        }
+      }
+    },
+    "Title": {
+      "comment": "Sort order option in AddSongsToPlaylistSheet SortOrder enum displayName (also used as rawValue)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titre"
+          }
+        }
+      }
+    },
+    "Track": {
+      "comment": "TrackDetailView metadata row label for track number (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Piste"
+          }
+        }
+      }
+    },
+    "Track Info": {
+      "comment": "TrackDetailView panel header title",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Infos du morceau"
+          }
+        }
+      }
+    },
+    "Track number": {
+      "comment": "SpecialTableColumn.displayName — column header for the track number column in the track table",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Numéro de piste"
+          }
+        }
+      }
+    },
+    "Track number (#)": {
+      "comment": "Sort field display name for track number",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Numéro de piste (#)"
+          }
+        }
+      }
+    },
+    "Track your listening history on Last.fm": {
+      "comment": "Tooltip for scrobbling toggle",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistrez votre historique d'écoute sur Last.fm"
+          }
+        }
+      }
+    },
+    "Tracks": {
+      "comment": "Statistic item label in AboutTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Morceaux"
+          }
+        }
+      }
+    },
+    "Tracks you favorite in Petrichor will be loved on Last.fm. Loved tracks on Last.fm won't sync back to Petrichor.": {
+      "comment": "Info popover text in OnlineTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les morceaux que vous aimez dans Petrichor seront marqués comme aimés sur Last.fm. Les morceaux aimés sur Last.fm ne seront pas synchronisés vers Petrichor."
+          }
+        }
+      }
+    },
+    "Treble Booster": {
+      "comment": "EqualizerPreset.increaseTreble displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amplificateur d'aigus"
+          }
+        }
+      }
+    },
+    "Treble Reducer": {
+      "comment": "EqualizerPreset.reduceTreble displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réducteur d'aigus"
+          }
+        }
+      }
+    },
+    "Try a different search term": {
+      "comment": "Subheadline when search yields no results (AddSongsToPlaylistSheet)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Essayez un autre terme de recherche"
+          }
+        }
+      }
+    },
+    "Unable to load track details": {
+      "comment": "TrackDetailView error state headline",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger les détails du morceau"
+          }
+        }
+      }
+    },
+    "Unmute": {
+      "comment": "PlayerView mute button tooltip when muted",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réactiver le son"
+          }
+        }
+      }
+    },
+    "Update image": {
+      "comment": "Overlay label on artist artwork when hovered, prompting the user to change the image",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifier l'image"
+          }
+        }
+      }
+    },
+    "Updating Artists...": {
+      "comment": "Activity tray message while artist associations are being rebuilt",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mise à jour des artistes ..."
+          }
+        }
+      }
+    },
+    "Updating Library": {
+      "comment": "Notification popover header shown while a library update is in progress",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mise à jour de la bibliothèque"
+          }
+        }
+      }
+    },
+    "Use album artwork colors in backgrounds": {
+      "comment": "Toggle label in GeneralTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utiliser les couleurs de la pochette en arrière-plan"
+          }
+        }
+      }
+    },
+    "View data source acknowledgements": {
+      "comment": "Tooltip for Acknowledgements footer link in AboutTabView",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voir les remerciements des sources de données"
+          }
+        }
+      }
+    },
+    "View third-party licenses and acknowledgements": {
+      "comment": "Tooltip for License footer link in AboutTabView",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voir les licences tierces et les remerciements"
+          }
+        }
+      }
+    },
+    "Visit Help Wiki": {
+      "comment": "Tooltip for Help footer link in AboutTabView",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visiter le wiki d'aide"
+          }
+        }
+      }
+    },
+    "Visit project website": {
+      "comment": "Tooltip for Website footer link in AboutTabView",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visiter le site du projet"
+          }
+        }
+      }
+    },
+    "Vocal Booster": {
+      "comment": "EqualizerPreset.increaseVocals displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amplificateur de voix"
+          }
+        }
+      }
+    },
+    "Volume Down": {
+      "comment": "Playback menu item",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Baisser le volume"
+          }
+        }
+      }
+    },
+    "Volume Up": {
+      "comment": "Playback menu item",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Augmenter le volume"
+          }
+        }
+      }
+    },
+    "Watched Folders": {
+      "comment": "Section header in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dossiers surveillés"
+          }
+        }
+      }
+    },
+    "Website": {
+      "comment": "FooterLink title in AboutTabView",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Site web"
+          }
+        }
+      }
+    },
+    "Wikimedia": {
+      "comment": "Tooltip for Wikidata acknowledgement logo in AboutTabView",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wikimedia"
+          }
+        }
+      }
+    },
+    "Will add": {
+      "comment": "Status badge on a track row selected for addition (AddSongsToPlaylistSheet TrackSelectionRow)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sera ajouté"
+          }
+        }
+      }
+    },
+    "Will add: %lld track%@": {
+      "comment": "Caption shown in the Create Playlist sheet when tracks are pending; %lld = track count, %@ = '' or 's' (ContentView CreatePlaylistSheet). Literal SwiftUI Text with interpolation; auto-localizes from catalog.",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajout de : %lld morceau%@"
+          }
+        }
+      }
+    },
+    "Will remove": {
+      "comment": "Status badge on a track row marked for removal (AddSongsToPlaylistSheet TrackSelectionRow)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sera retiré"
+          }
+        }
+      }
+    },
+    "Wow": {
+      "comment": "EqualizerPreset.wow displayName",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wow"
+          }
+        }
+      }
+    },
+    "Year": {
+      "comment": "Toggle label in Sort by menu: sort albums by year",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Année"
+          }
+        }
+      }
+    },
+    "Yes": {
+      "comment": "TrackDetailView metadata value for Favorite/Compilation when true (wrapped with String(localized:))",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oui"
+          }
+        }
+      }
+    },
+    "You can continue using the app while this completes": {
+      "comment": "Caption shown beneath the progress indicator in the notification popover during a long activity",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous pouvez continuer à utiliser l'app pendant ce temps"
+          }
+        }
+      }
+    },
+    "You can select multiple folders at once": {
+      "comment": "Secondary hint in the empty-state view below the primary subtitle",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous pouvez sélectionner plusieurs dossiers à la fois"
+          }
+        }
+      }
+    },
+    "You've played all tracks in your library!": {
+      "comment": "Empty state body text in Discover view",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous avez écouté tous les morceaux de votre bibliothèque !"
+          }
+        }
+      }
+    },
+    "Your folders are being scanned for music files": {
+      "comment": "Subtitle below 'No music found' during an ongoing non-initial scan",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos dossiers sont en cours d'analyse"
+          }
+        }
+      }
+    },
+    "Your listening activity will no longer be scrobbled to Last.fm once you disconnect.": {
+      "comment": "Alert message in OnlineTabView disconnect confirmation",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre activité d'écoute ne sera plus scrobblée sur Last.fm une fois déconnecté."
+          }
+        }
+      }
+    },
+    "ascending": {
+      "comment": "LibrarySidebarView sort direction used in the 'Sort %@' tooltip",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "par ordre croissant"
+          }
+        }
+      }
+    },
+    "descending": {
+      "comment": "LibrarySidebarView sort direction used in the 'Sort %@' tooltip",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "par ordre décroissant"
+          }
+        }
+      }
+    },
+    "for \"%@\"": {
+      "comment": "Label appended to select-all row when a search term is active; %@ is the search query string",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pour « %@ »"
+          }
+        }
+      }
+    },
+    "playlist": {
+      "comment": "Singular form used by pluralize() helper in ExportPlaylistsSheet export notifications",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "liste de lecture"
+          }
+        }
+      }
+    },
+    "playlists": {
+      "comment": "Plural form produced by pluralize() helper (appends 's' to singular) in ExportPlaylistsSheet export notifications",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "listes de lecture"
+          }
+        }
+      }
+    },
+    "track": {
+      "comment": "Singular unit in playlist row track count (ExportPlaylistsSheet); part of '%lld track/tracks'",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "morceau"
+          }
+        }
+      }
+    },
+    "tracks": {
+      "comment": "Plural unit in playlist row track count (ExportPlaylistsSheet)",
+      "extractionState": "stale",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "morceaux"
+          }
+        }
+      }
+    },
+    "•": {},
+    "⌘ + Click for deep refresh (re-scans all metadata)": {
+      "comment": "Tooltip for folder refresh button when ⌘ held in LibraryTabView",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌘ + Clic pour une actualisation approfondie (relit toutes les métadonnées)"
+          }
+        }
+      }
+    },
+    "★": {
+      "comment": "Table column header for favorites (star symbol)",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "★"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

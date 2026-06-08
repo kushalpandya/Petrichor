@@ -215,7 +215,7 @@ struct NoMusicEmptyStateView: View {
                     .font(.title2)
                     .fontWeight(.semibold)
 
-                Text(libraryManager.scanStatusMessage.isEmpty ? "Discovering your music..." : libraryManager.scanStatusMessage)
+                Text(libraryManager.scanStatusMessage.isEmpty ? String(localized: "Discovering your music...") : libraryManager.scanStatusMessage)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .lineLimit(2)

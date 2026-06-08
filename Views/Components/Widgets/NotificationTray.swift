@@ -241,9 +241,12 @@ struct NotificationTray: View {
     
     private var tooltipText: String {
         if manager.isActivityInProgress {
-            return manager.activityMessage.isEmpty ? "Refreshing Library..." : manager.activityMessage
+            return manager.activityMessage.isEmpty ? String(localized: "Refreshing Library...") : manager.activityMessage
         } else if hasNotifications {
-            return "\(manager.messages.count) notification\(manager.messages.count == 1 ? "" : "s")"
+            let count = manager.messages.count
+            return count == 1
+                ? String(localized: "1 notification")
+                : String(localized: "\(count) notifications")
         }
         return ""
     }
@@ -259,7 +262,7 @@ struct NotificationPopover: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text(manager.isActivityInProgress ? "Updating Library" : "Notifications")
+                Text(manager.isActivityInProgress ? String(localized: "Updating Library") : String(localized: "Notifications"))
                     .font(.headline)
                 
                 Spacer()
@@ -330,7 +333,7 @@ struct NotificationPopover: View {
             ActivityAnimation(size: .medium)
             
             VStack(spacing: 8) {
-                Text(manager.activityMessage.isEmpty ? "Processing..." : manager.activityMessage)
+                Text(manager.activityMessage.isEmpty ? String(localized: "Processing...") : manager.activityMessage)
                     .font(.headline)
                     .multilineTextAlignment(.center)
                 
@@ -374,18 +377,24 @@ struct NotificationRow: View {
     private var timeAgoText: String {
         let now = Date()
         let interval = now.timeIntervalSince(message.timestamp)
-        
+
         if interval < 60 {
-            return "Just now"
+            return String(localized: "Just now")
         } else if interval < 3600 {
             let minutes = Int(interval / 60)
-            return "\(minutes) min\(minutes == 1 ? "" : "s") ago"
+            return minutes == 1
+                ? String(localized: "1 min ago")
+                : String(localized: "\(minutes) mins ago")
         } else if interval < 86400 {
             let hours = Int(interval / 3600)
-            return "\(hours) hour\(hours == 1 ? "" : "s") ago"
+            return hours == 1
+                ? String(localized: "1 hour ago")
+                : String(localized: "\(hours) hours ago")
         } else {
             let days = Int(interval / 86400)
-            return "\(days) day\(days == 1 ? "" : "s") ago"
+            return days == 1
+                ? String(localized: "1 day ago")
+                : String(localized: "\(days) days ago")
         }
     }
     
