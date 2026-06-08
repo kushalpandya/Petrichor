@@ -81,6 +81,9 @@ struct GeneralTabView: View {
                         selection: $colorMode,
                         style: .flexible
                     )
+                    // Size to content (each button to its own label) instead of
+                    // being stretched to fill the row.
+                    .fixedSize(horizontal: true, vertical: false)
                 }
 
                 Toggle("Show folders tab in main window", isOn: $showFoldersTab)
