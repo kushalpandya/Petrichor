@@ -50,70 +50,40 @@ struct TabbedButtons<Item: TabbedItem>: View {
         self.isDisabled = isDisabled
     }
 
-    // Tracks each button's measured frame so the moving highlight and layout
-    // adapt to content-sized buttons (important for longer localized labels).
-    @State private var buttonFrames: [Int: CGRect] = [:]
-
-    private var selectedIndex: Int { items.firstIndex(of: selection) ?? 0 }
+    // Namespace for the sliding selection highlight (transform animation).
+    // Using matchedGeometryEffect keeps the highlight perfectly aligned to the
+    // selected button regardless of its (content-driven) width.
+    @Namespace private var highlightNamespace
 
     var body: some View {
         HStack(spacing: 1) {
-            ForEach(Array(items.enumerated()), id: \.element) { index, item in
+            ForEach(Array(items.enumerated()), id: \.element) { _, item in
                 TabbedButton(
                     item: item,
                     isSelected: selection == item,
                     style: style,
                     animation: animation,
-                    isDisabled: isDisabled
+                    isDisabled: isDisabled,
+                    highlightNamespace: highlightNamespace
                 ) {
                     if !isDisabled {
                         selection = item
                     }
                 }
-                .background(
-                    GeometryReader { geometry in
-                        Color.clear.preference(
-                            key: TabButtonFramePreferenceKey.self,
-                            value: [index: geometry.frame(in: .named(tabbedButtonsCoordinateSpace))]
-                        )
-                    }
-                )
             }
         }
+        .animation(.easeInOut(duration: AnimationConstants.transformDuration), value: selection)
         .padding(4)
         .background(
-            ZStack(alignment: .topLeading) {
+            Group {
                 if style != .modern {
                     // Container background
                     RoundedRectangle(cornerRadius: style == .moderncompact ? 16 : 8)
                         .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
                 }
-
-                // Moving highlight for transform animation, tracking the
-                // selected button's actual (content-sized) frame.
-                if animation == .transform, let frame = buttonFrames[selectedIndex] {
-                    RoundedRectangle(cornerRadius: style.backgroundViewRadius ?? 8)
-                        .fill(Color.accentColor)
-                        .frame(width: frame.width, height: frame.height)
-                        .offset(x: frame.minX, y: frame.minY)
-                        .animation(.easeInOut(duration: AnimationConstants.transformDuration), value: selectedIndex)
-                }
             }
         )
-        .coordinateSpace(name: tabbedButtonsCoordinateSpace)
-        .onPreferenceChange(TabButtonFramePreferenceKey.self) { buttonFrames = $0 }
         .opacity(isDisabled ? 0.5 : 1.0)
-    }
-}
-
-// Shared coordinate-space name for measuring tab button frames.
-private let tabbedButtonsCoordinateSpace = "TabbedButtonsContainer"
-
-// MARK: - Button Frame Preference
-private struct TabButtonFramePreferenceKey: PreferenceKey {
-    static let defaultValue: [Int: CGRect] = [:]
-    static func reduce(value: inout [Int: CGRect], nextValue: () -> [Int: CGRect]) {
-        value.merge(nextValue()) { _, new in new }
     }
 }
 
@@ -124,6 +94,7 @@ private struct TabbedButton<Item: TabbedItem>: View {
     let style: TabbedButtonStyle
     let animation: TabbedButtonAnimation
     let isDisabled: Bool
+    let highlightNamespace: Namespace.ID
     let action: () -> Void
     @State private var isHovered = false
 
@@ -162,6 +133,7 @@ private struct TabbedButton<Item: TabbedItem>: View {
                         )
                 }
             }
+            .padding(.horizontal, style.horizontalPadding)
             .frame(
                 minWidth: style.buttonWidth,
                 maxWidth: style.expandButtons ? .infinity : nil,
@@ -251,12 +223,21 @@ private struct TabbedButton<Item: TabbedItem>: View {
                 .animation(.easeOut(duration: AnimationConstants.fadeDuration), value: isSelected)
                 .animation(.easeOut(duration: AnimationConstants.hoverDuration), value: isHovered)
         } else {
-            // Transform animation - no individual background, uses moving background
-            RoundedRectangle(cornerRadius: style.backgroundViewRadius ?? 6)
-                .fill(
-                    isHovered && !isSelected ? Color.primary.opacity(0.06) : Color.clear
-                )
-                .animation(.easeOut(duration: AnimationConstants.hoverDuration), value: isHovered)
+            // Transform animation: the sliding accent highlight lives here, at
+            // the content level, so it stays aligned with the icon + label
+            // regardless of the button's (content-driven) width.
+            // matchedGeometryEffect animates it between buttons on selection.
+            ZStack {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: style.backgroundViewRadius ?? 6)
+                        .fill(Color.accentColor)
+                        .matchedGeometryEffect(id: "tabSelectionHighlight", in: highlightNamespace)
+                } else if isHovered {
+                    RoundedRectangle(cornerRadius: style.backgroundViewRadius ?? 6)
+                        .fill(Color.primary.opacity(0.06))
+                }
+            }
+            .animation(.easeOut(duration: AnimationConstants.hoverDuration), value: isHovered)
         }
     }
 }
@@ -276,6 +257,13 @@ struct TabbedButtonStyle {
 
     var buttonHeight: CGFloat? {
         (self.iconSize == 14 && !self.showTitle && self.verticalPadding == 0) ? 24 : nil
+    }
+
+    // Consistent horizontal padding around the label so buttons can size to
+    // their (possibly longer, localized) text without the label touching the
+    // edges. Icon-only styles need none.
+    var horizontalPadding: CGFloat {
+        showTitle ? 10 : 0
     }
 
     static let standard = TabbedButtonStyle(

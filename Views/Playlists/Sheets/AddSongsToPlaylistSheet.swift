@@ -234,7 +234,8 @@ struct AddSongsToPlaylistSheet: View {
                 }
             }
             .pickerStyle(.menu)
-            .frame(width: 150)
+            .frame(minWidth: 150)
+            .fixedSize()
         }
         .padding(.horizontal)
         .padding(.vertical, 8)

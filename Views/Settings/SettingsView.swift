@@ -3,7 +3,11 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var libraryManager: LibraryManager
     @State private var selectedTab: SettingsTab = .general
-    
+
+    // Observe the language so the Settings window (which is presented in its own
+    // sheet environment) refreshes immediately when the language changes.
+    @ObservedObject private var localizationManager = LocalizationManager.shared
+
     @Environment(\.dismiss)
     var dismiss
 
@@ -26,7 +30,9 @@ struct SettingsView: View {
             switch self {
             case .general: return Icons.settings
             case .library: return Icons.customMusicNoteRectangleStack
-            case .online: return Icons.globeFill
+            // Keep the same globe symbol in both states so the tab doesn't
+            // change glyph (and width) between selected/unselected.
+            case .online: return Icons.globe
             case .about: return Icons.infoCircleFill
             }
         }
@@ -75,6 +81,7 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(width: 600, height: 670)
+        .environment(\.locale, localizationManager.locale)
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SettingsSelectTab"))) { notification in
             if let tab = notification.object as? SettingsTab {
                 selectedTab = tab
