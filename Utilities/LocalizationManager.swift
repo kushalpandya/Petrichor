@@ -91,9 +91,11 @@ final class LocalizationManager: ObservableObject {
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.createsNewApplicationInstance = true
         NSWorkspace.shared.openApplication(at: url, configuration: configuration) { _, _ in
-            DispatchQueue.main.async {
-                NSApplication.shared.terminate(nil)
-            }
+            // Force-quit the current process once the new instance has launched.
+            // `NSApplication.terminate` runs the normal shutdown flow, which an
+            // open settings window (or the "keep running in menubar" behavior)
+            // can cancel; `exit` guarantees this instance goes away.
+            exit(0)
         }
     }
 }

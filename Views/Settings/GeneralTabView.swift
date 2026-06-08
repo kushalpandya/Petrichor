@@ -101,16 +101,16 @@ struct GeneralTabView: View {
                 }
                 .help("Changes the language used throughout the app")
 
-                if localizationManager.needsRestart {
-                    Text("The language change will take effect after you restart the app.")
-                        .font(.callout)
-                        .foregroundColor(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
                 HStack {
+                    if localizationManager.needsRestart {
+                        Text("The language change will take effect after you restart the app.")
+                            .font(.callout)
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
                     Spacer()
+
                     Button("Restart Now") {
                         localizationManager.restart()
                     }
