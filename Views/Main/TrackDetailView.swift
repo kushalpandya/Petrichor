@@ -280,7 +280,7 @@ struct TrackDetailView: View {
         }
 
         // Duration
-        items.append(("Duration", formatDuration(fullTrack.duration)))
+        items.append(("Duration", HelperUtils.formattedShortDuration(fullTrack.duration)))
 
         // Track Number
         if let trackNumber = fullTrack.trackNumber {
@@ -381,13 +381,6 @@ struct TrackDetailView: View {
     }
 
     // MARK: - Helper Methods
-
-    private func formatDuration(_ seconds: Double) -> String {
-        let totalSeconds = Int(max(0, seconds))
-        let minutes = totalSeconds / 60
-        let remainingSeconds = totalSeconds % 60
-        return String(format: StringFormat.mmss, minutes, remainingSeconds)
-    }
 
     private func formatDate(_ date: Date) -> String {
         let formatter = DateFormatter()

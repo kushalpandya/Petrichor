@@ -1,6 +1,6 @@
 import Foundation
 
-struct ArtistParser {
+enum ArtistParser {
     // High-confidence separators - always split, never part of an artist name
     private static let highConfidenceSeparators = [
         " feat. ", " feat ", " featuring ", " ft. ", " ft ",
@@ -25,7 +25,7 @@ struct ArtistParser {
     private static let safeSeparators = highConfidenceSeparators + ambiguousSeparators.filter { !unsafeSeparators.contains($0) }
 
     // MARK: - Caching
-    private static let cacheQueue = DispatchQueue(label: "com.petrichor.artistparser.cache", attributes: .concurrent)
+    private static let cacheQueue = DispatchQueue(label: "org.Petrichor.artistparser.cache", attributes: .concurrent)
     private static var parseCache = [String: [String]]()
     private static var normalizeCache = [String: String]()
 
@@ -49,48 +49,80 @@ struct ArtistParser {
 
     // MARK: - Known Artists
 
+    // Concurrent so that reads (`hasKnownArtists`, `isKnownArtist`) run in parallel during
+    // a scan; load/unload mutate state behind a `.barrier` for exclusive access.
+    private static let knownArtistsQueue = DispatchQueue(label: "org.Petrichor.artistparser.knownArtists", attributes: .concurrent)
+
     /// In-memory set of known artist names, loaded on-demand from bundled text file.
     private static var knownArtists = Set<String>()
+    private static var knownArtistsRetainCount = 0
 
     /// Load known artists from the bundled text file into memory.
+    ///
+    /// Reference-counted: each call must be balanced by exactly one `unloadKnownArtists()`.
+    /// Prefer pairing the two with `defer` so a throwing scan can't leak the retain count.
     static func loadKnownArtists() {
-        guard knownArtists.isEmpty else { return }
+        let result = knownArtistsQueue.sync(flags: .barrier) { () -> (loadedCount: Int, fileName: String?, warning: String?) in
+            knownArtistsRetainCount += 1
 
-        guard let url = findKnownArtistsFile() else {
-            Logger.info("No known artists data file found in bundle")
-            return
+            guard knownArtists.isEmpty else { return (0, nil, nil) }
+
+            guard let url = findKnownArtistsFile() else {
+                return (0, nil, "No known artists data file found in bundle")
+            }
+
+            guard let content = try? String(contentsOf: url, encoding: .utf8) else {
+                return (0, nil, "Failed to read known artists file: \(url.lastPathComponent)")
+            }
+
+            knownArtists = Set(
+                content.components(separatedBy: .newlines).lazy
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty && !$0.hasPrefix("#") }
+            )
+            return (knownArtists.count, url.lastPathComponent, nil)
         }
 
-        guard let content = try? String(contentsOf: url, encoding: .utf8) else {
-            Logger.warning("Failed to read known artists file: \(url.lastPathComponent)")
-            return
+        if result.loadedCount > 0 {
+            clearParseCache()
+            Logger.info("Loaded \(result.loadedCount) known artists from \(result.fileName ?? "bundle")")
+        } else if let warning = result.warning {
+            Logger.warning(warning)
         }
-
-        knownArtists = Set(
-            content.components(separatedBy: .newlines).lazy
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .filter { !$0.isEmpty && !$0.hasPrefix("#") }
-        )
-
-        Logger.info("Loaded \(knownArtists.count) known artists from \(url.lastPathComponent)")
     }
 
     /// Release known artists from memory after scanning completes.
     static func unloadKnownArtists() {
-        guard !knownArtists.isEmpty else { return }
-        let count = knownArtists.count
-        knownArtists.removeAll()
-        Logger.info("Unloaded \(count) known artists from memory")
+        let unloadedCount = knownArtistsQueue.sync(flags: .barrier) { () -> Int in
+            knownArtistsRetainCount = max(knownArtistsRetainCount - 1, 0)
+            guard knownArtistsRetainCount == 0, !knownArtists.isEmpty else { return 0 }
+
+            let count = knownArtists.count
+            knownArtists.removeAll()
+            return count
+        }
+
+        guard unloadedCount > 0 else { return }
+        clearParseCache()
+        Logger.info("Unloaded \(unloadedCount) known artists from memory")
     }
 
     /// Whether known artists data is available for enhanced parsing.
-    private static var hasKnownArtists: Bool { !knownArtists.isEmpty }
+    private static var hasKnownArtists: Bool {
+        knownArtistsQueue.sync { !knownArtists.isEmpty }
+    }
 
     /// Check if a name matches a known artist.
     static func isKnownArtist(_ name: String) -> Bool {
         let normalized = normalizeArtistName(name)
         guard !normalized.isEmpty else { return false }
-        return knownArtists.contains(normalized)
+        return knownArtistsQueue.sync { knownArtists.contains(normalized) }
+    }
+
+    private static func clearParseCache() {
+        cacheQueue.sync(flags: .barrier) {
+            parseCache.removeAll()
+        }
     }
 
     /// Find the known artists data file in the bundle (known_artists_YYYYMMDD.txt).
@@ -106,8 +138,7 @@ struct ArtistParser {
                 $0.lastPathComponent.hasSuffix(".txt") &&
                 $0.lastPathComponent != About.knownArtistsSampleFile
             }
-            .sorted { $0.lastPathComponent > $1.lastPathComponent }
-            .first
+            .max { $0.lastPathComponent < $1.lastPathComponent }
     }
 
     // MARK: - Normalization
@@ -160,7 +191,8 @@ struct ArtistParser {
     /// to preserve artist names containing separators (e.g., "Mumford & Sons").
     /// Otherwise falls back to splitting on all safe separators.
     static func parse(_ artistString: String, unknownPlaceholder: String = "Unknown Artist") -> [String] {
-        let cacheKey = "\(artistString)|\(unknownPlaceholder)"
+        let usingKnownArtists = hasKnownArtists
+        let cacheKey = "\(artistString)|\(unknownPlaceholder)|\(usingKnownArtists ? "known" : "plain")"
 
         if let cached = cacheQueue.sync(execute: { parseCache[cacheKey] }) {
             return cached
@@ -170,7 +202,7 @@ struct ArtistParser {
             return cacheAndReturn([unknownPlaceholder], forKey: cacheKey)
         }
 
-        let activeSeparators = hasKnownArtists ? allSeparators : safeSeparators
+        let activeSeparators = usingKnownArtists ? allSeparators : safeSeparators
 
         // Fast path: no separators at all
         if !containsAnySeparator(artistString, in: activeSeparators) {
@@ -179,7 +211,7 @@ struct ArtistParser {
         }
 
         let result: [String]
-        if hasKnownArtists {
+        if usingKnownArtists {
             result = parseWithKnownArtists(artistString)
         } else {
             result = splitBySeparators([artistString], separators: activeSeparators)

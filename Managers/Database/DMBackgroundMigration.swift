@@ -336,6 +336,8 @@ extension DatabaseManager {
             let pinnedAlbums = self.snapshotPinnedItems(idColumn: PinnedItem.Columns.albumId)
 
             ArtistParser.loadKnownArtists()
+            // Balanced unload even if a batch write below throws, so the retain count can't leak.
+            defer { ArtistParser.unloadKnownArtists() }
 
             // Clear existing associations and reset stats
             _ = try dbQueue.write { db in
@@ -383,7 +385,6 @@ extension DatabaseManager {
             self.relinkPinnedArtists(pinnedArtists)
             self.relinkPinnedAlbums(pinnedAlbums)
 
-            ArtistParser.unloadKnownArtists()
             Logger.info("Artist associations rebuild completed")
         }.value
 

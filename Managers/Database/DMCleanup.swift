@@ -158,7 +158,7 @@ extension DatabaseManager {
     }
     
     //// Clean up after removing specific tracks
-    func cleanupAfterTrackRemoval(_ trackIds: [UUID]) async throws {
+    func cleanupAfterTrackRemoval(_ trackIds: [Int64]) async throws {
         guard !trackIds.isEmpty else { return }
         
         Logger.info("Cleaning up after removing \(trackIds.count) tracks...")
@@ -166,13 +166,13 @@ extension DatabaseManager {
         try await dbQueue.write { db in
             // Get affected artist and album IDs before deletion
             let affectedArtistIds = try TrackArtist
-                .filter(trackIds.map { $0.uuidString }.contains(TrackArtist.Columns.trackId))
+                .filter(trackIds.contains(TrackArtist.Columns.trackId))
                 .select(TrackArtist.Columns.artistId, as: Int64.self)
                 .distinct()
                 .fetchSet(db)
             
             let affectedAlbumIds = try Track
-                .filter(trackIds.map { $0.uuidString }.contains(Track.Columns.trackId))
+                .filter(trackIds.contains(Track.Columns.trackId))
                 .filter(Track.Columns.albumId != nil)
                 .select(Track.Columns.albumId, as: Int64?.self)
                 .fetchSet(db)
@@ -180,18 +180,16 @@ extension DatabaseManager {
             
             // Get affected genre IDs
             let affectedGenreIds = try TrackGenre
-                .filter(trackIds.map { $0.uuidString }.contains(TrackGenre.Columns.trackId))
+                .filter(trackIds.contains(TrackGenre.Columns.trackId))
                 .select(TrackGenre.Columns.genreId, as: Int64.self)
                 .distinct()
                 .fetchSet(db)
             
             // Now check if these artists/albums/genres still have other tracks
-            let trackIdStrings = trackIds.map { $0.uuidString }
-            
             // Artists that still have tracks
             let artistsWithTracks = try TrackArtist
                 .filter(affectedArtistIds.contains(TrackArtist.Columns.artistId))
-                .filter(!trackIdStrings.contains(TrackArtist.Columns.trackId))
+                .filter(!trackIds.contains(TrackArtist.Columns.trackId))
                 .select(TrackArtist.Columns.artistId, as: Int64.self)
                 .distinct()
                 .fetchSet(db)
@@ -208,7 +206,7 @@ extension DatabaseManager {
             // Albums that still have tracks
             let albumsWithTracks = try Track
                 .filter(affectedAlbumIds.contains(Track.Columns.albumId))
-                .filter(!trackIdStrings.contains(Track.Columns.trackId))
+                .filter(!trackIds.contains(Track.Columns.trackId))
                 .select(Track.Columns.albumId, as: Int64?.self)
                 .distinct()
                 .fetchSet(db)
@@ -226,7 +224,7 @@ extension DatabaseManager {
             // Genres that still have tracks
             let genresWithTracks = try TrackGenre
                 .filter(affectedGenreIds.contains(TrackGenre.Columns.genreId))
-                .filter(!trackIdStrings.contains(TrackGenre.Columns.trackId))
+                .filter(!trackIds.contains(TrackGenre.Columns.trackId))
                 .select(TrackGenre.Columns.genreId, as: Int64.self)
                 .distinct()
                 .fetchSet(db)

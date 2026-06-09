@@ -275,6 +275,10 @@ struct Playlist: Identifiable, FetchableRecord, PersistableRecord {
     var totalDuration: Double {
         tracks.reduce(0) { $0 + $1.duration }
     }
+
+    var formattedTotalDuration: String {
+        HelperUtils.formattedDuration(totalDuration)
+    }
     
     var artworkData: Data? {
         if let customCover = coverArtworkData {
@@ -389,23 +393,6 @@ struct Playlist: Identifiable, FetchableRecord, PersistableRecord {
         #else
         return ImageUtils.encodeHEIC(collageImage)
         #endif
-    }
-}
-
-// Extension to format the duration for display
-extension Playlist {
-    // Format the total duration as a string (HH:MM:SS)
-    var formattedTotalDuration: String {
-        let totalSeconds = Int(totalDuration)
-        let hours = totalSeconds / 3600
-        let minutes = (totalSeconds % 3600) / 60
-        let seconds = totalSeconds % 60
-        
-        if hours > 0 {
-            return String(format: StringFormat.hhmmss, hours, minutes, seconds)
-        } else {
-            return String(format: StringFormat.mmss, minutes, seconds)
-        }
     }
 }
 

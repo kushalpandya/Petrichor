@@ -70,13 +70,30 @@ class NotificationManager: ObservableObject {
     // MARK: - Activity Management
     
     func startActivity(_ message: String) {
+        guard !Thread.isMainThread else {
+            isActivityInProgress = true
+            activityMessage = message
+            activityProgress = nil
+            lastProgressUpdateTime = .distantPast
+            return
+        }
+
         DispatchQueue.main.async {
             self.isActivityInProgress = true
             self.activityMessage = message
+            self.activityProgress = nil
+            self.lastProgressUpdateTime = .distantPast
         }
     }
     
     func stopActivity() {
+        guard !Thread.isMainThread else {
+            isActivityInProgress = false
+            activityMessage = ""
+            activityProgress = nil
+            return
+        }
+
         DispatchQueue.main.async {
             self.isActivityInProgress = false
             self.activityMessage = ""

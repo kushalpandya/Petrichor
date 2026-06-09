@@ -17,7 +17,7 @@ extension DatabaseManager {
         track.genre = metadata.genre?.nilIfEmpty ?? "Unknown Genre"
         track.composer = metadata.composer?.nilIfEmpty ?? "Unknown Composer"
         track.year = metadata.year?.nilIfEmpty ?? ""
-        track.duration = metadata.duration
+        track.duration = HelperUtils.sanitizedDuration(metadata.duration)
         
         // Avoid storing album art in track table for tracks with albums
         // as we'll store it in albums table instead.
@@ -127,8 +127,9 @@ extension DatabaseManager {
             hasChanges = true
         }
 
-        if metadata.duration > 0 && abs(metadata.duration - track.duration) > 0.1 {
-            track.duration = metadata.duration
+        let newDuration = HelperUtils.sanitizedDuration(metadata.duration)
+        if newDuration > 0 && abs(newDuration - track.duration) > 0.1 {
+            track.duration = newDuration
             hasChanges = true
         }
 

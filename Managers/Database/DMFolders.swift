@@ -30,11 +30,20 @@ actor ScanState {
     func getSkippedFiles() -> [(url: URL, extension: String)] { skippedFiles }
 }
 
+struct GlobalScanProgress {
+    let processed: Int
+    let total: Int
+    let added: Int
+    let removed: Int
+    let isInitial: Bool
+}
+
 actor GlobalScanState {
     let totalFiles: Int
     let isInitialScan: Bool
     var processedFiles = 0
-    var tracksFound = 0
+    var tracksAdded = 0
+    var tracksRemoved = 0
     
     init(totalFiles: Int, isInitialScan: Bool = false) {
         self.totalFiles = totalFiles
@@ -45,12 +54,22 @@ actor GlobalScanState {
         processedFiles += count
     }
     
-    func incrementTracksFound(by count: Int) {
-        tracksFound += count
+    func incrementTracksAdded(by count: Int) {
+        tracksAdded += count
     }
-    
-    func getProgress() -> (processed: Int, total: Int, tracks: Int, isInitial: Bool) {
-        (processedFiles, totalFiles, tracksFound, isInitialScan)
+
+    func incrementTracksRemoved(by count: Int) {
+        tracksRemoved += count
+    }
+
+    func getProgress() -> GlobalScanProgress {
+        GlobalScanProgress(
+            processed: processedFiles,
+            total: totalFiles,
+            added: tracksAdded,
+            removed: tracksRemoved,
+            isInitial: isInitialScan
+        )
     }
 }
 
@@ -178,13 +197,21 @@ extension DatabaseManager {
         }
     }
 
-    func refreshFolder(_ folder: Folder, hardRefresh: Bool = false, _ completion: @escaping (Result<Void, Error>) -> Void) {
+    func refreshFolder(
+        _ folder: Folder,
+        hardRefresh: Bool = false,
+        manageActivityIndicator: Bool = true,
+        globalScanState: GlobalScanState? = nil,
+        _ completion: @escaping (Result<Void, Error>) -> Void
+    ) {
         Task {
             do {
                 await MainActor.run {
                     self.isScanning = true
                     self.scanStatusMessage = "Refreshing \(folder.name)..."
-                    NotificationManager.shared.startActivity("Refreshing \(folder.name)...")
+                    if manageActivityIndicator {
+                        NotificationManager.shared.startActivity("Refreshing \(folder.name)...")
+                    }
                 }
 
                 // Log the current state
@@ -192,9 +219,17 @@ extension DatabaseManager {
                 Logger.info("Starting refresh for folder \(folder.name) with \(trackCountBefore) tracks")
 
                 ArtistParser.loadKnownArtists()
+                // Balanced unload on every exit path (success or throw) so the retain count
+                // can't leak or double-decrement a concurrent scan's data.
+                defer { ArtistParser.unloadKnownArtists() }
 
                 // Scan the folder - this will check for metadata updates
-                try await scanSingleFolder(folder, supportedExtensions: AudioFormat.supportedExtensions, hardRefresh: hardRefresh)
+                try await scanSingleFolder(
+                    folder,
+                    supportedExtensions: AudioFormat.supportedExtensions,
+                    hardRefresh: hardRefresh,
+                    globalScanState: globalScanState
+                )
 
                 // Update folder's metadata
                 if let folderId = folder.id {
@@ -204,8 +239,6 @@ extension DatabaseManager {
                 // Log the result
                 let trackCountAfter = getTracksForFolder(folder.id ?? -1).count
                 Logger.info("Completed refresh for folder \(folder.name) with \(trackCountAfter) tracks (was \(trackCountBefore))")
-
-                ArtistParser.unloadKnownArtists()
 
                 // Post-scan: normalize compilation albums, update stats, detect duplicates, and clean up
                 try await normalizeCompilationAlbums()
@@ -218,16 +251,18 @@ extension DatabaseManager {
                 await MainActor.run {
                     self.isScanning = false
                     self.scanStatusMessage = ""
-                    NotificationManager.shared.stopActivity()
+                    if manageActivityIndicator {
+                        NotificationManager.shared.stopActivity()
+                    }
                     completion(.success(()))
                 }
             } catch {
-                ArtistParser.unloadKnownArtists()
-
                 await MainActor.run {
                     self.isScanning = false
                     self.scanStatusMessage = ""
-                    NotificationManager.shared.stopActivity()
+                    if manageActivityIndicator {
+                        NotificationManager.shared.stopActivity()
+                    }
                     completion(.failure(error))
                     Logger.error("Failed to refresh folder \(folder.name): \(error)")
                     NotificationManager.shared.addMessage(.error, "Failed to refresh folder \(folder.name)")
@@ -316,7 +351,7 @@ extension DatabaseManager {
         return getTracksForFolder(folderId)
     }
     
-    private func countFilesInFolder(_ folder: Folder, supportedExtensions: [String]) async -> Int {
+    func countFilesInFolder(_ folder: Folder, supportedExtensions: [String]) async -> Int {
         guard let enumerator = FileManager.default.enumerator(
             at: folder.url,
             includingPropertiesForKeys: [.isRegularFileKey],
@@ -361,6 +396,8 @@ extension DatabaseManager {
         let globalScanState = GlobalScanState(totalFiles: totalFiles, isInitialScan: isInitialScan)
         
         ArtistParser.loadKnownArtists()
+        // Balanced unload on every exit path, including a throw from the post-scan steps below.
+        defer { ArtistParser.unloadKnownArtists() }
 
         var processedFolders = 0
 
@@ -379,12 +416,10 @@ extension DatabaseManager {
                 }
             }
             
-            if processedFolders % 2 == 0 {
+            if processedFolders.isMultiple(of: 2) {
                 await Task.yield()
             }
         }
-
-        ArtistParser.unloadKnownArtists()
 
         // Post-scan: normalize compilation albums, update stats, detect duplicates, and clean up once for all folders
         try await normalizeCompilationAlbums()
@@ -465,7 +500,8 @@ extension DatabaseManager {
                 folderId: folderId,
                 foundPaths: Set(musicFiles),
                 folderName: folder.name,
-                hasRemainingFiles: !musicFiles.isEmpty
+                hasRemainingFiles: !musicFiles.isEmpty,
+                globalScanState: globalScanState
             )
         }
 
@@ -566,16 +602,30 @@ extension DatabaseManager {
         folderId: Int64,
         foundPaths: Set<URL>,
         folderName: String,
-        hasRemainingFiles: Bool
+        hasRemainingFiles: Bool,
+        globalScanState: GlobalScanState? = nil
     ) async throws {
         let existingTracks = getTracksForFolder(folderId)
         let foundPathStrings = Set(foundPaths.map { $0.path })
         let tracksToRemove = existingTracks.filter { !foundPathStrings.contains($0.url.path) }
-        let trackIdsToRemove = tracksToRemove.compactMap { $0.id }
+        let trackIdsToRemove = tracksToRemove.compactMap { $0.trackId }
         
         guard !trackIdsToRemove.isEmpty else { return }
         
         let removedCount = trackIdsToRemove.count
+
+        await globalScanState?.incrementTracksRemoved(by: removedCount)
+        if let globalScanState {
+            let progress = await globalScanState.getProgress()
+            let detail = scanProgressDetail(progress)
+            await MainActor.run {
+                NotificationManager.shared.updateActivityProgress(
+                    current: progress.processed,
+                    total: progress.total > 0 ? progress.total : progress.processed,
+                    detail: detail
+                )
+            }
+        }
         
         // Remove tracks from database
         try await dbQueue.write { db in
@@ -599,6 +649,24 @@ extension DatabaseManager {
                 NotificationManager.shared.addMessage(.info, message)
             }
         }
+    }
+
+    func scanProgressDetail(_ progress: GlobalScanProgress) -> String {
+        let base = progress.total > 0
+            ? "\(progress.processed) of \(progress.total) files processed"
+            : "\(progress.processed) files processed"
+
+        var changes: [String] = []
+        if progress.added > 0 {
+            let label = progress.isInitial ? "tracks found" : "new tracks found"
+            changes.append("\(progress.added) \(label)")
+        }
+        if progress.removed > 0 {
+            changes.append("\(progress.removed) tracks removed")
+        }
+
+        guard !changes.isEmpty else { return base }
+        return base + " • " + changes.joined(separator: " • ")
     }
 
     private func processMusicFilesInBatches(

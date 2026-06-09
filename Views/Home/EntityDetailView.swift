@@ -339,7 +339,7 @@ struct EntityDetailView: View {
             statText("\(tracks.count) \(tracks.count == 1 ? "song" : "songs")")
             if !tracks.isEmpty {
                 statDot
-                statText(formattedTotalDuration)
+                statText(HelperUtils.formattedDurationSummary(totalTrackDuration))
                 trailing()
             }
         }
@@ -439,17 +439,8 @@ struct EntityDetailView: View {
     
     // MARK: - Computed Properties
     
-    private var formattedTotalDuration: String {
-        let totalSeconds = tracks.reduce(0) { $0 + $1.duration }
-        
-        let hours = Int(totalSeconds) / 3600
-        let minutes = (Int(totalSeconds) % 3600) / 60
-        
-        if hours > 0 {
-            return "\(hours) hr \(minutes) min"
-        } else {
-            return "\(minutes) min"
-        }
+    private var totalTrackDuration: Double {
+        tracks.reduce(0) { $0 + HelperUtils.sanitizedDuration($1.duration) }
     }
     
     private var isAlbumFullyLossless: Bool {
