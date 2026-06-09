@@ -212,12 +212,41 @@ extension LibraryManager {
                 NotificationManager.shared.startActivity("Refreshing \(foldersToRefresh.count) folder\(foldersToRefresh.count == 1 ? "" : "s")...")
             }
 
+            let isSlowFS = foldersToRefresh.first.map { FilesystemUtils.isSlowFilesystem(url: $0.url) } ?? false
+            let totalFiles: Int
+            if isSlowFS {
+                totalFiles = 0
+            } else {
+                var countedFiles = 0
+                for folder in foldersToRefresh {
+                    countedFiles += await databaseManager.countFilesInFolder(
+                        folder,
+                        supportedExtensions: AudioFormat.supportedExtensions
+                    )
+                }
+                totalFiles = countedFiles
+            }
+            let globalScanState = GlobalScanState(totalFiles: totalFiles)
+
+            await MainActor.run {
+                NotificationManager.shared.updateActivityProgress(
+                    current: 0,
+                    total: totalFiles,
+                    detail: totalFiles > 0 ? "0 of \(totalFiles) files" : "Preparing files..."
+                )
+            }
+
             // Process folders
             for folder in foldersToRefresh {
                 group.enter()
                 
                 await MainActor.run { [weak self] in
-                    self?.databaseManager.refreshFolder(folder, hardRefresh: hardRefresh) { result in
+                    self?.databaseManager.refreshFolder(
+                        folder,
+                        hardRefresh: hardRefresh,
+                        manageActivityIndicator: false,
+                        globalScanState: globalScanState
+                    ) { result in
                         Task {
                             switch result {
                             case .success:

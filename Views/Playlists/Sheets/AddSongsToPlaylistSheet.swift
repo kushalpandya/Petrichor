@@ -657,7 +657,7 @@ struct TrackSelectionRow: View {
                 }
 
                 // Duration
-                Text(formatDuration(track.duration))
+                Text(HelperUtils.formattedShortDuration(track.duration))
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
                     .monospacedDigit()
@@ -702,12 +702,6 @@ struct TrackSelectionRow: View {
         } else {
             return Color.clear
         }
-    }
-
-    private func formatDuration(_ seconds: Double) -> String {
-        let minutes = Int(seconds) / 60
-        let seconds = Int(seconds) % 60
-        return String(format: StringFormat.mmss, minutes, seconds)
     }
 }
 

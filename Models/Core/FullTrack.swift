@@ -169,7 +169,8 @@ struct FullTrack: Identifiable, Equatable, Hashable, FetchableRecord, Persistabl
         composer = row[Columns.composer]
         genre = row[Columns.genre]
         year = row[Columns.year]
-        duration = row[Columns.duration]
+        let storedDuration: Double = row[Columns.duration]
+        duration = HelperUtils.sanitizedDuration(storedDuration)
         trackArtworkData = row[Columns.trackArtworkData]
         dateAdded = row[Columns.dateAdded]
         isFavorite = row[Columns.isFavorite]
@@ -324,7 +325,8 @@ struct FullTrack: Identifiable, Equatable, Hashable, FetchableRecord, Persistabl
         let normalizedYear = year.trimmingCharacters(in: .whitespacesAndNewlines)
         
         // Round duration to nearest 2 seconds to handle slight variations
-        let roundedDuration = Int((duration / 2.0).rounded()) * 2
+        let safeDuration = HelperUtils.sanitizedDuration(duration)
+        let roundedDuration = Int((safeDuration / 2.0).rounded()) * 2
         
         return "\(normalizedTitle)|\(normalizedArtist)|\(normalizedAlbum)|\(normalizedYear)|\(roundedDuration)"
     }
@@ -362,10 +364,8 @@ extension FullTrack {
             "dsd", "dsf", "dff"
         ]
         
-        for losslessCodec in losslessCodecs {
-            if codecLower.contains(losslessCodec) {
-                return true
-            }
+        for losslessCodec in losslessCodecs where codecLower.contains(losslessCodec) {
+            return true
         }
         
         let losslessFormats: Set<String> = [

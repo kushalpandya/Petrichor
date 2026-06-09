@@ -247,7 +247,7 @@ struct PlayerView: View {
     private var progressBar: some View {
         HStack(spacing: 8) {
             // Current time - updated to use displayTime
-            Text(formatDuration(isDraggingProgress ? tempProgressValue : playbackManager.currentTime))
+            Text(HelperUtils.formattedShortDuration(isDraggingProgress ? tempProgressValue : playbackManager.currentTime))
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(.secondary)
                 .monospacedDigit()
@@ -257,7 +257,7 @@ struct PlayerView: View {
             progressSlider
 
             // Total duration
-            Text(formatDuration(playbackManager.currentTrack?.duration ?? 0))
+            Text(HelperUtils.formattedShortDuration(playbackManager.currentTrack?.duration ?? 0))
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(.secondary)
                 .monospacedDigit()
@@ -484,11 +484,13 @@ struct PlayerView: View {
                     isDraggingProgress = true
                 }
                 let percentage = max(0, min(1, value.location.x / geometry.size.width))
-                tempProgressValue = percentage * (playbackManager.currentTrack?.duration ?? 0)
+                let duration = HelperUtils.sanitizedDuration(playbackManager.currentTrack?.duration ?? 0)
+                tempProgressValue = percentage * duration
             }
             .onEnded { value in
                 let percentage = max(0, min(1, value.location.x / geometry.size.width))
-                let newTime = percentage * (playbackManager.currentTrack?.duration ?? 0)
+                let duration = HelperUtils.sanitizedDuration(playbackManager.currentTrack?.duration ?? 0)
+                let newTime = percentage * duration
                 playbackManager.seekTo(time: newTime)
                 // Reset dragging state after seek completes
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -499,15 +501,9 @@ struct PlayerView: View {
 
     private func handleProgressTap(at x: CGFloat, in width: CGFloat) {
         let percentage = x / width
-        let newTime = percentage * (playbackManager.currentTrack?.duration ?? 0)
+        let duration = HelperUtils.sanitizedDuration(playbackManager.currentTrack?.duration ?? 0)
+        let newTime = percentage * duration
         playbackManager.seekTo(time: newTime)
-    }
-
-    private func formatDuration(_ seconds: Double) -> String {
-        let totalSeconds = Int(max(0, seconds))
-        let minutes = totalSeconds / 60
-        let remainingSeconds = totalSeconds % 60
-        return String(format: StringFormat.mmss, minutes, remainingSeconds)
     }
 
     private func toggleMute() {

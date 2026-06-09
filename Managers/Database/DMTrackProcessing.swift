@@ -134,28 +134,26 @@ extension DatabaseManager {
                 
                 if let globalState = globalScanState {
                     await globalState.incrementProcessed(by: chunkProcessed)
-                    await globalState.incrementTracksFound(by: newTracksCount)
-                    let (globalProcessed, globalTotal, tracksFound, isInitial) = await globalState.getProgress()
+                    await globalState.incrementTracksAdded(by: newTracksCount)
+                    let progress = await globalState.getProgress()
                     
-                    if globalTotal > 0 {
-                        updateScanStatus("Processing: \(globalProcessed)/\(globalTotal) files")
+                    if progress.total > 0 {
+                        updateScanStatus("Processing: \(progress.processed)/\(progress.total) files")
                     } else {
-                        updateScanStatus("Processing: \(globalProcessed) files")
+                        updateScanStatus("Processing: \(progress.processed) files")
                     }
 
                     await MainActor.run {
                         // Update NotificationManager with progress
-                        let detail = globalTotal > 0
-                            ? "\(globalProcessed) of \(globalTotal) files • \(tracksFound) tracks found"
-                            : "\(globalProcessed) files processed • \(tracksFound) tracks found"
+                        let detail = self.scanProgressDetail(progress)
                         NotificationManager.shared.updateActivityProgress(
-                            current: globalProcessed,
-                            total: globalTotal > 0 ? globalTotal : globalProcessed,
+                            current: progress.processed,
+                            total: progress.total > 0 ? progress.total : progress.processed,
                             detail: detail
                         )
                         
                         // Check threshold during initial scan
-                        if isInitial {
+                        if progress.isInitial {
                             NotificationCenter.default.post(name: .checkInitialScanThreshold, object: nil)
                         }
                     }

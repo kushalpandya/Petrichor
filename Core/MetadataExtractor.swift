@@ -63,8 +63,7 @@ actor ArtworkCompressionCache {
 
 // MARK: - Metadata Extractor
 
-class MetadataExtractor {
-
+enum MetadataExtractor {
     // MARK: - Public Methods
 
     /// Extract metadata from an audio file using SFBAudioEngine
@@ -157,8 +156,7 @@ class MetadataExtractor {
                 let ext = url.pathExtension
 
                 if AlbumArtFormat.knownFilenames.contains(filename)
-                    && AlbumArtFormat.isSupported(ext)
-                {
+                    && AlbumArtFormat.isSupported(ext) {
                     if let data = try? Data(contentsOf: url) {
                         artworkMap[directory] = ImageUtils.compressImage(from: data, source: url.path) ?? data
                         foundArtworkInCurrentDir = true
@@ -182,7 +180,7 @@ class MetadataExtractor {
         }
         
         // Duration (TimeInterval is a typealias for Double)
-        if let duration = properties.duration {
+        if let duration = properties.duration, duration.isFinite, duration >= 0 {
             metadata.duration = duration
         }
 
@@ -218,22 +216,22 @@ class MetadataExtractor {
         }
 
         // Sample rate
-        if let sampleRate = properties.sampleRate {
+        if let sampleRate = properties.sampleRate, sampleRate > 0 {
             metadata.sampleRate = Int(sampleRate)
         }
 
         // Channels (AVAudioChannelCount, which is UInt32)
-        if let channelCount = properties.channelCount {
+        if let channelCount = properties.channelCount, channelCount > 0 {
             metadata.channels = Int(channelCount)
         }
 
         // Bit depth
-        if let bitDepth = properties.bitDepth {
+        if let bitDepth = properties.bitDepth, bitDepth > 0 {
             metadata.bitDepth = bitDepth
         }
 
         // Bitrate
-        if let bitrate = properties.bitrate {
+        if let bitrate = properties.bitrate, bitrate > 0 {
             metadata.bitrate = Int(bitrate)
         }
 
@@ -368,6 +366,7 @@ class MetadataExtractor {
         }
     }
 
+    // swiftlint:disable:next cyclomatic_complexity
     private static func extractExtendedFields(
         from additionalMetadata: [AnyHashable: Any],
         into metadata: inout TrackMetadata
@@ -381,127 +380,108 @@ class MetadataExtractor {
 
             // Label/Publisher
             if metadata.extended.label == nil
-                && (lowercaseKey.contains("label") || lowercaseKey == "tpub")
-            {
+                && (lowercaseKey.contains("label") || lowercaseKey == "tpub") {
                 metadata.extended.label = stringValue
             }
 
             // Publisher
             if metadata.extended.publisher == nil
-                && lowercaseKey.contains("publisher")
-            {
+                && lowercaseKey.contains("publisher") {
                 metadata.extended.publisher = stringValue
             }
 
             // Copyright
             if metadata.extended.copyright == nil
-                && lowercaseKey.contains("copyright")
-            {
+                && lowercaseKey.contains("copyright") {
                 metadata.extended.copyright = stringValue
             }
 
             // Personnel
             if metadata.extended.conductor == nil
                 && (lowercaseKey == "tpe3"
-                    || lowercaseKey.contains("conductor"))
-            {
+                    || lowercaseKey.contains("conductor")) {
                 metadata.extended.conductor = stringValue
             }
             if metadata.extended.remixer == nil
-                && (lowercaseKey == "tpe4" || lowercaseKey.contains("remixer"))
-            {
+                && (lowercaseKey == "tpe4" || lowercaseKey.contains("remixer")) {
                 metadata.extended.remixer = stringValue
             }
             if metadata.extended.producer == nil
-                && (lowercaseKey == "tpro" || lowercaseKey.contains("producer"))
-            {
+                && (lowercaseKey == "tpro" || lowercaseKey.contains("producer")) {
                 metadata.extended.producer = stringValue
             }
             if metadata.extended.engineer == nil
-                && lowercaseKey.contains("engineer")
-            {
+                && lowercaseKey.contains("engineer") {
                 metadata.extended.engineer = stringValue
             }
             if metadata.extended.lyricist == nil
-                && (lowercaseKey == "text" || lowercaseKey.contains("lyricist"))
-            {
+                && (lowercaseKey == "text" || lowercaseKey.contains("lyricist")) {
                 metadata.extended.lyricist = stringValue
             }
 
             // Original artist
             if metadata.extended.originalArtist == nil
                 && (lowercaseKey == "tope"
-                    || lowercaseKey.contains("originalartist"))
-            {
+                    || lowercaseKey.contains("originalartist")) {
                 metadata.extended.originalArtist = stringValue
             }
 
             // Descriptive fields
             if metadata.extended.subtitle == nil
-                && (lowercaseKey.contains("subtitle") || lowercaseKey == "tit3")
-            {
+                && (lowercaseKey.contains("subtitle") || lowercaseKey == "tit3") {
                 metadata.extended.subtitle = stringValue
             }
             if metadata.extended.movement == nil
-                && lowercaseKey.contains("movement")
-            {
+                && lowercaseKey.contains("movement") {
                 metadata.extended.movement = stringValue
             }
             if metadata.extended.key == nil
                 && (lowercaseKey == "tkey"
                     || lowercaseKey.contains("initialkey")
-                    || lowercaseKey.contains("musicalkey"))
-            {
+                    || lowercaseKey.contains("musicalkey")) {
                 metadata.extended.key = stringValue
             }
             if metadata.extended.mood == nil && lowercaseKey.contains("mood") {
                 metadata.extended.mood = stringValue
             }
             if metadata.extended.language == nil
-                && (lowercaseKey == "tlan" || lowercaseKey.contains("language"))
-            {
+                && (lowercaseKey == "tlan" || lowercaseKey.contains("language")) {
                 metadata.extended.language = stringValue
             }
 
             // Identifiers
             if metadata.extended.barcode == nil
                 && (lowercaseKey.contains("barcode")
-                    || lowercaseKey.contains("upc"))
-            {
+                    || lowercaseKey.contains("upc")) {
                 metadata.extended.barcode = stringValue
             }
             if metadata.extended.catalogNumber == nil
-                && lowercaseKey.contains("catalog")
-            {
+                && lowercaseKey.contains("catalog") {
                 metadata.extended.catalogNumber = stringValue
             }
 
             // Encoding
             if metadata.extended.encodedBy == nil
                 && (lowercaseKey == "tenc"
-                    || lowercaseKey.contains("encodedby"))
-            {
+                    || lowercaseKey.contains("encodedby")) {
                 metadata.extended.encodedBy = stringValue
             }
             if metadata.extended.encoderSettings == nil
                 && (lowercaseKey == "tsse"
-                    || lowercaseKey.contains("encodersettings"))
-            {
+                    || lowercaseKey.contains("encodersettings")) {
                 metadata.extended.encoderSettings = stringValue
             }
 
             // Recording date
             if metadata.extended.recordingDate == nil
-                && lowercaseKey.contains("recordingdate")
-            {
+                && lowercaseKey.contains("recordingdate") {
                 metadata.extended.recordingDate = stringValue
             }
 
             // Original release date
             if metadata.originalReleaseDate == nil
                 && (lowercaseKey.contains("originaldate")
-                    || lowercaseKey == "tdor")
-            {
+                    || lowercaseKey == "tdor") {
                 metadata.originalReleaseDate = stringValue
                 // Also try to extract year if not set
                 if metadata.year == nil {
@@ -516,48 +496,41 @@ class MetadataExtractor {
             if metadata.extended.musicBrainzArtistId == nil
                 && lowercaseKey.contains("musicbrainz")
                 && lowercaseKey.contains("artist")
-                && lowercaseKey.contains("id")
-            {
+                && lowercaseKey.contains("id") {
                 metadata.extended.musicBrainzArtistId = stringValue
             }
             if metadata.extended.musicBrainzAlbumArtistId == nil
                 && lowercaseKey.contains("musicbrainz")
                 && lowercaseKey.contains("albumartist")
-                && lowercaseKey.contains("id")
-            {
+                && lowercaseKey.contains("id") {
                 metadata.extended.musicBrainzAlbumArtistId = stringValue
             }
             if metadata.extended.musicBrainzReleaseGroupId == nil
                 && lowercaseKey.contains("musicbrainz")
-                && lowercaseKey.contains("releasegroup")
-            {
+                && lowercaseKey.contains("releasegroup") {
                 metadata.extended.musicBrainzReleaseGroupId = stringValue
             }
             if metadata.extended.musicBrainzWorkId == nil
                 && lowercaseKey.contains("musicbrainz")
-                && lowercaseKey.contains("work") && lowercaseKey.contains("id")
-            {
+                && lowercaseKey.contains("work") && lowercaseKey.contains("id") {
                 metadata.extended.musicBrainzWorkId = stringValue
             }
 
             // AcoustID
             if metadata.extended.acoustId == nil
                 && lowercaseKey.contains("acoustid")
-                && !lowercaseKey.contains("fingerprint")
-            {
+                && !lowercaseKey.contains("fingerprint") {
                 metadata.extended.acoustId = stringValue
             }
             if metadata.extended.acoustIdFingerprint == nil
                 && lowercaseKey.contains("acoustid")
-                && lowercaseKey.contains("fingerprint")
-            {
+                && lowercaseKey.contains("fingerprint") {
                 metadata.extended.acoustIdFingerprint = stringValue
             }
 
             // Composer sort order (not in standard AudioMetadata)
             if metadata.extended.sortComposer == nil
-                && lowercaseKey.contains("composersort")
-            {
+                && lowercaseKey.contains("composersort") {
                 metadata.extended.sortComposer = stringValue
             }
         }
@@ -604,14 +577,11 @@ class MetadataExtractor {
         let yearPattern = #"\b(19|20)\d{2}\b"#
 
         if let regex = try? NSRegularExpression(pattern: yearPattern),
-            let match = regex.firstMatch(
-                in: dateString,
-                range: NSRange(dateString.startIndex..., in: dateString)
-            )
-        {
-            if let range = Range(match.range, in: dateString) {
-                return String(dateString[range])
-            }
+           let match = regex.firstMatch(
+            in: dateString,
+            range: NSRange(dateString.startIndex..., in: dateString)
+           ) {
+            if let range = Range(match.range, in: dateString) { return String(dateString[range]) }
         }
 
         return ""

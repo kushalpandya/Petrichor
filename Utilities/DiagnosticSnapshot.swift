@@ -51,7 +51,7 @@ enum DiagnosticSnapshot {
             library["albumCount"] = lm.albumCount
             library["playlistCount"] = coordinator.playlistManager.playlists.count
             library["pinnedItemCount"] = lm.pinnedItems.count
-            library["totalDurationSec"] = duration.isFinite ? Int(duration) : 0
+            library["totalDurationSec"] = HelperUtils.sanitizedWholeDuration(duration)
             library["totalSize"] = bytes(db.getTotalFileSize())
             library["formats"] = db.getTrackCountsByFormat()
             library["folders"] = lm.folders.map { ($0.url.path as NSString).abbreviatingWithTildeInPath }

@@ -176,18 +176,12 @@ private struct ReorderTrackRow: View {
 
             Spacer()
 
-            Text(formatDuration(track.duration))
+            Text(HelperUtils.formattedShortDuration(track.duration))
                 .font(.system(size: 11))
                 .foregroundColor(.secondary)
                 .monospacedDigit()
         }
         .padding(.vertical, 4)
-    }
-
-    private func formatDuration(_ seconds: Double) -> String {
-        let minutes = Int(seconds) / 60
-        let seconds = Int(seconds) % 60
-        return String(format: StringFormat.mmss, minutes, seconds)
     }
 }
 

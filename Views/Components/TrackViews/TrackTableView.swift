@@ -293,7 +293,7 @@ struct TrackTableView: View {
                 
                 // Duration
                 TableColumn("Duration", value: \.duration) { track in
-                    Text(formatDuration(track.duration))
+                    Text(HelperUtils.formattedShortDuration(track.duration))
                         .font(isCurrentTrack(track) ? Self.currentTrackFont : Self.trackFont)
                         .foregroundColor(.secondary)
                         .monospacedDigit()
@@ -358,13 +358,6 @@ struct TrackTableView: View {
         } else {
             playlistManager.currentQueueSource = .library
         }
-    }
-    
-    private func formatDuration(_ seconds: Double) -> String {
-        let totalSeconds = Int(max(0, seconds))
-        let minutes = totalSeconds / 60
-        let remainingSeconds = totalSeconds % 60
-        return String(format: StringFormat.mmss, minutes, remainingSeconds)
     }
     
     private static let dateFormatter: DateFormatter = {

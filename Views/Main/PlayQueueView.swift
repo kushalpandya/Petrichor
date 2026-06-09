@@ -213,7 +213,7 @@ struct PlayQueueRow: View {
 
     private var trackControls: some View {
         HStack(spacing: 5) {
-            Text(formatDuration(track.duration))
+            Text(HelperUtils.formattedShortDuration(track.duration))
                 .font(.system(size: 11))
                 .foregroundColor(isCurrentTrack ? .white : .secondary)
                 .monospacedDigit()
@@ -248,12 +248,6 @@ struct PlayQueueRow: View {
             }
         }
         .cornerRadius(6)
-    }
-
-    private func formatDuration(_ seconds: Double) -> String {
-        let minutes = Int(seconds) / 60
-        let remainingSeconds = Int(seconds) % 60
-        return String(format: StringFormat.mmss, minutes, remainingSeconds)
     }
 
     private func handleDoubleClick() {
