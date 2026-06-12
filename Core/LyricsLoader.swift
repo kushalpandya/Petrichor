@@ -93,18 +93,44 @@ struct LyricsLoader {
         return lines
     }
     
-    /// Load file content with automatic encoding detection
+    /// Load file content with automatic encoding detection, trying a broader set of
+    /// common East‑Asian and Western encodings instead of only UTF‑8 and EUC‑KR.
     private static func loadFileWithEncodingDetection(_ url: URL) -> String? {
         guard let data = try? Data(contentsOf: url) else { return nil }
-        if let content = String(data: data, encoding: .utf8) {
-            return content
+        
+        // 1. Try the most common Swift built‑in encodings
+        let builtInEncodings: [String.Encoding] = [
+            .utf8,
+            .utf16,                  // Detects BOM and picks LE/BE accordingly
+            .utf16BigEndian,
+            .utf16LittleEndian,
+            .isoLatin1,              // Covers most Western languages
+            .windowsCP1252,          // Another Western fallback
+            .shiftJIS,
+            .japaneseEUC,
+        ]
+        for enc in builtInEncodings {
+            if let content = String(data: data, encoding: enc) {
+                return content
+            }
         }
-        // Fallback for other encodings
-        let cfEncoding = CFStringConvertIANACharSetNameToEncoding("EUC_KR" as CFString)
-        let nsEncoding = CFStringConvertEncodingToNSStringEncoding(cfEncoding)
-        if let content = String(data: data, encoding: String.Encoding(rawValue: nsEncoding)) {
-            return content
+        
+        // 2. Try additional encodings via IANA charset names (EUC‑KR, GBK, etc.)
+        let ianaNames = [
+            "EUC-KR",   // Korean
+            "GBK",      // Simplified Chinese
+            "BIG5",     // Traditional Chinese
+            "ISO-2022-JP",
+        ]
+        for name in ianaNames {
+            let cfEnc = CFStringConvertIANACharSetNameToEncoding(name as CFString)
+            guard cfEnc != kCFStringEncodingInvalidId else { continue }
+            let nsEnc = CFStringConvertEncodingToNSStringEncoding(cfEnc)
+            if let content = String(data: data, encoding: String.Encoding(rawValue: nsEnc)) {
+                return content
+            }
         }
+        
         return nil
     }
 }

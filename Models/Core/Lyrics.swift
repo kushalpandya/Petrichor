@@ -38,8 +38,18 @@ extension LyricLine {
                 
                 let minutes = Double(minStr) ?? 0
                 let seconds = Double(secStr) ?? 0
-                let milliseconds = Double(msStr) ?? 0
-                return minutes * 60 + seconds + milliseconds / 100.0
+
+                let timeWithoutMs = minutes * 60 + seconds
+
+                let msRange = match.range(at: 3)
+                if msRange.location != NSNotFound, msRange.length > 0 {
+                    let msStr = nsLine.substring(with: msRange)
+                    let msValue = Double(msStr) ?? 0
+                    let divisor = pow(10.0, Double(msStr.count))
+                    return timeWithoutMs + msValue / divisor
+                } else {
+                    return timeWithoutMs
+                }
             }
             
             // Get the plain text part from the lyric
@@ -52,15 +62,13 @@ extension LyricLine {
         }
         
         // Sort by start time
-        let sorted = lyrics.sorted { $0.startTime < $1.startTime }
-        
-        var result = sorted
-        // Set the end time
-        for i in 0..<result.count - 1 {
-            result[i].endTime = result[i+1].startTime
+        var sorted = lyrics.sorted { $0.startTime < $1.startTime }
+        if sorted.count > 1 {
+            for i in 0..<sorted.count - 1 {
+                sorted[i].endTime = sorted[i+1].startTime
+            }
         }
-        
-        return result
+        return sorted
     }
     
     /// Parse the lyrics from the SRT files

@@ -10,6 +10,7 @@ struct TrackLyricsView: View {
     @State private var isLoading = true
     @State private var fetchFailed = false
     @State private var currentLineIndex: Int = -1
+    @State private var hasTimedLyrics: Bool = false
     
     private var currentTrack: Track? {
         playbackManager.currentTrack
@@ -31,11 +32,11 @@ struct TrackLyricsView: View {
         .onAppear {
             loadLyricsForCurrentTrack()
         }
-        .onChange(of: playbackManager.currentTrack?.id) {
+        .onChange(of: playbackManager.currentTrack?.id) { oldID, newID in
             loadLyricsForCurrentTrack()
         }
         // Listen for playback time changes and update the current line in real time
-        .onReceive(playbackManager.$currentTimePublished) { newTime in
+        .onReceive(playbackManager.playbackProgressState.$currentTime) { newTime in
             updateCurrentLine(for: newTime)
         }
     }
@@ -92,7 +93,7 @@ struct TrackLyricsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
-    // MARK: - Lyrics Content with Synced Highlight
+    // MARK: - Lyrics Content with Conditional Synced Highlight
     private var lyricsContent: some View {
         ScrollViewReader { proxy in
             ScrollView {
@@ -100,9 +101,10 @@ struct TrackLyricsView: View {
                     ForEach(Array(lyricLines.enumerated()), id: \.offset) { index, line in
                         Text(line.text.isEmpty ? " " : line.text)
                             .font(.system(size: 14))
-                            .fontWeight(currentLineIndex == index ? .bold : .regular)
-                            .scaleEffect(currentLineIndex == index ? 1.1 : 1.0)
-                            .foregroundColor(currentLineIndex == index ? .primary : .secondary)
+                            // Only apply highlight styles if lyrics are timed
+                            .fontWeight(hasTimedLyrics && currentLineIndex == index ? .bold : .regular)
+                            .scaleEffect(hasTimedLyrics && currentLineIndex == index ? 1.1 : 1.0)
+                            .foregroundColor(hasTimedLyrics && currentLineIndex == index ? .primary : .secondary)
                             .multilineTextAlignment(.center)
                             .lineSpacing(6)
                             .id(index)   // For scrollTo
@@ -111,8 +113,11 @@ struct TrackLyricsView: View {
                 }
                 .padding(20)
                 .frame(maxWidth: .infinity)
+                .textSelection(.enabled)
             }
             .onChange(of: currentLineIndex) { oldIndex, newIndex in
+                // Auto-scroll only for timed lyrics
+                guard hasTimedLyrics else { return }
                 withAnimation {
                     proxy.scrollTo(newIndex, anchor: .center)
                 }
@@ -134,6 +139,7 @@ struct TrackLyricsView: View {
         lyricLines = []
         fetchFailed = false
         currentLineIndex = -1
+        hasTimedLyrics = false   // Reset until we know
         
         Task {
             do {
@@ -145,12 +151,15 @@ struct TrackLyricsView: View {
                 
                 await MainActor.run {
                     lyricLines = result.lyrics
+                    // Determine if lyrics contain actual timing information
+                    hasTimedLyrics = lyricLines.contains { $0.startTime > 0 || $0.endTime != nil }
                     isLoading = false
                     fetchFailed = false
                 }
             } catch {
                 await MainActor.run {
                     lyricLines = []
+                    hasTimedLyrics = false
                     isLoading = false
                     fetchFailed = true
                 }
@@ -158,9 +167,10 @@ struct TrackLyricsView: View {
         }
     }
     
-    /// Determine the current lyric line based on playback time
+    /// Determine the current lyric line based on playback time.
+    /// Only executed for timed lyrics; for untimed lyrics this does nothing.
     private func updateCurrentLine(for time: TimeInterval) {
-        guard !lyricLines.isEmpty else { return }
+        guard hasTimedLyrics, !lyricLines.isEmpty else { return }
         
         // Prefer precise judgment via endTime; fall back to startTime ≤ time when endTime is nil
         let newIndex = lyricLines.lastIndex { line in
