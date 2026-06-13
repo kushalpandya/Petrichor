@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sbooth/AVFAudioExtensions",
       "state" : {
-        "revision" : "541d8617956cc46af45c2c5ae3f7c23439a2f666",
-        "version" : "0.5.0"
+        "revision" : "276deda6780b974be0d3dacf1bb0a890754b9e1b",
+        "version" : "0.5.1"
       }
     },
     {
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sbooth/CXXAudioRingBuffer",
       "state" : {
-        "revision" : "f0a002189abb574b06e56b8d01ab958f0e2c5553",
-        "version" : "0.1.0"
+        "revision" : "95052b6bd4ccf192e2f0983d401224e7a4921e39",
+        "version" : "0.1.1"
       }
     },
     {
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sbooth/CXXDispatchSemaphore",
       "state" : {
-        "revision" : "d24b32760fd066739bc4d2c71522d3461398e304",
-        "version" : "0.4.0"
+        "revision" : "cd267c1dffae0e132abe7b63fcee1e1fe357f23d",
+        "version" : "0.4.1"
       }
     },
     {
@@ -60,8 +60,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sbooth/CXXRingBuffer",
       "state" : {
-        "revision" : "b316e9bd3d30ac425f06016273832d2b60c277b8",
-        "version" : "0.6.0"
+        "revision" : "8d859aa73d115273afcebe754b22bf50d3ea0621",
+        "version" : "0.6.1"
       }
     },
     {
@@ -69,8 +69,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sbooth/CXXTagLib",
       "state" : {
-        "revision" : "a243fefb04d56eeade7669b4ec90dc2997089fbb",
-        "version" : "2.1.1"
+        "revision" : "b570acead5e27006cb41ab5ff7443c8797b3b8e5",
+        "version" : "2.3.0"
       }
     },
     {
@@ -78,8 +78,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sbooth/CXXUnfairLock",
       "state" : {
-        "revision" : "64e5c4a3a9d532bb26023b15c10d87b8ce09ab45",
-        "version" : "0.3.0"
+        "revision" : "d134022b339567958b3a941dfa3cd079d31f1030",
+        "version" : "0.3.1"
       }
     },
     {
@@ -96,8 +96,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/groue/GRDB.swift",
       "state" : {
-        "revision" : "36e30a6f1ef10e4194f6af0cff90888526f0c115",
-        "version" : "7.10.0"
+        "revision" : "9ed8c8457e00ff9c7aedb3bf213f20a2cfdf509e",
+        "version" : "7.11.0"
       }
     },
     {
@@ -150,8 +150,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sbooth/SFBAudioEngine",
       "state" : {
-        "revision" : "10670eb58f9acc0e5ac2907dc744a78ade2597cd",
-        "version" : "0.12.1"
+        "revision" : "5a74dde3089060bac35f0a16970d91fc8402e751",
+        "version" : "0.13.0"
       }
     },
     {
@@ -168,8 +168,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sparkle-project/Sparkle",
       "state" : {
-        "revision" : "21d8df80440b1ca3b65fa82e40782f1e5a9e6ba2",
-        "version" : "2.9.0"
+        "revision" : "d46d456107feacc80711b21847b82b07bd9fb46e",
+        "version" : "2.9.3"
       }
     },
     {
