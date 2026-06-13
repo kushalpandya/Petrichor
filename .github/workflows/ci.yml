@@ -1,10 +1,12 @@
-name: CI/CD Pipeline
+name: CI
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: [ "main" ]
+    tags: [ "v*" ]
     paths-ignore:
       - 'README.md'
+      - 'ACKNOWLEDGEMENTS.md'
       - 'Scripts/**'
       - '.github/assets/**'
       - 'LICENSE'
@@ -14,6 +16,7 @@ on:
     branches: [ "main" ]
     paths-ignore:
       - 'README.md'
+      - 'ACKNOWLEDGEMENTS.md'
       - 'Scripts/**'
       - '.github/assets/**'
       - 'LICENSE'
@@ -21,208 +24,214 @@ on:
       - '**/*.md'
   workflow_dispatch:
 
+# Cancel superseded runs on the same ref. PRs cancel-in-progress (push a new
+# commit, the old run dies); main/tag runs are left to finish so release checks
+# aren't interrupted.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
 env:
-  XCODE_VERSION: '26.2'
+  # Pinned and bumped deliberately; matches the local/ship toolchain. The
+  # SwiftLint image tag in the lint job is the single lint-version pin.
+  XCODE_VERSION: '26.5'
   SCHEME: 'Petrichor'
   PROJECT: 'Petrichor.xcodeproj'
 
 jobs:
-  # Job 1: Code Quality & Linting
+  # Fast, free Linux gate via the official SwiftLint container. Runs first; the
+  # macOS build depends on it.
   lint:
-    name: Swift Lint & Format Check
-    runs-on: macos-26
-    
+    name: SwiftLint (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container:
+      image: ghcr.io/realm/swiftlint:0.63.3
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-        
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app
-        
-      - name: Cache SwiftLint
-        uses: actions/cache@v4
-        with:
-          path: ~/Library/Caches/Homebrew/swiftlint*
-          key: ${{ runner.os }}-swiftlint-0.54.0
-          restore-keys: |
-            ${{ runner.os }}-swiftlint-
-        
-      - name: Install SwiftLint
-        run: |
-          if ! command -v swiftlint &> /dev/null; then
-            brew install swiftlint
-          else
-            echo "SwiftLint already installed: $(swiftlint version)"
-          fi
-        
-      - name: Run SwiftLint
-        run: |
-          # Create default config if not exists
-          if [ ! -f .swiftlint.yml ]; then
-            echo "warning: .swiftlint.yml not found, using default configuration"
-          fi
-          
-          # Ensure Xcode is properly selected for SourceKit
-          export DEVELOPER_DIR="/Applications/Xcode_${{ env.XCODE_VERSION }}.app/Contents/Developer"
-          
-          # Run SwiftLint with GitHub Actions reporter
-          # Try with SourceKit first, fall back to without if it fails
-          if ! swiftlint lint --reporter github-actions-logging; then
-            echo "::warning::SwiftLint with SourceKit failed, running without analyzer rules"
-            swiftlint lint --reporter github-actions-logging --disable-source-kit || true
-          fi
-        continue-on-error: true
-        
-      - name: SwiftLint Report
-        if: always()
-        run: |
-          # Generate HTML report for artifacts
-          swiftlint lint --reporter html > swiftlint-report.html || true
-          
-          # Also generate JSON for potential future processing
-          swiftlint lint --reporter json > swiftlint-report.json || true
-          
-      - name: Upload Lint Reports
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: lint-reports
-          path: |
-            swiftlint-report.html
-            swiftlint-report.json
-          retention-days: 5
+        uses: actions/checkout@v6
 
-  # Job 2: Build and Analyze
-  build-analyze:
-    name: Build & Static Analysis
-    runs-on: macos-26
-    needs: lint
-    strategy:
-      matrix:
-        configuration: [Debug, Release]
-    
+      # No --strict: gates on error-level violations only; warnings surface as
+      # inline PR annotations. Tighten to --strict (or a baseline) once the
+      # existing warning backlog is addressed.
+      - name: Run SwiftLint
+        run: swiftlint lint --reporter github-actions-logging
+
+  # Lint the workflow YAML itself (also shellcheck's the run: blocks).
+  actionlint:
+    name: Workflow Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-        
+        uses: actions/checkout@v6
+
+      - name: Run actionlint
+        run: docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:1.7.12 -color
+
+  # Single macOS job: compile once, analyze in the same pass. Debug only on PRs
+  # for fast feedback; Release is covered by release-build on main/tags.
+  build-analyze:
+    name: Build & Analyze (Debug)
+    runs-on: macos-26
+    timeout-minutes: 45
+    needs: [lint, actionlint]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app
-        
-      - name: Cache Swift Package Manager
-        uses: actions/cache@v4
+        run: sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v5
         with:
-          path: |
-            ~/Library/Developer/Xcode/DerivedData/**/SourcePackages/checkouts
-            ~/Library/Developer/Xcode/DerivedData/**/SourcePackages/repositories
+          path: .spm
           key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
           restore-keys: |
             ${{ runner.os }}-spm-
-      
-      - name: Cache Derived Data
-        uses: actions/cache@v4
+
+      - name: Cache DerivedData
+        uses: actions/cache@v5
         with:
           path: ~/Library/Developer/Xcode/DerivedData
-          key: ${{ runner.os }}-derived-data-${{ matrix.configuration }}-${{ hashFiles('**/*.swift') }}
+          key: ${{ runner.os }}-dd-debug-${{ hashFiles('**/*.swift', '**/Package.resolved') }}
           restore-keys: |
-            ${{ runner.os }}-derived-data-${{ matrix.configuration }}-
-            ${{ runner.os }}-derived-data-
-      
-      - name: Create Secrets Config
+            ${{ runner.os }}-dd-debug-
+
+      - name: Create Secrets placeholder
         run: |
-          echo "// CI placeholder - scrobbling disabled" > Configuration/Secrets.xcconfig
-          echo "LASTFM_API_KEY = " >> Configuration/Secrets.xcconfig
-          echo "LASTFM_SHARED_SECRET = " >> Configuration/Secrets.xcconfig
-      
-      - name: Resolve Dependencies
+          {
+            echo "// CI placeholder - online features disabled"
+            echo "LASTFM_API_KEY = "
+            echo "LASTFM_SHARED_SECRET = "
+          } > Configuration/Secrets.xcconfig
+
+      - name: Ensure xcbeautify
+        run: brew list xcbeautify >/dev/null 2>&1 || brew install xcbeautify
+
+      - name: Resolve dependencies
         run: |
-          echo "Resolving Swift Package Manager dependencies..."
           xcodebuild -resolvePackageDependencies \
-            -project "${{ env.PROJECT }}" \
-            -scheme "${{ env.SCHEME }}" \
-            -clonedSourcePackagesDirPath ~/Library/Developer/Xcode/DerivedData/SPM
-      
-      - name: Install xcpretty
-        run: |
-          if ! gem list xcpretty -i > /dev/null 2>&1; then
-            gem install xcpretty
-          fi
-      
-      - name: Build and Analyze
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -clonedSourcePackagesDirPath .spm
+
+      # No `clean`, so the DerivedData cache actually serves incremental builds.
+      - name: Build & Analyze
         run: |
           set -o pipefail
-          
-          # Create reports directory
-          mkdir -p build/reports
-          
-          # Build and analyze
-          xcodebuild clean build analyze \
-            -project "${{ env.PROJECT }}" \
-            -scheme "${{ env.SCHEME }}" \
-            -configuration ${{ matrix.configuration }} \
+          xcodebuild build analyze \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration Debug \
             -destination 'platform=macOS' \
+            -clonedSourcePackagesDirPath .spm \
             -derivedDataPath ~/Library/Developer/Xcode/DerivedData \
+            -resultBundlePath "$RUNNER_TEMP/Debug.xcresult" \
+            ONLY_ACTIVE_ARCH=YES \
             CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_REQUIRED=YES \
-            ONLY_ACTIVE_ARCH=NO \
-            COMPILER_INDEX_STORE_ENABLE=YES \
-            | xcpretty --color --report junit --output build/reports/junit-${{ matrix.configuration }}.xml
-          
-          # Save exit code
-          BUILD_STATUS=${PIPESTATUS[0]}
-          
-          # Check for analyzer warnings
-          if [ -d ~/Library/Developer/Xcode/DerivedData/Build/Intermediates.noindex/*.build ]; then
-            echo "Checking for analyzer warnings..."
-            find ~/Library/Developer/Xcode/DerivedData/Build/Intermediates.noindex -name "*.plist" -exec plutil -p {} \; | grep -i warning || true
-          fi
-          
-          exit $BUILD_STATUS
-      
-      - name: Parse Analyzer Results
-        if: always()
-        run: |
-          # Find and parse static analyzer results
-          echo "Searching for analyzer results..."
-          find ~/Library/Developer/Xcode/DerivedData -name "StaticAnalyzer" -type d | while read -r dir; do
-            echo "Found analyzer results in: $dir"
-            find "$dir" -name "*.plist" -exec echo "Analyzer issue found: " {} \;
-          done
-      
-      - name: Upload Build Reports
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: build-reports-${{ matrix.configuration }}
-          path: build/reports/
-          retention-days: 5
-      
-      - name: Upload Build Logs
-        uses: actions/upload-artifact@v4
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcbeautify --renderer github-actions
+
+      - name: Upload xcresult on failure
         if: failure()
+        uses: actions/upload-artifact@v4
         with:
-          name: build-logs-${{ matrix.configuration }}
-          path: |
-            ~/Library/Logs/DiagnosticReports/*.crash
-            ~/Library/Developer/Xcode/DerivedData/**/Logs/Build/*.xcactivitylog
+          name: debug-xcresult
+          path: ${{ runner.temp }}/Debug.xcresult
           retention-days: 5
           if-no-files-found: ignore
 
-  # Summary job to check all required jobs passed
+  # Ad-hoc Release compile check (no secrets, not distributable). Catches
+  # Release-only breaks before you tag and run Scripts/build-installer.sh.
+  # Signing/notarization/DMG/Sparkle stay in the local release flow.
+  release-build:
+    name: Release Build Check
+    runs-on: macos-26
+    timeout-minutes: 45
+    needs: [build-analyze]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Select Xcode
+        run: sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v5
+        with:
+          path: .spm
+          key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Cache DerivedData
+        uses: actions/cache@v5
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData
+          key: ${{ runner.os }}-dd-release-${{ hashFiles('**/*.swift', '**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-dd-release-
+
+      - name: Create Secrets placeholder
+        run: |
+          {
+            echo "// CI placeholder - online features disabled"
+            echo "LASTFM_API_KEY = "
+            echo "LASTFM_SHARED_SECRET = "
+          } > Configuration/Secrets.xcconfig
+
+      - name: Ensure xcbeautify
+        run: brew list xcbeautify >/dev/null 2>&1 || brew install xcbeautify
+
+      - name: Resolve dependencies
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -clonedSourcePackagesDirPath .spm
+
+      # Universal (both archs) to mirror what actually ships; ad-hoc signed.
+      - name: Build (Release)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination 'platform=macOS' \
+            -clonedSourcePackagesDirPath .spm \
+            -derivedDataPath ~/Library/Developer/Xcode/DerivedData \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcbeautify --renderer github-actions
+
+  # Single required status for branch protection. release-build is intentionally
+  # excluded (it only runs on push to main/tags, never on PRs).
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [lint, build-analyze]
+    timeout-minutes: 5
+    needs: [lint, actionlint, build-analyze]
     if: always()
-    
     steps:
-      - name: Check Job Status
+      - name: Verify required jobs
         run: |
+          echo "lint=${{ needs.lint.result }}"
+          echo "actionlint=${{ needs.actionlint.result }}"
+          echo "build-analyze=${{ needs.build-analyze.result }}"
           if [ "${{ needs.lint.result }}" != "success" ] || \
+             [ "${{ needs.actionlint.result }}" != "success" ] || \
              [ "${{ needs.build-analyze.result }}" != "success" ]; then
-            echo "One or more required jobs failed"
-            echo "Lint: ${{ needs.lint.result }}"
-            echo "Build & Analyze: ${{ needs.build-analyze.result }}"
+            echo "::error::One or more required checks failed"
             exit 1
-          else
-            echo "All required jobs passed successfully! ✅"
           fi
+          echo "All required checks passed ✅"
