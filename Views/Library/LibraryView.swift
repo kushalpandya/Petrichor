@@ -122,10 +122,9 @@ struct LibraryView: View {
                         playlistManager.playTrack(track, fromTracks: cachedFilteredTracks)
                         playlistManager.currentQueueSource = .library
                     },
-                    contextMenuItems: { track, playbackManager in
+                    contextMenuItems: { track, _ in
                         TrackContextMenu.createMenuItems(
                             for: track,
-                            playbackManager: playbackManager,
                             playlistManager: playlistManager,
                             currentContext: .library
                         )

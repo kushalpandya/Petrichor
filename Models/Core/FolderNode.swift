@@ -26,19 +26,6 @@ class FolderNode: Identifiable, ObservableObject {
         self.isWatchFolder = isWatchFolder
     }
 
-    // Helper to check if this folder contains any tracks (immediate or nested)
-    func containsTracks(using libraryManager: LibraryManager) -> Bool {
-        // Check immediate tracks
-        if immediateTrackCount > 0 {
-            return true
-        }
-
-        // Check if any child folders contain tracks
-        return children.contains { child in
-            child.containsTracks(using: libraryManager)
-        }
-    }
-
     // Helper to get all tracks in this folder (immediate only)
     func getImmediateTracks(using libraryManager: LibraryManager) -> [Track] {
         let allTracks: [Track]

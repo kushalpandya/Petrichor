@@ -99,8 +99,6 @@ extension PlaylistManager {
                     lastPlayedDate: lastPlayedDate
                 )
 
-                _ = track.withPlayStats(playCount: newPlayCount, lastPlayedDate: lastPlayedDate)
-
                 Logger.info("Incremented play count for track: \(track.title) (now: \(newPlayCount))")
                 
                 updateSmartPlaylistCounts()
@@ -137,24 +135,5 @@ extension PlaylistManager {
                 self.audioPlayer?.currentTrack = track
             }
         }
-    }
-
-    /// Handle the start of track playback
-    func handleTrackPlaybackStarted(_ track: Track) {
-        Task {
-            await MainActor.run {
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("TrackPlaybackStarted"),
-                    object: nil,
-                    userInfo: ["track": track]
-                )
-            }
-        }
-    }
-
-    /// Handle track playback completion
-    func handleTrackPlaybackCompleted(_ track: Track) {
-        // Increment play count when track completes
-        incrementPlayCount(for: track)
     }
 }

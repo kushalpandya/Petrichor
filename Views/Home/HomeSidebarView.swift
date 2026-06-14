@@ -21,6 +21,7 @@ struct HomeSidebarView: View {
             Divider()
             
             // All items in one list
+            // `SidebarView` has several optional closure parameters; explicit labels keep this call readable.
             SidebarView(
                 items: allItems,
                 selectedItem: $selectedItem,
@@ -36,10 +37,12 @@ struct HomeSidebarView: View {
                 trailingContent: { item in
                     trailingContentView(for: item)
                 },
-                reorderableFromIndex: HomeSidebarItem.HomeItemType.allCases.count
-            ) { reorderedItems in
-                handlePinnedItemsReorder(reorderedItems)
-            }
+                reorderableFromIndex: HomeSidebarItem.HomeItemType.allCases.count,
+                // swiftlint:disable:next trailing_closure
+                onReorder: { reorderedItems in
+                    handlePinnedItemsReorder(reorderedItems)
+                }
+            )
         }
         .onAppear {
             updateAllItems()
@@ -129,23 +132,21 @@ struct HomeSidebarView: View {
         
         // Update the UI on main thread
         await MainActor.run {
-            for (pinnedId, trackCount) in pinnedItemCounts {
-                if pinnedItemTrackCounts[pinnedId] != trackCount {
-                    pinnedItemTrackCounts[pinnedId] = trackCount
-                    
-                    // Update the corresponding item in allItems
-                    if let index = allItems.firstIndex(where: {
-                        if case .pinned(let item) = $0.source {
-                            return item.id == pinnedId
+            for (pinnedId, trackCount) in pinnedItemCounts where pinnedItemTrackCounts[pinnedId] != trackCount {
+                pinnedItemTrackCounts[pinnedId] = trackCount
+                
+                // Update the corresponding item in allItems
+                if let index = allItems.firstIndex(where: {
+                    if case .pinned(let item) = $0.source {
+                        return item.id == pinnedId
+                    }
+                    return false
+                }) {
+                    if let pinnedItem = libraryManager.pinnedItems.first(where: { $0.id == pinnedId }) {
+                        let playlist = pinnedItem.playlistId.flatMap { id in
+                            playlistManager.playlists.first { $0.id == id }
                         }
-                        return false
-                    }) {
-                        if let pinnedItem = libraryManager.pinnedItems.first(where: { $0.id == pinnedId }) {
-                            let playlist = pinnedItem.playlistId.flatMap { id in
-                                playlistManager.playlists.first { $0.id == id }
-                            }
-                            allItems[index] = HomeSidebarItem(pinnedItem: pinnedItem, trackCount: trackCount, playlist: playlist)
-                        }
+                        allItems[index] = HomeSidebarItem(pinnedItem: pinnedItem, trackCount: trackCount, playlist: playlist)
                     }
                 }
             }
@@ -174,11 +175,11 @@ struct HomeSidebarView: View {
                     Task {
                         await libraryManager.removePinnedItem(pinnedItem)
                     }
-                }) {
+                }, label: {
                     Image(systemName: "pin.fill")
                         .font(.system(size: 11))
                         .foregroundColor(selectedItem?.id == item.id ? .white.opacity(0.8) : .secondary)
-                }
+                })
                 .buttonStyle(.plain)
                 .help("Remove from Home")
             )

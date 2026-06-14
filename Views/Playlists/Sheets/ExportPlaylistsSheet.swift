@@ -33,12 +33,12 @@ struct ExportPlaylistsSheet: View {
     
     private var sheetHeader: some View {
         HStack {
-            Button(action: { isPresented = false }) {
+            Button(action: { isPresented = false }, label: {
                 Image(systemName: Icons.xmarkCircleFill)
                     .font(.system(size: 18))
                     .foregroundColor(.secondary)
                     .background(Circle().fill(Color.clear))
-            }
+            })
             .help("Dismiss")
             .buttonStyle(.plain)
             .keyboardShortcut(.escape)
@@ -290,11 +290,13 @@ struct ExportPlaylistsSheet: View {
             Playlist(
                 name: DefaultPlaylists.favorites,
                 criteria: SmartPlaylistCriteria(
-                    rules: [SmartPlaylistCriteria.Rule(
-                        field: "isFavorite",
-                        condition: .equals,
-                        value: "true"
-                    )],
+                    rules: [
+                        SmartPlaylistCriteria.Rule(
+                            field: "isFavorite",
+                            condition: .equals,
+                            value: "true"
+                        )
+                    ],
                     sortBy: "title",
                     sortAscending: true
                 ),

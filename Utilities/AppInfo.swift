@@ -1,6 +1,6 @@
 import Foundation
 
-struct AppInfo {
+enum AppInfo {
     static let userAgent = "\(About.appTitle)/\(AppInfo.version) (\(About.appWebsite))"
 
     // MARK: - Version Information
@@ -27,10 +27,6 @@ struct AppInfo {
         Bundle.main.infoDictionary?["CFBundleName"] as? String ?? About.appTitle
     }
     
-    static var displayName: String {
-        Bundle.main.infoDictionary?["CFBundleDisplayName"] as? String ?? name
-    }
-    
     static var bundleIdentifier: String {
         Bundle.main.bundleIdentifier ?? About.bundleIdentifier
     }
@@ -48,9 +44,9 @@ struct AppInfo {
     
     static var isDebugBuild: Bool {
         #if DEBUG
-        return true
+        true
         #else
-        return false
+        false
         #endif
     }
 }

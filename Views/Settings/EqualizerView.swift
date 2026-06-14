@@ -112,9 +112,7 @@ struct EqualizerView: View {
             .padding(.bottom, 25)
             .fixedSize(horizontal: true, vertical: false)
 
-            ForEach(Array(frequencies.enumerated()), id: \.offset) {
-                index,
-                frequency in
+            ForEach(Array(frequencies.enumerated()), id: \.offset) { index, frequency in
                 bandSlider(index: index, frequency: frequency)
             }
         }

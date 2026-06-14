@@ -2,7 +2,8 @@ import SwiftUI
 
 struct ReorderTracksSheet: View {
     let playlist: Playlist
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.dismiss)
+    private var dismiss
     @EnvironmentObject var playlistManager: PlaylistManager
 
     @State private var reorderedTracks: [Track] = []
@@ -34,12 +35,12 @@ struct ReorderTracksSheet: View {
 
     private var sheetHeader: some View {
         HStack {
-            Button(action: { dismiss() }) {
+            Button(action: { dismiss() }, label: {
                 Image(systemName: Icons.xmarkCircleFill)
                     .font(.system(size: 18))
                     .foregroundColor(.secondary)
                     .background(Circle().fill(Color.clear))
-            }
+            })
             .help("Dismiss")
             .buttonStyle(.plain)
             .keyboardShortcut(.escape)

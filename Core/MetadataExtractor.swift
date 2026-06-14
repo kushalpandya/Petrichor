@@ -113,61 +113,6 @@ enum MetadataExtractor {
         return metadata
     }
 
-    // MARK: - Folder-level Artwork Scanning
-
-    /// Scans a folder and returns a map of directory URLs to their artwork data
-    static func scanFolderForArtwork(at folderURL: URL) -> [URL: Data] {
-        var artworkMap: [URL: Data] = [:]
-        let fileManager = FileManager.default
-
-        if let enumerator = fileManager.enumerator(
-            at: folderURL,
-            includingPropertiesForKeys: [.isDirectoryKey],
-            options: [.skipsHiddenFiles]
-        ) {
-            var foundArtworkInCurrentDir = false
-            var lastDirectory: URL?
-
-            for case let url as URL in enumerator {
-                let isDirectory =
-                    (try? url.resourceValues(forKeys: [.isDirectoryKey]))?
-                    .isDirectory ?? false
-
-                if isDirectory {
-                    continue
-                }
-
-                // Get the directory containing this file
-                let directory = url.deletingLastPathComponent()
-
-                // Reset the flag when we move to a new directory
-                if directory != lastDirectory {
-                    foundArtworkInCurrentDir = false
-                    lastDirectory = directory
-                }
-
-                // Skip if we already found artwork in this directory
-                if foundArtworkInCurrentDir {
-                    continue
-                }
-
-                // Check if this is an artwork file
-                let filename = url.deletingPathExtension().lastPathComponent
-                let ext = url.pathExtension
-
-                if AlbumArtFormat.knownFilenames.contains(filename)
-                    && AlbumArtFormat.isSupported(ext) {
-                    if let data = try? Data(contentsOf: url) {
-                        artworkMap[directory] = ImageUtils.compressImage(from: data, source: url.path) ?? data
-                        foundArtworkInCurrentDir = true
-                    }
-                }
-            }
-        }
-
-        return artworkMap
-    }
-
     // MARK: - Private Extraction Methods
 
     private static func extractAudioProperties(
@@ -207,8 +152,10 @@ enum MetadataExtractor {
                 if avDuration.isFinite && avDuration > 0
                     && abs(avDuration - metadata.duration) > 1.0 {
                     Logger.warning(
-                        "MPEG duration mismatch for \(metadata.url.lastPathComponent) - " +
-                        "SFBAudioEngine: \(metadata.duration)s, AVAsset: \(avDuration)s. Using AVAsset value."
+                        """
+                        MPEG duration mismatch for \(metadata.url.lastPathComponent) - \
+                        SFBAudioEngine: \(metadata.duration)s, AVAsset: \(avDuration)s. Using AVAsset value.
+                        """
                     )
                     metadata.duration = avDuration
                 }

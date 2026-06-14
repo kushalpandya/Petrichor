@@ -56,7 +56,7 @@ struct SidebarItemRow<Item: SidebarItem>: View {
     @State private var isTitleTruncated = false
     @State private var isSubtitleTruncated = false
     
-    private func checkIfTruncated(text: String, width: CGFloat, font: Font) -> Bool {
+    private func checkIfTruncated(text: String, width: CGFloat) -> Bool {
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 13)
         ]
@@ -90,8 +90,7 @@ struct SidebarItemRow<Item: SidebarItem>: View {
     
     // MARK: - Icon View
     
-    @ViewBuilder
-    private var iconView: some View {
+    @ViewBuilder private var iconView: some View {
         if showIcon, let icon = item.icon {
             Group {
                 if icon.hasPrefix("custom.") {
@@ -108,8 +107,7 @@ struct SidebarItemRow<Item: SidebarItem>: View {
     
     // MARK: - Content View
     
-    @ViewBuilder
-    private var contentView: some View {
+    @ViewBuilder private var contentView: some View {
         if isEditing {
             editingField
         } else {
@@ -178,22 +176,19 @@ struct SidebarItemRow<Item: SidebarItem>: View {
                 .onAppear {
                     isTruncated.wrappedValue = checkIfTruncated(
                         text: text,
-                        width: geometry.size.width,
-                        font: .system(size: fontSize)
+                        width: geometry.size.width
                     )
                 }
                 .onChange(of: text) {
                     isTruncated.wrappedValue = checkIfTruncated(
                         text: text,
-                        width: geometry.size.width,
-                        font: .system(size: fontSize)
+                        width: geometry.size.width
                     )
                 }
                 .onChange(of: geometry.size.width) { _, newWidth in
                     isTruncated.wrappedValue = checkIfTruncated(
                         text: text,
-                        width: newWidth,
-                        font: .system(size: fontSize)
+                        width: newWidth
                     )
                 }
         }
@@ -201,8 +196,7 @@ struct SidebarItemRow<Item: SidebarItem>: View {
     
     // MARK: - Trailing View
     
-    @ViewBuilder
-    private var trailingView: some View {
+    @ViewBuilder private var trailingView: some View {
         if let trailing = trailingContent?(item) {
             trailing
         }

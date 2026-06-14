@@ -32,12 +32,6 @@ extension PlaylistManager {
         )
     }
     
-    func cancelCreatePlaylistModal() {
-        newPlaylistName = ""
-        tracksToAddToNewPlaylist = []
-        showingCreatePlaylistModal = false
-    }
-    
     /// Create a new basic playlist
     func createPlaylist(name: String, tracks: [Track] = []) -> Playlist {
         let newPlaylist = Playlist(name: name, tracks: [])
@@ -298,37 +292,5 @@ extension PlaylistManager {
         } catch {
             Logger.error("Failed to save reordered playlist: \(error)")
         }
-    }
-
-    /// Refresh playlists after a folder is removed from the library
-    func refreshPlaylistsAfterFolderRemoval() {
-        // Remove tracks that no longer exist from regular playlists
-        for index in playlists.indices {
-            if playlists[index].type == .regular {
-                let validTracks = playlists[index].tracks.filter { track in
-                    // Check if track still exists in library
-                    libraryManager?.tracks.contains { $0.trackId == track.trackId } ?? false
-                }
-                
-                if validTracks.count < playlists[index].tracks.count {
-                    playlists[index].tracks = validTracks
-                    playlists[index].dateModified = Date()
-                    
-                    // Save updated playlist
-                    Task {
-                        do {
-                            if let dbManager = libraryManager?.databaseManager {
-                                try await dbManager.savePlaylistAsync(playlists[index])
-                            }
-                        } catch {
-                            Logger.error("Failed to update playlist after folder removal: \(error)")
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Update smart playlists
-        updateSmartPlaylists()
     }
 }

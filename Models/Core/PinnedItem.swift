@@ -159,15 +159,7 @@ struct PinnedItem: Identifiable, FetchableRecord, PersistableRecord {
     }
     
     // MARK: - Helper Methods
-    
-    /// Check if this pinned item matches a given library filter item
-    func matches(filterItem: LibraryFilterItem) -> Bool {
-        guard itemType == .library,
-              let filterType = filterType else { return false }
-        
-        return filterType == filterItem.filterType && filterValue == filterItem.name
-    }
-    
+
     /// Check if this pinned item matches a given entity
     func matches(entity: any Entity) -> Bool {
         guard itemType == .library else { return false }

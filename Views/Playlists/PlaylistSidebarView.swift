@@ -66,10 +66,10 @@ struct PlaylistSidebarView: View {
 
             Spacer()
 
-            Button(action: { playlistManager.showCreatePlaylistModal() }) {
+            Button(action: { playlistManager.showCreatePlaylistModal() }, label: {
                 Image(systemName: "plus")
                     .font(.system(size: 14))
-            }
+            })
             .buttonStyle(.borderless)
             .hoverEffect(scale: 1.1)
             .help("Create New Playlist")
@@ -219,11 +219,13 @@ struct PlaylistSidebarView: View {
             Playlist(
                 name: DefaultPlaylists.favorites,
                 criteria: SmartPlaylistCriteria(
-                    rules: [SmartPlaylistCriteria.Rule(
-                        field: "isFavorite",
-                        condition: .equals,
-                        value: "true"
-                    )],
+                    rules: [
+                        SmartPlaylistCriteria.Rule(
+                            field: "isFavorite",
+                            condition: .equals,
+                            value: "true"
+                        )
+                    ],
                     sortBy: "title",
                     sortAscending: true
                 ),
@@ -232,11 +234,13 @@ struct PlaylistSidebarView: View {
             Playlist(
                 name: DefaultPlaylists.mostPlayed,
                 criteria: SmartPlaylistCriteria(
-                    rules: [SmartPlaylistCriteria.Rule(
-                        field: "playCount",
-                        condition: .greaterThanOrEqual,
-                        value: "5"
-                    )],
+                    rules: [
+                        SmartPlaylistCriteria.Rule(
+                            field: "playCount",
+                            condition: .greaterThanOrEqual,
+                            value: "5"
+                        )
+                    ],
                     limit: 25,
                     sortBy: "playCount",
                     sortAscending: false
@@ -246,11 +250,13 @@ struct PlaylistSidebarView: View {
             Playlist(
                 name: DefaultPlaylists.recentlyPlayed,
                 criteria: SmartPlaylistCriteria(
-                    rules: [SmartPlaylistCriteria.Rule(
-                        field: "lastPlayedDate",
-                        condition: .greaterThan,
-                        value: "7days"
-                    )],
+                    rules: [
+                        SmartPlaylistCriteria.Rule(
+                            field: "lastPlayedDate",
+                            condition: .greaterThan,
+                            value: "7days"
+                        )
+                    ],
                     limit: 25,
                     sortBy: "lastPlayedDate",
                     sortAscending: false

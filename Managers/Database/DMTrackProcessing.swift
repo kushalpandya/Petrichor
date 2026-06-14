@@ -96,9 +96,9 @@ extension DatabaseManager {
             
             for (_, trackResult) in results {
                 switch trackResult {
-                case .new(let track, let metadata):
+                case let .new(track, metadata):
                     processResults.new.append((track, metadata))
-                case .update(let track, let metadata):
+                case let .update(track, metadata):
                     processResults.update.append((track, metadata))
                 case .skipped:
                     processResults.skipped += 1

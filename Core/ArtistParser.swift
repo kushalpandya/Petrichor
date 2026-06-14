@@ -38,15 +38,6 @@ enum ArtistParser {
         try? NSRegularExpression(pattern: #"\s+"#, options: [])
     }()
 
-    // MARK: - Cache Management
-
-    static func clearCache() {
-        cacheQueue.async(flags: .barrier) {
-            parseCache.removeAll()
-            normalizeCache.removeAll()
-        }
-    }
-
     // MARK: - Known Artists
 
     // Concurrent so that reads (`hasKnownArtists`, `isKnownArtist`) run in parallel during
@@ -398,26 +389,6 @@ enum ArtistParser {
 
         let uniqueArtists = Array(normalizedToOriginal.values)
         return uniqueArtists.isEmpty ? [unknownPlaceholder] : uniqueArtists
-    }
-
-    // MARK: - Track Artist Check
-
-    /// Checks if a specific artist appears in a track's artist field
-    static func trackContainsArtist(_ track: Track, artistName: String) -> Bool {
-        if track.artist == artistName {
-            return true
-        }
-
-        let artists = parse(track.artist)
-
-        if artists.count == 1 && artists[0] == artistName {
-            return true
-        }
-
-        let normalizedSearchName = normalizeArtistName(artistName)
-        return artists.contains { artist in
-            artist == artistName || normalizeArtistName(artist) == normalizedSearchName
-        }
     }
 }
 

@@ -17,24 +17,6 @@ extension LibraryManager {
         return databaseManager.getTracksForFolder(folderId)
     }
 
-    func getTrackCountForFolder(_ folder: Folder) -> Int {
-        guard let folderId = folder.id else { return 0 }
-
-        // Check cache first
-        if let cachedCount = folderTrackCounts[folderId] {
-            return cachedCount
-        }
-
-        // Get count from database (this should be a fast query)
-        let tracks = databaseManager.getTracksForFolder(folderId)
-        let count = tracks.count
-
-        // Cache it
-        folderTrackCounts[folderId] = count
-
-        return count
-    }
-
     func getTracksBy(filterType: LibraryFilterType, value: String) -> [Track] {
         if filterType.usesMultiArtistParsing && value != filterType.unknownPlaceholder {
             return databaseManager.getTracksByFilterTypeContaining(filterType, value: value)
@@ -57,10 +39,6 @@ extension LibraryManager {
 
     func libraryFilterTrackCount(for filterType: LibraryFilterType, value: String) -> Int {
         getLibraryFilterItems(for: filterType).first { $0.name == value }?.count ?? 0
-    }
-
-    func getDistinctValues(for filterType: LibraryFilterType) -> [String] {
-        databaseManager.getDistinctValues(for: filterType)
     }
 
     func getTrackCountsByFolderPath() -> [String: Int] {

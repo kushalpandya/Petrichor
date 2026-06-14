@@ -36,11 +36,11 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             ZStack {
                 HStack {
-                    Button(action: { dismiss() }) {
+                    Button(action: { dismiss() }, label: {
                         Image(systemName: Icons.xmarkCircleFill)
                             .font(.title2)
                             .foregroundColor(.secondary)
-                    }
+                    })
                     .help("Dismiss")
                     .buttonStyle(.plain)
                     .focusable(false)

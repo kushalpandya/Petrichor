@@ -7,7 +7,7 @@ enum TabbedButtonAnimation {
 }
 
 // MARK: - Animation Constants
-private struct AnimationConstants {
+private enum AnimationConstants {
     static let transformDuration: Double = 0.2
     static let transformTextDelay: Double = 0.1
     static let fadeDuration: Double = 0.15
@@ -84,8 +84,7 @@ struct TabbedButtons<Item: TabbedItem>: View {
         .opacity(isDisabled ? 0.5 : 1.0)
     }
 
-    @ViewBuilder
-    private var movingBackground: some View {
+    @ViewBuilder private var movingBackground: some View {
         if let selectedIndex = items.firstIndex(of: selection) {
             GeometryReader { geometry in
                 let totalWidth = geometry.size.width - 8 // Account for padding
@@ -123,7 +122,7 @@ private struct TabbedButton<Item: TabbedItem>: View {
             if !isDisabled {
                 action()
             }
-        }) {
+        }, label: {
             HStack(spacing: style.iconTextSpacing) {
                 if style.showIcon {
                     iconImage(for: isSelected ? item.selectedIcon : item.icon)
@@ -160,7 +159,7 @@ private struct TabbedButton<Item: TabbedItem>: View {
             .padding(.vertical, style.buttonHeight == nil ? style.verticalPadding : 0)
             .background(backgroundView)
             .contentShape(RoundedRectangle(cornerRadius: style.contentShapeRadius ?? 6))
-        }
+        })
         .buttonStyle(.plain)
         .disabled(isDisabled)
         .background(WindowDragPreventer())
@@ -170,7 +169,7 @@ private struct TabbedButton<Item: TabbedItem>: View {
             }
         }
         .if(item.tooltip != nil) { view in
-            view.help(item.tooltip!)
+            view.help(item.tooltip ?? "")
         }
     }
 
@@ -227,8 +226,7 @@ private struct TabbedButton<Item: TabbedItem>: View {
         }
     }
 
-    @ViewBuilder
-    private var backgroundView: some View {
+    @ViewBuilder private var backgroundView: some View {
         if animation == .fade {
             // Original fade animation
             RoundedRectangle(cornerRadius: style.backgroundViewRadius ?? 6)
@@ -319,19 +317,6 @@ struct TabbedButtonStyle {
         expandButtons: false
     )
 
-    static let iconOnly = TabbedButtonStyle(
-        showIcon: true,
-        showTitle: false,
-        iconSize: 14,
-        textSize: 12,
-        iconTextSpacing: 0,
-        buttonWidth: 32,
-        verticalPadding: 5,
-        contentShapeRadius: 6,
-        backgroundViewRadius: 6,
-        expandButtons: false
-    )
-
     static let flexible = TabbedButtonStyle(
         showIcon: true,
         showTitle: true,
@@ -343,19 +328,6 @@ struct TabbedButtonStyle {
         contentShapeRadius: 6,
         backgroundViewRadius: 6,
         expandButtons: true
-    )
-
-    static let viewToggle = TabbedButtonStyle(
-        showIcon: true,
-        showTitle: false,
-        iconSize: 14,
-        textSize: 12,
-        iconTextSpacing: 0,
-        buttonWidth: 32,
-        verticalPadding: 0,
-        contentShapeRadius: 6,
-        backgroundViewRadius: 6,
-        expandButtons: false
     )
 }
 

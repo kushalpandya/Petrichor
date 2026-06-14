@@ -749,6 +749,11 @@ extension DatabaseManager {
             }
         }
         
-        Logger.info("Completed scanning folder \(folder.name): \(processedCount) processed, \(failedFiles.count) failed, \(skippedFiles.count) skipped")
+        Logger.info(
+            """
+            Completed scanning folder \(folder.name): \(processedCount) processed, \
+            \(failedFiles.count) failed, \(skippedFiles.count) skipped
+            """
+        )
     }
 }

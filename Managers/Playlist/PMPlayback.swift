@@ -69,7 +69,7 @@ extension PlaylistManager {
         Logger.info("Played track: \(track.url)")
     }
 
-    func playTrackFromFolder(_ track: Track, folder: Folder, folderTracks: [Track]) {
+    func playTrackFromFolder(_ track: Track, folderTracks: [Track]) {
         currentQueueSource = .folder
         currentPlaylist = nil
 

@@ -23,8 +23,12 @@ class DatabaseManager: ObservableObject {
 
     init() throws {
         // Create database in app support directory
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory,
-                                                  in: .userDomainMask).first!
+        let appSupport = try FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
         // Use bundle identifier as the folder name
         let bundleID = Bundle.main.bundleIdentifier ?? About.bundleIdentifier
         let appDirectory = appSupport.appendingPathComponent(bundleID, isDirectory: true)

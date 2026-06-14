@@ -115,7 +115,8 @@ struct IconOnlyDropdownRepresentable<Item: Hashable>: NSViewRepresentable {
             self.items = items
         }
         
-        @objc func selectionChanged(_ sender: NSPopUpButton) {
+        @objc
+        func selectionChanged(_ sender: NSPopUpButton) {
             let index = sender.indexOfSelectedItem
             if index >= 0 && index < items.count {
                 selection.wrappedValue = items[index]

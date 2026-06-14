@@ -59,7 +59,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             alert.addButton(withTitle: "Quit")
             alert.addButton(withTitle: "Continue")
         } else {
-            alert.informativeText = "Quitting now will cancel the current operation. It will need to start over on next launch, which may take a while."
+            alert.informativeText = """
+                Quitting now will cancel the current operation. It will need to start over on next launch, \
+                which may take a while.
+                """
             alert.addButton(withTitle: "Quit Anyway")
             alert.addButton(withTitle: "Cancel")
         }

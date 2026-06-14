@@ -27,7 +27,6 @@ class PlaylistManager: ObservableObject {
     }
 
     // MARK: - Private/Internal Properties
-    private var shuffledIndices: [Int] = []
     internal var libraryManager: LibraryManager?
 
     // MARK: - Dependencies
@@ -76,13 +75,6 @@ class PlaylistManager: ObservableObject {
         }
     }
 
-    /// Add track to a specific playlist by ID
-    func addTrackToPlaylist(track: Track, playlistID: UUID) {
-        if let playlist = playlists.first(where: { $0.id == playlistID }) {
-            updateTrackInPlaylist(track: track, playlist: playlist, add: true)
-        }
-    }
-
     /// Remove track from a specific playlist by ID
     func removeTrackFromPlaylist(track: Track, playlistID: UUID) {
         if let playlist = playlists.first(where: { $0.id == playlistID }) {
@@ -92,13 +84,11 @@ class PlaylistManager: ObservableObject {
     
     func updateSmartPlaylistCounts() {
         Task {
-            for index in playlists.indices {
-                if playlists[index].type == .smart {
-                    let count = await libraryManager?.databaseManager.getSmartPlaylistTrackCount(playlists[index]) ?? 0
-                    
-                    await MainActor.run {
-                        self.playlists[index].trackCount = count
-                    }
+            for index in playlists.indices where playlists[index].type == .smart {
+                let count = await libraryManager?.databaseManager.getSmartPlaylistTrackCount(playlists[index]) ?? 0
+                
+                await MainActor.run {
+                    self.playlists[index].trackCount = count
                 }
             }
         }
@@ -182,17 +172,5 @@ class PlaylistManager: ObservableObject {
                 Logger.error("Failed to reorder playlists: \(error)")
             }
         }
-    }
-
-    /// Get all playlists that a track belongs to
-    func getPlaylistsContainingTrack(_ track: Track) -> [Playlist] {
-        playlists.filter { playlist in
-            playlist.tracks.contains { $0.id == track.id }
-        }
-    }
-    
-    /// Check if a playlist name already exists
-    func playlistExists(withName name: String) -> Bool {
-        playlists.contains { $0.name.lowercased() == name.lowercased() }
     }
 }

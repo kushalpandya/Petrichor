@@ -151,12 +151,12 @@ struct PlayerView: View {
     private var shuffleButton: some View {
         Button(action: {
             playlistManager.toggleShuffle()
-        }) {
+        }, label: {
             Image(systemName: Icons.shuffleFill)
                 .font(.system(size: 14, weight: .medium))
                 .foregroundColor(playlistManager.isShuffleEnabled ? Color.accentColor : Color.secondary)
                 .frame(width: 28, height: 28)
-        }
+        })
         .buttonStyle(ControlButtonStyle())
         .hoverEffect(scale: 1.1)
         .disabled(playbackManager.currentTrack == nil)
@@ -166,12 +166,12 @@ struct PlayerView: View {
     private var previousButton: some View {
         Button(action: {
             playlistManager.playPreviousTrack()
-        }) {
+        }, label: {
             Image(systemName: Icons.backwardFill)
                 .font(.system(size: 16, weight: .medium))
                 .foregroundColor(.primary)
                 .frame(width: 28, height: 28)
-        }
+        })
         .buttonStyle(ControlButtonStyle())
         .hoverEffect(scale: 1.1)
         .disabled(playbackManager.currentTrack == nil)
@@ -181,14 +181,14 @@ struct PlayerView: View {
     private var playPauseButton: some View {
         Button(action: {
             playbackManager.togglePlayPause()
-        }) {
+        }, label: {
             PlayPauseIcon(isPlaying: playbackManager.isPlaying)
                 .frame(width: 36, height: 36)
                 .background(
                     Circle()
                         .fill(Color.accentColor)
                 )
-        }
+        })
         .buttonStyle(PlainButtonStyle())
         .hoverEffect(scale: 1.1)
         .scaleEffect(playButtonPressed ? 0.95 : 1.0)
@@ -209,12 +209,12 @@ struct PlayerView: View {
     private var nextButton: some View {
         Button(action: {
             playlistManager.playNextTrack()
-        }) {
+        }, label: {
             Image(systemName: Icons.forwardFill)
                 .font(.system(size: 16, weight: .medium))
                 .foregroundColor(.primary)
                 .frame(width: 28, height: 28)
-        }
+        })
         .buttonStyle(ControlButtonStyle())
         .hoverEffect(scale: 1.1)
         .help("Next")
@@ -224,12 +224,12 @@ struct PlayerView: View {
     private var repeatButton: some View {
         Button(action: {
             playlistManager.toggleRepeatMode()
-        }) {
+        }, label: {
             Image(systemName: Icons.repeatIcon(for: playlistManager.repeatMode))
                 .font(.system(size: 14, weight: .medium))
                 .foregroundColor(playlistManager.repeatMode != .off ? Color.accentColor : Color.secondary)
                 .frame(width: 28, height: 28)
-        }
+        })
         .buttonStyle(ControlButtonStyle())
         .hoverEffect(scale: 1.1)
         .help(repeatModeTooltip)
@@ -374,7 +374,7 @@ struct PlayerView: View {
     private var queueButton: some View {
         Button(action: {
             rightSidebarContent = rightSidebarContent == .queue ? .none : .queue
-        }) {
+        }, label: {
             Image(systemName: "list.bullet")
                 .font(.system(size: 16))
                 .foregroundColor(rightSidebarContent == .queue ? .white : .secondary)
@@ -383,7 +383,7 @@ struct PlayerView: View {
                     Circle()
                         .fill(rightSidebarContent == .queue ? Color.accentColor : Color.secondary.opacity(0.1))
                 )
-        }
+        })
         .buttonStyle(PlainButtonStyle())
         .hoverEffect(scale: 1.1)
         .help(rightSidebarContent == .queue ? "Hide Queue" : "Show Queue")
@@ -392,7 +392,7 @@ struct PlayerView: View {
     private var lyricsButton: some View {
         Button(action: {
             rightSidebarContent = rightSidebarContent == .lyrics ? .none : .lyrics
-        }) {
+        }, label: {
             Image(Icons.customLyrics)
                 .foregroundColor(rightSidebarContent == .lyrics ? .white : .secondary)
                 .frame(width: 32, height: 32)
@@ -400,7 +400,7 @@ struct PlayerView: View {
                     Circle()
                         .fill(rightSidebarContent == .lyrics ? Color.accentColor : Color.secondary.opacity(0.1))
                 )
-        }
+        })
         .buttonStyle(PlainButtonStyle())
         .disabled(!hasCurrentTrack)
         .opacity(hasCurrentTrack ? 1.0 : 0.5)
@@ -441,7 +441,6 @@ struct PlayerView: View {
         
         return TrackContextMenu.createPlayerViewMenuItems(
             for: track,
-            playbackManager: playbackManager,
             playlistManager: playlistManager
         )
     }

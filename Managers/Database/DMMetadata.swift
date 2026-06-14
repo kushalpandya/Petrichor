@@ -27,8 +27,6 @@ extension DatabaseManager {
             track.trackArtworkData = nil
         }
 
-        track.isMetadataLoaded = true
-
         // Additional metadata
         track.albumArtist = metadata.albumArtist
         track.trackNumber = metadata.trackNumber

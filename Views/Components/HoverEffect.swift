@@ -31,7 +31,7 @@ struct HoverEffect: ViewModifier {
     func body(content: Content) -> some View {
         content
             .if(scaleAmount != nil) { view in
-                view.scaleEffect(isHovered ? scaleAmount! : 1.0)
+                view.scaleEffect(isHovered ? scaleAmount ?? 1.0 : 1.0)
             }
             .foregroundColor(isHovered ? activeColor : inactiveColor)
             .if(activeBackgroundColor != nil && padding > 0) { view in
@@ -40,7 +40,7 @@ struct HoverEffect: ViewModifier {
             .if(activeBackgroundColor != nil) { view in
                 view.background(
                     RoundedRectangle(cornerRadius: cornerRadius)
-                        .fill(isHovered ? activeBackgroundColor! : Color.clear)
+                        .fill(isHovered ? activeBackgroundColor ?? Color.clear : Color.clear)
                         .animation(.easeInOut(duration: 0.15), value: isHovered)
                 )
             }

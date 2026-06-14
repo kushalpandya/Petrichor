@@ -43,14 +43,21 @@ struct HomeSidebarItem: SidebarItem {
         var stableID: UUID {
             switch self {
             case .discover:
-                return UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
+                return makeStableID("00000000-0000-0000-0000-000000000000")
             case .tracks:
-                return UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+                return makeStableID("00000000-0000-0000-0000-000000000001")
             case .artists:
-                return UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+                return makeStableID("00000000-0000-0000-0000-000000000002")
             case .albums:
-                return UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
+                return makeStableID("00000000-0000-0000-0000-000000000003")
             }
+        }
+
+        private func makeStableID(_ string: String) -> UUID {
+            guard let uuid = UUID(uuidString: string) else {
+                preconditionFailure("Invalid home sidebar UUID")
+            }
+            return uuid
         }
 
         var title: String {
@@ -139,9 +146,9 @@ extension HomeSidebarItem: Equatable {
         
         // Then compare by source
         switch (lhs.source, rhs.source) {
-        case (.fixed(let lhsType), .fixed(let rhsType)):
+        case let (.fixed(lhsType), .fixed(rhsType)):
             return lhsType == rhsType
-        case (.pinned(let lhsItem), .pinned(let rhsItem)):
+        case let (.pinned(lhsItem), .pinned(rhsItem)):
             return lhsItem.id == rhsItem.id
         default:
             return false

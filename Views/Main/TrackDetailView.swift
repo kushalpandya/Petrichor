@@ -12,7 +12,8 @@ struct TrackDetailView: View {
     private var useArtworkColors = true
 
     @EnvironmentObject var libraryManager: LibraryManager
-    @Environment(\.colorScheme) var colorScheme
+    @Environment(\.colorScheme)
+    var colorScheme
 
     var body: some View {
         ZStack {
@@ -269,20 +270,24 @@ struct TrackDetailView: View {
     private func trackInformationItems(for fullTrack: FullTrack) -> [(label: String, value: String)] {
         var items: [(label: String, value: String)] = []
 
-        // Album (added as requested)
+        appendBasicTrackInfo(fullTrack, to: &items)
+        appendExtendedTrackInfo(fullTrack.extendedMetadata, to: &items)
+        appendPlaybackTrackInfo(fullTrack, to: &items)
+
+        return items
+    }
+
+    private func appendBasicTrackInfo(_ fullTrack: FullTrack, to items: inout [(label: String, value: String)]) {
         if !fullTrack.album.isEmpty && fullTrack.album != "Unknown Album" {
             items.append(("Album", fullTrack.album))
         }
 
-        // Album Artist
         if let albumArtist = fullTrack.albumArtist, !albumArtist.isEmpty {
             items.append(("Album Artist", albumArtist))
         }
 
-        // Duration
         items.append(("Duration", HelperUtils.formattedShortDuration(fullTrack.duration)))
 
-        // Track Number
         if let trackNumber = fullTrack.trackNumber {
             var trackStr = "\(trackNumber)"
             if let totalTracks = fullTrack.totalTracks {
@@ -291,7 +296,6 @@ struct TrackDetailView: View {
             items.append(("Track", trackStr))
         }
 
-        // Disc Number
         if let discNumber = fullTrack.discNumber {
             var discStr = "\(discNumber)"
             if let totalDiscs = fullTrack.totalDiscs {
@@ -300,22 +304,18 @@ struct TrackDetailView: View {
             items.append(("Disc", discStr))
         }
 
-        // Genre
         if !fullTrack.genre.isEmpty && fullTrack.genre != "Unknown Genre" {
             items.append(("Genre", fullTrack.genre))
         }
 
-        // Year
         if !fullTrack.year.isEmpty && fullTrack.year != "Unknown Year" {
             items.append(("Year", fullTrack.year))
         }
 
-        // Composer
         if !fullTrack.composer.isEmpty && fullTrack.composer != "Unknown Composer" {
             items.append(("Composer", fullTrack.composer))
         }
 
-        // Release Dates
         if let releaseDate = fullTrack.releaseDate, !releaseDate.isEmpty {
             items.append(("Release Date", formatDate(releaseDate)))
         }
@@ -323,61 +323,56 @@ struct TrackDetailView: View {
         if let originalDate = fullTrack.originalReleaseDate, !originalDate.isEmpty {
             items.append(("Original Release", formatDate(originalDate)))
         }
+    }
 
-        // Additional metadata from extended
-        if let ext = fullTrack.extendedMetadata {
-            if let conductor = ext.conductor, !conductor.isEmpty {
-                items.append(("Conductor", conductor))
-            }
+    private func appendExtendedTrackInfo(_ extendedMetadata: ExtendedMetadata?, to items: inout [(label: String, value: String)]) {
+        guard let ext = extendedMetadata else { return }
 
-            if let producer = ext.producer, !producer.isEmpty {
-                items.append(("Producer", producer))
-            }
-
-            if let label = ext.label, !label.isEmpty {
-                items.append(("Label", label))
-            }
-
-            if let publisher = ext.publisher, !publisher.isEmpty {
-                items.append(("Publisher", publisher))
-            }
-
-            if let isrc = ext.isrc, !isrc.isEmpty {
-                items.append(("ISRC", isrc))
-            }
+        if let conductor = ext.conductor, !conductor.isEmpty {
+            items.append(("Conductor", conductor))
         }
 
-        // BPM
+        if let producer = ext.producer, !producer.isEmpty {
+            items.append(("Producer", producer))
+        }
+
+        if let label = ext.label, !label.isEmpty {
+            items.append(("Label", label))
+        }
+
+        if let publisher = ext.publisher, !publisher.isEmpty {
+            items.append(("Publisher", publisher))
+        }
+
+        if let isrc = ext.isrc, !isrc.isEmpty {
+            items.append(("ISRC", isrc))
+        }
+    }
+
+    private func appendPlaybackTrackInfo(_ fullTrack: FullTrack, to items: inout [(label: String, value: String)]) {
         if let bpm = fullTrack.bpm, bpm > 0 {
             items.append(("BPM", "\(bpm)"))
         }
 
-        // Rating
         if let rating = fullTrack.rating, rating > 0 {
             items.append(("Rating", String(repeating: "★", count: rating) + String(repeating: "☆", count: 5 - rating)))
         }
 
-        // Play Count
         if fullTrack.playCount > 0 {
             items.append(("Play Count", "\(fullTrack.playCount)"))
         }
 
-        // Last Played
         if let lastPlayed = fullTrack.lastPlayedDate {
             items.append(("Last Played", formatDate(lastPlayed)))
         }
 
-        // Favorite
         if fullTrack.isFavorite {
             items.append(("Favorite", "Yes"))
         }
 
-        // Compilation
         if fullTrack.compilation {
             items.append(("Compilation", "Yes"))
         }
-
-        return items
     }
 
     // MARK: - Helper Methods
@@ -433,7 +428,7 @@ private struct FileDetailsSection: View {
                 withAnimation(.easeInOut(duration: AnimationDuration.mediumDuration)) {
                     isExpanded.toggle()
                 }
-            }) {
+            }, label: {
                 HStack {
                     Image(systemName: Icons.chevronRight)
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
@@ -445,7 +440,7 @@ private struct FileDetailsSection: View {
                     Spacer()
                 }
                 .contentShape(Rectangle())
-            }
+            })
             .buttonStyle(.plain)
 
             // Expandable content

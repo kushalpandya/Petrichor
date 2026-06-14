@@ -15,8 +15,6 @@ struct TrackTableView: View {
     @State private var selection: Set<Track.ID> = []
     @State private var sortedTracks: [Track] = []
     @State private var trackFavorites: [Int64: Bool] = [:]
-    @State private var lastSelectionTime: Date = Date()
-    @State private var lastSelectedTrackID: Track.ID?
     
     @State private var isCustomSort: Bool = false
     @State private var hasInitializedCustomization = false
@@ -158,7 +156,7 @@ struct TrackTableView: View {
             Group {
                 // Track Number
                 TableColumn("#", value: \.sortableTrackNumber) { track in
-                    Text(track.trackNumber != nil ? "\(track.trackNumber!)" : "")
+                    Text(track.trackNumber.map(String.init) ?? "")
                         .font(isCurrentTrack(track) ? Self.currentTrackFont : Self.trackFont)
                         .foregroundColor(.secondary)
                         .monospacedDigit()
@@ -182,7 +180,7 @@ struct TrackTableView: View {
                 
                 // Disc Number
                 TableColumn("Disc", value: \.sortableDiscNumber) { track in
-                    Text(track.discNumber != nil ? "\(track.discNumber!)" : "")
+                    Text(track.discNumber.map(String.init) ?? "")
                         .font(isCurrentTrack(track) ? Self.currentTrackFont : Self.trackFont)
                         .foregroundColor(.secondary)
                         .monospacedDigit()
@@ -281,7 +279,7 @@ struct TrackTableView: View {
                 
                 // Date Added
                 TableColumn("Date Added", value: \.sortableDateAdded) { track in
-                    Text(track.dateAdded != nil ? formatDate(track.dateAdded!) : "")
+                    Text(track.dateAdded.map(formatDate) ?? "")
                         .font(isCurrentTrack(track) ? Self.currentTrackFont : Self.trackFont)
                         .foregroundColor(.secondary)
                         .lineLimit(1)
@@ -555,8 +553,11 @@ private final class TrackArtworkCache: @unchecked Sendable {
 
             let size = Int(ViewDefaults.listArtworkSize * 2)
             guard let context = CGContext(
-                data: nil, width: size, height: size,
-                bitsPerComponent: 8, bytesPerRow: 0,
+                data: nil,
+                width: size,
+                height: size,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
                 space: CGColorSpaceCreateDeviceRGB(),
                 bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
             ) else { return nil }
@@ -699,11 +700,11 @@ private struct FavoriteButtonCell: View {
     var body: some View {
         Button(action: {
             playlistManager.toggleFavorite(for: track, currentState: isFavorite)
-        }) {
+        }, label: {
             Image(systemName: isFavorite ? Icons.starFill : Icons.star)
                 .font(.system(size: 13))
                 .foregroundColor(isFavorite ? .yellow : .secondary)
-        }
+        })
         .buttonStyle(.plain)
     }
 }

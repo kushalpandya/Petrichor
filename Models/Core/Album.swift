@@ -169,28 +169,6 @@ class Album: Identifiable, ObservableObject, FetchableRecord, PersistableRecord 
     static let tracks = hasMany(Track.self, using: ForeignKey(["album_id"]))
     static let albumArtists = hasMany(AlbumArtist.self)
     static let artists = hasMany(Artist.self, through: albumArtists, using: AlbumArtist.artist)
-
-    // Helper to extract year from release date
-    func extractReleaseYear() -> Int? {
-        guard let releaseDate = releaseDate else { return nil }
-
-        // Try to parse year from common date formats
-        let yearPatterns = [
-            "^(\\d{4})",           // YYYY at start
-            "(\\d{4})$",           // YYYY at end
-            "(\\d{4})-\\d{2}-\\d{2}" // YYYY-MM-DD
-        ]
-
-        for pattern in yearPatterns {
-            if let regex = try? NSRegularExpression(pattern: pattern),
-               let match = regex.firstMatch(in: releaseDate, range: NSRange(releaseDate.startIndex..., in: releaseDate)),
-               let yearRange = Range(match.range(at: 1), in: releaseDate) {
-                return Int(releaseDate[yearRange])
-            }
-        }
-
-        return nil
-    }
 }
 
 // MARK: - Equatable

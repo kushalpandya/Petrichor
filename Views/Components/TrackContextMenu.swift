@@ -3,7 +3,6 @@ import SwiftUI
 enum TrackContextMenu {
     static func createMenuItems(
         for track: Track,
-        playbackManager: PlaybackManager,
         playlistManager: PlaylistManager,
         currentContext: MenuContext
     ) -> [ContextMenuItem] {
@@ -31,8 +30,7 @@ enum TrackContextMenu {
         // Add playlist items
         items.append(contentsOf: createPlaylistItems(
             for: track,
-            playlistManager: playlistManager,
-            existingItems: &items
+            playlistManager: playlistManager
         ))
         
         // Add context-specific items
@@ -47,14 +45,12 @@ enum TrackContextMenu {
     
     static func createMenuItems(
         for tracks: [Track],
-        playbackManager: PlaybackManager,
         playlistManager: PlaylistManager,
         currentContext: MenuContext
     ) -> [ContextMenuItem] {
         if tracks.count == 1, let track = tracks.first {
             return createMenuItems(
                 for: track,
-                playbackManager: playbackManager,
                 playlistManager: playlistManager,
                 currentContext: currentContext
             )
@@ -64,8 +60,7 @@ enum TrackContextMenu {
         
         items.append(contentsOf: createBulkPlaybackItems(
             for: tracks,
-            playlistManager: playlistManager,
-            currentContext: currentContext
+            playlistManager: playlistManager
         ))
         
         items.append(.divider)
@@ -81,7 +76,6 @@ enum TrackContextMenu {
     
     static func createPlayerViewMenuItems(
         for track: Track,
-        playbackManager: PlaybackManager,
         playlistManager: PlaylistManager
     ) -> [ContextMenuItem] {
         var items: [ContextMenuItem] = []
@@ -101,8 +95,7 @@ enum TrackContextMenu {
         // Add playlist items
         items.append(contentsOf: createPlaylistItems(
             for: track,
-            playlistManager: playlistManager,
-            existingItems: &items
+            playlistManager: playlistManager
         ))
         
         return items
@@ -122,8 +115,8 @@ enum TrackContextMenu {
             switch currentContext {
             case .library:
                 playlistManager.playTrack(track, fromTracks: [track])
-            case .folder(let folder):
-                playlistManager.playTrackFromFolder(track, folder: folder, folderTracks: [track])
+            case .folder:
+                playlistManager.playTrackFromFolder(track, folderTracks: [track])
             case .playlist(let playlist):
                 if let index = playlist.tracks.firstIndex(of: track) {
                     playlistManager.playTrackFromPlaylist(playlist, at: index)
@@ -146,8 +139,7 @@ enum TrackContextMenu {
     
     private static func createBulkPlaybackItems(
         for tracks: [Track],
-        playlistManager: PlaylistManager,
-        currentContext: MenuContext
+        playlistManager: PlaylistManager
     ) -> [ContextMenuItem] {
         var items: [ContextMenuItem] = []
         
@@ -263,8 +255,7 @@ enum TrackContextMenu {
     
     private static func createPlaylistItems(
         for track: Track,
-        playlistManager: PlaylistManager,
-        existingItems: inout [ContextMenuItem]
+        playlistManager: PlaylistManager
     ) -> [ContextMenuItem] {
         var items: [ContextMenuItem] = []
         

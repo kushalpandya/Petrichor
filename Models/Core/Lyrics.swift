@@ -1,7 +1,7 @@
 import Foundation
 
 struct LyricLine: Identifiable, Codable, Equatable {
-    var id: UUID = UUID()
+    var id = UUID()
     let text: String           // Lyric text of the line
     let startTime: TimeInterval // Start time (seconds)
     var endTime: TimeInterval?  // End time (seconds)

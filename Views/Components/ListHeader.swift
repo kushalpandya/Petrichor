@@ -35,7 +35,6 @@ extension View {
 struct ListHeader<Content: View>: View {
     enum HeaderType {
         case simple
-        case expanded
     }
 
     let type: HeaderType
@@ -63,7 +62,7 @@ struct ListHeader<Content: View>: View {
             content()
         }
         .listHeaderStyle(
-            height: height ?? (type == .simple ? 36 : 120),
+            height: height ?? 36,
             padding: padding,
             opaque: opaque
         )
@@ -225,15 +224,5 @@ extension View {
 
     func headerSubtitleStyle() -> some View {
         modifier(HeaderSubtitleStyle())
-    }
-}
-
-// MARK: - Divider Extension for Headers
-
-extension Divider {
-    static var headerDivider: some View {
-        Divider()
-            .frame(height: 1)
-            .overlay(Color(NSColor.separatorColor).opacity(0.3))
     }
 }

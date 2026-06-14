@@ -18,7 +18,6 @@ struct ContentView: View {
     
     @State private var selectedTab: Sections = .home
     @State private var showingSettings = false
-    @State private var settingsInitialTab: SettingsView.SettingsTab = .general
     @State private var rightSidebarContent: RightSidebarContent = .none
     @State private var pendingLibraryFilter: LibraryFilterRequest?
     @State private var windowDelegate = WindowDelegate()
@@ -69,7 +68,6 @@ struct ContentView: View {
             shouldFocusSearch: $shouldFocusSearch,
             showingSettings: $showingSettings,
             selectedTab: $selectedTab,
-            libraryManager: libraryManager,
             pendingLibraryFilter: $pendingLibraryFilter,
             showTrackDetail: showTrackDetail
         )
@@ -131,8 +129,7 @@ struct ContentView: View {
 
     // MARK: - View Components
 
-    @ViewBuilder
-    private var mainContentArea: some View {
+    @ViewBuilder private var mainContentArea: some View {
         if !libraryManager.shouldShowMainUI {
             NoMusicEmptyStateView(context: .mainWindow)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -152,8 +149,7 @@ struct ContentView: View {
         }
     }
 
-    @ViewBuilder
-    private var leftSidebar: some View {
+    @ViewBuilder private var leftSidebar: some View {
         ZStack {
             HomeSidebarView(selectedItem: $selectedHomeSidebarItem)
                 .opacity(selectedTab == .home ? 1 : 0)
@@ -210,8 +206,7 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    @ViewBuilder
-    private var sidePanel: some View {
+    @ViewBuilder private var sidePanel: some View {
         switch rightSidebarContent {
         case .queue:
             PlayQueueView(showingQueue: Binding(
@@ -233,8 +228,7 @@ struct ContentView: View {
         }
     }
 
-    @ViewBuilder
-    private var playerControls: some View {
+    @ViewBuilder private var playerControls: some View {
         if libraryManager.shouldShowMainUI {
             Divider()
 
@@ -246,8 +240,7 @@ struct ContentView: View {
 
     // MARK: - Toolbar
 
-    @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
+    @ToolbarContentBuilder private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .principal) {
             TabbedButtons(
                 items: Sections.allCases.filter { $0 != .folders || showFoldersTab },
@@ -271,7 +264,6 @@ struct ContentView: View {
                     text: $libraryManager.globalSearchText,
                     placeholder: "Search",
                     fontSize: 12,
-                    width: 280,
                     shouldFocus: shouldFocusSearch
                 )
                 .frame(width: 280)
@@ -284,8 +276,7 @@ struct ContentView: View {
     }
     
     @available(macOS 26.0, *)
-    @ToolbarContentBuilder
-    private var modernToolbarContent: some ToolbarContent {
+    @ToolbarContentBuilder private var modernToolbarContent: some ToolbarContent {
         ToolbarItem(placement: .principal) {
             TabbedButtons(
                 items: Sections.allCases.filter { $0 != .folders || showFoldersTab },
@@ -317,12 +308,12 @@ struct ContentView: View {
     private var settingsButton: some View {
         Button(action: {
             showingSettings = true
-        }) {
+        }, label: {
             Image(systemName: "gear")
                 .font(.system(size: 16))
                 .frame(width: 24, height: 24)
                 .foregroundColor(isSettingsHovered ? .primary : .secondary)
-        }
+        })
         .buttonStyle(.borderless)
         .background(
             Circle()
@@ -343,20 +334,6 @@ struct ContentView: View {
         }
     }
 
-    private func handleLibraryFilter(_ notification: Notification) {
-        if let filterType = notification.userInfo?["filterType"] as? LibraryFilterType,
-           let filterValue = notification.userInfo?["filterValue"] as? String {
-            selectedTab = .library
-            pendingLibraryFilter = LibraryFilterRequest(filterType: filterType, value: filterValue)
-        }
-    }
-
-    private func handleShowTrackInfo(_ notification: Notification) {
-        if let track = notification.userInfo?["track"] as? Track {
-            showTrackDetail(for: track)
-        }
-    }
-    
     // MARK: - Playlist Import/Export
 
     private func importPlaylists() {
@@ -366,10 +343,7 @@ struct ContentView: View {
          panel.canChooseFiles = true
          panel.canChooseDirectories = false
          panel.allowsMultipleSelection = true
-         panel.allowedContentTypes = [
-             UTType(filenameExtension: "m3u")!,
-             UTType(filenameExtension: "m3u8")!
-         ]
+         panel.allowedContentTypes = ["m3u", "m3u8"].compactMap { UTType(filenameExtension: $0) }
          
          panel.begin { response in
              guard response == .OK else { return }
@@ -452,10 +426,6 @@ struct ContentView: View {
         rightSidebarContent = .trackDetail(track)
     }
 
-    private func hideTrackDetail() {
-        rightSidebarContent = .none
-    }
-    
     private func isCurrentlyEditingText() -> Bool {
         guard let firstResponder = NSApp.keyWindow?.firstResponder else {
             return false
@@ -478,7 +448,6 @@ extension View {
         shouldFocusSearch: Binding<Bool>,
         showingSettings: Binding<Bool>,
         selectedTab: Binding<Sections>,
-        libraryManager: LibraryManager,
         pendingLibraryFilter: Binding<LibraryFilterRequest?>,
         showTrackDetail: @escaping (Track) -> Void
     ) -> some View {

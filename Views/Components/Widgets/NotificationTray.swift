@@ -198,7 +198,7 @@ struct NotificationTray: View {
             if hasNotifications || manager.isActivityInProgress {
                 showingPopover.toggle()
             }
-        }) {
+        }, label: {
             ZStack {
                 // Background circle only on hover
                 if isHovered {
@@ -219,7 +219,7 @@ struct NotificationTray: View {
                         .frame(width: 24, height: 24)
                 }
             }
-        }
+        })
         .buttonStyle(.plain)
         .popover(isPresented: $showingPopover, arrowEdge: .bottom) {
             NotificationPopover(isPresented: $showingPopover)
@@ -308,8 +308,7 @@ struct NotificationPopover: View {
         .frame(maxHeight: 400)
     }
     
-    @ViewBuilder
-    private var emptyState: some View {
+    @ViewBuilder private var emptyState: some View {
         VStack(spacing: 8) {
             Image(systemName: "bell.slash")
                 .font(.largeTitle)
@@ -323,8 +322,7 @@ struct NotificationPopover: View {
         .padding()
     }
     
-    @ViewBuilder
-    private var messagesList: some View {
+    @ViewBuilder private var messagesList: some View {
         ScrollView {
             VStack(spacing: 0) {
                 ForEach(manager.messages.reversed()) { message in
@@ -341,8 +339,7 @@ struct NotificationPopover: View {
         }
     }
     
-    @ViewBuilder
-    private var scanProgressView: some View {
+    @ViewBuilder private var scanProgressView: some View {
         VStack(spacing: 16) {
             ActivityAnimation(size: .medium)
             

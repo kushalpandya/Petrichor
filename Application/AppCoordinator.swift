@@ -326,22 +326,6 @@ class AppCoordinator: ObservableObject {
         }
     }
     
-    func clearPlaybackStateIfNeeded() {
-        let lastVersionKey = "LastLaunchedAppVersion"
-        let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
-        
-        // Get the last launched version
-        let lastVersion = UserDefaults.standard.string(forKey: lastVersionKey) ?? ""
-        
-        // Clear state if version changed significantly
-        if lastVersion != currentVersion && !lastVersion.isEmpty {
-            clearAllSavedState()
-        }
-        
-        // Update the stored version
-        UserDefaults.standard.set(currentVersion, forKey: lastVersionKey)
-    }
-    
     func handleLibraryChanged() {
         // If the library was significantly changed (e.g., folders removed),
         // the saved state might no longer be valid

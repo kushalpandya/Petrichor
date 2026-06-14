@@ -4,7 +4,6 @@ import SFBAudioEngine
 
 typealias SFBPlayer = SFBAudioEngine.AudioPlayer
 typealias SFBPlayerPlaybackState = SFBAudioEngine.AudioPlayer.PlaybackState
-typealias SFBDecoding = SFBAudioEngine.PCMDecoding
 
 // MARK: - Audio Player State
 
@@ -90,14 +89,13 @@ public extension AudioPlayerDelegate {
 // MARK: - PAudioPlayer
 
 public class PAudioPlayer: NSObject {
-    
     // MARK: - Public Properties
     
     public weak var delegate: AudioPlayerDelegate?
     
     public var volume: Float {
         get {
-            return sfbPlayer.volume
+            sfbPlayer.volume
         }
         set {
             do {
@@ -130,7 +128,7 @@ public class PAudioPlayer: NSObject {
     
     /// Legacy property name for backwards compatibility
     public var progress: Double {
-        return currentPlaybackProgress
+        currentPlaybackProgress
     }
     
     // MARK: - Private Properties
@@ -159,7 +157,7 @@ public class PAudioPlayer: NSObject {
     
     // MARK: - Initialization
     
-    public override init() {
+    override public init() {
         self.sfbPlayer = SFBPlayer()
         super.init()
         
@@ -340,7 +338,7 @@ public class PAudioPlayer: NSObject {
     /// - Returns: true if seek was successful
     @discardableResult
     public func seekForward(_ seconds: Double) -> Bool {
-        return sfbPlayer.seek(forward: seconds)
+        sfbPlayer.seek(forward: seconds)
     }
     
     /// Seek backward by a number of seconds
@@ -348,7 +346,7 @@ public class PAudioPlayer: NSObject {
     /// - Returns: true if seek was successful
     @discardableResult
     public func seekBackward(_ seconds: Double) -> Bool {
-        return sfbPlayer.seek(backward: seconds)
+        sfbPlayer.seek(backward: seconds)
     }
     
     // MARK: - Audio Equalizer
@@ -372,7 +370,7 @@ public class PAudioPlayer: NSObject {
     /// Check if stereo widening is currently enabled
     /// - Returns: true if Stereo Widening is enabled, false otherwise
     public func isStereoWideningEnabled() -> Bool {
-        return stereoWideningEnabled
+        stereoWideningEnabled
     }
     
     /// Enable or disable the equalizer
@@ -394,7 +392,7 @@ public class PAudioPlayer: NSObject {
     /// Check if EQ is currently enabled
     /// - Returns: true if Equalizer is enabled, false otherwise
     public func isEQEnabled() -> Bool {
-        return eqEnabled
+        eqEnabled
     }
     
     /// Apply an EQ preset
@@ -454,7 +452,7 @@ public class PAudioPlayer: NSObject {
     /// Get the current preamp gain value
     /// - Returns: Current preamp gain in dB
     public func getPreamp() -> Float {
-        return userPreampGain
+        userPreampGain
     }
     
     // MARK: - Internal Methods (called by delegate bridge)

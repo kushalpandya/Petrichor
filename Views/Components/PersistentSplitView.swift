@@ -19,12 +19,7 @@ enum SplitViewConstants {
     static let leftSidebarMinWidth: CGFloat = 250
     static let leftSidebarMaxWidth: CGFloat = 500
 
-    // Right sidebar constraints
-    static let rightSidebarMinWidth: CGFloat = 300
     static let rightSidebarMaxWidth: CGFloat = 500
-
-    // Colors
-    static let backgroundColor = Color(NSColor.controlBackgroundColor)
 }
 
 // MARK: - Simple Persistent Split View

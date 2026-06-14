@@ -17,7 +17,12 @@ extension LibraryManager {
         openPanel.prompt = "Add Music Folder"
         openPanel.message = "Select folders containing your music files"
 
-        openPanel.beginSheetModal(for: NSApp.keyWindow!) { [weak self] response in
+        guard let keyWindow = NSApp.keyWindow else {
+            Logger.error("Cannot add folder: no key window available")
+            return
+        }
+
+        openPanel.beginSheetModal(for: keyWindow) { [weak self] response in
             guard let self = self, response == .OK else { return }
 
             var urlsToAdd: [URL] = []
@@ -119,10 +124,8 @@ extension LibraryManager {
         let sizeBefore = databaseManager.getDatabaseSize() ?? 0
         var foldersToRemove: [Folder] = []
             
-        for folder in folders {
-            if !fileManager.fileExists(atPath: folder.url.path) {
-                foldersToRemove.append(folder)
-            }
+        for folder in folders where !fileManager.fileExists(atPath: folder.url.path) {
+            foldersToRemove.append(folder)
         }
         
         if foldersToRemove.isEmpty {
@@ -198,8 +201,13 @@ extension LibraryManager {
             var updatedFolder = folder
             updatedFolder.bookmarkData = newBookmarkData
 
+            guard let folderId = folder.id else {
+                Logger.error("Failed to refresh bookmark for \(folder.name): folder has no database ID")
+                return
+            }
+
             // Save to database
-            try await databaseManager.updateFolderBookmark(folder.id!, bookmarkData: newBookmarkData)
+            try await databaseManager.updateFolderBookmark(folderId, bookmarkData: newBookmarkData)
 
             Logger.info("Successfully refreshed bookmark for \(folder.name)")
         } catch {

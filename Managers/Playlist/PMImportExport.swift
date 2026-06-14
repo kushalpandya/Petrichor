@@ -58,8 +58,6 @@ struct BulkImportResult {
 
 struct PlaylistExportResult {
     let playlistName: String
-    let trackCount: Int
-    let filePath: String
     let error: Error?
     
     var isSuccess: Bool { error == nil }
@@ -178,7 +176,10 @@ extension PlaylistManager {
         if !matchResult.unmatchedPaths.isEmpty {
             let sample = matchResult.unmatchedPaths.prefix(3).joined(separator: ", ")
             let more = matchResult.unmatchedPaths.count > 3 ? " (+\(matchResult.unmatchedPaths.count - 3) more)" : ""
-            let message = "Partial import - '\(playlistName)': \(matchResult.matchedTracks.count)/\(trackPaths.count) tracks. Missing: \(sample)\(more)"
+            let message = """
+                Partial import - '\(playlistName)': \(matchResult.matchedTracks.count)/\(trackPaths.count) \
+                tracks. Missing: \(sample)\(more)
+                """
             Logger.warning(message)
         }
         
@@ -260,14 +261,12 @@ extension PlaylistManager {
     private func generatePathVariations(_ path: String, sourceDirectory: URL? = nil) -> [String] {
         var normalized = path
         
-        for scheme in ["file://", "smb://", "afp://", "nfs://"] {
-            if normalized.lowercased().hasPrefix(scheme) {
-                normalized = String(normalized.dropFirst(scheme.count))
-                break
-            }
+        for scheme in ["file://", "smb://", "afp://", "nfs://"] where normalized.lowercased().hasPrefix(scheme) {
+            normalized = String(normalized.dropFirst(scheme.count))
+            break
         }
         
-        // Handle Windows-style UNC paths (//server/share)
+        // Handle Windows-style UNC paths (leading double-slash, e.g. server/share)
         if normalized.hasPrefix("//") {
             normalized = "/Volumes" + String(normalized.dropFirst(1))
         }
@@ -325,10 +324,6 @@ extension PlaylistManager {
         return BulkExportResult(results: results)
     }
     
-    func exportPlaylist(_ playlist: Playlist, to fileURL: URL) async -> PlaylistExportResult {
-        await exportSinglePlaylist(playlist, to: fileURL)
-    }
-    
     private func exportSinglePlaylist(_ playlist: Playlist, to fileURL: URL) async -> PlaylistExportResult {
         let tracks = playlist.tracks.isEmpty
             ? await MainActor.run { getPlaylistTracks(playlist) }
@@ -340,16 +335,12 @@ extension PlaylistManager {
             try FilesystemUtils.writeM3UFile(content: m3uContent, to: fileURL)
             return PlaylistExportResult(
                 playlistName: playlist.name,
-                trackCount: tracks.count,
-                filePath: fileURL.path,
                 error: nil
             )
         } catch {
             Logger.error("Failed to export '\(playlist.name)': \(error)")
             return PlaylistExportResult(
                 playlistName: playlist.name,
-                trackCount: tracks.count,
-                filePath: fileURL.path,
                 error: error
             )
         }
