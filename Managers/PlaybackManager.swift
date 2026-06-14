@@ -29,7 +29,6 @@ class PlaybackManager: NSObject, ObservableObject {
         get { playbackProgressState.currentTime }
         set { playbackProgressState.currentTime = newValue }
     }
-    @Published var currentTimePublished: Double = 0
     // The real-time lyrics display need this to get the current time.
     // We can not use the currentTime because it is a computed property
     @Published var volume: Float = 0.7 {
@@ -223,7 +222,6 @@ class PlaybackManager: NSObject, ObservableObject {
         currentTrack = nil
         currentFullTrack = nil
         currentTime = 0
-        currentTimePublished = 0
         isPlaying = false
         restoredPosition = 0
         stopStateSaveTimer()
@@ -249,7 +247,6 @@ class PlaybackManager: NSObject, ObservableObject {
         let clampedTime = engineDuration > 0 ? min(time, engineDuration) : time
         audioPlayer.seek(to: clampedTime)
         currentTime = clampedTime
-        currentTimePublished = clampedTime
         restoredPosition = clampedTime
         
         NotificationCenter.default.post(
@@ -394,7 +391,6 @@ class PlaybackManager: NSObject, ObservableObject {
         timer.setEventHandler { [weak self] in
             guard let self = self, self.isPlaying else { return }
             self.currentTime = self.audioPlayer.currentPlaybackProgress
-            self.currentTimePublished = self.audioPlayer.currentPlaybackProgress
             self.updateNowPlayingInfo()
         }
         

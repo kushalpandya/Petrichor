@@ -34,7 +34,6 @@ extension LyricLine {
                 let nsLine = line as NSString
                 let minStr = nsLine.substring(with: match.range(at: 1))
                 let secStr = nsLine.substring(with: match.range(at: 2))
-                let msStr = match.range(at: 3).location != NSNotFound ? nsLine.substring(with: match.range(at: 3)) : "0"
                 
                 let minutes = Double(minStr) ?? 0
                 let seconds = Double(secStr) ?? 0
