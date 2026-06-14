@@ -32,7 +32,7 @@ struct TrackLyricsView: View {
         .onAppear {
             loadLyricsForCurrentTrack()
         }
-        .onChange(of: playbackManager.currentTrack?.id) { oldID, newID in
+        .onChange(of: playbackManager.currentTrack?.id) { _, _ in
             loadLyricsForCurrentTrack()
         }
         // Listen for playback time changes and update the current line in real time
@@ -83,7 +83,9 @@ struct TrackLyricsView: View {
                 .foregroundColor(.secondary)
             
             if fetchFailed {
-                Button(action: { loadLyricsForCurrentTrack() }) {
+                Button {
+                    loadLyricsForCurrentTrack()
+                } label: {
                     Label("Retry", systemImage: Icons.arrowClockwise)
                 }
                 .buttonStyle(.bordered)
@@ -115,7 +117,7 @@ struct TrackLyricsView: View {
                 .frame(maxWidth: .infinity)
                 .textSelection(.enabled)
             }
-            .onChange(of: currentLineIndex) { oldIndex, newIndex in
+            .onChange(of: currentLineIndex) { _, newIndex in
                 // Auto-scroll only for timed lyrics
                 guard hasTimedLyrics else { return }
                 withAnimation {

@@ -16,7 +16,6 @@ struct LyricLine: Identifiable, Codable, Equatable {
 typealias Lyrics = [LyricLine]
 
 extension LyricLine {
-    
     /// Parse the lyrics from the LRC files
     static func parseLRC(from lrcString: String) -> Lyrics {
         let lines = lrcString.components(separatedBy: "\n")
@@ -64,7 +63,7 @@ extension LyricLine {
         var sorted = lyrics.sorted { $0.startTime < $1.startTime }
         if sorted.count > 1 {
             for i in 0..<sorted.count - 1 {
-                sorted[i].endTime = sorted[i+1].startTime
+                sorted[i].endTime = sorted[i + 1].startTime
             }
         }
         return sorted
@@ -123,5 +122,3 @@ extension LyricLine {
         return lyrics.sorted { $0.startTime < $1.startTime }
     }
 }
-
-

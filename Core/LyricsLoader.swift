@@ -100,14 +100,14 @@ struct LyricsLoader {
         
         // 1. Try the most common Swift built‑in encodings
         let builtInEncodings: [String.Encoding] = [
-            .shiftJIS,
-            .japaneseEUC,
-            .utf8,
+            .utf8,                   // Most common and self-validating, so try first
             .utf16,                  // Detects BOM and picks LE/BE accordingly
             .utf16BigEndian,
             .utf16LittleEndian,
-            .isoLatin1,              // Covers most Western languages
-            .windowsCP1252,          // Another Western fallback
+            .shiftJIS,               // East-Asian, ahead of the Western catch-alls
+            .japaneseEUC,
+            .isoLatin1,              // Western catch-all — decodes almost any bytes, so last
+            .windowsCP1252,          // Western catch-all — decodes almost any bytes, so last
         ]
         for enc in builtInEncodings {
             if let content = String(data: data, encoding: enc) {
