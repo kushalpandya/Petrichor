@@ -19,30 +19,6 @@ extension PlaylistManager {
         }
     }
 
-    func setCurrentQueue(from playlist: Playlist) {
-        currentPlaylist = playlist
-        currentQueue = playlist.tracks
-        currentQueueSource = .playlist
-        Logger.info("Created playback queue from playlist")
-        if isShuffleEnabled {
-            shuffleCurrentQueue()
-            Logger.info("Shuffled the playback queue")
-        }
-    }
-
-    func setCurrentQueue(fromFolder folder: Folder) {
-        guard let library = libraryManager else { return }
-        let folderTracks = library.getTracksInFolder(folder)
-        currentQueue = folderTracks
-        currentPlaylist = nil
-        currentQueueSource = .folder
-        Logger.info("Created playback queue from folder")
-        if isShuffleEnabled {
-            shuffleCurrentQueue()
-            Logger.info("Shuffled the playback queue")
-        }
-    }
-
     func clearQueue() {
         currentQueue.removeAll()
         currentQueueIndex = -1

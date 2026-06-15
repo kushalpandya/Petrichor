@@ -8,10 +8,25 @@ import CryptoKit
 extension String {
     var artistInitials: String {
         let words = split(separator: " ")
-        if words.count >= 2 {
-            return "\(words.first!.prefix(1))\(words.last!.prefix(1))".uppercased()
+        if words.count >= 2,
+           let first = words.first,
+           let last = words.last {
+            return "\(first.prefix(1))\(last.prefix(1))".uppercased()
         }
         return String(prefix(1)).uppercased()
+    }
+}
+
+private enum EntityNamespaces {
+    static let artist = makeNamespace("6BA7B810-9DAD-11D1-80B4-00C04FD430C8")
+    static let album = makeNamespace("6BA7B811-9DAD-11D1-80B4-00C04FD430C8")
+    static let category = makeNamespace("6BA7B812-9DAD-11D1-80B4-00C04FD430C8")
+
+    private static func makeNamespace(_ string: String) -> UUID {
+        guard let uuid = UUID(uuidString: string) else {
+            preconditionFailure("Invalid entity namespace UUID")
+        }
+        return uuid
     }
 }
 
@@ -51,8 +66,7 @@ struct ArtistEntity: Entity {
     }
 
     init(name: String, tracks: [Track]) {
-        let namespace = UUID(uuidString: "6BA7B810-9DAD-11D1-80B4-00C04FD430C8")!
-        self.id = UUID(name: name.lowercased(), namespace: namespace)
+        self.id = UUID(name: name.lowercased(), namespace: EntityNamespaces.artist)
         self.name = name
         self.tracks = tracks
         self.trackCount = tracks.count
@@ -62,8 +76,7 @@ struct ArtistEntity: Entity {
     }
 
     init(name: String, trackCount: Int, artworkData: Data? = nil) {
-        let namespace = UUID(uuidString: "6BA7B810-9DAD-11D1-80B4-00C04FD430C8")!
-        self.id = UUID(name: name.lowercased(), namespace: namespace)
+        self.id = UUID(name: name.lowercased(), namespace: EntityNamespaces.artist)
         self.name = name
         self.tracks = []
         self.trackCount = trackCount
@@ -89,8 +102,7 @@ struct AlbumEntity: Entity {
     }
 
     init(name: String, tracks: [Track]) {
-        let namespace = UUID(uuidString: "6BA7B811-9DAD-11D1-80B4-00C04FD430C8")!
-        self.id = UUID(name: name.lowercased(), namespace: namespace)
+        self.id = UUID(name: name.lowercased(), namespace: EntityNamespaces.album)
         self.name = name
         self.tracks = tracks
         self.trackCount = tracks.count
@@ -118,8 +130,7 @@ struct AlbumEntity: Entity {
             let uuidString = String(format: "00000000-0000-0000-0000-%012d", albumId)
             self.id = UUID(uuidString: uuidString) ?? UUID()
         } else {
-            let namespace = UUID(uuidString: "6BA7B811-9DAD-11D1-80B4-00C04FD430C8")!
-            self.id = UUID(name: name.lowercased(), namespace: namespace)
+            self.id = UUID(name: name.lowercased(), namespace: EntityNamespaces.album)
         }
         self.name = name
         self.tracks = []
@@ -147,8 +158,7 @@ struct CategoryEntity: Entity {
     }
 
     init(name: String, trackCount: Int, filterType: LibraryFilterType) {
-        let namespace = UUID(uuidString: "6BA7B812-9DAD-11D1-80B4-00C04FD430C8")!
-        self.id = UUID(name: "\(filterType.rawValue)-\(name)".lowercased(), namespace: namespace)
+        self.id = UUID(name: "\(filterType.rawValue)-\(name)".lowercased(), namespace: EntityNamespaces.category)
         self.name = name
         self.trackCount = trackCount
         self.filterType = filterType

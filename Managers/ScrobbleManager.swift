@@ -5,14 +5,9 @@ class ScrobbleManager: ObservableObject {
     // MARK: - Constants
     
     private enum LastFM {
-        // swiftlint:disable:next space_after_comment
         static let apiBaseURL = "https://ws.audioscrobbler.com/2.0/"
-        // swiftlint:disable:next space_after_comment
         static let authURL = "https://www.last.fm/api/auth/"
         static let minimumTrackDuration: Double = 30
-        static let scrobbleThresholdPercentage: Double = 0.5
-        // 4 minutes
-        static let scrobbleThresholdSeconds: Double = 240
     }
     
     // MARK: - Properties
@@ -74,7 +69,6 @@ class ScrobbleManager: ObservableObject {
             return nil
         }
         
-        // swiftlint:disable:next space_after_comment
         let callbackURL = "petrichor://lastfm-callback"
         // Build authorization URL with API key and callback
         let authURLString = "\(LastFM.authURL)?api_key=\(apiKey)&cb=\(callbackURL)"

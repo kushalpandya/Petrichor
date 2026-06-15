@@ -3,7 +3,8 @@ import SwiftUI
 @main
 struct PetrichorApp: App {
     @StateObject private var appCoordinator: AppCoordinator
-    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @NSApplicationDelegateAdaptor(AppDelegate.self)
+    var appDelegate
 
     init() {
         AppDelegate.registerUserDefaultsDefaults()
@@ -17,7 +18,8 @@ struct PetrichorApp: App {
     private var closeToMenubar = true
     
     @State private var menuUpdateTrigger = UUID()
-    @Environment(\.openWindow) private var openWindow
+    @Environment(\.openWindow)
+    private var openWindow
 
     var body: some Scene {
         WindowGroup {
@@ -40,7 +42,7 @@ struct PetrichorApp: App {
         .windowToolbarStyle(.unified)
         .defaultSize(width: 1200, height: 800)
         .windowResizability(.contentSize)
-        .handlesExternalEvents(matching: Set(arrayLiteral: "main"))
+        .handlesExternalEvents(matching: ["main"])
         
         equalizerWindow
 
@@ -74,7 +76,9 @@ struct PetrichorApp: App {
         .defaultSize(width: 500, height: 300)
         .windowResizability(.contentSize)
     }
-    
+}
+
+extension PetrichorApp {
     // MARK: - App Menu Commands
     
     @CommandsBuilder

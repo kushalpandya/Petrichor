@@ -262,15 +262,6 @@ struct Playlist: Identifiable, FetchableRecord, PersistableRecord {
         }
     }
     
-    // Clear all tracks from the playlist (only for regular playlists)
-    mutating func clearTracks() {
-        guard type == .regular && isContentEditable else { return }
-        
-        tracks.removeAll()
-        dateModified = Date()
-        PlaylistArtworkCache.shared.clearCache(for: id)
-    }
-    
     // Calculate total duration of the playlist
     var totalDuration: Double {
         tracks.reduce(0) { $0 + $1.duration }
@@ -466,33 +457,5 @@ extension Playlist: Equatable, Hashable {
     func hash(into hasher: inout Hasher) {
         // Hash by ID since it's unique
         hasher.combine(id)
-    }
-}
-
-extension Playlist {
-    mutating func loadTracks(from db: Database) throws {
-        guard type == .regular else { return }
-        
-        // Get playlist tracks in order
-        let playlistTracks = try PlaylistTrack
-            .filter(PlaylistTrack.Columns.playlistId == id.uuidString)
-            .order(PlaylistTrack.Columns.position)
-            .fetchAll(db)
-        
-        // Get all track IDs
-        let trackIds = playlistTracks.map { $0.trackId }
-        
-        // Fetch all tracks at once
-        let tracksByID: [Int64: Track] = try Track
-            .filter(trackIds.contains(Track.Columns.trackId))
-            .fetchAll(db)
-            .reduce(into: [:]) { dict, track in
-                if let id = track.trackId {
-                    dict[id] = track
-                }
-            }
-        
-        // Reassemble in order
-        self.tracks = playlistTracks.compactMap { tracksByID[$0.trackId] }
     }
 }

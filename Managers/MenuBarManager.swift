@@ -13,10 +13,6 @@ class MenuBarManager: NSObject {
     private let playbackManager: PlaybackManager
     private let playlistManager: PlaylistManager
 
-    var isMenuBarActive: Bool {
-        statusItem != nil
-    }
-
     init(playbackManager: PlaybackManager, playlistManager: PlaylistManager) {
         self.playbackManager = playbackManager
         self.playlistManager = playlistManager

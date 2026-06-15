@@ -76,17 +76,4 @@ class FolderHierarchyBuilder {
             Logger.error("Failed to scan folder \(node.url.path): \(error)")
         }
     }
-
-    // Get all tracks for a specific folder node (immediate only, not recursive)
-    func getTracksForNode(_ node: FolderNode, from allTracks: [Track]) -> [Track] {
-        allTracks.filter { track in
-            track.url.deletingLastPathComponent() == node.url
-        }
-    }
-
-    // Check if a folder node contains a specific track
-    func nodeContainsTrack(_ node: FolderNode, track: Track) -> Bool {
-        // Check if track's parent directory matches this node's URL
-        track.url.deletingLastPathComponent() == node.url
-    }
 }

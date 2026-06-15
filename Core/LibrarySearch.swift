@@ -1,6 +1,6 @@
 import Foundation
 
-struct LibrarySearch {
+enum LibrarySearch {
     // MARK: - Track Search
 
     /// Searches tracks based on a query string using FTS5
@@ -33,13 +33,5 @@ struct LibrarySearch {
         // Return empty results
         Logger.warning("AppCoordinator not available for search")
         return []
-    }
-    
-    // MARK: - Search Result Ranking
-
-    /// Searches and ranks tracks by relevance using FTS5
-    static func searchTracksWithRanking(_ tracks: [Track], with query: String) -> [Track] {
-        // FTS5 already returns ranked results, so just use the regular search
-        searchTracks(tracks, with: query)
     }
 }

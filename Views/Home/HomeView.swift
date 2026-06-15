@@ -144,11 +144,11 @@ struct HomeView: View {
             ) {
                 Button(action: {
                     libraryManager.refreshDiscoverTracks()
-                }) {
+                }, label: {
                     Image(systemName: "arrow.clockwise")
                         .font(.system(size: 14))
                         .foregroundColor(.secondary)
-                }
+                })
                 .buttonStyle(.borderless)
                 .hoverEffect(scale: 1.1)
                 .help("Refresh Discover tracks")
@@ -182,10 +182,9 @@ struct HomeView: View {
                         playlistManager.playTrack(track, fromTracks: libraryManager.discoverTracks)
                         playlistManager.currentQueueSource = .library
                     },
-                    contextMenuItems: { track, playbackManager in
+                    contextMenuItems: { track, _ in
                         TrackContextMenu.createMenuItems(
                             for: track,
-                            playbackManager: playbackManager,
                             playlistManager: playlistManager,
                             currentContext: .library
                         )
@@ -240,10 +239,9 @@ struct HomeView: View {
                         playlistManager.playTrack(track, fromTracks: libraryManager.tracks)
                         playlistManager.currentQueueSource = .library
                     },
-                    contextMenuItems: { track, playbackManager in
+                    contextMenuItems: { track, _ in
                         TrackContextMenu.createMenuItems(
                             for: track,
-                            playbackManager: playbackManager,
                             playlistManager: playlistManager,
                             currentContext: .library
                         )
@@ -265,11 +263,11 @@ struct HomeView: View {
                 Button(action: {
                     entitySortAscending.toggle()
                     sortEntities()
-                }) {
+                }, label: {
                     Image(Icons.sortIcon(for: entitySortAscending))
                         .renderingMode(.template)
                         .scaleEffect(0.8)
-                }
+                })
                 .buttonStyle(.borderless)
                 .hoverEffect(scale: 1.1)
                 .help("Sort \(entitySortAscending ? "descending" : "ascending")")
@@ -441,17 +439,6 @@ struct HomeView: View {
     }
     
     // MARK: - Helpers
-    
-    private var navigationTitle: String {
-        if isShowingEntityDetail {
-            if let artist = selectedArtistEntity {
-                return artist.name
-            } else if let album = selectedAlbumEntity {
-                return album.name
-            }
-        }
-        return selectedSidebarItem?.title ?? "Home"
-    }
     
     private var emptySelectionView: some View {
         VStack(spacing: 16) {

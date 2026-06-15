@@ -77,10 +77,4 @@ enum KeychainManager {
             return false
         }
     }
-    
-    // MARK: - Exists
-    
-    static func exists(key: String) -> Bool {
-        retrieve(key: key) != nil
-    }
 }

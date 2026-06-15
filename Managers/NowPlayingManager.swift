@@ -27,7 +27,7 @@ class NowPlayingManager {
         // Set the artwork
         if let artworkData = track.artworkData, let image = NSImage(data: artworkData) {
             let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in
-                NSImage(data: artworkData)!
+                NSImage(data: artworkData) ?? image
             }
             nowPlayingInfo[MPMediaItemPropertyArtwork] = artwork
         }

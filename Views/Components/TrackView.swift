@@ -37,39 +37,6 @@ struct TrackContextMenuContent: View {
     }
 }
 
-// MARK: - Async Track Artwork Loading
-
-extension View {
-    /// Load track artwork asynchronously with optional delay
-    func loadTrackArtworkAsync(
-        from data: Data?,
-        into imageBinding: Binding<NSImage?>,
-        delay: UInt64 = TimeConstants.fiftyMilliseconds
-    ) async {
-        guard imageBinding.wrappedValue == nil, let data = data else { return }
-        
-        if delay > 0 {
-            try? await Task.sleep(nanoseconds: delay)
-            guard !Task.isCancelled else { return }
-        }
-        
-        let image = await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                let image = NSImage(data: data)
-                continuation.resume(returning: image)
-            }
-        }
-        
-        guard !Task.isCancelled else { return }
-        
-        if let image = image {
-            await MainActor.run {
-                imageBinding.wrappedValue = image
-            }
-        }
-    }
-}
-
 // MARK: - Preview
 #Preview("Tracks View") {
     @Previewable @State var sortOrder = [KeyPathComparator(\Track.title)]
@@ -79,7 +46,6 @@ extension View {
         track.artist = "Sample Artist"
         track.album = "Sample Album"
         track.duration = 180.0
-        track.isMetadataLoaded = true
         return track
     }
 
@@ -108,7 +74,6 @@ extension View {
         track.genre = "Genre"
         track.year = "202\(i % 10)"
         track.duration = Double(180 + i * 10)
-        track.isMetadataLoaded = true
         return track
     }
 

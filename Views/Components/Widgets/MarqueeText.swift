@@ -7,8 +7,8 @@ struct MarqueeText: View {
     let color: Color
     let containerWidth: CGFloat
     
-    @Environment(\.scenePhase) private var scenePhase
-    @State private var needsAnimation = false
+    @Environment(\.scenePhase)
+    private var scenePhase
     
     init(text: String, font: Font = .system(size: 13), color: Color = .primary, containerWidth: CGFloat = .infinity) {
         self.text = text
@@ -83,12 +83,16 @@ private class MarqueeNSView: NSView {
         
         containerLayer = CALayer()
         containerLayer?.masksToBounds = true
-        layer?.addSublayer(containerLayer!)
+        if let containerLayer {
+            layer?.addSublayer(containerLayer)
+        }
         
         textLayer = CATextLayer()
         textLayer?.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0
         textLayer?.alignmentMode = .left
-        containerLayer?.addSublayer(textLayer!)
+        if let textLayer {
+            containerLayer?.addSublayer(textLayer)
+        }
     }
     
     func configure(text: String, font: Font, color: Color, containerWidth: CGFloat) {

@@ -17,7 +17,8 @@ struct PlaylistDetailView: View {
     @AppStorage("trackTableRowSize")
     private var trackTableRowSize: TableRowSize = .expanded
 
-    @Environment(\.colorScheme) var colorScheme
+    @Environment(\.colorScheme)
+    var colorScheme
     
     @State private var playlistSortOrder = [TrackSortField.dateAdded.getComparator(ascending: true)]
 
@@ -88,8 +89,7 @@ struct PlaylistDetailView: View {
 
     // MARK: - Playlist Header
 
-    @ViewBuilder
-    private var playlistHeader: some View {
+    @ViewBuilder private var playlistHeader: some View {
         if playlist != nil {
             PlaylistHeader {
                 HStack(alignment: .top, spacing: 20) {
@@ -111,11 +111,11 @@ struct PlaylistDetailView: View {
             .overlay(alignment: .bottomTrailing) {
                 HStack(spacing: 8) {
                     if playlist?.type == .regular && isCustomSort {
-                        Button(action: { showingReorderTracks = true }) {
+                        Button(action: { showingReorderTracks = true }, label: {
                             Image(systemName: Icons.reorderTracks)
                                 .font(.system(size: 14))
                                 .foregroundColor(.secondary)
-                        }
+                        })
                         .buttonStyle(.plain)
                         .hoverEffect(activeBackgroundColor: Color(NSColor.controlColor))
                         .help("Edit track order")
@@ -209,7 +209,7 @@ struct PlaylistDetailView: View {
             .adaptiveCircularButtonStyle()
             .help(isPinned ? "Remove from Home" : "Pin to Home")
 
-            Button(action: { playPlaylist() }) {
+            Button(action: { playPlaylist() }, label: {
                 HStack(spacing: iconTextSpacing) {
                     Image(systemName: Icons.playFill)
                         .font(.system(size: iconSize))
@@ -218,11 +218,11 @@ struct PlaylistDetailView: View {
                 }
                 .frame(width: buttonWidth)
                 .padding(.vertical, verticalPadding)
-            }
+            })
             .adaptiveButtonStyle(prominent: true)
             .disabled(playlist?.trackCount == 0)
 
-            Button(action: { playPlaylist(shuffle: true) }) {
+            Button(action: { playPlaylist(shuffle: true) }, label: {
                 HStack(spacing: iconTextSpacing) {
                     Image(systemName: Icons.shuffleFill)
                         .font(.system(size: iconSize))
@@ -231,12 +231,12 @@ struct PlaylistDetailView: View {
                 }
                 .frame(width: buttonWidth)
                 .padding(.vertical, verticalPadding)
-            }
+            })
             .adaptiveButtonStyle()
             .disabled(playlist?.trackCount == 0)
 
             if playlist?.type == .regular {
-                Button(action: { showingAddSongs = true }) {
+                Button(action: { showingAddSongs = true }, label: {
                     HStack(spacing: iconTextSpacing) {
                         Image(systemName: Icons.plusCircle)
                             .font(.system(size: iconSize))
@@ -245,7 +245,7 @@ struct PlaylistDetailView: View {
                     }
                     .frame(width: buttonWidth)
                     .padding(.vertical, verticalPadding)
-                }
+                })
                 .adaptiveButtonStyle()
             }
         }
@@ -255,44 +255,37 @@ struct PlaylistDetailView: View {
 
     private var playlistContent: some View {
         Group {
-            if playlist?.tracks.isEmpty ?? true {
-                emptyPlaylistView
-            } else {
+            if let playlist, !playlist.tracks.isEmpty {
                 TrackView(
-                    tracks: playlist!.tracks,
+                    tracks: playlist.tracks,
                     selectedTrackID: $selectedTrackID,
                     playlistID: playlistID,
                     entityID: nil,
                     sortOrder: $playlistSortOrder,
                     onPlayTrack: { track in
-                        if let playlist = playlist,
-                           let index = playlist.tracks.firstIndex(of: track) {
+                        if let index = playlist.tracks.firstIndex(of: track) {
                             playlistManager.playTrackFromPlaylist(playlist, at: index)
                             selectedTrackID = track.id
                         }
                     },
-                    contextMenuItems: { track, playbackManager in
-                        if let playlist = playlist {
-                            return TrackContextMenu.createMenuItems(
-                                for: track,
-                                playbackManager: playbackManager,
-                                playlistManager: playlistManager,
-                                currentContext: .playlist(playlist)
-                            )
-                        } else {
-                            return []
-                        }
+                    contextMenuItems: { track, _ in
+                        TrackContextMenu.createMenuItems(
+                            for: track,
+                            playlistManager: playlistManager,
+                            currentContext: .playlist(playlist)
+                        )
                     }
                 )
                 .id(playlistID)
+            } else {
+                emptyPlaylistView
             }
         }
     }
 
     // MARK: - Empty Playlist View
 
-    @ViewBuilder
-    private var emptyPlaylistView: some View {
+    @ViewBuilder private var emptyPlaylistView: some View {
         if let playlist = playlist {
             VStack(spacing: 20) {
                 Image(systemName: playlistIcon)
@@ -501,11 +494,13 @@ struct PlaylistDetailView: View {
     let smartPlaylist = Playlist(
         name: DefaultPlaylists.favorites,
         criteria: SmartPlaylistCriteria(
-            rules: [SmartPlaylistCriteria.Rule(
-                field: "isFavorite",
-                condition: .equals,
-                value: "true"
-            )],
+            rules: [
+                SmartPlaylistCriteria.Rule(
+                    field: "isFavorite",
+                    condition: .equals,
+                    value: "true"
+                )
+            ],
             sortBy: "title",
             sortAscending: true
         ),

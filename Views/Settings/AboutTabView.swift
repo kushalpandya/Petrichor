@@ -158,11 +158,15 @@ struct AboutTabView: View {
     }
 
     private func acknowledgementItem(_ imageName: String, url: String, tooltip: String) -> some View {
-        Link(destination: URL(string: url)!) {
-            Image(imageName)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(maxHeight: 24)
+        Group {
+            if let url = URL(string: url) {
+                Link(destination: url) {
+                    Image(imageName)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxHeight: 24)
+                }
+            }
         }
         .help(tooltip)
     }
@@ -174,21 +178,21 @@ struct AboutTabView: View {
             FooterLink(
                 icon: "globe",
                 title: "Website",
-                url: URL(string: About.appWebsite)!,
+                url: URL(string: About.appWebsite),
                 tooltip: "Visit project website"
             )
             
             FooterLink(
                 icon: "questionmark.circle",
                 title: "Help",
-                url: URL(string: About.appWiki)!,
+                url: URL(string: About.appWiki),
                 tooltip: "Visit Help Wiki"
             )
             
             FooterLink(
                 icon: "doc.text",
                 title: "License",
-                url: URL(string: About.appAcknowledgements)!,
+                url: URL(string: About.appAcknowledgements),
                 tooltip: "View third-party licenses and acknowledgements"
             )
             
@@ -246,20 +250,6 @@ struct AboutTabView: View {
                 isHovered = hovering
             }
         }
-    }
-
-    // MARK: - Helper Methods
-    
-    private func openAppDataInFinder() {
-        let appSupport = FileManager.default.urls(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask
-        ).first!
-
-        let bundleID = Bundle.main.bundleIdentifier ?? About.bundleIdentifier
-        let appDirectory = appSupport.appendingPathComponent(bundleID, isDirectory: true)
-        
-        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: appDirectory.path)
     }
 
     private func formatTotalDuration() -> String {

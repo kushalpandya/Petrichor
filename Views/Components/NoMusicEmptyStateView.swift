@@ -152,7 +152,7 @@ struct NoMusicEmptyStateView: View {
             }
 
             // Add button
-            Button(action: { libraryManager.addFolder() }) {
+            Button(action: { libraryManager.addFolder() }, label: {
                 HStack(spacing: 6) {
                     Image(systemName: Icons.plusCircleFill)
                         .font(.system(size: 16))
@@ -167,7 +167,7 @@ struct NoMusicEmptyStateView: View {
                         .fill(Color.accentColor)
                         .shadow(color: Color.accentColor.opacity(0.3), radius: 6, x: 0, y: 3)
                 )
-            }
+            })
             .buttonStyle(PlainButtonStyle())
 
             // Supported formats

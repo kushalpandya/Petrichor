@@ -83,18 +83,4 @@ extension LibraryManager {
         let timeElapsed = Date().timeIntervalSince(lastUpdated)
         return timeElapsed >= discoverUpdateInterval.timeInterval
     }
-    
-    /// Generate new discover tracks
-    private func generateDiscoverTracks() async -> [Track] {
-        let tracks = await Task.detached {
-            self.databaseManager.getDiscoverTracks(limit: self.discoverTrackCount)
-        }.value
-        
-        // Save track IDs
-        let trackIds = tracks.compactMap { $0.trackId }
-        userDefaults.set(trackIds, forKey: Self.discoverTrackIdsKey)
-        userDefaults.set(Date(), forKey: Self.discoverLastUpdatedKey)
-        
-        return tracks
-    }
 }

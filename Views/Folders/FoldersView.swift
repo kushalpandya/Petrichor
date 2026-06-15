@@ -6,7 +6,6 @@ struct FoldersView: View {
     @EnvironmentObject var playlistManager: PlaylistManager
     @Binding var selectedFolderNode: FolderNode?
     @State private var selectedTrackID: UUID?
-    @State private var showingRemoveFolderAlert = false
     @State private var folderTracks: [Track] = []
     @State private var isLoadingTracks = false
     @State private var trackTableSortOrder = [KeyPathComparator(\Track.title)]
@@ -37,8 +36,7 @@ struct FoldersView: View {
         }
     }
 
-    @ViewBuilder
-    private var folderTracksHeader: some View {
+    @ViewBuilder private var folderTracksHeader: some View {
         if let node = selectedFolderNode {
             TrackListHeader(
                 title: node.name,
@@ -66,11 +64,6 @@ struct FoldersView: View {
     }
 
     // MARK: - Content Views
-
-    private var loadingTracksView: some View {
-        ProgressView("Loading tracks...")
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
 
     private var emptyFolderView: some View {
         VStack(spacing: 16) {
@@ -104,13 +97,12 @@ struct FoldersView: View {
                     selectedTrackID = track.id
                 }
             },
-            contextMenuItems: { tracks, playbackManager in
+            contextMenuItems: { tracks, _ in
                 if let node = selectedFolderNode {
                     // Create context menu items for folder node
                     if let dbFolder = node.databaseFolder {
                         return TrackContextMenu.createMenuItems(
                             for: tracks,
-                            playbackManager: playbackManager,
                             playlistManager: playlistManager,
                             currentContext: .folder(dbFolder)
                         )
@@ -118,7 +110,6 @@ struct FoldersView: View {
                         // For sub-folders, use library context
                         return TrackContextMenu.createMenuItems(
                             for: tracks,
-                            playbackManager: playbackManager,
                             playlistManager: playlistManager,
                             currentContext: .library
                         )
@@ -146,12 +137,6 @@ struct FoldersView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
-    }
-
-    // MARK: - Helper Methods
-
-    private func refreshFolder(_ folder: Folder, hardRefresh: Bool = false) {
-        libraryManager.refreshFolder(folder, hardRefresh: hardRefresh)
     }
 
     // MARK: - Hierarchical Sidebar Helper Methods

@@ -83,10 +83,8 @@ enum TrackSortField: String, CaseIterable {
     static func detect(from sortOrder: [KeyPathComparator<Track>]) -> TrackSortField {
         guard let firstSort = sortOrder.first else { return .title }
         let sortString = String(describing: firstSort)
-        for (key, field) in comparatorKeyMap {
-            if sortString.contains(key) {
-                return field
-            }
+        for (key, field) in comparatorKeyMap where sortString.contains(key) {
+            return field
         }
         return .title
     }

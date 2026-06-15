@@ -122,9 +122,7 @@ struct PlayQueueView: View {
             isPlaying: isCurrentTrack && playbackManager.isPlaying,
             playlistManager: playlistManager,
             isLastItem: isLastItem
-        ) {
-            playlistManager.removeFromQueue(at: position)
-        }
+        )
         .onDrag {
             draggedIndex = position
             return NSItemProvider(object: track.id.uuidString as NSString)
@@ -146,7 +144,6 @@ struct PlayQueueRow: View {
     let isPlaying: Bool
     let playlistManager: PlaylistManager
     let isLastItem: Bool
-    let onRemove: () -> Void
 
     @State private var isHovered = false
 
@@ -299,7 +296,6 @@ struct QueueDropDelegate: DropDelegate {
                 track.artist = "Sample Artist"
                 track.album = "Sample Album"
                 track.duration = 180.0 + Double(i * 30)
-                track.isMetadataLoaded = true
                 return track
             }
             playlistManager.currentQueue = sampleTracks

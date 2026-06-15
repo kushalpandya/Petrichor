@@ -12,10 +12,10 @@ class PlaylistSortManager: ObservableObject {
 
     // Store sort preferences per playlist
     @AppStorage("playlistSortFields")
-    private var sortFieldsData: Data = Data()
+    private var sortFieldsData = Data()
 
     @AppStorage("playlistSortAscending")
-    private var sortAscendingData: Data = Data()
+    private var sortAscendingData = Data()
 
     private var sortFields: [UUID: String] = [:] {
         didSet { savePreferences() }

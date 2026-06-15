@@ -34,8 +34,6 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
     var trackNumber: Int?
     var discNumber: Int?
     
-    // State tracking
-    var isMetadataLoaded: Bool = false
     var isDuplicate: Bool = false
     var dateAdded: Date?
     
@@ -78,15 +76,6 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
     // MARK: - DB Configuration
     
     static let databaseTableName = "tracks"
-    
-    static let columnMap: [String: Column] = [
-        "artist": Columns.artist,
-        "album": Columns.album,
-        "album_artist": Columns.albumArtist,
-        "composer": Columns.composer,
-        "genre": Columns.genre,
-        "year": Columns.year
-    ]
     
     enum Columns {
         static let trackId = Column("id")
@@ -150,8 +139,6 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
         
         // Album reference
         albumId = row[Columns.albumId]
-        
-        isMetadataLoaded = true
     }
     
     // MARK: - PersistableRecord
@@ -184,10 +171,6 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
     
     static let folder = belongsTo(Folder.self)
     
-    var folder: QueryInterfaceRequest<Folder> {
-        request(for: Track.folder)
-    }
-    
     // MARK: - Equatable
     
     static func == (lhs: Track, rhs: Track) -> Bool {
@@ -204,24 +187,9 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
 // MARK: - Helper Methods
 
 extension Track {
-    /// Get a display-friendly artist name
-    var displayArtist: String {
-        albumArtist ?? artist
-    }
-    
-    /// Get formatted duration string
-    var formattedDuration: String {
-        HelperUtils.formattedDuration(duration)
-    }
-    
     /// Computed property for artwork
     var artworkData: Data? {
         albumArtworkData
-    }
-    
-    /// Check if this track has album artwork
-    var hasArtwork: Bool {
-        albumArtworkData != nil
     }
 }
 
@@ -232,14 +200,6 @@ extension Track {
     func withFavoriteStatus(_ isFavorite: Bool) -> Track {
         var copy = self
         copy.isFavorite = isFavorite
-        return copy
-    }
-    
-    /// Create a copy with updated play stats
-    func withPlayStats(playCount: Int, lastPlayedDate: Date?) -> Track {
-        var copy = self
-        copy.playCount = playCount
-        copy.lastPlayedDate = lastPlayedDate
         return copy
     }
 }

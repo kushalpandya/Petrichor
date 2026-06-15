@@ -475,13 +475,6 @@ extension Logger {
     static var logFileURL: URL? {
         LogFileManager.getLogFileURL()
     }
-    
-    /// Clear all logs
-    static func clearLogs() {
-        guard let url = logFileURL else { return }
-        try? FileManager.default.removeItem(at: url)
-    }
-    
     /// Debug print for use in SwiftUI Previews and tests
     /// This bypasses the logging system and uses regular print
     static func debugPrint(_ items: Any..., separator: String = " ", terminator: String = "\n") {

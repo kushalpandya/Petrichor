@@ -31,11 +31,11 @@ struct ArtistImageSheet: View {
     private var sheetHeader: some View {
         VStack(spacing: 10) {
             HStack {
-                Button(action: { isPresented = false }) {
+                Button(action: { isPresented = false }, label: {
                     Image(systemName: Icons.xmarkCircleFill)
                         .font(.system(size: 18))
                         .foregroundColor(.secondary)
-                }
+                })
                 .buttonStyle(.plain)
                 .keyboardShortcut(.escape)
                 .focusable(false)

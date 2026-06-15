@@ -16,7 +16,6 @@ struct FullTrack: Identifiable, Equatable, Hashable, FetchableRecord, Persistabl
     var duration: Double
     var trackArtworkData: Data?
     var albumArtworkData: Data?
-    var isMetadataLoaded: Bool = false
     var isFavorite: Bool = false
     var playCount: Int = 0
     var lastPlayedDate: Date?
@@ -94,15 +93,6 @@ struct FullTrack: Identifiable, Equatable, Hashable, FetchableRecord, Persistabl
     // MARK: - DB Configuration
     
     static let databaseTableName = "tracks"
-    
-    static let columnMap: [String: Column] = [
-        "artist": Columns.artist,
-        "album": Columns.album,
-        "album_artist": Columns.albumArtist,
-        "composer": Columns.composer,
-        "genre": Columns.genre,
-        "year": Columns.year
-    ]
     
     enum Columns {
         static let trackId = Column("id")
@@ -215,9 +205,6 @@ struct FullTrack: Identifiable, Equatable, Hashable, FetchableRecord, Persistabl
         // Extended metadata
         let extendedMetadataJSON: String? = row[Columns.extendedMetadata]
         extendedMetadata = ExtendedMetadata.fromJSON(extendedMetadataJSON)
-        
-        // Mark as loaded
-        isMetadataLoaded = true
     }
     
     // MARK: - PersistableRecord
@@ -285,18 +272,6 @@ struct FullTrack: Identifiable, Equatable, Hashable, FetchableRecord, Persistabl
     static let artists = hasMany(Artist.self, through: trackArtists, using: TrackArtist.artist)
     static let genres = hasMany(Genre.self, through: hasMany(TrackGenre.self), using: TrackGenre.genre)
     
-    var folder: QueryInterfaceRequest<Folder> {
-        request(for: FullTrack.folder)
-    }
-    
-    var artists: QueryInterfaceRequest<Artist> {
-        request(for: FullTrack.artists)
-    }
-    
-    var genres: QueryInterfaceRequest<Genre> {
-        request(for: FullTrack.genres)
-    }
-    
     // MARK: - Equatable
     
     static func == (lhs: FullTrack, rhs: FullTrack) -> Bool {
@@ -307,12 +282,6 @@ struct FullTrack: Identifiable, Equatable, Hashable, FetchableRecord, Persistabl
     
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
-    }
-    
-    // MARK: - Sorting support
-    
-    var albumArtistForSorting: String {
-        albumArtist ?? ""
     }
     
     // MARK: - Duplicate Detection
@@ -329,19 +298,6 @@ struct FullTrack: Identifiable, Equatable, Hashable, FetchableRecord, Persistabl
         let roundedDuration = Int((safeDuration / 2.0).rounded()) * 2
         
         return "\(normalizedTitle)|\(normalizedArtist)|\(normalizedAlbum)|\(normalizedYear)|\(roundedDuration)"
-    }
-    
-    /// Check if this track is a duplicate candidate of another track
-    func isDuplicateOf(_ other: FullTrack) -> Bool {
-        // Must have valid durations
-        guard duration > 0, other.duration > 0 else { return false }
-        
-        // Check if durations are within 2 seconds of each other
-        let durationDiff = abs(duration - other.duration)
-        guard durationDiff <= 2.0 else { return false }
-        
-        // Compare normalized metadata
-        return duplicateKey == other.duplicateKey
     }
 }
 
@@ -438,31 +394,5 @@ extension FullTrack {
         }
         
         return score
-    }
-}
-
-// MARK: - Update Helpers
-
-extension FullTrack {
-    /// Create a mutable copy with updated favorite status
-    func withFavoriteStatus(_ isFavorite: Bool) -> FullTrack {
-        var copy = self
-        copy.isFavorite = isFavorite
-        return copy
-    }
-    
-    /// Create a mutable copy with updated play stats
-    func withPlayStats(playCount: Int, lastPlayedDate: Date?) -> FullTrack {
-        var copy = self
-        copy.playCount = playCount
-        copy.lastPlayedDate = lastPlayedDate
-        return copy
-    }
-    
-    /// Create a mutable copy with updated album artwork
-    func withAlbumArtwork(_ artworkData: Data?) -> FullTrack {
-        var copy = self
-        copy.albumArtworkData = artworkData
-        return copy
     }
 }

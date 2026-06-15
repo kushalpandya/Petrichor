@@ -221,17 +221,20 @@ enum ImageUtils {
         guard !candidates.isEmpty else { return [] }
 
         // Greedy farthest-point selection for maximum diversity
-        var selected = [candidates.max { $0.s < $1.s }!]
+        guard let mostSaturated = candidates.max(by: { $0.s < $1.s }) else { return [] }
+        var selected = [mostSaturated]
 
         while selected.count < min(colorCount, candidates.count) {
             var bestIdx = 0
             var bestDist: CGFloat = -1
 
             for (i, c) in candidates.enumerated() {
-                let minDist = selected.map { s -> CGFloat in
-                    let hd = min(abs(c.h - s.h), 1 - abs(c.h - s.h))
-                    return hd * hd * 4 + (c.s - s.s) * (c.s - s.s) + (c.b - s.b) * (c.b - s.b)
-                }.min() ?? 0
+                let minDist = selected
+                    .map { s -> CGFloat in
+                        let hd = min(abs(c.h - s.h), 1 - abs(c.h - s.h))
+                        return hd * hd * 4 + (c.s - s.s) * (c.s - s.s) + (c.b - s.b) * (c.b - s.b)
+                    }
+                    .min() ?? 0
 
                 if minDist > bestDist {
                     bestDist = minDist
@@ -341,7 +344,11 @@ enum ImageUtils {
         let colorSpace = CGColorSpaceCreateDeviceRGB()
 
         guard let ctx = CGContext(
-            data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: 0,
+            data: nil,
+            width: size,
+            height: size,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
             space: colorSpace,
             bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
         ) else { return nil }
@@ -368,9 +375,18 @@ enum ImageUtils {
         let startX = CGFloat(size) - endX
         let startY = CGFloat(size) - endY
 
-        let gradient = CGGradient(colorsSpace: colorSpace, colors: [c1.cgColor, c2.cgColor] as CFArray, locations: [0, 1])!
-        ctx.drawLinearGradient(gradient, start: CGPoint(x: startX, y: startY), end: CGPoint(x: endX, y: endY),
-                               options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
+        let gradient = CGGradient(
+            colorsSpace: colorSpace,
+            colors: [c1.cgColor, c2.cgColor] as CFArray,
+            locations: [0, 1]
+        )
+        guard let gradient else { return nil }
+        ctx.drawLinearGradient(
+            gradient,
+            start: CGPoint(x: startX, y: startY),
+            end: CGPoint(x: endX, y: endY),
+            options: [.drawsBeforeStartLocation, .drawsAfterEndLocation]
+        )
 
         // Large geometric shapes — each shape uses an independent seed via mix()
         for i in 0..<(3 + hLayout % 3) {
@@ -378,14 +394,22 @@ enum ImageUtils {
             let x = CGFloat(s % (size + 80)) - 40
             let y = CGFloat(mix(s, 7) % (size + 80)) - 40
             let d = CGFloat(100 + mix(s, 13) % 120)
-            ctx.setFillColor((i % 2 == 0 ? c3 : c1).withAlphaComponent(0.2 + CGFloat(mix(s, 19) % 15) / 100).cgColor)
+            ctx.setFillColor(
+                (i.isMultiple(of: 2) ? c3 : c1)
+                    .withAlphaComponent(0.2 + CGFloat(mix(s, 19) % 15) / 100)
+                    .cgColor
+            )
 
             switch mix(s, 37) % 3 {
             case 0:
                 ctx.fillEllipse(in: CGRect(x: x - d / 2, y: y - d / 2, width: d, height: d))
             case 1:
-                ctx.addPath(CGPath(roundedRect: CGRect(x: x - d / 2, y: y - d / 2, width: d, height: d * 0.75),
-                                   cornerWidth: 16, cornerHeight: 16, transform: nil))
+                ctx.addPath(CGPath(
+                    roundedRect: CGRect(x: x - d / 2, y: y - d / 2, width: d, height: d * 0.75),
+                    cornerWidth: 16,
+                    cornerHeight: 16,
+                    transform: nil
+                ))
                 ctx.fillPath()
             default:
                 ctx.saveGState()
@@ -414,7 +438,8 @@ enum ImageUtils {
         ]
         let bound = (text as NSString).boundingRect(
             with: CGSize(width: CGFloat(size - 32), height: CGFloat(size)),
-            options: .usesLineFragmentOrigin, attributes: attrs
+            options: .usesLineFragmentOrigin,
+            attributes: attrs
         )
         (text as NSString).draw(
             in: CGRect(x: 16, y: (CGFloat(size) - bound.height) / 2, width: CGFloat(size - 32), height: bound.height + 4),

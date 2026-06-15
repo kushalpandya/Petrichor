@@ -49,13 +49,6 @@ class PlaybackManager: NSObject, ObservableObject {
         currentTime
     }
     
-    var effectiveCurrentTime: Double {
-        if currentTime > 0 {
-            return currentTime
-        }
-        return restoredPosition
-    }
-    
     // MARK: - Private Properties
     
     private let audioPlayer: PAudioPlayer
@@ -102,7 +95,6 @@ class PlaybackManager: NSObject, ObservableObject {
         tempTrack.album = uiState.trackAlbum
         tempTrack.albumArtworkData = uiState.artworkData
         tempTrack.duration = uiState.trackDuration
-        tempTrack.isMetadataLoaded = true
         
         restoredUITrack = tempTrack
         currentTrack = tempTrack

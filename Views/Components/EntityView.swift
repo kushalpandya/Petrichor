@@ -15,38 +15,6 @@ struct EntityView<T: Entity>: View {
     }
 }
 
-// MARK: - Async Entity Artwork Loading
-
-extension View {
-    func loadEntityArtworkAsync(
-        from data: Data?,
-        into binding: Binding<NSImage?>,
-        delay: UInt64 = TimeConstants.fiftyMilliseconds
-    ) async {
-        guard binding.wrappedValue == nil, let data = data else { return }
-        
-        if delay > 0 {
-            try? await Task.sleep(nanoseconds: delay)
-            guard !Task.isCancelled else { return }
-        }
-        
-        let image = await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                let image = NSImage(data: data)
-                continuation.resume(returning: image)
-            }
-        }
-        
-        guard !Task.isCancelled else { return }
-        
-        if let image = image {
-            await MainActor.run {
-                binding.wrappedValue = image
-            }
-        }
-    }
-}
-
 // MARK: - Preview
 
 #Preview("Album Grid") {

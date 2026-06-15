@@ -2,7 +2,8 @@ import SwiftUI
 
 struct LibraryTabView: View {
     @EnvironmentObject var libraryManager: LibraryManager
-    @Environment(\.dismiss) var dismiss
+    @Environment(\.dismiss)
+    var dismiss
 
     @AppStorage("autoScanInterval")
     private var autoScanInterval: AutoScanInterval = .every60Minutes
@@ -143,7 +144,12 @@ struct LibraryTabView: View {
         } message: {
             let count = foldersToRemove.count
             if count == 1 {
-                Text("Are you sure you want to stop watching \"\(foldersToRemove[0].name)\"? This will remove all tracks from this folder from your library.")
+                Text(
+                    """
+                    Are you sure you want to stop watching "\(foldersToRemove[0].name)"? \
+                    This will remove all tracks from this folder from your library.
+                    """
+                )
             } else {
                 Text("Are you sure you want to remove \(count) folders? This will remove all tracks from these folders from your library.")
             }
@@ -159,12 +165,12 @@ struct LibraryTabView: View {
 
             Spacer()
 
-            Button(action: { libraryManager.refreshLibrary(hardRefresh: isCommandKeyPressed) }) {
+            Button(action: { libraryManager.refreshLibrary(hardRefresh: isCommandKeyPressed) }, label: {
                 Label(
                     isCommandKeyPressed ? "Force Refresh" : "Refresh",
                     systemImage: isCommandKeyPressed ? Icons.arrowClockwiseCircle : Icons.arrowClockwise
                 )
-            }
+            })
             .disabled(isLibraryUpdateInProgress)
         }
     }
@@ -201,9 +207,9 @@ struct LibraryTabView: View {
                         .tint(.red)
                     }
 
-                    Button(action: { libraryManager.addFolder() }) {
+                    Button(action: { libraryManager.addFolder() }, label: {
                         Label("Add Folder", systemImage: "plus")
-                    }
+                    })
                     .buttonStyle(.bordered)
                     .tint(.accentColor)
                     .help("Add a folder to library")
@@ -247,13 +253,16 @@ struct LibraryTabView: View {
     private var optimizeRow: some View {
         HStack {
             Text("Optimize library database")
-            infoButton(isPresented: $showOptimizeInfo, text: "Removes references to library data that no longer exists on disk and compacts the database to reclaim space.")
+            infoButton(
+                isPresented: $showOptimizeInfo,
+                text: "Removes references to library data that no longer exists on disk and compacts the database to reclaim space."
+            )
 
             Spacer()
 
-            Button(action: { libraryManager.optimizeDatabase(notifyUser: true) }) {
+            Button(action: { libraryManager.optimizeDatabase(notifyUser: true) }, label: {
                 Label("Optimize", systemImage: "sparkles")
-            }
+            })
             .disabled(isLibraryUpdateInProgress)
         }
     }
@@ -261,13 +270,19 @@ struct LibraryTabView: View {
     private var resetRow: some View {
         HStack {
             Text("Reset all library data")
-            infoButton(isPresented: $showResetInfo, text: "Removes all folders, tracks, playlists, and pinned items. Use the checkbox in the confirmation dialog to optionally reset app preferences.")
+            infoButton(
+                isPresented: $showResetInfo,
+                text: """
+                    Removes all folders, tracks, playlists, and pinned items. \
+                    Use the checkbox in the confirmation dialog to optionally reset app preferences.
+                    """
+            )
 
             Spacer()
 
-            Button(action: { showResetConfirmation() }) {
+            Button(action: { showResetConfirmation() }, label: {
                 Label("Reset", systemImage: "trash.fill")
-            }
+            })
             .buttonStyle(.borderedProminent)
             .tint(.red)
             .disabled(isLibraryUpdateInProgress)
@@ -289,8 +304,7 @@ struct LibraryTabView: View {
         }
     }
 
-    @ViewBuilder
-    private var refreshOverlay: some View {
+    @ViewBuilder private var refreshOverlay: some View {
         if stableScanningState {
             ZStack {
                 Color.black.opacity(0.2)
@@ -440,7 +454,10 @@ struct LibraryTabView: View {
     private func showResetConfirmation() {
         let alert = NSAlert()
         alert.messageText = "Reset Library Data"
-        alert.informativeText = "This will permanently remove all library data, including added folders, tracks, playlists, and pinned items. This action cannot be undone."
+        alert.informativeText = """
+            This will permanently remove all library data, including added folders, tracks, playlists, \
+            and pinned items. This action cannot be undone.
+            """
         alert.alertStyle = .critical
         alert.icon = nil
 

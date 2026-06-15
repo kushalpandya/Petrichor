@@ -61,8 +61,7 @@ struct OnlineTabView: View {
     
     // MARK: - Last.fm Section
     
-    @ViewBuilder
-    private var lastfmSection: some View {
+    @ViewBuilder private var lastfmSection: some View {
         if isConnected {
             connectedView
         } else {

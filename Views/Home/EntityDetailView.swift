@@ -30,7 +30,8 @@ struct EntityDetailView: View {
     @AppStorage("trackTableRowSize")
     private var trackTableRowSize: TableRowSize = .expanded
 
-    @Environment(\.colorScheme) var colorScheme
+    @Environment(\.colorScheme)
+    var colorScheme
 
     @State private var trackTableSortOrder = [KeyPathComparator(\Track.title)]
     
@@ -54,10 +55,9 @@ struct EntityDetailView: View {
                     onPlayTrack: { track in
                         playTrack(track)
                     },
-                    contextMenuItems: { track, playbackManager in
+                    contextMenuItems: { track, _ in
                         TrackContextMenu.createMenuItems(
                             for: track,
-                            playbackManager: playbackManager,
                             playlistManager: playlistManager,
                             currentContext: .library
                         )
@@ -372,7 +372,7 @@ struct EntityDetailView: View {
             .adaptiveCircularButtonStyle()
             .help(isPinned ? "Remove from Home" : "Pin to Home")
 
-            Button(action: { playEntity() }) {
+            Button(action: { playEntity() }, label: {
                 HStack(spacing: iconTextSpacing) {
                     Image(systemName: Icons.playFill)
                         .font(.system(size: iconSize))
@@ -381,11 +381,11 @@ struct EntityDetailView: View {
                 }
                 .frame(width: buttonWidth)
                 .padding(.vertical, verticalPadding)
-            }
+            })
             .adaptiveButtonStyle(prominent: true)
             .disabled(tracks.isEmpty)
 
-            Button(action: { playEntity(shuffle: true) }) {
+            Button(action: { playEntity(shuffle: true) }, label: {
                 HStack(spacing: iconTextSpacing) {
                     Image(systemName: Icons.shuffleFill)
                         .font(.system(size: iconSize))
@@ -394,7 +394,7 @@ struct EntityDetailView: View {
                 }
                 .frame(width: buttonWidth)
                 .padding(.vertical, verticalPadding)
-            }
+            })
             .adaptiveButtonStyle()
             .disabled(tracks.isEmpty)
         }
@@ -500,7 +500,7 @@ struct EntityDetailView: View {
         // Albums with full track numbering force disc/track ordering; everything
         // else follows the user's saved global sort.
         let hasCompleteAlbumOrdering = entity is AlbumEntity
-            && fetchedTracks.allSatisfy { $0.trackNumber != nil && $0.trackNumber! > 0 }
+            && fetchedTracks.allSatisfy { ($0.trackNumber ?? 0) > 0 }
 
         if hasCompleteAlbumOrdering {
             trackTableSortOrder = [

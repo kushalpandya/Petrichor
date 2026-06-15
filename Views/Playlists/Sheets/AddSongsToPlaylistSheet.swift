@@ -62,11 +62,12 @@ struct AddSongsToPlaylistSheet: View {
             } else {
                 // Show results using List for performance
                 List(visibleTracks, id: \.id) { track in
+                    let trackId = track.trackId
                     TrackSelectionRow(
                         track: track,
-                        isSelected: track.trackId != nil && selectedTracks.contains(track.trackId!),
-                        isAlreadyInPlaylist: track.trackId != nil && playlistTrackDatabaseIDs.contains(track.trackId!),
-                        isMarkedForRemoval: track.trackId != nil && tracksToRemove.contains(track.trackId!)
+                        isSelected: trackId != nil && selectedTracks.contains(trackId ?? 0),
+                        isAlreadyInPlaylist: trackId != nil && playlistTrackDatabaseIDs.contains(trackId ?? 0),
+                        isMarkedForRemoval: trackId != nil && tracksToRemove.contains(trackId ?? 0)
                     ) {
                         toggleTrackSelection(track)
                     }
@@ -90,13 +91,6 @@ struct AddSongsToPlaylistSheet: View {
             searchText = ""
             hasSearched = false
         }
-    }
-
-    // MARK: - Cached Properties
-
-    // Cache playlist track IDs for faster lookup
-    private var playlistTrackIDs: Set<UUID> {
-        Set(playlist.tracks.map { $0.id })
     }
 
     // MARK: - Subviews
@@ -138,12 +132,12 @@ struct AddSongsToPlaylistSheet: View {
     private var sheetHeader: some View {
         HStack {
             // Close button
-            Button(action: { dismiss() }) {
+            Button(action: { dismiss() }, label: {
                 Image(systemName: Icons.xmarkCircleFill)
                     .font(.system(size: 18))
                     .foregroundColor(.secondary)
                     .background(Circle().fill(Color.clear))
-            }
+            })
             .help("Dismiss")
             .buttonStyle(.plain)
             .keyboardShortcut(.escape)
@@ -206,10 +200,10 @@ struct AddSongsToPlaylistSheet: View {
                     Button(action: {
                         searchText = ""
                         performSearch()
-                    }) {
+                    }, label: {
                         Image(systemName: Icons.xmarkCircleFill)
                             .foregroundColor(.secondary)
-                    }
+                    })
                     .buttonStyle(.plain)
                 }
             }
@@ -285,10 +279,12 @@ struct AddSongsToPlaylistSheet: View {
         }
         
         let allNotInPlaylistSelected = notInPlaylistTracks.allSatisfy { track in
-            track.trackId != nil && selectedTracks.contains(track.trackId!)
+            guard let trackId = track.trackId else { return false }
+            return selectedTracks.contains(trackId)
         }
         let allInPlaylistMarked = inPlaylistTracks.allSatisfy { track in
-            track.trackId != nil && tracksToRemove.contains(track.trackId!)
+            guard let trackId = track.trackId else { return false }
+            return tracksToRemove.contains(trackId)
         }
         
         return !visibleTracks.isEmpty && allNotInPlaylistSelected && allInPlaylistMarked
@@ -305,10 +301,12 @@ struct AddSongsToPlaylistSheet: View {
         }
         
         let selectedNotInPlaylist = notInPlaylistTracks.filter { track in
-            track.trackId != nil && selectedTracks.contains(track.trackId!)
+            guard let trackId = track.trackId else { return false }
+            return selectedTracks.contains(trackId)
         }.count
         let markedInPlaylist = inPlaylistTracks.filter { track in
-            track.trackId != nil && tracksToRemove.contains(track.trackId!)
+            guard let trackId = track.trackId else { return false }
+            return tracksToRemove.contains(trackId)
         }.count
         
         let totalSelected = selectedNotInPlaylist + markedInPlaylist
@@ -406,10 +404,12 @@ struct AddSongsToPlaylistSheet: View {
         
         // Check if all tracks (both in and not in playlist) are selected/marked
         let allNotInPlaylistSelected = notInPlaylistTracks.allSatisfy { track in
-            track.trackId != nil && selectedTracks.contains(track.trackId!)
+            guard let trackId = track.trackId else { return false }
+            return selectedTracks.contains(trackId)
         }
         let allInPlaylistMarked = inPlaylistTracks.allSatisfy { track in
-            track.trackId != nil && tracksToRemove.contains(track.trackId!)
+            guard let trackId = track.trackId else { return false }
+            return tracksToRemove.contains(trackId)
         }
         
         if allNotInPlaylistSelected && allInPlaylistMarked {

@@ -9,9 +9,6 @@ enum Icons {
     static let musicNoteHouse = "music.note.house"
     static let musicNoteHouseFill = "music.note.house.fill"
     static let musicPagesFill = "custom.music.pages.fill"
-    static let speakerFill = "speaker.fill"
-    static let speakerWave3 = "speaker.wave.3"
-    static let speakerWave3Fill = "speaker.wave.3.fill"
     
     // Playback Controls
     static let star = "star"
@@ -146,8 +143,6 @@ enum AlbumArtFormat {
         "front", "Front"
     ]
     
-    static let priorityKeywords = ["cover", "folder", "album", "artwork", "front"]
-
     static let maxArtworkSize: Int = 20 * 1024 * 1024
     static let maxArtworkPixelDimension: Int = 8000
 
@@ -159,7 +154,6 @@ enum AlbumArtFormat {
 // MARK: - View Defaults
 
 enum ViewDefaults {
-    static let tableArtworkSize: CGFloat = 30
     static let listArtworkSize: CGFloat = 40
     static let gridArtworkSize: CGFloat = 160
 }
@@ -184,7 +178,6 @@ enum AnimationDuration {
     static let quickDuration: TimeInterval = 0.1
     static let standardDuration: TimeInterval = 0.15
     static let mediumDuration: TimeInterval = 0.2
-    static let longDuration: TimeInterval = 0.3
 }
 
 // MARK: - Delay Durations
@@ -192,19 +185,7 @@ enum AnimationDuration {
 enum TimeConstants {
     static let fiftyMilliseconds: UInt64 = 50_000_000
     static let oneHundredMilliseconds: UInt64 = 100_000_000
-    static let oneFiftyMilliseconds: UInt64 = 150_000_000
     static let searchDebounceDuration: UInt64 = 350_000_000
-    static let stateSaveTimerDuration: Double = 30.0
-    static let playbackProgressTimerDuration: Double = 10.0
-    static let pauseHibernationThreshold: TimeInterval = 5 * 60
-}
-
-// MARK: - Database Constants
-
-enum DatabaseConstants {
-    static let walMode = "WAL"
-    static let batchSize = 50
-    static let largeBatchSize = 100
 }
 
 // MARK: - Default Playlists

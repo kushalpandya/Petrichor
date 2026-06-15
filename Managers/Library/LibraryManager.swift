@@ -23,7 +23,6 @@ class LibraryManager: ObservableObject {
     }
     @Published var searchResults: [Track] = []
     @Published var discoverTracks: [Track] = []
-    @Published var isLoadingDiscover: Bool = false
     @Published var pinnedItems: [PinnedItem] = []
     @Published internal var cachedArtistEntities: [ArtistEntity] = []
     @Published internal var cachedAlbumEntities: [AlbumEntity] = []
@@ -77,8 +76,6 @@ class LibraryManager: ObservableObject {
 
     // Keys for UserDefaults
     internal enum UserDefaultsKeys {
-        static let lastScanDate = "LastScanDate"
-        static let securityBookmarks = "SecurityBookmarks"
         static let autoScanInterval = "autoScanInterval"
     }
 
@@ -157,7 +154,7 @@ class LibraryManager: ObservableObject {
         
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(handleFoldersAddedToDatabase(_:)),
+            selector: #selector(handleFoldersAddedToDatabase),
             name: .foldersAddedToDatabase,
             object: nil
         )
@@ -166,10 +163,8 @@ class LibraryManager: ObservableObject {
     deinit {
         fileWatcherTimer?.invalidate()
         // Stop accessing all security scoped resources
-        for folder in folders {
-            if folder.bookmarkData != nil {
-                folder.url.stopAccessingSecurityScopedResource()
-            }
+        for folder in folders where folder.bookmarkData != nil {
+            folder.url.stopAccessingSecurityScopedResource()
         }
     }
     
@@ -260,7 +255,10 @@ class LibraryManager: ObservableObject {
                 self.libraryCategoriesLoaded = true
                 
                 let elapsed = Date().timeIntervalSince(startTime)
-                Logger.info("Loaded library categories in \(String(format: "%.2f", elapsed))s: \(self.cachedLibraryCategories.values.map { $0.count }) items total")
+                let itemCounts = self.cachedLibraryCategories.values.map { $0.count }
+                Logger.info(
+                    "Loaded library categories in \(String(format: "%.2f", elapsed))s: \(itemCounts) items total"
+                )
             }
         }
     }
@@ -384,10 +382,10 @@ class LibraryManager: ObservableObject {
     }
 
     @objc
-    private func autoScanIntervalDidChange(_ notification: Notification) {
+    private func autoScanIntervalDidChange() {
         let newInterval = autoScanInterval
 
-        struct LastInterval {
+        enum LastInterval {
             static var value: AutoScanInterval?
             static var initialized = false
         }
@@ -451,7 +449,7 @@ class LibraryManager: ObservableObject {
     }
     
     @objc
-    private func handleFoldersAddedToDatabase(_ notification: Notification) {
+    private func handleFoldersAddedToDatabase() {
         DispatchQueue.main.async {
             // Immediately load folders so UI knows folders exist
             self.folders = self.databaseManager.getAllFolders()
