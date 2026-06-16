@@ -55,7 +55,7 @@ struct LyricsLoader {
         if FileManager.default.fileExists(atPath: lrcURL.path),
            let content = loadFileWithEncodingDetection(lrcURL),
            !content.isEmpty {
-            let parsed = LyricLine.parseLRC(from: content)   // Using your LRC parser
+            let parsed = LyricLine.parseLRC(from: content)
             if !parsed.isEmpty {
                 return (parsed, .lrc)
             }
@@ -66,7 +66,7 @@ struct LyricsLoader {
         if FileManager.default.fileExists(atPath: srtURL.path),
            let content = loadFileWithEncodingDetection(srtURL),
            !content.isEmpty {
-            let parsed = LyricLine.parseSRT(from: content) // Using your SRT parser
+            let parsed = LyricLine.parseSRT(from: content)
             if !parsed.isEmpty {
                 return (parsed, .srt)
             }
@@ -93,29 +93,31 @@ struct LyricsLoader {
         return lines
     }
     
-    /// Load file content with automatic encoding detection, trying a broader set of
-    /// common East‑Asian and Western encodings instead of only UTF‑8 and EUC‑KR.
+    /// Load file content with automatic encoding detection, trying precise and
+    /// multi-byte encodings first and Western single-byte catch-alls last.
     private static func loadFileWithEncodingDetection(_ url: URL) -> String? {
         guard let data = try? Data(contentsOf: url) else { return nil }
         
-        // 1. Try the most common Swift built‑in encodings
+        // 1. Try the self-validating and multi-byte encodings first. These either
+        // detect their own structure (UTF-8/16) or reject byte sequences that are
+        // invalid for them, so a wrong guess fails through rather than mojibake-ing.
         let builtInEncodings: [String.Encoding] = [
             .utf8,                   // Most common and self-validating, so try first
             .utf16,                  // Detects BOM and picks LE/BE accordingly
             .utf16BigEndian,
             .utf16LittleEndian,
-            .shiftJIS,               // East-Asian, ahead of the Western catch-alls
+            .shiftJIS,               // Japanese (multi-byte, rejects invalid sequences)
             .japaneseEUC,
-            .isoLatin1,              // Western catch-all — decodes almost any bytes, so last
-            .windowsCP1252,          // Western catch-all — decodes almost any bytes, so last
         ]
         for enc in builtInEncodings {
             if let content = String(data: data, encoding: enc) {
                 return content
             }
         }
-        
-        // 2. Try additional encodings via IANA charset names (EUC‑KR, GBK, etc.)
+
+        // 2. Try additional multi-byte encodings via IANA charset names (EUC-KR, GBK, etc.).
+        // These must precede the Western single-byte catch-alls below, otherwise those
+        // catch-alls (which accept any byte) would win and CJK files would mojibake.
         let ianaNames = [
             "EUC-KR",   // Korean
             "GBK",      // Simplified Chinese
@@ -130,7 +132,16 @@ struct LyricsLoader {
                 return content
             }
         }
-        
+
+        // 3. Western single-byte catch-alls LAST: they decode almost any byte sequence,
+        // so they are the last resort once every precise encoding above has failed.
+        let fallbackEncodings: [String.Encoding] = [.isoLatin1, .windowsCP1252]
+        for enc in fallbackEncodings {
+            if let content = String(data: data, encoding: enc) {
+                return content
+            }
+        }
+
         return nil
     }
 }
