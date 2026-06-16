@@ -2,9 +2,9 @@ import Foundation
 
 struct LyricLine: Identifiable, Codable, Equatable {
     var id = UUID()
-    let text: String           // Lyric text of the line
-    let startTime: TimeInterval // Start time (seconds)
-    var endTime: TimeInterval?  // End time (seconds)
+    let text: String
+    let startTime: TimeInterval // seconds
+    var endTime: TimeInterval?  // seconds; nil for the last line
     
     init(text: String, startTime: TimeInterval, endTime: TimeInterval? = nil) {
         self.text = text
@@ -16,13 +16,23 @@ struct LyricLine: Identifiable, Codable, Equatable {
 typealias Lyrics = [LyricLine]
 
 extension LyricLine {
+    /// Normalize CRLF / lone CR line endings to LF so block- and line-splitting
+    /// behave consistently regardless of how the lyric file was authored.
+    private static func normalizingNewlines(_ string: String) -> String {
+        string
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+    }
+
     /// Parse the lyrics from the LRC files
     static func parseLRC(from lrcString: String) -> Lyrics {
-        let lines = lrcString.components(separatedBy: "\n")
+        let lines = normalizingNewlines(lrcString).components(separatedBy: "\n")
         var lyrics: [LyricLine] = []
-        
+
         // Use the regular expression to parse the time stamps
         let pattern = "\\[(\\d+):(\\d+)(?:\\.(\\d+))?\\]"
+        // Enhanced-LRC inline word timing tags, e.g. <00:12.50>, are stripped from the displayed text
+        let wordTagPattern = "<\\d+:\\d+(?:\\.\\d+)?>"
         guard let regex = try? NSRegularExpression(pattern: pattern) else {
             return lyrics
         }
@@ -52,6 +62,7 @@ extension LyricLine {
             
             // Get the plain text part from the lyric
             let text = line.replacingOccurrences(of: pattern, with: "", options: .regularExpression)
+                .replacingOccurrences(of: wordTagPattern, with: "", options: .regularExpression)
                 .trimmingCharacters(in: .whitespaces)
             
             for timestamp in timestamps {
@@ -59,8 +70,8 @@ extension LyricLine {
             }
         }
         
-        // Sort by start time
         var sorted = lyrics.sorted { $0.startTime < $1.startTime }
+        // Each line ends where the next begins, giving a gapless highlight window
         if sorted.count > 1 {
             for i in 0..<sorted.count - 1 {
                 sorted[i].endTime = sorted[i + 1].startTime
@@ -72,7 +83,7 @@ extension LyricLine {
     /// Parse the lyrics from the SRT files
     static func parseSRT(from srtString: String) -> Lyrics {
         // Divide the content into blocks based on blank lines.
-        let blocks = srtString
+        let blocks = normalizingNewlines(srtString)
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .components(separatedBy: "\n\n")
             .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
@@ -111,14 +122,13 @@ extension LyricLine {
             let endMs = Double(nsLine.substring(with: match.range(at: 8))) ?? 0
             let endTime = endH * 3600 + endM * 60 + endS + endMs / 1000.0
             
-            // The lines from the third line save as the plain text
+            // Remaining lines (third onward) are the subtitle text
             let textLines = lines.dropFirst(2)
             let text = textLines.joined(separator: "\n")
-            
+
             lyrics.append(LyricLine(text: text, startTime: startTime, endTime: endTime))
         }
-        
-        // Sort by start time
+
         return lyrics.sorted { $0.startTime < $1.startTime }
     }
 }
