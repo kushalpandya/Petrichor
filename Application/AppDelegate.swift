@@ -396,7 +396,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             "colorMode": "auto",
             "showFoldersTab": false,
             "discoverUpdateInterval": "weekly",
-            "discoverTrackCount": 50
+            "discoverTrackCount": 50,
+            MediaBackend.userDefaultsKey: true
         ]
 
         UserDefaults.standard.register(defaults: defaults)

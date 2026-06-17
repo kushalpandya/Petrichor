@@ -23,6 +23,11 @@ struct GeneralTabView: View {
     @AppStorage("useArtworkColors")
     private var useArtworkColors = true
 
+    @AppStorage(MediaBackend.userDefaultsKey)
+    private var useModernPlaybackEngine = true
+
+    @ObservedObject private var notificationManager = NotificationManager.shared
+
     enum ColorMode: String, CaseIterable, TabbedItem {
         case light = "Light"
         case dark = "Dark"
@@ -93,6 +98,25 @@ struct GeneralTabView: View {
                 Toggle("Use album artwork colors in backgrounds", isOn: $useArtworkColors)
                     .help("Applies a gradient background derived from album artwork colors across the app")
             }
+
+            Section("Media Backend") {
+                Toggle(isOn: $useModernPlaybackEngine) {
+                    HStack(spacing: 6) {
+                        Text("Use modern media engine")
+                        betaBadge
+                    }
+                }
+                .disabled(notificationManager.isActivityInProgress)
+                .help(
+                    notificationManager.isActivityInProgress
+                        ? "Unavailable while the library is updating"
+                        : "Switches the engine used to play your music. Changing this will cause the playback to stop, and you can resume it later."
+                )
+                .onChange(of: useModernPlaybackEngine) {
+                    UserDefaults.standard.synchronize()
+                    AppCoordinator.shared?.playbackManager.reloadPlaybackEngine()
+                }
+            }
         }
         .formStyle(.grouped)
         .scrollDisabled(true)
@@ -103,6 +127,16 @@ struct GeneralTabView: View {
         .onAppear {
             updateAppearance(colorMode)
         }
+    }
+
+    private var betaBadge: some View {
+        Text("Beta")
+            .font(.caption2.weight(.semibold))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Color.accentColor.opacity(0.15))
+            .foregroundStyle(Color.accentColor)
+            .clipShape(Capsule())
     }
 
     private func updateAppearance(_ mode: ColorMode) {

@@ -177,7 +177,7 @@ public class PlaybackEngine: NSObject {
 
     // MARK: - Private Properties
 
-    private let backend: PlaybackBackend
+    private var backend: PlaybackBackend
 
     // MARK: - Initialization
 
@@ -197,6 +197,18 @@ public class PlaybackEngine: NSObject {
         case .crescendo:
             return SFBPlaybackBackend()
         }
+    }
+
+    /// Tears down the current backend and rebuilds it from the current
+    /// `MediaBackend` selection. The caller is responsible for first capturing
+    /// any playback state to resume and for re-applying volume/effects afterward,
+    /// since the new backend starts clean. The old backend's delegate is detached
+    /// before teardown so its stop callbacks are not delivered as real events.
+    public func reload() {
+        backend.backendDelegate = nil
+        backend.stop()
+        backend = Self.makeBackend()
+        backend.backendDelegate = self
     }
 
     // MARK: - Playback Control

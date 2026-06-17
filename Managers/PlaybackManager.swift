@@ -268,6 +268,32 @@ class PlaybackManager: NSObject, ObservableObject {
         )
     }
 
+    /// Rebuilds the playback engine for the currently selected backend (used when
+    /// the user switches engines in Settings). Playback is halted, but the loaded
+    /// track, queue, and position are kept so the progress bar stays put and the
+    /// user can resume from the same spot on the new engine by pressing play.
+    func reloadPlaybackEngine() {
+        let resumePosition = currentTime
+
+        audioPlayer.reload()
+        isPlaying = false
+        stopStateSaveTimer()
+
+        // The new backend starts clean, so re-apply volume and audio effects.
+        audioPlayer.volume = volume
+        restoreAudioEffectsSettings()
+
+        // Keep the current track loaded and the bar where it was; startPlayback
+        // reads restoredPosition to continue from here on the next play.
+        if currentTrack != nil {
+            restoredPosition = resumePosition
+            currentTime = resumePosition
+            updateNowPlayingInfo()
+        }
+
+        Logger.info("Playback engine reloaded for backend: \(MediaBackend.current)")
+    }
+
     /// Wires the system remote command center (lock screen / Control Center) to
     /// this manager. PlaybackManager owns the single Petrichor-side Now Playing
     /// path, which is the SFBAudioEngine path; when Crescendo is the active
