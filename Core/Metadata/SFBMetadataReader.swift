@@ -372,10 +372,7 @@ struct SFBMetadataReader: MetadataReader {
                 metadata.originalReleaseDate = stringValue
                 // Also try to extract year if not set
                 if metadata.year == nil {
-                    let extractedYear = MetadataMapping.year(fromDateString: stringValue)
-                    if !extractedYear.isEmpty {
-                        metadata.year = extractedYear
-                    }
+                    metadata.year = MetadataMapping.year(fromDateString: stringValue)
                 }
             }
 

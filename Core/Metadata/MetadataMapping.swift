@@ -9,8 +9,10 @@
 import Foundation
 
 enum MetadataMapping {
-    /// Extract a 4-digit year from a date string, or "" if none is present.
-    static func year(fromDateString dateString: String) -> String {
+    /// Extracts a 4-digit year (1900-2099) from a date string, or nil if none is
+    /// present. Returning nil (rather than "") lets callers assign the result
+    /// straight to the optional `year` without an empty-string guard at each site.
+    static func year(fromDateString dateString: String) -> String? {
         let yearPattern = #"\b(19|20)\d{2}\b"#
 
         if let regex = try? NSRegularExpression(pattern: yearPattern),
@@ -21,7 +23,7 @@ enum MetadataMapping {
             if let range = Range(match.range, in: dateString) { return String(dateString[range]) }
         }
 
-        return ""
+        return nil
     }
 
     /// Normalize a raw rating value onto a 0-5 scale. Handles both a plain 1-5

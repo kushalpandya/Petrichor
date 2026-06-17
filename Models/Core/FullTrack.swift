@@ -301,6 +301,49 @@ struct FullTrack: Identifiable, Equatable, Hashable, FetchableRecord, Persistabl
     }
 }
 
+// MARK: - Display Formatting
+
+extension FullTrack {
+    // Canonical, properly-cased codec display names. Engines report codec casing
+    // differently (SFB upper-cases, Crescendo uses TagLib's lowercase short name),
+    // so we normalize for display. A blanket uppercase won't do - Opus/Vorbis/
+    // WavPack/Musepack aren't acronyms; unknown codecs fall back to uppercase
+    // since they're almost always acronyms.
+    private static let codecDisplayNames: [String: String] = [
+        "flac": "FLAC",
+        "alac": "ALAC",
+        "aac": "AAC",
+        "mp3": "MP3",
+        "opus": "Opus",
+        "vorbis": "Vorbis",
+        "ogg": "Ogg",
+        "wav": "WAV",
+        "aiff": "AIFF",
+        "aifc": "AIFF",
+        "wavpack": "WavPack",
+        "ape": "APE",
+        "musepack": "Musepack",
+        "tta": "TTA",
+        "dsd": "DSD",
+        "speex": "Speex",
+        "pcm": "PCM"
+    ]
+
+    /// The codec name normalized for display, or nil when no codec is recorded.
+    var codecDisplay: String? {
+        guard let codec = codec, !codec.isEmpty else { return nil }
+        return Self.codecDisplayNames[codec.lowercased()] ?? codec.uppercased()
+    }
+
+    /// The bitrate formatted for display (e.g. "320 kbps"), or nil when absent.
+    /// Assumes the stored value is kbps - the metadata readers normalize to kbps
+    /// at scan time (SFB/TagLib already reports kbps; Crescendo reports bps).
+    var bitrateDisplay: String? {
+        guard let bitrate = bitrate, bitrate > 0 else { return nil }
+        return "\(bitrate) kbps"
+    }
+}
+
 // MARK: - Quality Scoring
 
 extension FullTrack {

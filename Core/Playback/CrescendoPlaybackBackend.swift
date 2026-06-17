@@ -26,6 +26,8 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
 
     weak var backendDelegate: PlaybackBackendDelegate?
 
+    let supportsGaplessQueue = true
+
     var volume: Float {
         get { onMain { player.volume } }
         set { onMain { player.volume = newValue } }
@@ -48,6 +50,9 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
     private let player: CrescendoPlayer
     private var delegateBridge: CrescendoDelegateBridge?
 
+    // The single pre-decoded next entry (the "+1" of the N+1 lookahead), or nil.
+    private var pendingNextEntryId: CrescendoEntryId?
+
     // Effects state. Crescendo applies all effects as property sets, so there is
     // no graph to build; we keep the user-facing state here and push it down.
     private var eqEnabled = false
@@ -65,9 +70,10 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
             let bridge = CrescendoDelegateBridge(owner: self)
             self.delegateBridge = bridge
             player.delegate = bridge
-            // Petrichor's NowPlayingManager owns the system tile for both engines
-            // for now, so Crescendo does not publish Now Playing or take over the
-            // remote commands this phase.
+            // For the 1.6 co-existence release, Petrichor's NowPlayingManager owns
+            // the system Now Playing tile and remote commands for BOTH engines, so
+            // Crescendo publishes neither. Crescendo takes over Now Playing in 1.7
+            // when SFB is removed (and its restore-resume tile-anchor bug is fixed).
             player.nowPlayingInfoEnabled = false
             player.remoteCommandsEnabled = false
             installLogBridge()
@@ -76,11 +82,34 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
 
     // MARK: - Playback Control
 
-    func play(url: URL, startPaused: Bool) {
+    func play(url: URL, entryId: AudioEntryId, startPaused: Bool) {
         onMain {
-            // Match the SFB backend's entry identity (last path component) so the
-            // app-facing entry id is stable across engines.
-            player.play(url: url, entryId: CrescendoEntryId(id: url.lastPathComponent), startPaused: startPaused)
+            // play(url:) replaces Crescendo's queue, so any pending next is gone.
+            player.play(url: url, entryId: CrescendoEntryId(id: entryId.id), startPaused: startPaused)
+            pendingNextEntryId = nil
+        }
+    }
+
+    func setNextTrack(url: URL, entryId: AudioEntryId) {
+        let nextId = CrescendoEntryId(id: entryId.id)
+        onMain {
+            // Surgically swap just the lookahead entry: drop the stale next (if
+            // any) and prime the new one right after the current track. The
+            // playing entry is never touched, so the timeline is uninterrupted.
+            if let stale = pendingNextEntryId {
+                _ = player.remove(entryId: stale)
+            }
+            player.insertNext(url: url, entryId: nextId)
+            pendingNextEntryId = nextId
+        }
+    }
+
+    func clearNextTrack() {
+        onMain {
+            if let stale = pendingNextEntryId {
+                _ = player.remove(entryId: stale)
+            }
+            pendingNextEntryId = nil
         }
     }
 
@@ -111,7 +140,7 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
         stereoWideningEnabled = enabled
         // Crescendo uses a mid/side width (1.0 neutral); SFB used a Haas delay, so
         // the two engines sound slightly different here.
-        onMain { player.stereoWidth = enabled ? 1.8 : 1.0 }
+        onMain { player.stereoWidth = enabled ? 2.0 : 1.0 }
     }
 
     func isStereoWideningEnabled() -> Bool { stereoWideningEnabled }
@@ -171,6 +200,11 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
     // MARK: - Delegate event handling (called by the @MainActor bridge)
 
     func handleStartPlaying(entryId: CrescendoEntryId) {
+        // On a gapless advance the primed next becomes the active track, so it's
+        // no longer "pending" - clear it before the app primes the new next.
+        if entryId == pendingNextEntryId {
+            pendingNextEntryId = nil
+        }
         backendDelegate?.backendDidStartPlaying(with: AudioEntryId(id: entryId.id))
     }
 

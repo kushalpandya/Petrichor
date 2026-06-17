@@ -105,7 +105,12 @@ protocol PlaybackBackend: AnyObject {
     var currentPlaybackProgress: Double { get }
     var duration: Double { get }
 
-    func play(url: URL, startPaused: Bool)
+    /// Whether this backend can pre-decode a queued next track for gapless
+    /// transitions. When true, the app feeds it the upcoming track via
+    /// `setNextTrack` and stops driving its own end-of-track advance.
+    var supportsGaplessQueue: Bool { get }
+
+    func play(url: URL, entryId: AudioEntryId, startPaused: Bool)
     func pause()
     func resume()
     func stop()
@@ -116,6 +121,12 @@ protocol PlaybackBackend: AnyObject {
     func seekForward(_ seconds: Double) -> Bool
     @discardableResult
     func seekBackward(_ seconds: Double) -> Bool
+
+    /// Pre-decodes `url` as the gapless successor to the current track. Replaces
+    /// any previously set next track. No-op on backends without gapless support.
+    func setNextTrack(url: URL, entryId: AudioEntryId)
+    /// Drops the pre-decoded next track (e.g. when it's no longer the successor).
+    func clearNextTrack()
 
     func setStereoWidening(enabled: Bool)
     func isStereoWideningEnabled() -> Bool
@@ -211,10 +222,25 @@ public class PlaybackEngine: NSObject {
         backend.backendDelegate = self
     }
 
+    /// Whether the active backend can pre-decode a queued next track for gapless.
+    public var supportsGaplessQueue: Bool {
+        backend.supportsGaplessQueue
+    }
+
     // MARK: - Playback Control
 
-    public func play(url: URL, startPaused: Bool = false) {
-        backend.play(url: url, startPaused: startPaused)
+    public func play(url: URL, entryId: AudioEntryId, startPaused: Bool = false) {
+        backend.play(url: url, entryId: entryId, startPaused: startPaused)
+    }
+
+    /// Pre-decodes the gapless successor to the current track (gapless backends only).
+    public func setNextTrack(url: URL, entryId: AudioEntryId) {
+        backend.setNextTrack(url: url, entryId: entryId)
+    }
+
+    /// Drops the pre-decoded next track.
+    public func clearNextTrack() {
+        backend.clearNextTrack()
     }
 
     public func pause() {

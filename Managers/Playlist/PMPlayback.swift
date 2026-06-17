@@ -97,6 +97,24 @@ extension PlaylistManager {
 
     // MARK: - Track Navigation
 
+    /// Resolves the index of the next track per the current repeat mode, or nil at
+    /// end-of-queue under `.off`. Shuffle is already reflected in `currentQueue`'s
+    /// order. The single source of truth for "what plays next", shared by
+    /// `playNextTrack` (which advances) and `peekNextTrack` (which only looks).
+    private func nextQueueIndex() -> Int? {
+        guard !currentQueue.isEmpty else { return nil }
+
+        switch repeatMode {
+        case .one:
+            return currentQueueIndex
+        case .all:
+            return (currentQueueIndex + 1) % currentQueue.count
+        case .off:
+            let nextIndex = currentQueueIndex + 1
+            return nextIndex < currentQueue.count ? nextIndex : nil
+        }
+    }
+
     func playNextTrack() {
         guard !currentQueue.isEmpty else {
             createLibraryQueue()
@@ -108,25 +126,29 @@ extension PlaylistManager {
             return
         }
 
-        var nextIndex: Int
-
-        switch repeatMode {
-        case .one:
-            nextIndex = currentQueueIndex
-        case .all:
-            nextIndex = (currentQueueIndex + 1) % currentQueue.count
-        case .off:
-            nextIndex = currentQueueIndex + 1
-            if nextIndex >= currentQueue.count {
-                return
-            }
-        }
+        guard let nextIndex = nextQueueIndex() else { return }
 
         currentQueueIndex = nextIndex
         let track = currentQueue[nextIndex]
         audioPlayer?.playTrack(track)
         audioPlayer?.updateNowPlayingInfo()
         Logger.info("Played track: \(track.url)")
+    }
+
+    /// Computes the immediate next track per the current repeat mode WITHOUT
+    /// advancing or playing. Used to prime the engine's gapless lookahead.
+    func peekNextTrack() -> (track: Track, index: Int)? {
+        guard let nextIndex = nextQueueIndex() else { return nil }
+        return (currentQueue[nextIndex], nextIndex)
+    }
+
+    /// Syncs the queue position after a gapless engine advanced into the
+    /// already-primed next track. The playback layer drove the advance, so this
+    /// only moves the authority's index - it does not trigger playback. Keeps
+    /// `PlaylistManager` the sole writer of `currentQueueIndex`.
+    func advanceQueueIndex(to index: Int) {
+        guard index >= 0, index < currentQueue.count else { return }
+        currentQueueIndex = index
     }
 
     func playPreviousTrack() {

@@ -95,15 +95,22 @@ final class SFBPlaybackBackend: NSObject, PlaybackBackend {
         sfbPlayer.stop()
     }
 
+    // MARK: - Gapless lookahead (unsupported)
+
+    // SFBAudioEngine plays one URL at a time; the app drives end-of-track advance.
+    let supportsGaplessQueue = false
+
+    func setNextTrack(url: URL, entryId: AudioEntryId) {}
+    func clearNextTrack() {}
+
     // MARK: - Playback Control
 
     /// Play an audio file from URL
     /// - Parameters:
     ///   - url: The URL of the audio file
     ///   - startPaused: If true, loads the file but doesn't start playback
-    func play(url: URL, startPaused: Bool = false) {
+    func play(url: URL, entryId: AudioEntryId, startPaused: Bool = false) {
         currentURL = url
-        let entryId = AudioEntryId(id: url.lastPathComponent)
         currentEntryId = entryId
 
         let shouldPreBuffer = Self.shouldPreBuffer(url: url)

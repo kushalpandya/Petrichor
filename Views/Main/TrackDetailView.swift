@@ -478,12 +478,12 @@ private struct FileDetailsSection: View {
         items.append(("Format", fullTrack.format.uppercased()))
 
         // Audio properties
-        if let codec = fullTrack.codec, !codec.isEmpty {
+        if let codec = fullTrack.codecDisplay {
             items.append(("Codec", codec))
         }
 
-        if let bitrate = fullTrack.bitrate, bitrate > 0 {
-            items.append(("Bitrate", "\(bitrate) kbps"))
+        if let bitrate = fullTrack.bitrateDisplay {
+            items.append(("Bitrate", bitrate))
         }
 
         if let sampleRate = fullTrack.sampleRate, sampleRate > 0 {

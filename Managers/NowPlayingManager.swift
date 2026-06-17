@@ -24,11 +24,11 @@ class NowPlayingManager {
         nowPlayingInfo[MPMediaItemPropertyAlbumTitle] = track.album
         nowPlayingInfo[MPMediaItemPropertyGenre] = track.genre
 
-        // Set the artwork
-        if let artworkData = track.artworkData, let image = NSImage(data: artworkData) {
-            let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in
-                NSImage(data: artworkData) ?? image
-            }
+        // Set the artwork. updateNowPlayingInfo runs on every play/pause/seek and
+        // ~1/sec while playing, so cache the MPMediaItemArtwork per track and only
+        // decode the image when the track changes (decoding it each call is the
+        // expensive part and makes AirPlay receivers redraw).
+        if let artwork = artwork(for: track) {
             nowPlayingInfo[MPMediaItemPropertyArtwork] = artwork
         }
 
@@ -49,6 +49,44 @@ class NowPlayingManager {
         ensureRemoteCommandsEnabled()
     }
 
+    private var cachedArtwork: MPMediaItemArtwork?
+    private var cachedArtworkURL: URL?
+
+    private func artwork(for track: Track) -> MPMediaItemArtwork? {
+        guard let artworkData = track.artworkData else {
+            cachedArtwork = nil
+            cachedArtworkURL = nil
+            return nil
+        }
+        if cachedArtworkURL == track.url, let cached = cachedArtwork {
+            return cached
+        }
+        guard let image = NSImage(data: artworkData) else {
+            cachedArtwork = nil
+            cachedArtworkURL = nil
+            return nil
+        }
+        let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+        cachedArtwork = artwork
+        cachedArtworkURL = track.url
+        return artwork
+    }
+
+    /// The remote commands Petrichor handles. Single source of truth so the
+    /// teardown (`setupRemoteCommandCenter`) and the re-assert
+    /// (`ensureRemoteCommandsEnabled`) can't drift out of sync.
+    private var managedCommands: [MPRemoteCommand] {
+        let center = MPRemoteCommandCenter.shared()
+        return [
+            center.playCommand,
+            center.pauseCommand,
+            center.togglePlayPauseCommand,
+            center.nextTrackCommand,
+            center.previousTrackCommand,
+            center.changePlaybackPositionCommand
+        ]
+    }
+
     /// Re-asserts that the remote commands Petrichor handles are enabled.
     ///
     /// The Crescendo engine shares the process-global MPRemoteCommandCenter and,
@@ -60,16 +98,7 @@ class NowPlayingManager {
     /// scrubber disabled. Guarded so we only write on change, since redundant
     /// writes make AirPlay receivers redraw.
     private func ensureRemoteCommandsEnabled() {
-        let center = MPRemoteCommandCenter.shared()
-        let commands: [MPRemoteCommand] = [
-            center.playCommand,
-            center.pauseCommand,
-            center.togglePlayPauseCommand,
-            center.nextTrackCommand,
-            center.previousTrackCommand,
-            center.changePlaybackPositionCommand
-        ]
-        for command in commands where !command.isEnabled {
+        for command in managedCommands where !command.isEnabled {
             command.isEnabled = true
         }
     }
@@ -77,16 +106,10 @@ class NowPlayingManager {
     // MARK: - Remote Command Center
 
     private func setupRemoteCommandCenter() {
-        // Get the shared command center
-        let commandCenter = MPRemoteCommandCenter.shared()
-
         // Remove any existing handlers
-        commandCenter.playCommand.removeTarget(nil)
-        commandCenter.pauseCommand.removeTarget(nil)
-        commandCenter.togglePlayPauseCommand.removeTarget(nil)
-        commandCenter.nextTrackCommand.removeTarget(nil)
-        commandCenter.previousTrackCommand.removeTarget(nil)
-        commandCenter.changePlaybackPositionCommand.removeTarget(nil)
+        for command in managedCommands {
+            command.removeTarget(nil)
+        }
     }
 
     func connectRemoteCommandCenter(audioPlayer: PlaybackManager, playlistManager: PlaylistManager) {

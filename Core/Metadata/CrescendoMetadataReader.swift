@@ -67,7 +67,9 @@ struct CrescendoMetadataReader: MetadataReader {
         }
         if source.sampleRate > 0 { metadata.sampleRate = source.sampleRate }
         if source.channelCount > 0 { metadata.channels = source.channelCount }
-        if let bitrate = source.bitrate, bitrate > 0 { metadata.bitrate = bitrate }
+        // Crescendo reports bitrate in bits/sec; Petrichor stores and displays
+        // kbps (as SFB/TagLib does), so convert.
+        if let bitrate = source.bitrate, bitrate > 0 { metadata.bitrate = (bitrate + 500) / 1000 }
         if let bitDepth = source.bitDepth, bitDepth > 0 { metadata.bitDepth = bitDepth }
         metadata.codec = source.codec
         // Crescendo reports a typed lossless flag, so use it directly rather than
@@ -84,8 +86,7 @@ struct CrescendoMetadataReader: MetadataReader {
         if let originalReleaseDate = source.originalReleaseDate {
             metadata.originalReleaseDate = originalReleaseDate
             if metadata.year == nil {
-                let extractedYear = MetadataMapping.year(fromDateString: originalReleaseDate)
-                if !extractedYear.isEmpty { metadata.year = extractedYear }
+                metadata.year = MetadataMapping.year(fromDateString: originalReleaseDate)
             }
         }
 

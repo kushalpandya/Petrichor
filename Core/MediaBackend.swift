@@ -7,9 +7,9 @@
 // the MetadataEngine facade) reads `current` and picks its own backend, so
 // removing SFBAudioEngine later is a change to those facades plus this enum.
 //
-// Switching engines requires an app relaunch (the toggle and relaunch UI arrive
-// in a later phase), so reading this per call is safe - the value cannot change
-// while the app is running.
+// Switching engines is an in-process swap driven from Settings (PlaybackEngine
+// rebuilds its backend), so `current` is read at each seam's (re)build point
+// rather than cached.
 //
 
 import Foundation
@@ -22,9 +22,8 @@ enum MediaBackend {
     static let userDefaultsKey = "useModernPlaybackEngine"
 
     /// The backend selected for this session. The toggle default is registered
-    /// at app init; when the key is absent this reads false, so the app stays on
-    /// SFBAudioEngine. No facade reads the Crescendo branch into a real backend
-    /// yet, so runtime playback and metadata are still SFB only.
+    /// `true` at app init, so absent an explicit user choice the app runs on
+    /// Crescendo; flipping the toggle off selects SFBAudioEngine.
     static var current: MediaBackend {
         UserDefaults.standard.bool(forKey: userDefaultsKey) ? .crescendo : .sfb
     }
