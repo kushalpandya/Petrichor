@@ -61,6 +61,8 @@ class PlaybackManager: NSObject, ObservableObject {
     
     private let libraryManager: LibraryManager
     private let playlistManager: PlaylistManager
+    // The single Petrichor-side Now Playing owner (info tile + remote commands).
+    // This is the SFBAudioEngine path; Crescendo publishes Now Playing itself.
     private let nowPlayingManager: NowPlayingManager
     
     // MARK: - Initialization
@@ -234,7 +236,7 @@ class PlaybackManager: NSObject, ObservableObject {
         // Clamp seek position to the engine's actual duration to prevent seek
         // errors when the DB-stored duration differs from the actual track
         // duration, this happens in edge-cases for MP3, although it is fixed
-        // in MetadataExtractor so hard refresh on library should resolve this.
+        // in MetadataEngine so hard refresh on library should resolve this.
         let engineDuration = audioPlayer.duration
         let clampedTime = engineDuration > 0 ? min(time, engineDuration) : time
         audioPlayer.seek(to: clampedTime)
@@ -263,6 +265,17 @@ class PlaybackManager: NSObject, ObservableObject {
             track: track,
             currentTime: currentTime,
             isPlaying: isPlaying
+        )
+    }
+
+    /// Wires the system remote command center (lock screen / Control Center) to
+    /// this manager. PlaybackManager owns the single Petrichor-side Now Playing
+    /// path, which is the SFBAudioEngine path; when Crescendo is the active
+    /// backend it will publish Now Playing itself and this path is skipped.
+    func connectRemoteCommandCenter() {
+        nowPlayingManager.connectRemoteCommandCenter(
+            audioPlayer: self,
+            playlistManager: playlistManager
         )
     }
     

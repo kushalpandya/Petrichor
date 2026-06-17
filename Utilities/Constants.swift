@@ -102,10 +102,12 @@ enum About {
 // MARK: - Audio File Formats
 
 enum AudioFormat {
+    // The set of file extensions Petrichor imports and plays. This is the app's
+    // supported list and stays the same regardless of the active engine.
     static let supportedExtensions = [
         // Core Audio formats
         "mp3", "m4a", "wav", "aac", "aiff", "aif", "alac",
-        // SFBAudioEngine extended formats
+        // Extended formats
         "flac", "ogg", "oga", "opus", "ape", "mpc", "wv",
         "tta", "spx", "dsf", "dff", "mod", "it", "s3m", "xm",
         // Common legacy/CoreAudio-compatible

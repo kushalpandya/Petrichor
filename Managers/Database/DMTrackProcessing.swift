@@ -196,7 +196,7 @@ extension DatabaseManager {
                 // Fetch the full track for comparison and update
                 guard let existingFullTrack = try await existingTrack.fullTrack(using: dbQueue) else {
                     // If we can't get full track, treat as new
-                    let metadata = await MetadataExtractor.extractMetadata(
+                    let metadata = await MetadataEngine.extractMetadata(
                         from: fileURL,
                         externalArtwork: externalArtwork,
                         artworkCache: artworkCache
@@ -210,7 +210,7 @@ extension DatabaseManager {
                 
                 // Re-extract complete metadata on hardRefresh
                 if hardRefresh {
-                    let metadata = await MetadataExtractor.extractMetadata(
+                    let metadata = await MetadataEngine.extractMetadata(
                         from: fileURL,
                         externalArtwork: externalArtwork,
                         artworkCache: artworkCache
@@ -231,7 +231,7 @@ extension DatabaseManager {
                     
                     if timeDifference > 1.0 {
                         // File modified, extract fresh metadata
-                        let metadata = await MetadataExtractor.extractMetadata(
+                        let metadata = await MetadataEngine.extractMetadata(
                             from: fileURL,
                             externalArtwork: externalArtwork
                         )
@@ -252,7 +252,7 @@ extension DatabaseManager {
             }
             
             // New track - extract metadata
-            let metadata = await MetadataExtractor.extractMetadata(
+            let metadata = await MetadataEngine.extractMetadata(
                 from: fileURL,
                 externalArtwork: externalArtwork,
                 artworkCache: artworkCache

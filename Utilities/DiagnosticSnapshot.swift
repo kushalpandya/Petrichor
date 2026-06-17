@@ -73,7 +73,8 @@ enum DiagnosticSnapshot {
                 "automaticUpdatesEnabled": defaults.boolOrNull("automaticUpdatesEnabled"),
                 "colorMode": defaults.stringOrNull("colorMode"),
                 "showFoldersTab": defaults.boolOrNull("showFoldersTab"),
-                "useArtworkColors": defaults.boolOrNull("useArtworkColors")
+                "useArtworkColors": defaults.boolOrNull("useArtworkColors"),
+                "useModernPlaybackEngine": defaults.boolOrNull(MediaBackend.userDefaultsKey)
             ],
             "library": [
                 "autoScanInterval": defaults.stringOrNull("autoScanInterval"),

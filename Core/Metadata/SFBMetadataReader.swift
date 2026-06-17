@@ -1,81 +1,21 @@
+//
+// SFBMetadataReader
+//
+// The SFBAudioEngine-backed metadata reader. It owns all the SFBAudioEngine tag,
+// audio-property, and artwork parsing, so MetadataEngine stays backend-agnostic.
+// A Crescendo reader will sit alongside this behind the same MetadataReader
+// protocol, selected by MediaBackend.
+//
+
 import AVFoundation
 import Foundation
 import SFBAudioEngine
 
-// MARK: - Track Metadata
-
-struct TrackMetadata {
-    let url: URL
-    var title: String?
-    var artist: String?
-    var album: String?
-    var composer: String?
-    var genre: String?
-    var year: String?
-    var duration: Double = 0
-    var artworkData: Data?
-    var albumArtist: String?
-    var trackNumber: Int?
-    var totalTracks: Int?
-    var discNumber: Int?
-    var totalDiscs: Int?
-    var rating: Int?
-    var compilation: Bool = false
-    var releaseDate: String?
-    var originalReleaseDate: String?
-    var bpm: Int?
-    var mediaType: String?
-    var bitrate: Int?
-    var sampleRate: Int?
-    var channels: Int?
-    var codec: String?
-    var bitDepth: Int?
-    var lossless: Bool?
-
-    var sortTitle: String?
-    var sortArtist: String?
-    var sortAlbum: String?
-    var sortAlbumArtist: String?
-
-    var extended: ExtendedMetadata
-
-    init(url: URL) {
-        self.url = url
-        self.extended = ExtendedMetadata()
-    }
-}
-
-// MARK: - Artwork Compression Cache
-
-/// Thread-safe cache for compressed artwork data within a processing chunk.
-/// Avoids re-compressing identical album artwork across tracks in the same batch.
-actor ArtworkCompressionCache {
-    private var cache: [Int: Data] = [:]
-
-    func get(for data: Data) -> Data? {
-        cache[data.hashValue]
-    }
-
-    func store(original: Data, compressed: Data) {
-        cache[original.hashValue] = compressed
-    }
-}
-
-// MARK: - Metadata Extractor
-
-enum MetadataExtractor {
-    // MARK: - Public Methods
-
-    /// Extract metadata from an audio file using SFBAudioEngine
-    /// - Parameters:
-    ///   - url: The URL of the audio file
-    ///   - externalArtwork: Optional external artwork to use if file has none
-    ///   - artworkCache: Optional shared cache to avoid re-compressing identical artwork
-    /// - Returns: TrackMetadata containing all extracted information
-    static func extractMetadata(
+struct SFBMetadataReader: MetadataReader {
+    func extractMetadata(
         from url: URL,
-        externalArtwork: Data? = nil,
-        artworkCache: ArtworkCompressionCache? = nil
+        externalArtwork: Data?,
+        artworkCache: ArtworkCompressionCache?
     ) async -> TrackMetadata {
         var metadata = TrackMetadata(url: url)
 
@@ -92,13 +32,13 @@ enum MetadataExtractor {
         }
 
         // Extract audio properties
-        await extractAudioProperties(from: audioFile.properties, into: &metadata)
+        await Self.extractAudioProperties(from: audioFile.properties, into: &metadata)
 
         // Extract metadata
-        extractMetadata(from: audioFile.metadata, into: &metadata)
+        Self.extractMetadata(from: audioFile.metadata, into: &metadata)
 
         // Extract artwork
-        await extractArtwork(
+        await Self.extractArtwork(
             from: audioFile.metadata,
             into: &metadata,
             source: url.lastPathComponent,
@@ -123,7 +63,7 @@ enum MetadataExtractor {
         if let formatName = properties.formatName {
             metadata.codec = formatName
         }
-        
+
         // Duration (TimeInterval is a typealias for Double)
         if let duration = properties.duration, duration.isFinite, duration >= 0 {
             metadata.duration = duration
@@ -214,17 +154,17 @@ enum MetadataExtractor {
     /// Fallback: detect lossless from file extension
     private static func detectLosslessFromExtension(url: URL) -> Bool? {
         let ext = url.pathExtension.lowercased()
-        
+
         let losslessExtensions = ["flac", "ape", "wv", "tta", "wav", "wave", "aiff", "aif", "aifc", "alac"]
         let lossyExtensions = ["mp3", "aac", "m4a", "ogg", "opus", "mpc", "wma"]
-        
+
         if losslessExtensions.contains(ext) {
             return true
         }
         if lossyExtensions.contains(ext) {
             return false
         }
-        
+
         return nil
     }
 
@@ -533,13 +473,13 @@ enum MetadataExtractor {
 
         return ""
     }
-    
+
     /// Extract normalized rating value on a 0-5 scale
     private static func extractRating(from rawRating: Int?) -> Int? {
         guard let raw = rawRating, raw > 0 else { return nil }
-        
+
         let normalized: Int
-        
+
         // Default rating range (1-5)
         if raw <= 5 {
             normalized = raw
@@ -556,7 +496,7 @@ enum MetadataExtractor {
         } else {
             normalized = 5
         }
-        
+
         return min(max(normalized, 0), 5)
     }
 }

@@ -7,7 +7,6 @@
 
 import Foundation
 import GRDB
-import SFBAudioEngine
 
 extension DatabaseManager {
     // Updates a track's favorite status

@@ -12,7 +12,6 @@ class AppCoordinator: ObservableObject {
     let libraryManager: LibraryManager
     let playlistManager: PlaylistManager
     let playbackManager: PlaybackManager
-    let nowPlayingManager: NowPlayingManager
     let menuBarManager: MenuBarManager
     let scrobbleManager: ScrobbleManager
     
@@ -40,9 +39,8 @@ class AppCoordinator: ObservableObject {
         playlistManager.setAudioPlayer(playbackManager)
         playlistManager.setLibraryManager(libraryManager)
         
-        // Setup now playing
-        nowPlayingManager = NowPlayingManager()
-        nowPlayingManager.connectRemoteCommandCenter(audioPlayer: playbackManager, playlistManager: playlistManager)
+        // Setup now playing - PlaybackManager owns the single Now Playing path
+        playbackManager.connectRemoteCommandCenter()
         
         // Setup menubar
         menuBarManager = MenuBarManager(playbackManager: playbackManager, playlistManager: playlistManager)

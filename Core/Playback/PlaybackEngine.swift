@@ -182,12 +182,21 @@ public class PlaybackEngine: NSObject {
     // MARK: - Initialization
 
     override public init() {
-        // Phase 1: only the SFBAudioEngine backend exists. The backend selector
-        // (UserDefaults toggle) and the Crescendo backend arrive in later phases;
-        // both are resolved here, once, at facade init.
-        self.backend = SFBPlaybackBackend()
+        self.backend = Self.makeBackend()
         super.init()
         self.backend.backendDelegate = self
+    }
+
+    /// Builds the backend for the selected engine. The Crescendo backend is added
+    /// in a later phase; until then the Crescendo case uses the SFB backend so the
+    /// seam is wired but inert.
+    private static func makeBackend() -> PlaybackBackend {
+        switch MediaBackend.current {
+        case .sfb:
+            return SFBPlaybackBackend()
+        case .crescendo:
+            return SFBPlaybackBackend()
+        }
     }
 
     // MARK: - Playback Control
