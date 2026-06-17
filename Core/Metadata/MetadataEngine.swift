@@ -93,15 +93,13 @@ enum MetadataEngine {
         )
     }
 
-    /// Builds the reader for the selected backend. The Crescendo reader is added
-    /// in a later phase; until then the Crescendo case uses the SFB reader so the
-    /// seam is wired but inert.
+    /// Builds the reader for the selected backend.
     private static func reader() -> MetadataReader {
         switch MediaBackend.current {
         case .sfb:
             return SFBMetadataReader()
         case .crescendo:
-            return SFBMetadataReader()
+            return CrescendoMetadataReader()
         }
     }
 }

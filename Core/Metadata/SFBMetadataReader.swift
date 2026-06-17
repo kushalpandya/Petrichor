@@ -200,7 +200,7 @@ struct SFBMetadataReader: MetadataReader {
         }
 
         // Rating
-        metadata.rating = extractRating(from: audioMetadata.rating)
+        metadata.rating = MetadataMapping.normalizedRating(fromRaw: audioMetadata.rating)
 
         // Compilation (Bool, not NSNumber)
         metadata.compilation = audioMetadata.isCompilation ?? false
@@ -211,7 +211,7 @@ struct SFBMetadataReader: MetadataReader {
 
             // Extract year from release date if year not set
             if metadata.year == nil {
-                metadata.year = extractYear(from: releaseDate)
+                metadata.year = MetadataMapping.year(fromDateString: releaseDate)
             }
         }
 
@@ -372,7 +372,7 @@ struct SFBMetadataReader: MetadataReader {
                 metadata.originalReleaseDate = stringValue
                 // Also try to extract year if not set
                 if metadata.year == nil {
-                    let extractedYear = extractYear(from: stringValue)
+                    let extractedYear = MetadataMapping.year(fromDateString: stringValue)
                     if !extractedYear.isEmpty {
                         metadata.year = extractedYear
                     }
@@ -431,72 +431,10 @@ struct SFBMetadataReader: MetadataReader {
     ) async {
         guard let firstPicture = audioMetadata.attachedPictures.first else { return }
 
-        let rawData = firstPicture.imageData
-
-        if rawData.count > AlbumArtFormat.maxArtworkSize {
-            let context = source.map { " for \($0)" } ?? ""
-            Logger.warning("Skipping oversized embedded artwork\(context) (\(rawData.count) bytes)")
-            return
-        }
-
-        // Check cache for previously compressed identical artwork
-        if let cache = artworkCache, let cached = await cache.get(for: rawData) {
-            metadata.artworkData = cached
-            return
-        }
-
-        // If compression fails, leave artworkData nil rather than persisting undecodable bytes
-        // that would re-fail on every later read (sidebar, now-playing, color extraction).
-        guard let compressed = ImageUtils.compressImage(from: rawData, source: source) else { return }
-        metadata.artworkData = compressed
-
-        // Store in cache for subsequent tracks with identical artwork
-        if let cache = artworkCache {
-            await cache.store(original: rawData, compressed: compressed)
-        }
-    }
-
-    // MARK: - Helper Methods
-
-    /// Extract a 4-digit year from a date string
-    private static func extractYear(from dateString: String) -> String {
-        // Try to find a 4-digit year (e.g., 2024, 1999)
-        let yearPattern = #"\b(19|20)\d{2}\b"#
-
-        if let regex = try? NSRegularExpression(pattern: yearPattern),
-           let match = regex.firstMatch(
-            in: dateString,
-            range: NSRange(dateString.startIndex..., in: dateString)
-           ) {
-            if let range = Range(match.range, in: dateString) { return String(dateString[range]) }
-        }
-
-        return ""
-    }
-
-    /// Extract normalized rating value on a 0-5 scale
-    private static func extractRating(from rawRating: Int?) -> Int? {
-        guard let raw = rawRating, raw > 0 else { return nil }
-
-        let normalized: Int
-
-        // Default rating range (1-5)
-        if raw <= 5 {
-            normalized = raw
-        }
-        // ID3v2 POPM rating range (1-255 mapped to 1-5)
-        else if raw <= 31 {
-            normalized = 1
-        } else if raw <= 95 {
-            normalized = 2
-        } else if raw <= 159 {
-            normalized = 3
-        } else if raw <= 223 {
-            normalized = 4
-        } else {
-            normalized = 5
-        }
-
-        return min(max(normalized, 0), 5)
+        metadata.artworkData = await MetadataMapping.compressedArtwork(
+            from: firstPicture.imageData,
+            source: source,
+            cache: artworkCache
+        )
     }
 }

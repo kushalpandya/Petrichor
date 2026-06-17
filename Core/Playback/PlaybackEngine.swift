@@ -195,7 +195,7 @@ public class PlaybackEngine: NSObject {
         case .sfb:
             return SFBPlaybackBackend()
         case .crescendo:
-            return SFBPlaybackBackend()
+            return CrescendoPlaybackBackend()
         }
     }
 

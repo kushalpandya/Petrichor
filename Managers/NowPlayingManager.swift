@@ -41,6 +41,37 @@ class NowPlayingManager {
 
         // Update the now playing info
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
+
+        // Reflect transport state to the macOS Now Playing widget (it reads this
+        // in addition to the playback rate).
+        MPNowPlayingInfoCenter.default().playbackState = isPlaying ? .playing : .paused
+
+        ensureRemoteCommandsEnabled()
+    }
+
+    /// Re-asserts that the remote commands Petrichor handles are enabled.
+    ///
+    /// The Crescendo engine shares the process-global MPRemoteCommandCenter and,
+    /// when its player is created, disables commands that don't yet apply -
+    /// including the scrubber's changePlaybackPositionCommand - and does not
+    /// restore them when it relinquishes control. Petrichor owns these commands,
+    /// so we re-enable them here. Called on every Now Playing update so a runtime
+    /// engine switch (which builds a fresh Crescendo player) can't leave the
+    /// scrubber disabled. Guarded so we only write on change, since redundant
+    /// writes make AirPlay receivers redraw.
+    private func ensureRemoteCommandsEnabled() {
+        let center = MPRemoteCommandCenter.shared()
+        let commands: [MPRemoteCommand] = [
+            center.playCommand,
+            center.pauseCommand,
+            center.togglePlayPauseCommand,
+            center.nextTrackCommand,
+            center.previousTrackCommand,
+            center.changePlaybackPositionCommand
+        ]
+        for command in commands where !command.isEnabled {
+            command.isEnabled = true
+        }
     }
 
     // MARK: - Remote Command Center
@@ -116,5 +147,7 @@ class NowPlayingManager {
             audioPlayer.seekTo(time: positionEvent.positionTime)
             return .success
         }
+
+        ensureRemoteCommandsEnabled()
     }
 }
