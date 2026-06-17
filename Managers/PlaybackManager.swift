@@ -1,7 +1,7 @@
 //
 // PlaybackManager class
 //
-// This class handles track playback coordination with PAudioPlayer,
+// This class handles track playback coordination with PlaybackEngine,
 // including database updates, state persistence, and integration with
 // PlaylistManager and NowPlayingManager.
 //
@@ -51,7 +51,7 @@ class PlaybackManager: NSObject, ObservableObject {
     
     // MARK: - Private Properties
     
-    private let audioPlayer: PAudioPlayer
+    private let audioPlayer: PlaybackEngine
     private var currentFullTrack: FullTrack?
     private var progressUpdateTimer: DispatchSourceTimer?
     private var stateSaveTimer: Timer?
@@ -69,7 +69,7 @@ class PlaybackManager: NSObject, ObservableObject {
         self.libraryManager = libraryManager
         self.playlistManager = playlistManager
         self.nowPlayingManager = NowPlayingManager()
-        self.audioPlayer = PAudioPlayer()
+        self.audioPlayer = PlaybackEngine()
         
         super.init()
         
@@ -459,14 +459,14 @@ class PlaybackManager: NSObject, ObservableObject {
 // MARK: - AudioPlayerDelegate
 
 extension PlaybackManager: AudioPlayerDelegate {
-    func audioPlayerDidStartPlaying(player: PAudioPlayer, with entryId: AudioEntryId) {
+    func audioPlayerDidStartPlaying(player: PlaybackEngine, with entryId: AudioEntryId) {
         DispatchQueue.main.async {
             self.isPlaying = true
             Logger.info("Track started playing: \(entryId.id)")
         }
     }
     
-    func audioPlayerStateChanged(player: PAudioPlayer, with newState: AudioPlayerState, previous: AudioPlayerState) {
+    func audioPlayerStateChanged(player: PlaybackEngine, with newState: AudioPlayerState, previous: AudioPlayerState) {
         DispatchQueue.main.async {
             let oldIsPlaying = self.isPlaying
 
@@ -489,7 +489,7 @@ extension PlaybackManager: AudioPlayerDelegate {
     }
     
     func audioPlayerDidFinishPlaying(
-        player: PAudioPlayer,
+        player: PlaybackEngine,
         entryId: AudioEntryId,
         stopReason: AudioPlayerStopReason,
         progress: Double,
@@ -540,7 +540,7 @@ extension PlaybackManager: AudioPlayerDelegate {
         }
     }
     
-    func audioPlayerUnexpectedError(player: PAudioPlayer, error: AudioPlayerError) {
+    func audioPlayerUnexpectedError(player: PlaybackEngine, error: AudioPlayerError) {
         DispatchQueue.main.async {
             Logger.error("Audio player error: \(error.localizedDescription)")
             NotificationManager.shared.addMessage(.error, "Playback error: \(error.localizedDescription)")
