@@ -352,7 +352,14 @@ extension Sections: TabbedItem {
 }
 
 extension SettingsView.SettingsTab: TabbedItem {
-    var title: String { self.rawValue }
+    var title: String {
+        switch self {
+        case .general: return String(localized: "General")
+        case .library: return String(localized: "Library")
+        case .online: return String(localized: "Online")
+        case .about: return String(localized: "About")
+        }
+    }
 }
 
 struct WindowDragPreventer: NSViewRepresentable {

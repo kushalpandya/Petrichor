@@ -337,9 +337,9 @@ struct ContentView: View {
     // MARK: - Playlist Import/Export
 
     private func importPlaylists() {
-         let panel = NSOpenPanel()
-         panel.title = "Import Playlists"
-         panel.message = "Select up to 25 playlist files to import"
+          let panel = NSOpenPanel()
+          panel.title = String(localized: "Import Playlists")
+          panel.message = String(localized: "Select up to 25 playlist files to import")
          panel.canChooseFiles = true
          panel.canChooseDirectories = false
          panel.allowsMultipleSelection = true
@@ -350,11 +350,11 @@ struct ContentView: View {
              
              let urls = panel.urls
              
-             guard urls.count <= 25 else {
-                 NotificationManager.shared.addMessage(
-                     .warning,
-                     "Selected \(urls.count) files. Please select up to 25 files at a time."
-                 )
+              guard urls.count <= 25 else {
+                  NotificationManager.shared.addMessage(
+                      .warning,
+                      String(localized: "Selected \(urls.count) files. Please select up to 25 files at a time.")
+                  )
                  DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                      importPlaylists()
                  }
@@ -363,7 +363,7 @@ struct ContentView: View {
              
              guard !urls.isEmpty else { return }
              
-             NotificationManager.shared.startActivity("Importing playlists...")
+             NotificationManager.shared.startActivity(String(localized: "Importing playlists..."))
              
              Task {
                  let importResult = await playlistManager.importPlaylists(from: urls)
@@ -377,10 +377,6 @@ struct ContentView: View {
      }
 
     private func showImportNotifications(result: BulkImportResult) {
-        func pluralize(_ count: Int, singular: String) -> String {
-            count == 1 ? singular : "\(singular)s"
-        }
-        
         var notifications: [(type: NotificationType, message: String)] = []
         
         // Add individual error messages for failed imports
@@ -392,25 +388,19 @@ struct ContentView: View {
         
         // Build aggregate notification messages
         if result.withWarnings > 0 {
-            let message = """
-                Imported \(result.withWarnings) \(pluralize(result.withWarnings, singular: "playlist")) \
-                with \(result.totalTracksMissing) missing \(pluralize(result.totalTracksMissing, singular: "track"))
-                """
+            let message = String(
+                localized: "Imported \(result.withWarnings) playlists with \(result.totalTracksMissing) missing tracks"
+            )
             notifications.append((.warning, message))
         }
         
         if result.successful > 0 {
-            let message = """
-                Successfully imported \(result.successful) \(pluralize(result.successful, singular: "playlist")) \
-                (\(result.totalTracksImported) \(pluralize(result.totalTracksImported, singular: "track")))
-                """
+            let message = String(localized: "Successfully imported \(result.successful) playlists (\(result.totalTracksImported) tracks)")
             notifications.append((.info, message))
         }
         
         if result.totalFiles > 0 && result.successful == 0 && result.withWarnings == 0 {
-            let message = """
-                Failed to import all \(result.totalFiles) \(pluralize(result.totalFiles, singular: "playlist"))
-                """
+            let message = String(localized: "Failed to import all \(result.totalFiles) playlists")
             notifications.append((.error, message))
         }
         
@@ -526,7 +516,7 @@ struct CreatePlaylistSheet: View {
                 }
 
             if !tracksToAdd.isEmpty {
-                Text("Will add: \(tracksToAdd.count) track\(tracksToAdd.count == 1 ? "" : "s")")
+                Text("Will add: \(tracksToAdd.count) tracks")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

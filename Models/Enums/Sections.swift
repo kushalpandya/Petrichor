@@ -10,10 +10,10 @@ enum Sections: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .home: return "Home"
-        case .library: return "Library"
-        case .playlists: return "Playlists"
-        case .folders: return "Folders"
+        case .home: return String(localized: "Home")
+        case .library: return String(localized: "Library")
+        case .playlists: return String(localized: "Playlists")
+        case .folders: return String(localized: "Folders")
         }
     }
 

@@ -143,15 +143,24 @@ struct SidebarItemRow<Item: SidebarItem>: View {
     }
     
     private var titleView: some View {
-        Text(item.title)
+        Text(displayTitle)
             .font(.system(size: 13, weight: isSelected ? .medium : .regular))
             .italic(isUnknownItem)
             .lineLimit(1)
             .foregroundColor(isSelected ? .white : .primary)
-            .help(isTitleTruncated ? item.title : "")
-            .background(truncationDetector(for: item.title, isTruncated: $isTitleTruncated))
+            .help(isTitleTruncated ? displayTitle : "")
+            .background(truncationDetector(for: displayTitle, isTruncated: $isTitleTruncated))
     }
-    
+
+    /// Display title with the "Unknown X" sentinel localized. The raw `title`
+    /// stays English and is what `isUnknownItem` compares against.
+    private var displayTitle: String {
+        if let librarySidebarItem = item as? LibrarySidebarItem {
+            return librarySidebarItem.filterType.localizedDisplay(librarySidebarItem.title)
+        }
+        return item.title
+    }
+
     private var isUnknownItem: Bool {
         if let librarySidebarItem = item as? LibrarySidebarItem {
             return librarySidebarItem.title == librarySidebarItem.filterType.unknownPlaceholder

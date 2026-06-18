@@ -210,7 +210,7 @@ struct TrackTableView: View {
                 
                 // Artist
                 TableColumn("Artist", value: \.artist) { track in
-                    Text(track.artist)
+                    Text(track.displayArtist)
                         .font(isCurrentTrack(track) ? Self.currentTrackFont : Self.trackFont)
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -221,7 +221,7 @@ struct TrackTableView: View {
                 
                 // Album
                 TableColumn("Album", value: \.album) { track in
-                    Text(track.album)
+                    Text(track.displayAlbum)
                         .font(isCurrentTrack(track) ? Self.currentTrackFont : Self.trackFont)
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -232,7 +232,7 @@ struct TrackTableView: View {
                 
                 // Genre
                 TableColumn("Genre", value: \.genre) { track in
-                    Text(track.genre)
+                    Text(track.displayGenre)
                         .font(isCurrentTrack(track) ? Self.currentTrackFont : Self.trackFont)
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -243,7 +243,7 @@ struct TrackTableView: View {
                 
                 // Year
                 TableColumn("Year", value: \.year) { track in
-                    Text(track.year)
+                    Text(track.displayYear)
                         .font(isCurrentTrack(track) ? Self.currentTrackFont : Self.trackFont)
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -254,7 +254,7 @@ struct TrackTableView: View {
                 
                 // Composer
                 TableColumn("Composer", value: \.composer) { track in
-                    Text(track.composer)
+                    Text(track.displayComposer)
                         .font(isCurrentTrack(track) ? Self.currentTrackFont : Self.trackFont)
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)

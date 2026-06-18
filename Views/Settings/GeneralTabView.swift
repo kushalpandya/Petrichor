@@ -34,7 +34,11 @@ struct GeneralTabView: View {
         case auto = "Auto"
 
         var displayName: String {
-            self.rawValue
+            switch self {
+            case .light: return String(localized: "Light")
+            case .dark: return String(localized: "Dark")
+            case .auto: return String(localized: "Auto")
+            }
         }
 
         var icon: String {
@@ -131,9 +135,11 @@ struct GeneralTabView: View {
 
     private var engineToggleHelp: String {
         if notificationManager.isActivityInProgress {
-            return "Unavailable while the library is updating"
+            return String(localized: "Unavailable while the library is updating")
         }
-        return "Switches the engine used to play your music. Changing this will cause the playback to stop, and you can resume it later."
+        // swiftlint:disable:next line_length - localization key must remain a single literal for extraction.
+        let message = String(localized: "Switches the engine used to play your music. Changing this will cause the playback to stop, and you can resume it later.")
+        return message
     }
 
     @State private var showEngineInfo = false
@@ -151,10 +157,10 @@ struct GeneralTabView: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     engineInfoPoint(
-                        "Gapless playback, so albums and live recordings flow from one track to the next with no silent pause."
+                        String(localized: "Gapless playback, so albums and live recordings flow from one track to the next with no silent pause.")
                     )
-                    engineInfoPoint("Wider, more spacious stereo sound.")
-                    engineInfoPoint("Spatial Audio on supported headphones.")
+                    engineInfoPoint(String(localized: "Wider, more spacious stereo sound."))
+                    engineInfoPoint(String(localized: "Spatial Audio on supported headphones."))
                 }
 
                 Text("Turn it off to switch back to the classic engine. Your music and library stay exactly the same either way.")

@@ -49,13 +49,76 @@ enum LibraryFilterType: String, CaseIterable {
 
     var singularDisplayName: String {
         switch self {
-        case .artists: return "Artist"
-        case .albums: return "Album"
-        case .albumArtists: return "Album Artist"
-        case .composers: return "Composer"
-        case .genres: return "Genre"
-        case .decades: return "Decade"
-        case .years: return "Year"
+        case .artists: return String(localized: "Artist")
+        case .albums: return String(localized: "Album")
+        case .albumArtists: return String(localized: "Album Artist")
+        case .composers: return String(localized: "Composer")
+        case .genres: return String(localized: "Genre")
+        case .decades: return String(localized: "Decade")
+        case .years: return String(localized: "Year")
+        }
+    }
+
+    /// Localized plural label for display (e.g. sidebar section, menu title).
+    /// Distinct from `rawValue`, which stays English and is used as a stable
+    /// identifier for persistence and queries.
+    var pluralDisplayName: String {
+        switch self {
+        case .artists: return String(localized: "Artists")
+        case .albums: return String(localized: "Albums")
+        case .albumArtists: return String(localized: "Album Artists")
+        case .composers: return String(localized: "Composers")
+        case .genres: return String(localized: "Genres")
+        case .decades: return String(localized: "Decades")
+        case .years: return String(localized: "Years")
+        }
+    }
+
+    /// Localized label shown in place of the stored English `unknownPlaceholder`
+    /// at display sites. The stored value stays English so grouping, queries,
+    /// and persistence remain stable.
+    var localizedUnknownPlaceholder: String {
+        switch self {
+        case .artists: return String(localized: "Unknown Artist")
+        case .albums: return String(localized: "Unknown Album")
+        case .albumArtists: return String(localized: "Unknown Album Artist")
+        case .composers: return String(localized: "Unknown Composer")
+        case .genres: return String(localized: "Unknown Genre")
+        case .decades: return String(localized: "Unknown Decade")
+        case .years: return String(localized: "Unknown Year")
+        }
+    }
+
+    /// Maps a stored value to its display label, translating only the English
+    /// "Unknown X" sentinel and leaving real metadata untouched. Use at display
+    /// sites only — never for sorting, grouping, querying, or persistence.
+    func localizedDisplay(_ value: String) -> String {
+        value == unknownPlaceholder ? localizedUnknownPlaceholder : value
+    }
+
+    /// Localized title for the "all items" row (full phrase for correct word
+    /// order across languages).
+    var allItemsTitle: String {
+        switch self {
+        case .artists: return String(localized: "All Artists")
+        case .albums: return String(localized: "All Albums")
+        case .albumArtists: return String(localized: "All Album Artists")
+        case .composers: return String(localized: "All Composers")
+        case .genres: return String(localized: "All Genres")
+        case .decades: return String(localized: "All Decades")
+        case .years: return String(localized: "All Years")
+        }
+    }
+
+    var filterPlaceholder: String {
+        switch self {
+        case .artists: return String(localized: "Filter Artists...")
+        case .albums: return String(localized: "Filter Albums...")
+        case .albumArtists: return String(localized: "Filter Album Artists...")
+        case .composers: return String(localized: "Filter Composers...")
+        case .genres: return String(localized: "Filter Genres...")
+        case .decades: return String(localized: "Filter Decades...")
+        case .years: return String(localized: "Filter Years...")
         }
     }
 
@@ -85,13 +148,13 @@ enum LibraryFilterType: String, CaseIterable {
 
     var emptyStateMessage: String {
         switch self {
-        case .artists: return "No artists found in your library"
-        case .albums: return "No albums found in your library"
-        case .albumArtists: return "No album artists found in your library"
-        case .composers: return "No composers found in your library"
-        case .genres: return "No genres found in your library"
-        case .decades: return "No decades found in your library"
-        case .years: return "No release years found in your library"
+        case .artists: return String(localized: "No artists found in your library")
+        case .albums: return String(localized: "No albums found in your library")
+        case .albumArtists: return String(localized: "No album artists found in your library")
+        case .composers: return String(localized: "No composers found in your library")
+        case .genres: return String(localized: "No genres found in your library")
+        case .decades: return String(localized: "No decades found in your library")
+        case .years: return String(localized: "No release years found in your library")
         }
     }
 

@@ -201,7 +201,7 @@ struct PlayQueueRow: View {
                 .lineLimit(1)
                 .foregroundColor(isCurrentTrack ? .white : .primary)
 
-            Text(track.artist)
+            Text(track.displayArtist)
                 .font(.system(size: 11))
                 .lineLimit(1)
                 .foregroundColor(isCurrentTrack ? .white : .secondary)

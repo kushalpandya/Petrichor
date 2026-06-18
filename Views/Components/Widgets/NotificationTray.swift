@@ -258,9 +258,9 @@ struct NotificationTray: View {
     
     private var tooltipText: String {
         if manager.isActivityInProgress {
-            return manager.activityMessage.isEmpty ? "Refreshing Library..." : manager.activityMessage
+            return manager.activityMessage.isEmpty ? String(localized: "Refreshing Library...") : manager.activityMessage
         } else if hasNotifications {
-            return "\(manager.messages.count) notification\(manager.messages.count == 1 ? "" : "s")"
+            return String(localized: "\(manager.messages.count) notifications")
         }
         return ""
     }
@@ -276,7 +276,7 @@ struct NotificationPopover: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text(manager.isActivityInProgress ? "Updating Library" : "Notifications")
+                (manager.isActivityInProgress ? Text("Updating Library") : Text("Notifications"))
                     .font(.headline)
                 
                 Spacer()
@@ -344,7 +344,7 @@ struct NotificationPopover: View {
             ActivityAnimation(size: .medium)
             
             VStack(spacing: 8) {
-                Text(manager.activityMessage.isEmpty ? "Processing..." : manager.activityMessage)
+                (manager.activityMessage.isEmpty ? Text("Processing...") : Text(manager.activityMessage))
                     .font(.headline)
                     .multilineTextAlignment(.center)
                 
@@ -388,19 +388,14 @@ struct NotificationRow: View {
     private var timeAgoText: String {
         let now = Date()
         let interval = now.timeIntervalSince(message.timestamp)
-        
+
         if interval < 60 {
-            return "Just now"
-        } else if interval < 3600 {
-            let minutes = Int(interval / 60)
-            return "\(minutes) min\(minutes == 1 ? "" : "s") ago"
-        } else if interval < 86400 {
-            let hours = Int(interval / 3600)
-            return "\(hours) hour\(hours == 1 ? "" : "s") ago"
-        } else {
-            let days = Int(interval / 86400)
-            return "\(days) day\(days == 1 ? "" : "s") ago"
+            return String(localized: "Just now")
         }
+
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter.localizedString(for: message.timestamp, relativeTo: now)
     }
     
     var body: some View {
@@ -443,6 +438,7 @@ struct NotificationRow: View {
 
 // MARK: - Preview
 
+// swiftlint:disable localized_notification_message - preview-only sample data, not shipped UI
 #Preview {
     VStack(spacing: 40) {
         // Activity in progress
@@ -450,7 +446,7 @@ struct NotificationRow: View {
             .onAppear {
                 NotificationManager.shared.startActivity("Scanning for new music...")
             }
-        
+
         // With notifications
         NotificationTray()
             .onAppear {
@@ -462,3 +458,4 @@ struct NotificationRow: View {
     }
     .padding()
 }
+// swiftlint:enable localized_notification_message

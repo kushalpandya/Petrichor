@@ -62,10 +62,10 @@ struct HomeSidebarItem: SidebarItem {
 
         var title: String {
             switch self {
-            case .discover: return "Discover"
-            case .tracks: return "Tracks"
-            case .artists: return "Artists"
-            case .albums: return "Albums"
+            case .discover: return String(localized: "Discover")
+            case .tracks: return String(localized: "Tracks")
+            case .artists: return String(localized: "Artists")
+            case .albums: return String(localized: "Albums")
             }
         }
 
@@ -89,30 +89,12 @@ struct HomeSidebarItem: SidebarItem {
 
         // Set subtitle based on type
         switch type {
-        case .discover:
-            if let count = trackCount {
-                self.subtitle = "\(count) songs"
-            } else {
-                self.subtitle = "0 Songs"
-            }
-        case .tracks:
-            if let count = trackCount {
-                self.subtitle = "\(count) songs"
-            } else {
-                self.subtitle = "0 songs"
-            }
+        case .discover, .tracks:
+            self.subtitle = String(localized: "\(trackCount ?? 0) songs")
         case .artists:
-            if let count = artistCount {
-                self.subtitle = "\(count) artists"
-            } else {
-                self.subtitle = "0 artists"
-            }
+            self.subtitle = String(localized: "\(artistCount ?? 0) artists")
         case .albums:
-            if let count = albumCount {
-                self.subtitle = "\(count) albums"
-            } else {
-                self.subtitle = "0 albums"
-            }
+            self.subtitle = String(localized: "\(albumCount ?? 0) albums")
         }
     }
     
@@ -121,8 +103,8 @@ struct HomeSidebarItem: SidebarItem {
         self.id = UUID(uuidString: "pinned-\(pinnedItem.id ?? 0)") ?? UUID()
         self.type = nil
         self.source = .pinned(pinnedItem)
-        self.title = pinnedItem.displayName
-        self.subtitle = "\(trackCount) \(trackCount == 1 ? "song" : "songs")"
+        self.title = playlist.map(DefaultPlaylists.displayName) ?? pinnedItem.displayName
+        self.subtitle = String(localized: "\(trackCount) songs")
         self.icon = HomeSidebarItem.deriveIcon(for: pinnedItem, playlist: playlist)
     }
 
@@ -171,7 +153,7 @@ struct LibrarySidebarItem: SidebarItem {
     init(filterItem: LibraryFilterItem) {
         self.id = filterItem.id
         self.title = filterItem.name
-        self.subtitle = "\(filterItem.count) \(filterItem.count == 1 ? "song" : "songs")"
+        self.subtitle = String(localized: "\(filterItem.count) songs")
         self.icon = Self.getIcon(for: filterItem.filterType, isAllItem: false)
         self.count = nil
         self.filterType = filterItem.filterType
@@ -181,8 +163,8 @@ struct LibrarySidebarItem: SidebarItem {
     // Special "All" item
     init(allItemFor filterType: LibraryFilterType, count: Int) {
         self.id = UUID(uuidString: "00000000-0000-0000-0000-\(String(format: "%012d", filterType.stableIndex))") ?? UUID()
-        self.title = "All \(filterType.rawValue)"
-        self.subtitle = "\(count) \(count == 1 ? "song" : "songs")"
+        self.title = filterType.allItemsTitle
+        self.subtitle = String(localized: "\(count) songs")
         self.icon = Self.getIcon(for: filterType, isAllItem: true)
         self.count = nil
         self.filterType = filterType
@@ -207,7 +189,7 @@ struct PlaylistSidebarItem: SidebarItem {
 
     init(playlist: Playlist) {
         self.id = playlist.id
-        self.title = playlist.name
+        self.title = DefaultPlaylists.displayName(for: playlist)
         self.icon = Icons.defaultPlaylistIcon(for: playlist)
         self.playlist = playlist
         self.isEditable = playlist.isUserEditable
@@ -216,13 +198,13 @@ struct PlaylistSidebarItem: SidebarItem {
         if playlist.type == .smart {
             let trackCount = playlist.trackCount
             if let limit = playlist.trackLimit {
-                self.subtitle = "\(trackCount) / \(limit) songs"
+                self.subtitle = String(localized: "\(trackCount) / \(limit) songs")
             } else {
-                self.subtitle = "\(trackCount) songs"
+                self.subtitle = String(localized: "\(trackCount) songs")
             }
             self.count = nil
         } else {
-            self.subtitle = "\(playlist.trackCount) songs"
+            self.subtitle = String(localized: "\(playlist.trackCount) songs")
             self.count = nil
         }
     }
@@ -252,11 +234,11 @@ struct FolderNodeSidebarItem: SidebarItem {
 
         let trackCount = folderNode.displayTrackCount
         if folderNode.immediateFolderCount > 0 && trackCount > 0 {
-            self.subtitle = "\(folderNode.immediateFolderCount) folders, \(trackCount) tracks"
+            self.subtitle = String(localized: "\(folderNode.immediateFolderCount) folders, \(trackCount) tracks")
         } else if folderNode.immediateFolderCount > 0 {
-            self.subtitle = "\(folderNode.immediateFolderCount) folders"
+            self.subtitle = String(localized: "\(folderNode.immediateFolderCount) folders")
         } else if trackCount > 0 {
-            self.subtitle = "\(trackCount) tracks"
+            self.subtitle = String(localized: "\(trackCount) tracks")
         } else {
             self.subtitle = nil
         }

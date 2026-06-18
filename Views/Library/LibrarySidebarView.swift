@@ -134,13 +134,13 @@ struct LibrarySidebarView: View {
                 items: LibraryFilterType.allCases,
                 selection: $selectedFilterType,
                 iconProvider: { $0.icon },
-                tooltipProvider: { $0.rawValue }
+                tooltipProvider: { $0.pluralDisplayName }
             )
 
             // Filter bar
             SearchInputField(
                 text: $searchText,
-                placeholder: "Filter \(selectedFilterType.rawValue.lowercased())...",
+                placeholder: selectedFilterType.filterPlaceholder,
                 fontSize: 11
             )
 
@@ -154,7 +154,7 @@ struct LibrarySidebarView: View {
             }
             .buttonStyle(.borderless)
             .hoverEffect(scale: 1.1)
-            .help("Sort \(sortAscending ? "descending" : "ascending")")
+            .help(sortAscending ? String(localized: "Sort descending") : String(localized: "Sort ascending"))
         }
     }
 
