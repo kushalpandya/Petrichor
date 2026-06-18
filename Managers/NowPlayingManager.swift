@@ -45,8 +45,6 @@ class NowPlayingManager {
         // Reflect transport state to the macOS Now Playing widget (it reads this
         // in addition to the playback rate).
         MPNowPlayingInfoCenter.default().playbackState = isPlaying ? .playing : .paused
-
-        ensureRemoteCommandsEnabled()
     }
 
     private var cachedArtwork: MPMediaItemArtwork?
@@ -72,9 +70,8 @@ class NowPlayingManager {
         return artwork
     }
 
-    /// The remote commands Petrichor handles. Single source of truth so the
-    /// teardown (`setupRemoteCommandCenter`) and the re-assert
-    /// (`ensureRemoteCommandsEnabled`) can't drift out of sync.
+    /// The remote commands Petrichor handles. Single source of truth for remote
+    /// command teardown and registration.
     private var managedCommands: [MPRemoteCommand] {
         let center = MPRemoteCommandCenter.shared()
         return [
@@ -85,22 +82,6 @@ class NowPlayingManager {
             center.previousTrackCommand,
             center.changePlaybackPositionCommand
         ]
-    }
-
-    /// Re-asserts that the remote commands Petrichor handles are enabled.
-    ///
-    /// The Crescendo engine shares the process-global MPRemoteCommandCenter and,
-    /// when its player is created, disables commands that don't yet apply -
-    /// including the scrubber's changePlaybackPositionCommand - and does not
-    /// restore them when it relinquishes control. Petrichor owns these commands,
-    /// so we re-enable them here. Called on every Now Playing update so a runtime
-    /// engine switch (which builds a fresh Crescendo player) can't leave the
-    /// scrubber disabled. Guarded so we only write on change, since redundant
-    /// writes make AirPlay receivers redraw.
-    private func ensureRemoteCommandsEnabled() {
-        for command in managedCommands where !command.isEnabled {
-            command.isEnabled = true
-        }
     }
 
     // MARK: - Remote Command Center
@@ -170,7 +151,5 @@ class NowPlayingManager {
             audioPlayer.seekTo(time: positionEvent.positionTime)
             return .success
         }
-
-        ensureRemoteCommandsEnabled()
     }
 }

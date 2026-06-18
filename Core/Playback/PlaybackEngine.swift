@@ -2,9 +2,9 @@
 // PlaybackEngine
 //
 // The single app-facing playback object. It owns one concrete `PlaybackBackend`
-// (SFBAudioEngine today; a Crescendo backend will be added behind the same facade)
-// and is the only object that calls `AudioPlayerDelegate`. Selecting or removing a
-// backend is a change to this file plus the backend files, and call sites stay untouched.
+// (SFBAudioEngine or Crescendo) and is the only object that calls
+// `AudioPlayerDelegate`. Selecting or removing a backend is a change to this file
+// plus the backend files, and call sites stay untouched.
 //
 
 import Foundation
@@ -81,6 +81,7 @@ public protocol AudioPlayerDelegate: AnyObject {
     func audioPlayerDidFinishBuffering(player: PlaybackEngine, with entryId: AudioEntryId)
     func audioPlayerDidReadMetadata(player: PlaybackEngine, metadata: [String: String])
     func audioPlayerDidCancel(player: PlaybackEngine, queuedItems: [AudioEntryId])
+    func audioPlayerDidSkipQueueEntry(player: PlaybackEngine, entryId: AudioEntryId)
 }
 
 // MARK: - Default Implementations
@@ -89,14 +90,15 @@ public extension AudioPlayerDelegate {
     func audioPlayerDidFinishBuffering(player: PlaybackEngine, with entryId: AudioEntryId) {}
     func audioPlayerDidReadMetadata(player: PlaybackEngine, metadata: [String: String]) {}
     func audioPlayerDidCancel(player: PlaybackEngine, queuedItems: [AudioEntryId]) {}
+    func audioPlayerDidSkipQueueEntry(player: PlaybackEngine, entryId: AudioEntryId) {}
 }
 
 // MARK: - Backend Abstraction
 
-/// Internal abstraction over a concrete playback engine (SFBAudioEngine today,
-/// Crescendo later). Not part of the app-facing surface; only `PlaybackEngine`
-/// talks to it. This lets every delegate signature stay the concrete
-/// `PlaybackEngine` type, so the rest of the app never refers to a backend directly.
+/// Internal abstraction over a concrete playback engine. Not part of the app-facing
+/// surface; only `PlaybackEngine` talks to it. This lets every delegate signature
+/// stay the concrete `PlaybackEngine` type, so the rest of the app never refers to
+/// a backend directly.
 protocol PlaybackBackend: AnyObject {
     var backendDelegate: PlaybackBackendDelegate? { get set }
 
@@ -153,6 +155,7 @@ protocol PlaybackBackendDelegate: AnyObject {
     func backendDidFinishBuffering(with entryId: AudioEntryId)
     func backendDidReadMetadata(metadata: [String: String])
     func backendDidCancel(queuedItems: [AudioEntryId])
+    func backendDidSkipQueueEntry(entryId: AudioEntryId)
 }
 
 // MARK: - PlaybackEngine Facade
@@ -198,9 +201,7 @@ public class PlaybackEngine: NSObject {
         self.backend.backendDelegate = self
     }
 
-    /// Builds the backend for the selected engine. The Crescendo backend is added
-    /// in a later phase; until then the Crescendo case uses the SFB backend so the
-    /// seam is wired but inert.
+    /// Builds the backend for the selected engine.
     private static func makeBackend() -> PlaybackBackend {
         switch MediaBackend.current {
         case .sfb:
@@ -349,5 +350,9 @@ extension PlaybackEngine: PlaybackBackendDelegate {
 
     func backendDidCancel(queuedItems: [AudioEntryId]) {
         delegate?.audioPlayerDidCancel(player: self, queuedItems: queuedItems)
+    }
+
+    func backendDidSkipQueueEntry(entryId: AudioEntryId) {
+        delegate?.audioPlayerDidSkipQueueEntry(player: self, entryId: entryId)
     }
 }

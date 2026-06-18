@@ -62,8 +62,8 @@ actor ArtworkCompressionCache {
 // MARK: - Metadata Reader
 
 /// Backend-agnostic contract for reading a file's tags, audio properties, and
-/// artwork into a `TrackMetadata`. Concrete readers (SFBAudioEngine today,
-/// Crescendo later) live in their own files and hold only engine-specific code.
+/// artwork into a `TrackMetadata`. Concrete readers live in their own files and
+/// hold only engine-specific code.
 protocol MetadataReader {
     func extractMetadata(
         from url: URL,

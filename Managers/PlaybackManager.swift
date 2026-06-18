@@ -46,14 +46,6 @@ class PlaybackManager: NSObject, ObservableObject {
         currentTime
     }
 
-    /// Lead (seconds) applied to lyric-line highlighting on the Crescendo path to
-    /// compensate the small residual playhead lag (engine reporting + the 0.5s
-    /// sampler). Display-only: it shifts lyric highlighting earlier and never
-    /// affects `currentTime`, the scrubber, or seeking. Zero on SFB.
-    var lyricsHighlightLead: Double {
-        MediaBackend.current == .crescendo ? 0.5 : 0
-    }
-    
     // MARK: - Private Properties
     
     private let audioPlayer: PlaybackEngine
@@ -70,6 +62,9 @@ class PlaybackManager: NSObject, ObservableObject {
     private var currentEntryId: AudioEntryId?
     /// The pre-decoded next track (the "+1") primed into a gapless engine, or nil.
     private var pendingNext: PendingNext?
+    /// Set when the primed next track was rejected by the engine. On EOF, fall back
+    /// to app-driven completion instead of waiting for a gapless start callback.
+    private var pendingNextWasSkipped = false
     private var queueObservers: Set<AnyCancellable> = []
 
     private struct PendingNext {
@@ -242,6 +237,7 @@ class PlaybackManager: NSObject, ObservableObject {
         currentFullTrack = nil
         currentEntryId = nil
         pendingNext = nil
+        pendingNextWasSkipped = false
         currentTime = 0
         isPlaying = false
         restoredPosition = 0
@@ -255,6 +251,7 @@ class PlaybackManager: NSObject, ObservableObject {
         currentFullTrack = nil
         currentEntryId = nil
         pendingNext = nil
+        pendingNextWasSkipped = false
         currentTime = 0
         isPlaying = false
         stopStateSaveTimer()
@@ -308,6 +305,7 @@ class PlaybackManager: NSObject, ObservableObject {
         isPlaying = false
         // The freshly built backend has nothing primed; the next play re-primes.
         pendingNext = nil
+        pendingNextWasSkipped = false
         currentEntryId = nil
         stopStateSaveTimer()
 
@@ -419,6 +417,7 @@ class PlaybackManager: NSObject, ObservableObject {
         let entryId = AudioEntryId(id: UUID().uuidString)
         currentEntryId = entryId
         pendingNext = nil
+        pendingNextWasSkipped = false
 
         let seekToPosition = restoredPosition
         restoredPosition = 0
@@ -488,6 +487,7 @@ class PlaybackManager: NSObject, ObservableObject {
         guard let next = playlistManager.peekNextTrack() else {
             audioPlayer.clearNextTrack()
             pendingNext = nil
+            pendingNextWasSkipped = false
             return
         }
 
@@ -499,6 +499,7 @@ class PlaybackManager: NSObject, ObservableObject {
 
         let entryId = AudioEntryId(id: UUID().uuidString)
         pendingNext = PendingNext(entryId: entryId, track: next.track, index: next.index, fullTrack: nil)
+        pendingNextWasSkipped = false
         audioPlayer.setNextTrack(url: next.track.url, entryId: entryId)
         Logger.info("Primed gapless next: \(next.track.title)")
 
@@ -526,6 +527,7 @@ class PlaybackManager: NSObject, ObservableObject {
         currentTime = 0
         isPlaying = true
         pendingNext = nil
+        pendingNextWasSkipped = false
 
         scrobbleManager?.trackStarted(pending.track)
         updateNowPlayingInfo()
@@ -731,12 +733,17 @@ extension PlaybackManager: AudioPlayerDelegate {
                     // incoming track owns it now.
                     if self.pendingNext == nil {
                         self.currentTime = 0
-                        self.isPlaying = false
-                        self.stopStateSaveTimer()
-                        NotificationCenter.default.post(
-                            name: NSNotification.Name("SavePlaybackState"),
-                            object: nil
-                        )
+                        if self.pendingNextWasSkipped {
+                            self.pendingNextWasSkipped = false
+                            self.playlistManager.handleTrackCompletion()
+                        } else {
+                            self.isPlaying = false
+                            self.stopStateSaveTimer()
+                            NotificationCenter.default.post(
+                                name: NSNotification.Name("SavePlaybackState"),
+                                object: nil
+                            )
+                        }
                     }
                 } else {
                     self.currentTime = 0
@@ -768,6 +775,15 @@ extension PlaybackManager: AudioPlayerDelegate {
         DispatchQueue.main.async {
             Logger.error("Audio player error: \(error.localizedDescription)")
             NotificationManager.shared.addMessage(.error, "Playback error: \(error.localizedDescription)")
+        }
+    }
+
+    func audioPlayerDidSkipQueueEntry(player: PlaybackEngine, entryId: AudioEntryId) {
+        DispatchQueue.main.async {
+            guard self.pendingNext?.entryId == entryId else { return }
+            Logger.warning("Gapless lookahead skipped; falling back to app-driven advance")
+            self.pendingNext = nil
+            self.pendingNextWasSkipped = true
         }
     }
 }

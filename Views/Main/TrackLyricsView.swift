@@ -42,10 +42,8 @@ struct TrackLyricsView: View {
             loadLyricsForCurrentTrack()
         }
         // Listen for playback time changes and update the current line in real time.
-        // The lead compensates the Crescendo path's small residual playhead lag
-        // (display-only; 0 on SFB).
         .onReceive(playbackManager.playbackProgressState.$currentTime) { newTime in
-            updateCurrentLine(for: newTime + playbackManager.lyricsHighlightLead)
+            updateCurrentLine(for: newTime)
         }
     }
     

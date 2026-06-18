@@ -3,8 +3,8 @@
 //
 // The SFBAudioEngine-backed metadata reader. It owns all the SFBAudioEngine tag,
 // audio-property, and artwork parsing, so MetadataEngine stays backend-agnostic.
-// A Crescendo reader will sit alongside this behind the same MetadataReader
-// protocol, selected by MediaBackend.
+// A Crescendo reader sits alongside this behind the same MetadataReader protocol,
+// selected by MediaBackend.
 //
 
 import AVFoundation

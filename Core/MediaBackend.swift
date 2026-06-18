@@ -1,8 +1,8 @@
 //
 // MediaBackend
 //
-// The single source of truth for which audio engine the app runs this session
-// (SFBAudioEngine today, Crescendo later). It only reports the selected engine;
+// The single source of truth for which audio engine the app uses
+// (SFBAudioEngine or Crescendo). It only reports the selected engine;
 // it does not build or route anything. Each seam (the PlaybackEngine facade and
 // the MetadataEngine facade) reads `current` and picks its own backend, so
 // removing SFBAudioEngine later is a change to those facades plus this enum.

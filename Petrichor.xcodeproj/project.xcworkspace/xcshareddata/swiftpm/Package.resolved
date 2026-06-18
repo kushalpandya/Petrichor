@@ -1,5 +1,5 @@
 {
-  "originHash" : "8c0ba0f1919771c9b0a7a633b6f8f52952e1785b91bd2458ca60be0f948170e9",
+  "originHash" : "afae06d9571b548ddc008bc8f04fd1fe228dcaf1d60da592a909d8fa70f1e47d",
   "pins" : [
     {
       "identity" : "avfaudioextensions",
@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kushalpandya/CrescendoKit",
       "state" : {
-        "revision" : "7a2de078d00fe87e653d70f704542009a6aba3c8",
-        "version" : "1.0.0-beta.4"
+        "revision" : "c01fb59f6a255e61247a51b36be683e3ee329b83",
+        "version" : "1.0.0"
       }
     },
     {

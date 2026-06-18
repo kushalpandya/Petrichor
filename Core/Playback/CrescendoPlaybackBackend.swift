@@ -229,8 +229,12 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
         backendDelegate?.backendDidFinishBuffering(with: AudioEntryId(id: entryId.id))
     }
 
-    func handleSkippedEntry(url: URL, reason: CrescendoError) {
+    func handleSkippedEntry(entryId: CrescendoEntryId, url: URL, reason: CrescendoError) {
         Logger.warning("Crescendo skipped \(url.lastPathComponent): \(reason.localizedDescription)")
+        if entryId == pendingNextEntryId {
+            pendingNextEntryId = nil
+        }
+        backendDelegate?.backendDidSkipQueueEntry(entryId: AudioEntryId(id: entryId.id))
     }
 
     // MARK: - Mapping
@@ -324,7 +328,7 @@ private final class CrescendoDelegateBridge: CrescendoPlayerDelegate {
         url: URL,
         reason: CrescendoError
     ) {
-        owner?.handleSkippedEntry(url: url, reason: reason)
+        owner?.handleSkippedEntry(entryId: entryId, url: url, reason: reason)
     }
 }
 

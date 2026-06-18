@@ -480,8 +480,8 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/kushalpandya/CrescendoKit";
 			requirement = {
-				kind = exactVersion;
-				version = "1.0.0-beta.4";
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
 			};
 		};
 		55B0DEBF2DE3A58400A41ED9 /* XCRemoteSwiftPackageReference "GRDB" */ = {
