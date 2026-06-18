@@ -589,16 +589,10 @@ final class SFBPlaybackBackend: NSObject, PlaybackBackend {
     }
 
     private func calculateGainCompensation() -> Float {
-        guard eqEnabled else { return 0 }
-
-        let maxBandGain = currentEQGains.max() ?? 0
-
-        if maxBandGain > 0 {
-            // Offset max gain to prevent audio
-            // distortion due to signal clipping
-            return -(maxBandGain + 1.0)
-        }
-        return 0
+        EqualizerHeadroomCompensation.gainOffset(
+            eqEnabled: eqEnabled,
+            gains: currentEQGains
+        )
     }
 
     private func applyEffectivePreamp() {

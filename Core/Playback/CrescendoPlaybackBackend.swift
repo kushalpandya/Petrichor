@@ -148,6 +148,7 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
     func setEQEnabled(_ enabled: Bool) {
         eqEnabled = enabled
         pushEQGains()
+        pushEffectivePreamp()
     }
 
     func isEQEnabled() -> Bool { eqEnabled }
@@ -155,6 +156,7 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
     func applyEQPreset(_ preset: EqualizerPreset) {
         currentEQGains = preset.gains
         pushEQGains()
+        pushEffectivePreamp()
     }
 
     func applyEQCustom(gains: [Float]) {
@@ -164,11 +166,12 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
         }
         currentEQGains = gains
         pushEQGains()
+        pushEffectivePreamp()
     }
 
     func setPreamp(_ gain: Float) {
         userPreampGain = max(-12, min(12, gain))
-        onMain { player.preampGain = userPreampGain }
+        pushEffectivePreamp()
     }
 
     func getPreamp() -> Float { userPreampGain }
@@ -178,6 +181,14 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
     private func pushEQGains() {
         let gains = eqEnabled ? currentEQGains : Self.flatEQGains
         onMain { player.equalizerGains = gains }
+    }
+
+    private func pushEffectivePreamp() {
+        let compensation = EqualizerHeadroomCompensation.gainOffset(
+            eqEnabled: eqEnabled,
+            gains: currentEQGains
+        )
+        onMain { player.preampGain = userPreampGain + compensation }
     }
 
     // MARK: - Logging bridge

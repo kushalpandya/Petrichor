@@ -220,7 +220,6 @@ class PlaybackManager: NSObject, ObservableObject {
         } else {
             if let fullTrack = currentFullTrack, let track = currentTrack, audioPlayer.state != .paused {
                 startPlayback(of: fullTrack, lightweightTrack: track)
-                isPlaying = true
             } else {
                 audioPlayer.resume()
                 isPlaying = true
