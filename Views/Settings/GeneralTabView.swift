@@ -23,6 +23,11 @@ struct GeneralTabView: View {
     @AppStorage("useArtworkColors")
     private var useArtworkColors = true
 
+    @AppStorage(MediaBackend.userDefaultsKey)
+    private var useModernPlaybackEngine = true
+
+    @ObservedObject private var notificationManager = NotificationManager.shared
+
     enum ColorMode: String, CaseIterable, TabbedItem {
         case light = "Light"
         case dark = "Dark"
@@ -93,6 +98,25 @@ struct GeneralTabView: View {
                 Toggle("Use album artwork colors in backgrounds", isOn: $useArtworkColors)
                     .help("Applies a gradient background derived from album artwork colors across the app")
             }
+
+            Section("Media Backend") {
+                HStack(spacing: 6) {
+                    Text("Use modern media engine")
+                    betaBadge
+                    engineInfoButton
+
+                    Spacer()
+
+                    Toggle("", isOn: $useModernPlaybackEngine)
+                        .labelsHidden()
+                        .disabled(notificationManager.isActivityInProgress)
+                        .help(engineToggleHelp)
+                        .onChange(of: useModernPlaybackEngine) {
+                            UserDefaults.standard.synchronize()
+                            AppCoordinator.shared?.playbackManager.reloadPlaybackEngine()
+                        }
+                }
+            }
         }
         .formStyle(.grouped)
         .scrollDisabled(true)
@@ -103,6 +127,60 @@ struct GeneralTabView: View {
         .onAppear {
             updateAppearance(colorMode)
         }
+    }
+
+    private var engineToggleHelp: String {
+        if notificationManager.isActivityInProgress {
+            return "Unavailable while the library is updating"
+        }
+        return "Switches the engine used to play your music. Changing this will cause the playback to stop, and you can resume it later."
+    }
+
+    @State private var showEngineInfo = false
+
+    private var engineInfoButton: some View {
+        Button { showEngineInfo.toggle() } label: {
+            Image(systemName: "questionmark.circle")
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $showEngineInfo, arrowEdge: .trailing) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Our newer engine for playing your music. With it on, you may notice:")
+
+                VStack(alignment: .leading, spacing: 6) {
+                    engineInfoPoint(
+                        "Gapless playback, so albums and live recordings flow from one track to the next with no silent pause."
+                    )
+                    engineInfoPoint("Wider, more spacious stereo sound.")
+                    engineInfoPoint("Spatial Audio on supported headphones.")
+                }
+
+                Text("Turn it off to switch back to the classic engine. Your music and library stay exactly the same either way.")
+                    .foregroundColor(.secondary)
+            }
+            .font(.system(size: 12))
+            .padding(12)
+            .frame(width: 260)
+        }
+    }
+
+    private func engineInfoPoint(_ text: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text("•")
+            Text(text)
+        }
+    }
+
+    private var betaBadge: some View {
+        Text("Beta")
+            .font(.caption2.weight(.semibold))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Color.accentColor.opacity(0.15))
+            .foregroundStyle(Color.accentColor)
+            .clipShape(Capsule())
     }
 
     private func updateAppearance(_ mode: ColorMode) {

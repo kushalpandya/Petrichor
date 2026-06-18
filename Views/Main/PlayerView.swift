@@ -68,6 +68,8 @@ struct PlayerView: View {
             setupInitialState()
         }
         .onChange(of: playbackManager.currentTrack?.id) {
+            isDraggingProgress = false
+            tempProgressValue = 0
             updateGradientColors()
         }
         .onChange(of: colorScheme) {

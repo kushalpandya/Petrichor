@@ -140,15 +140,46 @@ All audio codec libraries listed above are **dynamically linked** at runtime and
 
 ---
 
+## CrescendoKit
+
+Petrichor's modern playback engine and its scan-time metadata reader are provided by Crescendo, distributed via the CrescendoKit package as three dynamically linked, embedded xcframeworks. These are used at runtime when the modern playback engine is enabled.
+
+### Crescendo
+
+- **Source**: https://github.com/kushalpandya/CrescendoKit
+- **License**: Proprietary (binary distribution; see the CrescendoKit LICENSE)
+- **Copyright**: Copyright (c) Kushal Pandya
+
+### FFmpeg (via CFFmpeg)
+
+- **Source**: https://ffmpeg.org/
+- **License**: LGPL-2.1-or-later
+- **Copyright**: Copyright (c) The FFmpeg developers
+
+FFmpeg is dynamically linked through CrescendoKit and replaceable, so its LGPL terms do not extend to Petrichor's MIT license.
+
+### TagLib (via CTagLib)
+
+- **Source**: https://taglib.org/
+- **License**: MPL-1.1 (elected; TagLib is dual-licensed MPL-1.1 / LGPL-2.1)
+- **Copyright**: Copyright (c) Scott Wheeler and contributors
+
+TagLib is dynamically linked through CrescendoKit and used to read audio file metadata.
+
+---
+
 ## License Summary
 
-| Component      | License      | Distributed With Source |
-| -------------- | ------------ | ----------------------- |
-| Petrichor      | MIT          | Yes                     |
-| SFBAudioEngine | MIT          | No (SPM dependency)     |
-| GRDB.swift     | MIT          | No (SPM dependency)     |
-| Sparkle        | MIT          | No (SPM dependency)     |
-| Audio Codecs   | BSD/LGPL/GPL | No (dynamic linking)    |
+| Component          | License      | Distributed With Source                              |
+| ------------------ | ------------ | ---------------------------------------------------- |
+| Petrichor          | MIT          | Yes                                                  |
+| SFBAudioEngine     | MIT          | No (SPM dependency)                                  |
+| GRDB.swift         | MIT          | No (SPM dependency)                                  |
+| Sparkle            | MIT          | No (SPM dependency)                                  |
+| Audio Codecs       | BSD/LGPL/GPL | No (dynamic linking, dependencies of SFBAudioEngine) |
+| Crescendo (engine) | Proprietary  | No (SPM binary dependency)                           |
+| FFmpeg (CFFmpeg)   | LGPL-2.1+    | No (dynamic xcframework)                             |
+| TagLib (CTagLib)   | MPL-1.1      | No (dynamic xcframework)                             |
 
 ---
 

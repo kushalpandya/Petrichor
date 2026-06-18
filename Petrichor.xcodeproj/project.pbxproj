@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		552A58402EC0629A00F6D8C0 /* SFBAudioEngine in Frameworks */ = {isa = PBXBuildFile; productRef = 552A583F2EC0629A00F6D8C0 /* SFBAudioEngine */; };
+		552CE3E52FE3263900A5C93D /* Crescendo in Frameworks */ = {isa = PBXBuildFile; productRef = 552CE3E42FE3263900A5C93D /* Crescendo */; };
 		5590877F2DE0C078009E7719 /* PetrichorApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5590877E2DE0C078009E7719 /* PetrichorApp.swift */; };
 		55B0DEC12DE3A58400A41ED9 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 55B0DEC02DE3A58400A41ED9 /* GRDB */; };
 		55D673CF2E42CEA50095A358 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 55D673CE2E42CEA50095A358 /* Sparkle */; };
@@ -101,6 +102,7 @@
 				55B0DEC12DE3A58400A41ED9 /* GRDB in Frameworks */,
 				552A58402EC0629A00F6D8C0 /* SFBAudioEngine in Frameworks */,
 				55D673CF2E42CEA50095A358 /* Sparkle in Frameworks */,
+				552CE3E52FE3263900A5C93D /* Crescendo in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -158,6 +160,7 @@
 				55B0DEC02DE3A58400A41ED9 /* GRDB */,
 				55D673CE2E42CEA50095A358 /* Sparkle */,
 				552A583F2EC0629A00F6D8C0 /* SFBAudioEngine */,
+				552CE3E42FE3263900A5C93D /* Crescendo */,
 			);
 			productName = Petrichor;
 			productReference = 550F4A0E2DB45B1A005F794E /* Petrichor.app */;
@@ -191,6 +194,7 @@
 				55B0DEBF2DE3A58400A41ED9 /* XCRemoteSwiftPackageReference "GRDB" */,
 				55D673CD2E42CEA50095A358 /* XCRemoteSwiftPackageReference "Sparkle" */,
 				552A583E2EC0629A00F6D8C0 /* XCRemoteSwiftPackageReference "SFBAudioEngine" */,
+				552CE3E32FE3263900A5C93D /* XCRemoteSwiftPackageReference "CrescendoKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 550F4A052DB45B1A005F794E;
@@ -472,6 +476,14 @@
 				minimumVersion = 0.7.2;
 			};
 		};
+		552CE3E32FE3263900A5C93D /* XCRemoteSwiftPackageReference "CrescendoKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/kushalpandya/CrescendoKit";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
 		55B0DEBF2DE3A58400A41ED9 /* XCRemoteSwiftPackageReference "GRDB" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/groue/GRDB.swift";
@@ -495,6 +507,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 552A583E2EC0629A00F6D8C0 /* XCRemoteSwiftPackageReference "SFBAudioEngine" */;
 			productName = SFBAudioEngine;
+		};
+		552CE3E42FE3263900A5C93D /* Crescendo */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 552CE3E32FE3263900A5C93D /* XCRemoteSwiftPackageReference "CrescendoKit" */;
+			productName = Crescendo;
 		};
 		55B0DEC02DE3A58400A41ED9 /* GRDB */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -1,12 +1,13 @@
 //
 // PlaybackManager class
 //
-// This class handles track playback coordination with PAudioPlayer,
+// This class handles track playback coordination with PlaybackEngine,
 // including database updates, state persistence, and integration with
 // PlaylistManager and NowPlayingManager.
 //
 
 import AVFoundation
+import Combine
 import Foundation
 
 class PlaybackManager: NSObject, ObservableObject {
@@ -37,30 +38,50 @@ class PlaybackManager: NSObject, ObservableObject {
         }
     }
     @Published var restoredUITrack: Track?
-    
-    // MARK: - Configuration
 
-    var gaplessPlayback: Bool = false
-    
     // MARK: - Computed Properties
     
     /// Alias for currentTime for backwards compatibility
     var actualCurrentTime: Double {
         currentTime
     }
-    
+
     // MARK: - Private Properties
     
-    private let audioPlayer: PAudioPlayer
+    private let audioPlayer: PlaybackEngine
     private var currentFullTrack: FullTrack?
     private var progressUpdateTimer: DispatchSourceTimer?
+    private var fineProgressSampling = false
+    private var lastNowPlayingUpdate: TimeInterval = 0
     private var stateSaveTimer: Timer?
     private var restoredPosition: Double = 0
+
+    // MARK: - Gapless lookahead (Crescendo path)
+
+    /// Identity of the track currently loaded in the engine.
+    private var currentEntryId: AudioEntryId?
+    /// The pre-decoded next track (the "+1") primed into a gapless engine, or nil.
+    private var pendingNext: PendingNext?
+    /// Set when the primed next track was rejected by the engine. On EOF, fall back
+    /// to app-driven completion instead of waiting for a gapless start callback.
+    private var pendingNextWasSkipped = false
+    private var queueObservers: Set<AnyCancellable> = []
+
+    private struct PendingNext {
+        let entryId: AudioEntryId
+        let track: Track
+        let index: Int
+        var fullTrack: FullTrack?
+    }
     
     // MARK: - Dependencies
     
     private let libraryManager: LibraryManager
     private let playlistManager: PlaylistManager
+    // The single Petrichor-side Now Playing owner (info tile + remote commands)
+    // for both engines. For 1.6, Crescendo publishes neither (NowPlayingManager
+    // owns the tile so the restore-resume anchor stays correct); Crescendo takes
+    // over Now Playing in 1.7 when SFB is removed.
     private let nowPlayingManager: NowPlayingManager
     
     // MARK: - Initialization
@@ -69,7 +90,7 @@ class PlaybackManager: NSObject, ObservableObject {
         self.libraryManager = libraryManager
         self.playlistManager = playlistManager
         self.nowPlayingManager = NowPlayingManager()
-        self.audioPlayer = PAudioPlayer()
+        self.audioPlayer = PlaybackEngine()
         
         super.init()
         
@@ -78,8 +99,9 @@ class PlaybackManager: NSObject, ObservableObject {
         
         startProgressUpdateTimer()
         restoreAudioEffectsSettings()
+        observeQueueForGaplessLookahead()
     }
-    
+
     deinit {
         stop()
         stopProgressUpdateTimer()
@@ -213,17 +235,23 @@ class PlaybackManager: NSObject, ObservableObject {
         audioPlayer.stop()
         currentTrack = nil
         currentFullTrack = nil
+        currentEntryId = nil
+        pendingNext = nil
+        pendingNextWasSkipped = false
         currentTime = 0
         isPlaying = false
         restoredPosition = 0
         stopStateSaveTimer()
         Logger.info("Playback stopped")
     }
-    
+
     func stopGracefully() {
         audioPlayer.stop()
         currentTrack = nil
         currentFullTrack = nil
+        currentEntryId = nil
+        pendingNext = nil
+        pendingNextWasSkipped = false
         currentTime = 0
         isPlaying = false
         stopStateSaveTimer()
@@ -234,7 +262,7 @@ class PlaybackManager: NSObject, ObservableObject {
         // Clamp seek position to the engine's actual duration to prevent seek
         // errors when the DB-stored duration differs from the actual track
         // duration, this happens in edge-cases for MP3, although it is fixed
-        // in MetadataExtractor so hard refresh on library should resolve this.
+        // in MetadataEngine so hard refresh on library should resolve this.
         let engineDuration = audioPlayer.duration
         let clampedTime = engineDuration > 0 ? min(time, engineDuration) : time
         audioPlayer.seek(to: clampedTime)
@@ -263,6 +291,46 @@ class PlaybackManager: NSObject, ObservableObject {
             track: track,
             currentTime: currentTime,
             isPlaying: isPlaying
+        )
+    }
+
+    /// Rebuilds the playback engine for the currently selected backend (used when
+    /// the user switches engines in Settings). Playback is halted, but the loaded
+    /// track, queue, and position are kept so the progress bar stays put and the
+    /// user can resume from the same spot on the new engine by pressing play.
+    func reloadPlaybackEngine() {
+        let resumePosition = currentTime
+
+        audioPlayer.reload()
+        isPlaying = false
+        // The freshly built backend has nothing primed; the next play re-primes.
+        pendingNext = nil
+        pendingNextWasSkipped = false
+        currentEntryId = nil
+        stopStateSaveTimer()
+
+        // The new backend starts clean, so re-apply volume and audio effects.
+        audioPlayer.volume = volume
+        restoreAudioEffectsSettings()
+
+        // Keep the current track loaded and the bar where it was; startPlayback
+        // reads restoredPosition to continue from here on the next play.
+        if currentTrack != nil {
+            restoredPosition = resumePosition
+            currentTime = resumePosition
+            updateNowPlayingInfo()
+        }
+
+        Logger.info("Playback engine reloaded for backend: \(MediaBackend.current)")
+    }
+
+    /// Wires the system remote command center (lock screen / Control Center) to
+    /// this manager. PlaybackManager owns the single Petrichor-side Now Playing
+    /// path for both engines in 1.6.
+    func connectRemoteCommandCenter() {
+        nowPlayingManager.connectRemoteCommandCenter(
+            audioPlayer: self,
+            playlistManager: playlistManager
         )
     }
     
@@ -343,14 +411,21 @@ class PlaybackManager: NSObject, ObservableObject {
     private func startPlayback(of fullTrack: FullTrack, lightweightTrack: Track) {
         currentTrack = lightweightTrack
         currentFullTrack = fullTrack
-        
+
+        // Fresh identity for this play; play(url:) replaces the engine's queue, so
+        // any previously primed gapless next is gone.
+        let entryId = AudioEntryId(id: UUID().uuidString)
+        currentEntryId = entryId
+        pendingNext = nil
+        pendingNextWasSkipped = false
+
         let seekToPosition = restoredPosition
         restoredPosition = 0
-        
+
         if seekToPosition > 0 {
-            audioPlayer.play(url: fullTrack.url, startPaused: true)
+            audioPlayer.play(url: fullTrack.url, entryId: entryId, startPaused: true)
             currentTime = seekToPosition
-            
+
             // Wait for decoder to be ready before resuming playback
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
                 guard let self = self else { return }
@@ -360,36 +435,155 @@ class PlaybackManager: NSObject, ObservableObject {
                 } else {
                     Logger.warning("Seek failed, starting from beginning")
                     self.currentTime = 0
-                    self.audioPlayer.play(url: fullTrack.url, startPaused: false)
+                    self.audioPlayer.play(url: fullTrack.url, entryId: entryId, startPaused: false)
                 }
             }
         } else {
             currentTime = 0
-            audioPlayer.play(url: fullTrack.url, startPaused: false)
+            audioPlayer.play(url: fullTrack.url, entryId: entryId, startPaused: false)
             Logger.info("Started playback: \(lightweightTrack.title)")
         }
-        
+
         startStateSaveTimer()
         updateNowPlayingInfo()
         scrobbleManager?.trackStarted(lightweightTrack)
+        // The gapless next is primed from `audioPlayerDidStartPlaying`, once the
+        // engine confirms this track is actually playing - priming here (before
+        // the engine's async play starts) is too early: the successor can't be
+        // pre-decoded against a not-yet-established current.
+    }
+
+    // MARK: - Gapless lookahead
+
+    /// Subscribes to queue/repeat/shuffle changes so the engine's gapless next
+    /// entry is re-derived whenever what plays next could change. The current
+    /// track keeps playing; only the lookahead is swapped. `primeNextTrack` is a
+    /// no-op on non-gapless engines, so this is safe to wire unconditionally
+    /// (the active engine can change at runtime via the toggle).
+    private func observeQueueForGaplessLookahead() {
+        Publishers.Merge3(
+            playlistManager.$currentQueue.map { _ in () },
+            playlistManager.$repeatMode.map { _ in () },
+            playlistManager.$isShuffleEnabled.map { _ in () }
+        )
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] in
+            guard let self, self.currentTrack != nil else { return }
+            // Only re-prime while a track is actually loaded in the engine. During
+            // the initial start the queue is set before the engine is playing, and
+            // priming then inserts into a not-yet-established session.
+            let state = self.audioPlayer.state
+            guard state == .playing || state == .paused else { return }
+            self.primeNextTrack()
+        }
+        .store(in: &queueObservers)
+    }
+
+    /// Primes (or re-primes) the engine's gapless next entry from the queue.
+    /// No-op unless the active engine supports a gapless lookahead.
+    private func primeNextTrack() {
+        guard audioPlayer.supportsGaplessQueue else { return }
+
+        guard let next = playlistManager.peekNextTrack() else {
+            audioPlayer.clearNextTrack()
+            pendingNext = nil
+            pendingNextWasSkipped = false
+            return
+        }
+
+        // Already primed for this exact upcoming entry - avoid a redundant swap
+        // (redundant command-center/engine writes are wasteful).
+        if let pending = pendingNext, pending.track.url == next.track.url, pending.index == next.index {
+            return
+        }
+
+        let entryId = AudioEntryId(id: UUID().uuidString)
+        pendingNext = PendingNext(entryId: entryId, track: next.track, index: next.index, fullTrack: nil)
+        pendingNextWasSkipped = false
+        audioPlayer.setNextTrack(url: next.track.url, entryId: entryId)
+        Logger.info("Primed gapless next: \(next.track.title)")
+
+        // Pre-fetch the full track so a gapless advance has it ready immediately.
+        Task { [weak self] in
+            guard let self else { return }
+            let full = try? await next.track.fullTrack(using: self.libraryManager.databaseManager.dbQueue)
+            await MainActor.run {
+                if self.pendingNext?.entryId == entryId {
+                    self.pendingNext?.fullTrack = full
+                }
+            }
+        }
+    }
+
+    /// Promotes the primed next track to current after the engine gaplessly
+    /// advanced into it. The audio is already playing; this just syncs Petrichor's
+    /// queue state, bookkeeping, and re-primes the following track.
+    private func handleGaplessAdvance(to pending: PendingNext) {
+        restoredUITrack = nil
+        currentTrack = pending.track
+        currentFullTrack = pending.fullTrack
+        currentEntryId = pending.entryId
+        playlistManager.advanceQueueIndex(to: pending.index)
+        currentTime = 0
+        isPlaying = true
+        pendingNext = nil
+        pendingNextWasSkipped = false
+
+        scrobbleManager?.trackStarted(pending.track)
+        updateNowPlayingInfo()
+        Logger.info("Gapless advance to: \(pending.track.title)")
+
+        // If the pre-fetch didn't finish in time, load it now for pause/resume + UI.
+        if currentFullTrack == nil {
+            let track = pending.track
+            Task { [weak self] in
+                guard let self else { return }
+                let full = try? await track.fullTrack(using: self.libraryManager.databaseManager.dbQueue)
+                await MainActor.run {
+                    if self.currentTrack?.url == track.url { self.currentFullTrack = full }
+                }
+            }
+        }
+
+        primeNextTrack()
     }
     
     private func startProgressUpdateTimer() {
         progressUpdateTimer?.cancel()
         
         let timer = DispatchSource.makeTimerSource(queue: .main)
-        timer.schedule(deadline: .now(), repeating: .seconds(1), leeway: .milliseconds(100))
-        
+        // 1s by default; 0.5s only while the lyrics view is open (it needs finer
+        // line timing). Sampling faster than 1s otherwise just doubles UI
+        // re-renders for no benefit, so it's scoped to when lyrics are visible.
+        let interval: DispatchTimeInterval = fineProgressSampling ? .milliseconds(500) : .seconds(1)
+        timer.schedule(deadline: .now(), repeating: interval, leeway: .milliseconds(50))
+
         timer.setEventHandler { [weak self] in
             guard let self = self, self.isPlaying else { return }
             self.currentTime = self.audioPlayer.currentPlaybackProgress
-            self.updateNowPlayingInfo()
+            // Refresh the system Now Playing tile at ~1s regardless of sampling
+            // rate - it extrapolates elapsed between updates from the rate anchor,
+            // so a higher rate is wasted work (and an artwork re-decode on SFB).
+            let now = Date().timeIntervalSinceReferenceDate
+            if now - self.lastNowPlayingUpdate >= 1.0 {
+                self.lastNowPlayingUpdate = now
+                self.updateNowPlayingInfo()
+            }
         }
         
         timer.resume()
         progressUpdateTimer = timer
     }
-    
+
+    /// Switches the progress sampler to 0.5s while the lyrics view is visible (for
+    /// tight line highlighting) and back to 1s otherwise (minimum CPU during normal
+    /// listening). Called by the lyrics view on appear/disappear.
+    func setFineProgressSampling(_ enabled: Bool) {
+        guard enabled != fineProgressSampling else { return }
+        fineProgressSampling = enabled
+        startProgressUpdateTimer()
+    }
+
     private func stopProgressUpdateTimer() {
         progressUpdateTimer?.cancel()
         progressUpdateTimer = nil
@@ -459,14 +653,20 @@ class PlaybackManager: NSObject, ObservableObject {
 // MARK: - AudioPlayerDelegate
 
 extension PlaybackManager: AudioPlayerDelegate {
-    func audioPlayerDidStartPlaying(player: PAudioPlayer, with entryId: AudioEntryId) {
+    func audioPlayerDidStartPlaying(player: PlaybackEngine, with entryId: AudioEntryId) {
         DispatchQueue.main.async {
-            self.isPlaying = true
+            // A gapless engine fires this for the primed next track when it
+            // self-advances; promote it instead of treating it as a fresh start.
+            if let pending = self.pendingNext, pending.entryId == entryId {
+                self.handleGaplessAdvance(to: pending)
+            } else {
+                self.isPlaying = true
+            }
             Logger.info("Track started playing: \(entryId.id)")
         }
     }
     
-    func audioPlayerStateChanged(player: PAudioPlayer, with newState: AudioPlayerState, previous: AudioPlayerState) {
+    func audioPlayerStateChanged(player: PlaybackEngine, with newState: AudioPlayerState, previous: AudioPlayerState) {
         DispatchQueue.main.async {
             let oldIsPlaying = self.isPlaying
 
@@ -484,12 +684,23 @@ extension PlaybackManager: AudioPlayerDelegate {
             if oldIsPlaying != self.isPlaying {
                 self.updateNowPlayingInfo()
             }
+
+            // Prime the gapless next once the engine is actually playing. This
+            // fires for every start path - fresh play, restored resume (which
+            // goes startPaused -> seek -> resume), and resume-from-pause - so
+            // priming is reliable where `didStartPlaying` alone was not.
+            // A gapless advance keeps the state at .playing (no transition here),
+            // so it re-primes via handleGaplessAdvance instead.
+            if newState == .playing {
+                self.primeNextTrack()
+            }
+
             Logger.info("Player state changed: \(previous) → \(newState)")
         }
     }
     
     func audioPlayerDidFinishPlaying(
-        player: PAudioPlayer,
+        player: PlaybackEngine,
         entryId: AudioEntryId,
         stopReason: AudioPlayerStopReason,
         progress: Double,
@@ -504,35 +715,55 @@ extension PlaybackManager: AudioPlayerDelegate {
             Logger.info("Track finished (reason: \(stopReason))")
             
             if stopReason == .eof {
+                // Fires before the next track's didStartPlaying on a gapless
+                // advance, so currentTrack is still the finished (outgoing) track.
                 self.playlistManager.incrementPlayCount(for: currentTrack)
                 self.scrobbleManager?.trackFinished(currentTrack)
-                
+
                 Logger.info("Track completed naturally, updating play count, last played date, and scrobbling it if configured")
             }
-            
-            self.currentTime = 0
-            
+
             switch stopReason {
             case .eof:
                 self.restoredPosition = 0
-                if self.gaplessPlayback {
-                    self.playlistManager.playNextTrack()
+                if self.audioPlayer.supportsGaplessQueue {
+                    // The engine self-advances gaplessly; the primed next track's
+                    // didStartPlaying promotes it. Only handle a true end of queue
+                    // here (nothing was primed). Don't reset currentTime - the
+                    // incoming track owns it now.
+                    if self.pendingNext == nil {
+                        self.currentTime = 0
+                        if self.pendingNextWasSkipped {
+                            self.pendingNextWasSkipped = false
+                            self.playlistManager.handleTrackCompletion()
+                        } else {
+                            self.isPlaying = false
+                            self.stopStateSaveTimer()
+                            NotificationCenter.default.post(
+                                name: NSNotification.Name("SavePlaybackState"),
+                                object: nil
+                            )
+                        }
+                    }
                 } else {
+                    self.currentTime = 0
                     self.playlistManager.handleTrackCompletion()
                     if !self.isPlaying {
                         self.stopStateSaveTimer()
-                        
+
                         NotificationCenter.default.post(
                             name: NSNotification.Name("SavePlaybackState"),
                             object: nil
                         )
                     }
                 }
-                
+
             case .userAction:
+                self.currentTime = 0
                 self.stopStateSaveTimer()
-                
+
             case .error:
+                self.currentTime = 0
                 self.isPlaying = false
                 Logger.error("Playback finished with error")
                 NotificationManager.shared.addMessage(.error, "Playback error occurred")
@@ -540,10 +771,19 @@ extension PlaybackManager: AudioPlayerDelegate {
         }
     }
     
-    func audioPlayerUnexpectedError(player: PAudioPlayer, error: AudioPlayerError) {
+    func audioPlayerUnexpectedError(player: PlaybackEngine, error: AudioPlayerError) {
         DispatchQueue.main.async {
             Logger.error("Audio player error: \(error.localizedDescription)")
             NotificationManager.shared.addMessage(.error, "Playback error: \(error.localizedDescription)")
+        }
+    }
+
+    func audioPlayerDidSkipQueueEntry(player: PlaybackEngine, entryId: AudioEntryId) {
+        DispatchQueue.main.async {
+            guard self.pendingNext?.entryId == entryId else { return }
+            Logger.warning("Gapless lookahead skipped; falling back to app-driven advance")
+            self.pendingNext = nil
+            self.pendingNextWasSkipped = true
         }
     }
 }

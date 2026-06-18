@@ -1,81 +1,20 @@
-import AVFoundation
+//
+// SFBMetadataReader
+//
+// The SFBAudioEngine-backed metadata reader. It owns all the SFBAudioEngine tag,
+// audio-property, and artwork parsing, so MetadataEngine stays backend-agnostic.
+// A Crescendo reader sits alongside this behind the same MetadataReader protocol,
+// selected by MediaBackend.
+//
+
 import Foundation
 import SFBAudioEngine
 
-// MARK: - Track Metadata
-
-struct TrackMetadata {
-    let url: URL
-    var title: String?
-    var artist: String?
-    var album: String?
-    var composer: String?
-    var genre: String?
-    var year: String?
-    var duration: Double = 0
-    var artworkData: Data?
-    var albumArtist: String?
-    var trackNumber: Int?
-    var totalTracks: Int?
-    var discNumber: Int?
-    var totalDiscs: Int?
-    var rating: Int?
-    var compilation: Bool = false
-    var releaseDate: String?
-    var originalReleaseDate: String?
-    var bpm: Int?
-    var mediaType: String?
-    var bitrate: Int?
-    var sampleRate: Int?
-    var channels: Int?
-    var codec: String?
-    var bitDepth: Int?
-    var lossless: Bool?
-
-    var sortTitle: String?
-    var sortArtist: String?
-    var sortAlbum: String?
-    var sortAlbumArtist: String?
-
-    var extended: ExtendedMetadata
-
-    init(url: URL) {
-        self.url = url
-        self.extended = ExtendedMetadata()
-    }
-}
-
-// MARK: - Artwork Compression Cache
-
-/// Thread-safe cache for compressed artwork data within a processing chunk.
-/// Avoids re-compressing identical album artwork across tracks in the same batch.
-actor ArtworkCompressionCache {
-    private var cache: [Int: Data] = [:]
-
-    func get(for data: Data) -> Data? {
-        cache[data.hashValue]
-    }
-
-    func store(original: Data, compressed: Data) {
-        cache[original.hashValue] = compressed
-    }
-}
-
-// MARK: - Metadata Extractor
-
-enum MetadataExtractor {
-    // MARK: - Public Methods
-
-    /// Extract metadata from an audio file using SFBAudioEngine
-    /// - Parameters:
-    ///   - url: The URL of the audio file
-    ///   - externalArtwork: Optional external artwork to use if file has none
-    ///   - artworkCache: Optional shared cache to avoid re-compressing identical artwork
-    /// - Returns: TrackMetadata containing all extracted information
-    static func extractMetadata(
+struct SFBMetadataReader: MetadataReader {
+    func extractMetadata(
         from url: URL,
-        externalArtwork: Data? = nil,
-        artworkCache: ArtworkCompressionCache? = nil
+        externalArtwork: Data?,
+        artworkCache: ArtworkCompressionCache?
     ) async -> TrackMetadata {
         var metadata = TrackMetadata(url: url)
 
@@ -92,13 +31,13 @@ enum MetadataExtractor {
         }
 
         // Extract audio properties
-        await extractAudioProperties(from: audioFile.properties, into: &metadata)
+        await Self.extractAudioProperties(from: audioFile.properties, into: &metadata)
 
         // Extract metadata
-        extractMetadata(from: audioFile.metadata, into: &metadata)
+        Self.extractMetadata(from: audioFile.metadata, into: &metadata)
 
         // Extract artwork
-        await extractArtwork(
+        await Self.extractArtwork(
             from: audioFile.metadata,
             into: &metadata,
             source: url.lastPathComponent,
@@ -123,7 +62,7 @@ enum MetadataExtractor {
         if let formatName = properties.formatName {
             metadata.codec = formatName
         }
-        
+
         // Duration (TimeInterval is a typealias for Double)
         if let duration = properties.duration, duration.isFinite, duration >= 0 {
             metadata.duration = duration
@@ -133,34 +72,12 @@ enum MetadataExtractor {
         // when no Xing/Info/VBRI header is present, which can be inaccurate.
         // Only use AVFoundation validation when SFBAudioEngine reports a suspicious duration,
         // since creating AVURLAsset for every MP3 is expensive.
-        let isMPEG = metadata.codec == "MP3" || metadata.codec?.hasPrefix("MPEG") == true
-        if isMPEG {
-            let suspicious = metadata.duration <= 0
-                || metadata.duration.isNaN
-                || metadata.duration.isInfinite
-                || metadata.duration < 1.0
-
-            if suspicious {
-                let asset = AVURLAsset(url: metadata.url)
-                let avDuration: Double
-                do {
-                    let duration = try await asset.load(.duration)
-                    avDuration = duration.seconds
-                } catch {
-                    avDuration = 0
-                }
-                if avDuration.isFinite && avDuration > 0
-                    && abs(avDuration - metadata.duration) > 1.0 {
-                    Logger.warning(
-                        """
-                        MPEG duration mismatch for \(metadata.url.lastPathComponent) - \
-                        SFBAudioEngine: \(metadata.duration)s, AVAsset: \(avDuration)s. Using AVAsset value.
-                        """
-                    )
-                    metadata.duration = avDuration
-                }
-            }
-        }
+        metadata.duration = await MetadataMapping.validatedDuration(
+            metadata.duration,
+            codec: metadata.codec,
+            url: metadata.url,
+            sourceName: "SFBAudioEngine"
+        )
 
         // Sample rate
         if let sampleRate = properties.sampleRate, sampleRate > 0 {
@@ -182,50 +99,8 @@ enum MetadataExtractor {
             metadata.bitrate = Int(bitrate)
         }
 
-        // Extract lossless flag using codec name from SFBAudioEngine (avoids redundant file I/O)
-        metadata.lossless = isTrackLossless(codec: metadata.codec, url: metadata.url)
-    }
-
-    /// Detect lossless status using codec name from SFBAudioEngine, falling back to file extension
-    private static func isTrackLossless(codec: String?, url: URL) -> Bool {
-        if let codec = codec {
-            let upper = codec.uppercased()
-
-            let losslessCodecs: Set<String> = [
-                "FLAC", "ALAC", "AIFF", "WAV", "WAVE", "PCM",
-                "APE", "WAVPACK", "TTA"
-            ]
-            if losslessCodecs.contains(upper)
-                || upper.hasPrefix("AIFF") || upper.hasPrefix("PCM") {
-                return true
-            }
-
-            let lossyCodecs: Set<String> = [
-                "MP3", "AAC", "OGG VORBIS", "OPUS", "MUSEPACK"
-            ]
-            if lossyCodecs.contains(upper) || upper.hasPrefix("MPEG") {
-                return false
-            }
-        }
-
-        return detectLosslessFromExtension(url: url) ?? false
-    }
-
-    /// Fallback: detect lossless from file extension
-    private static func detectLosslessFromExtension(url: URL) -> Bool? {
-        let ext = url.pathExtension.lowercased()
-        
-        let losslessExtensions = ["flac", "ape", "wv", "tta", "wav", "wave", "aiff", "aif", "aifc", "alac"]
-        let lossyExtensions = ["mp3", "aac", "m4a", "ogg", "opus", "mpc", "wma"]
-        
-        if losslessExtensions.contains(ext) {
-            return true
-        }
-        if lossyExtensions.contains(ext) {
-            return false
-        }
-        
-        return nil
+        // Extract lossless flag using codec name from SFBAudioEngine (avoids redundant file I/O).
+        metadata.lossless = MetadataMapping.isTrackLossless(codec: metadata.codec, url: metadata.url) ?? false
     }
 
     private static func extractMetadata(
@@ -260,7 +135,7 @@ enum MetadataExtractor {
         }
 
         // Rating
-        metadata.rating = extractRating(from: audioMetadata.rating)
+        metadata.rating = MetadataMapping.normalizedRating(fromRaw: audioMetadata.rating)
 
         // Compilation (Bool, not NSNumber)
         metadata.compilation = audioMetadata.isCompilation ?? false
@@ -271,7 +146,7 @@ enum MetadataExtractor {
 
             // Extract year from release date if year not set
             if metadata.year == nil {
-                metadata.year = extractYear(from: releaseDate)
+                metadata.year = MetadataMapping.year(fromDateString: releaseDate)
             }
         }
 
@@ -432,10 +307,7 @@ enum MetadataExtractor {
                 metadata.originalReleaseDate = stringValue
                 // Also try to extract year if not set
                 if metadata.year == nil {
-                    let extractedYear = extractYear(from: stringValue)
-                    if !extractedYear.isEmpty {
-                        metadata.year = extractedYear
-                    }
+                    metadata.year = MetadataMapping.year(fromDateString: stringValue)
                 }
             }
 
@@ -491,72 +363,10 @@ enum MetadataExtractor {
     ) async {
         guard let firstPicture = audioMetadata.attachedPictures.first else { return }
 
-        let rawData = firstPicture.imageData
-
-        if rawData.count > AlbumArtFormat.maxArtworkSize {
-            let context = source.map { " for \($0)" } ?? ""
-            Logger.warning("Skipping oversized embedded artwork\(context) (\(rawData.count) bytes)")
-            return
-        }
-
-        // Check cache for previously compressed identical artwork
-        if let cache = artworkCache, let cached = await cache.get(for: rawData) {
-            metadata.artworkData = cached
-            return
-        }
-
-        // If compression fails, leave artworkData nil rather than persisting undecodable bytes
-        // that would re-fail on every later read (sidebar, now-playing, color extraction).
-        guard let compressed = ImageUtils.compressImage(from: rawData, source: source) else { return }
-        metadata.artworkData = compressed
-
-        // Store in cache for subsequent tracks with identical artwork
-        if let cache = artworkCache {
-            await cache.store(original: rawData, compressed: compressed)
-        }
-    }
-
-    // MARK: - Helper Methods
-
-    /// Extract a 4-digit year from a date string
-    private static func extractYear(from dateString: String) -> String {
-        // Try to find a 4-digit year (e.g., 2024, 1999)
-        let yearPattern = #"\b(19|20)\d{2}\b"#
-
-        if let regex = try? NSRegularExpression(pattern: yearPattern),
-           let match = regex.firstMatch(
-            in: dateString,
-            range: NSRange(dateString.startIndex..., in: dateString)
-           ) {
-            if let range = Range(match.range, in: dateString) { return String(dateString[range]) }
-        }
-
-        return ""
-    }
-    
-    /// Extract normalized rating value on a 0-5 scale
-    private static func extractRating(from rawRating: Int?) -> Int? {
-        guard let raw = rawRating, raw > 0 else { return nil }
-        
-        let normalized: Int
-        
-        // Default rating range (1-5)
-        if raw <= 5 {
-            normalized = raw
-        }
-        // ID3v2 POPM rating range (1-255 mapped to 1-5)
-        else if raw <= 31 {
-            normalized = 1
-        } else if raw <= 95 {
-            normalized = 2
-        } else if raw <= 159 {
-            normalized = 3
-        } else if raw <= 223 {
-            normalized = 4
-        } else {
-            normalized = 5
-        }
-        
-        return min(max(normalized, 0), 5)
+        metadata.artworkData = await MetadataMapping.compressedArtwork(
+            from: firstPicture.imageData,
+            source: source,
+            cache: artworkCache
+        )
     }
 }

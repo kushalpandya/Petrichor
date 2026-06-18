@@ -31,11 +31,17 @@ struct TrackLyricsView: View {
         }
         .onAppear {
             loadLyricsForCurrentTrack()
+            // Sample the playhead at 0.5s while lyrics are on screen for tight
+            // line highlighting; the rate drops back to 1s when this view closes.
+            playbackManager.setFineProgressSampling(true)
+        }
+        .onDisappear {
+            playbackManager.setFineProgressSampling(false)
         }
         .onChange(of: playbackManager.currentTrack?.id) { _, _ in
             loadLyricsForCurrentTrack()
         }
-        // Listen for playback time changes and update the current line in real time
+        // Listen for playback time changes and update the current line in real time.
         .onReceive(playbackManager.playbackProgressState.$currentTime) { newTime in
             updateCurrentLine(for: newTime)
         }
