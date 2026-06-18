@@ -6,6 +6,7 @@
 // behave identically no matter which backend produced the raw values.
 //
 
+import AVFoundation
 import Foundation
 
 enum MetadataMapping {
@@ -51,6 +52,70 @@ enum MetadataMapping {
         }
 
         return min(max(normalized, 0), 5)
+    }
+
+    /// TagLib-backed readers can report unreliable MPEG durations for files with
+    /// missing VBR headers. Only pay the AVFoundation cost when the value is
+    /// obviously suspicious.
+    static func validatedDuration(_ duration: Double, codec: String?, url: URL, sourceName: String) async -> Double {
+        guard isMPEG(codec: codec) else { return duration }
+        let suspicious = duration <= 0 || duration.isNaN || duration.isInfinite || duration < 1.0
+        guard suspicious else { return duration }
+
+        let asset = AVURLAsset(url: url)
+        let avDuration: Double
+        do {
+            avDuration = try await asset.load(.duration).seconds
+        } catch {
+            avDuration = 0
+        }
+
+        if avDuration.isFinite, avDuration > 0, abs(avDuration - duration) > 1.0 {
+            Logger.warning(
+                """
+                MPEG duration mismatch for \(url.lastPathComponent) - \
+                \(sourceName): \(duration)s, AVAsset: \(avDuration)s. Using AVAsset value.
+                """
+            )
+            return avDuration
+        }
+
+        return duration
+    }
+
+    static func isTrackLossless(codec: String?, url: URL, fallback: Bool? = nil) -> Bool? {
+        if let fallback { return fallback }
+
+        if let codec {
+            let normalized = codec.lowercased()
+            let losslessCodecs = [
+                "flac", "alac", "apple lossless", "aiff", "wav", "wave", "pcm",
+                "ape", "wavpack", "tta", "dsf", "dsdiff"
+            ]
+            if losslessCodecs.contains(where: { normalized.contains($0) }) {
+                return true
+            }
+
+            let lossyCodecs = ["mp3", "mpeg", "aac", "vorbis", "ogg", "opus", "musepack", "mpc", "wma"]
+            if lossyCodecs.contains(where: { normalized.contains($0) }) {
+                return false
+            }
+        }
+
+        switch url.pathExtension.lowercased() {
+        case "flac", "ape", "wv", "tta", "wav", "wave", "aiff", "aif", "aifc", "alac", "dsf", "dff":
+            return true
+        case "mp3", "aac", "m4a", "ogg", "oga", "opus", "mpc", "wma":
+            return false
+        default:
+            return nil
+        }
+    }
+
+    private static func isMPEG(codec: String?) -> Bool {
+        guard let codec else { return false }
+        let normalized = codec.lowercased()
+        return normalized == "mp3" || normalized.contains("mpeg")
     }
 
     /// Size-cap, compress, and cache embedded artwork bytes. Returns the

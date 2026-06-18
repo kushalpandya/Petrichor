@@ -27,7 +27,7 @@ struct CrescendoMetadataReader: MetadataReader {
             return metadata
         }
 
-        map(source, into: &metadata)
+        await map(source, into: &metadata)
 
         if let firstPicture = source.pictures.first {
             metadata.artworkData = await MetadataMapping.compressedArtwork(
@@ -44,7 +44,7 @@ struct CrescendoMetadataReader: MetadataReader {
         return metadata
     }
 
-    private func map(_ source: CrescendoMetadata, into metadata: inout TrackMetadata) {
+    private func map(_ source: CrescendoMetadata, into metadata: inout TrackMetadata) async {
         // Core metadata
         metadata.title = source.title
         metadata.artist = source.artist
@@ -63,7 +63,12 @@ struct CrescendoMetadataReader: MetadataReader {
 
         // Audio properties
         if source.duration.isFinite, source.duration >= 0 {
-            metadata.duration = source.duration
+            metadata.duration = await MetadataMapping.validatedDuration(
+                source.duration,
+                codec: source.codec,
+                url: metadata.url,
+                sourceName: "Crescendo"
+            )
         }
         if source.sampleRate > 0 { metadata.sampleRate = source.sampleRate }
         if source.channelCount > 0 { metadata.channels = source.channelCount }
@@ -72,9 +77,8 @@ struct CrescendoMetadataReader: MetadataReader {
         if let bitrate = source.bitrate, bitrate > 0 { metadata.bitrate = (bitrate + 500) / 1000 }
         if let bitDepth = source.bitDepth, bitDepth > 0 { metadata.bitDepth = bitDepth }
         metadata.codec = source.codec
-        // Crescendo reports a typed lossless flag, so use it directly rather than
-        // re-deriving from the codec string.
-        metadata.lossless = source.lossless
+        // Prefer Crescendo's typed flag; fall back only if TagLib could not classify it.
+        metadata.lossless = MetadataMapping.isTrackLossless(codec: source.codec, url: metadata.url, fallback: source.lossless)
 
         // Dates and year
         if let releaseDate = source.releaseDate {

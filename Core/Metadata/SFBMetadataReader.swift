@@ -7,7 +7,6 @@
 // selected by MediaBackend.
 //
 
-import AVFoundation
 import Foundation
 import SFBAudioEngine
 
@@ -73,34 +72,12 @@ struct SFBMetadataReader: MetadataReader {
         // when no Xing/Info/VBRI header is present, which can be inaccurate.
         // Only use AVFoundation validation when SFBAudioEngine reports a suspicious duration,
         // since creating AVURLAsset for every MP3 is expensive.
-        let isMPEG = metadata.codec == "MP3" || metadata.codec?.hasPrefix("MPEG") == true
-        if isMPEG {
-            let suspicious = metadata.duration <= 0
-                || metadata.duration.isNaN
-                || metadata.duration.isInfinite
-                || metadata.duration < 1.0
-
-            if suspicious {
-                let asset = AVURLAsset(url: metadata.url)
-                let avDuration: Double
-                do {
-                    let duration = try await asset.load(.duration)
-                    avDuration = duration.seconds
-                } catch {
-                    avDuration = 0
-                }
-                if avDuration.isFinite && avDuration > 0
-                    && abs(avDuration - metadata.duration) > 1.0 {
-                    Logger.warning(
-                        """
-                        MPEG duration mismatch for \(metadata.url.lastPathComponent) - \
-                        SFBAudioEngine: \(metadata.duration)s, AVAsset: \(avDuration)s. Using AVAsset value.
-                        """
-                    )
-                    metadata.duration = avDuration
-                }
-            }
-        }
+        metadata.duration = await MetadataMapping.validatedDuration(
+            metadata.duration,
+            codec: metadata.codec,
+            url: metadata.url,
+            sourceName: "SFBAudioEngine"
+        )
 
         // Sample rate
         if let sampleRate = properties.sampleRate, sampleRate > 0 {
@@ -122,50 +99,8 @@ struct SFBMetadataReader: MetadataReader {
             metadata.bitrate = Int(bitrate)
         }
 
-        // Extract lossless flag using codec name from SFBAudioEngine (avoids redundant file I/O)
-        metadata.lossless = isTrackLossless(codec: metadata.codec, url: metadata.url)
-    }
-
-    /// Detect lossless status using codec name from SFBAudioEngine, falling back to file extension
-    private static func isTrackLossless(codec: String?, url: URL) -> Bool {
-        if let codec = codec {
-            let upper = codec.uppercased()
-
-            let losslessCodecs: Set<String> = [
-                "FLAC", "ALAC", "AIFF", "WAV", "WAVE", "PCM",
-                "APE", "WAVPACK", "TTA"
-            ]
-            if losslessCodecs.contains(upper)
-                || upper.hasPrefix("AIFF") || upper.hasPrefix("PCM") {
-                return true
-            }
-
-            let lossyCodecs: Set<String> = [
-                "MP3", "AAC", "OGG VORBIS", "OPUS", "MUSEPACK"
-            ]
-            if lossyCodecs.contains(upper) || upper.hasPrefix("MPEG") {
-                return false
-            }
-        }
-
-        return detectLosslessFromExtension(url: url) ?? false
-    }
-
-    /// Fallback: detect lossless from file extension
-    private static func detectLosslessFromExtension(url: URL) -> Bool? {
-        let ext = url.pathExtension.lowercased()
-
-        let losslessExtensions = ["flac", "ape", "wv", "tta", "wav", "wave", "aiff", "aif", "aifc", "alac"]
-        let lossyExtensions = ["mp3", "aac", "m4a", "ogg", "opus", "mpc", "wma"]
-
-        if losslessExtensions.contains(ext) {
-            return true
-        }
-        if lossyExtensions.contains(ext) {
-            return false
-        }
-
-        return nil
+        // Extract lossless flag using codec name from SFBAudioEngine (avoids redundant file I/O).
+        metadata.lossless = MetadataMapping.isTrackLossless(codec: metadata.codec, url: metadata.url) ?? false
     }
 
     private static func extractMetadata(
