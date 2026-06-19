@@ -260,9 +260,9 @@ struct EntityDetailView: View {
             return category.filterType.singularDisplayName
         }
         switch pinnedItem?.filterType {
-        case .albumArtists: return "Album Artist"
-        case .composers: return "Composer"
-        default: return "Artist"
+        case .albumArtists: return String(localized: "Album Artist")
+        case .composers: return String(localized: "Composer")
+        default: return String(localized: "Artist")
         }
     }
 
@@ -336,7 +336,7 @@ struct EntityDetailView: View {
     ) -> some View {
         HStack {
             leading()
-            statText("\(tracks.count) \(tracks.count == 1 ? "song" : "songs")")
+            statText(String(localized: "\(tracks.count) songs"))
             if !tracks.isEmpty {
                 statDot
                 statText(HelperUtils.formattedDurationSummary(totalTrackDuration))
@@ -370,7 +370,7 @@ struct EntityDetailView: View {
                     .padding(.horizontal, verticalPadding)
             }
             .adaptiveCircularButtonStyle()
-            .help(isPinned ? "Remove from Home" : "Pin to Home")
+            .help(isPinned ? String(localized: "Remove from Home") : String(localized: "Pin to Home"))
 
             Button(action: { playEntity() }, label: {
                 HStack(spacing: iconTextSpacing) {

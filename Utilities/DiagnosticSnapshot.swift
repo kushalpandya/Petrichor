@@ -15,7 +15,8 @@ enum DiagnosticSnapshot {
                 "name": AppInfo.name,
                 "version": AppInfo.versionWithBuild,
                 "bundleId": AppInfo.bundleIdentifier,
-                "build": AppInfo.isDebugBuild ? "debug" : "release"
+                "build": AppInfo.isDebugBuild ? "debug" : "release",
+                "locale": Locale.current.identifier
             ]
         ]
 

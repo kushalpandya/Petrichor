@@ -138,15 +138,15 @@ struct LibraryView: View {
 
     private var headerTitle: String {
         if !libraryManager.globalSearchText.isEmpty {
-            return "Search Results"
+            return String(localized: "Search Results")
         } else if let filterItem = selectedFilterItem {
             if filterItem.isAllItem {
-                return "All Tracks"
+                return String(localized: "All Tracks")
             } else {
                 return filterItem.name
             }
         } else {
-            return "All Tracks"
+            return String(localized: "All Tracks")
         }
     }
 
@@ -158,7 +158,7 @@ struct LibraryView: View {
                 .font(.system(size: 48))
                 .foregroundColor(.gray)
 
-            Text(libraryManager.globalSearchText.isEmpty ? "No Tracks Found" : "No Search Results")
+            (libraryManager.globalSearchText.isEmpty ? Text("No Tracks Found") : Text("No Search Results"))
                 .font(.headline)
 
             if !libraryManager.globalSearchText.isEmpty {

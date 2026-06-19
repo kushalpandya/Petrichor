@@ -177,7 +177,7 @@ extension LibraryManager {
         let isPinned = isLibraryItemPinned(filterType: filterType, filterValue: filterValue)
         
         return .button(
-            title: isPinned ? "Remove from Home" : "Pin to Home",
+            title: isPinned ? String(localized: "Remove from Home") : String(localized: "Pin to Home"),
             role: nil
         ) {
             Task {
@@ -195,7 +195,7 @@ extension LibraryManager {
         let isPinned = isEntityPinned(entity)
         
         return .button(
-            title: isPinned ? "Remove from Home" : "Pin to Home",
+            title: isPinned ? String(localized: "Remove from Home") : String(localized: "Pin to Home"),
             role: nil
         ) {
             Task {

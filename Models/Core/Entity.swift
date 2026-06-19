@@ -34,9 +34,18 @@ private enum EntityNamespaces {
 protocol Entity: Identifiable {
     var id: UUID { get }
     var name: String { get }
+    /// Display-only name; localizes the stored English "Unknown X" sentinel.
+    /// `name` stays raw for identity/sorting.
+    var displayName: String { get }
     var subtitle: String? { get }
     var trackCount: Int { get }
     var artworkData: Data? { get }
+}
+
+extension Entity {
+    // Default: no localization. Concrete types that map to a LibraryFilterType
+    // override this to translate the "Unknown X" sentinel.
+    var displayName: String { name }
 }
 
 // MARK: - Shared Color Defaults
@@ -61,8 +70,10 @@ struct ArtistEntity: Entity {
     let trackCount: Int
     let artworkData: Data?
 
+    var displayName: String { LibraryFilterType.artists.localizedDisplay(name) }
+
     var subtitle: String? {
-        "\(trackCount) \(trackCount == 1 ? "song" : "songs")"
+        String(localized: "\(trackCount) songs")
     }
 
     init(name: String, tracks: [Track]) {
@@ -96,6 +107,8 @@ struct AlbumEntity: Entity {
     let duration: Double?
     let artistName: String?
     let dateAdded: Date?
+
+    var displayName: String { LibraryFilterType.albums.localizedDisplay(name) }
 
     var subtitle: String? {
         year
@@ -153,8 +166,10 @@ struct CategoryEntity: Entity {
     let filterType: LibraryFilterType
     private static var generatedArtworkCache = NSCache<NSString, NSData>()
 
+    var displayName: String { filterType.localizedDisplay(name) }
+
     var subtitle: String? {
-        "\(trackCount) \(trackCount == 1 ? "song" : "songs")"
+        String(localized: "\(trackCount) songs")
     }
 
     init(name: String, trackCount: Int, filterType: LibraryFilterType) {

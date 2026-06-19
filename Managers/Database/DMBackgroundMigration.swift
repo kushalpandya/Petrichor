@@ -191,7 +191,7 @@ extension DatabaseManager {
     ]
 
     private func convertArtworkToHEIC(progress: String?) async {
-        NotificationManager.shared.startActivity("Optimizing Library...")
+        NotificationManager.shared.startActivity(String(localized: "Optimizing Library..."))
 
         let sizeBefore = getDatabaseSize() ?? 0
         let batchSize = 50
@@ -270,14 +270,14 @@ extension DatabaseManager {
             NotificationManager.shared.stopActivity()
             if spaceSaved > 0 {
                 let savedMB = Double(spaceSaved) / (1024.0 * 1024.0)
-                NotificationManager.shared.addMessage(.info, "Library optimized - reclaimed \(String(format: "%.1f", savedMB)) MB")
+                NotificationManager.shared.addMessage(.info, String(localized: "Library optimized - reclaimed \(String(format: "%.1f", savedMB)) MB"))
             } else {
-                NotificationManager.shared.addMessage(.info, "Library optimized")
+                NotificationManager.shared.addMessage(.info, String(localized: "Library optimized"))
             }
             Logger.info("Artwork optimization completed")
         } catch {
             NotificationManager.shared.stopActivity()
-            NotificationManager.shared.addMessage(.error, "Failed to optimize library")
+            NotificationManager.shared.addMessage(.error, String(localized: "Failed to optimize library"))
             Logger.error("Artwork optimization failed: \(error)")
         }
     }
@@ -291,7 +291,7 @@ extension DatabaseManager {
     }
 
     private func loadKnownArtistsAndRebuild(progress: String?) async {
-        NotificationManager.shared.startActivity("Updating Artists...")
+        NotificationManager.shared.startActivity(String(localized: "Updating Artists..."))
 
         var resumeOffset = 0
         if let progress = progress,
@@ -306,11 +306,11 @@ extension DatabaseManager {
 
             completeBackgroundMigration(Self.knownArtistsMigrationIdentifier)
             NotificationManager.shared.stopActivity()
-            NotificationManager.shared.addMessage(.info, "Artists information updated successfully")
+            NotificationManager.shared.addMessage(.info, String(localized: "Artists information updated successfully"))
             Logger.info("Known artists migration completed")
         } catch {
             NotificationManager.shared.stopActivity()
-            NotificationManager.shared.addMessage(.error, "Failed to update artists information")
+            NotificationManager.shared.addMessage(.error, String(localized: "Failed to update artists information"))
             Logger.error("Known artists migration failed: \(error)")
         }
     }

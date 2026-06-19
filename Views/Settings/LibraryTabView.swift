@@ -105,7 +105,7 @@ struct LibraryTabView: View {
             updateStableScanningState(newValue)
         }
         .alert(
-            foldersToRemove.count == 1 ? "Remove Folder" : "Remove Folders",
+            foldersToRemove.count == 1 ? String(localized: "Remove Folder") : String(localized: "Remove Folders"),
             isPresented: .init(
                 get: { !foldersToRemove.isEmpty },
                 set: { if !$0 { foldersToRemove = [] } }
@@ -117,8 +117,8 @@ struct LibraryTabView: View {
                 Task {
                     await MainActor.run {
                         let message = folders.count == 1
-                            ? "Removing folder '\(folders[0].name)'..."
-                            : "Removing \(folders.count) folders..."
+                            ? String(localized: "Removing folder '\(folders[0].name)'...")
+                            : String(localized: "Removing \(folders.count) folders...")
                         NotificationManager.shared.startActivity(message)
                     }
 
@@ -131,8 +131,8 @@ struct LibraryTabView: View {
 
                     await MainActor.run {
                         let message = folders.count == 1
-                            ? "Removed folder '\(folders[0].name)'"
-                            : "Removed \(folders.count) folders"
+                            ? String(localized: "Removed folder '\(folders[0].name)'")
+                            : String(localized: "Removed \(folders.count) folders")
                         NotificationManager.shared.addMessage(.info, message)
 
                         selectedFolderIDs.removeAll()
@@ -167,7 +167,7 @@ struct LibraryTabView: View {
 
             Button(action: { libraryManager.refreshLibrary(hardRefresh: isCommandKeyPressed) }, label: {
                 Label(
-                    isCommandKeyPressed ? "Force Refresh" : "Refresh",
+                    isCommandKeyPressed ? String(localized: "Force Refresh") : String(localized: "Refresh"),
                     systemImage: isCommandKeyPressed ? Icons.arrowClockwiseCircle : Icons.arrowClockwise
                 )
             })
@@ -181,7 +181,7 @@ struct LibraryTabView: View {
                 // Selection + Add Folder controls
                 HStack {
                     Button(action: toggleSelectMode) {
-                        Text(isSelectMode ? "Done" : "Select")
+                        Text(isSelectMode ? String(localized: "Done") : String(localized: "Select"))
                             .font(.system(size: 12))
                     }
                     .buttonStyle(.bordered)
@@ -440,11 +440,11 @@ struct LibraryTabView: View {
 
     private func showRestartAlert() {
         let alert = NSAlert()
-        alert.messageText = "Restart Required"
-        alert.informativeText = "App preferences have been reset. Please restart Petrichor for changes to take full effect."
+        alert.messageText = String(localized: "Restart Required")
+        alert.informativeText = String(localized: "App preferences have been reset. Please restart Petrichor for changes to take full effect.")
         alert.alertStyle = .informational
-        alert.addButton(withTitle: "Quit Now")
-        alert.addButton(withTitle: "Later")
+        alert.addButton(withTitle: String(localized: "Quit Now"))
+        alert.addButton(withTitle: String(localized: "Later"))
 
         if alert.runModal() == .alertFirstButtonReturn {
             exit(0)
@@ -453,21 +453,21 @@ struct LibraryTabView: View {
 
     private func showResetConfirmation() {
         let alert = NSAlert()
-        alert.messageText = "Reset Library Data"
-        alert.informativeText = """
+        alert.messageText = String(localized: "Reset Library Data")
+        alert.informativeText = String(localized: """
             This will permanently remove all library data, including added folders, tracks, playlists, \
             and pinned items. This action cannot be undone.
-            """
+            """)
         alert.alertStyle = .critical
         alert.icon = nil
 
-        let resetButton = alert.addButton(withTitle: "Reset All Data")
+        let resetButton = alert.addButton(withTitle: String(localized: "Reset All Data"))
         resetButton.hasDestructiveAction = true
 
-        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: String(localized: "Cancel"))
 
         alert.showsSuppressionButton = true
-        alert.suppressionButton?.title = "Also reset app preferences"
+        alert.suppressionButton?.title = String(localized: "Also reset app preferences")
 
         let response = alert.runModal()
 
@@ -555,8 +555,8 @@ private struct CompactFolderRowView: View {
                     }
                     .buttonStyle(.plain)
                     .help(isCommandKeyPressed
-                        ? "⌘ + Click for deep refresh (re-scans all metadata)"
-                        : "Refresh this folder. Hold ⌘ for deep refresh")
+                        ? String(localized: "⌘ + Click for deep refresh (re-scans all metadata)")
+                        : String(localized: "Refresh this folder. Hold ⌘ for deep refresh"))
 
                     Button(action: onRemove) {
                         Image(systemName: Icons.minusCircleFill)

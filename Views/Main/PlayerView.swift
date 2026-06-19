@@ -162,7 +162,7 @@ struct PlayerView: View {
         .buttonStyle(ControlButtonStyle())
         .hoverEffect(scale: 1.1)
         .disabled(playbackManager.currentTrack == nil)
-        .help(playlistManager.isShuffleEnabled ? "Disable Shuffle" : "Enable Shuffle")
+        .help(playlistManager.isShuffleEnabled ? String(localized: "Disable Shuffle") : String(localized: "Enable Shuffle"))
     }
 
     private var previousButton: some View {
@@ -204,7 +204,7 @@ struct PlayerView: View {
             perform: {}
         )
         .disabled(playbackManager.currentTrack == nil)
-        .help(playbackManager.isPlaying ? "Pause" : "Play")
+        .help(playbackManager.isPlaying ? String(localized: "Pause") : String(localized: "Play"))
         .id("playPause")
     }
 
@@ -240,9 +240,9 @@ struct PlayerView: View {
     
     private var repeatModeTooltip: String {
         switch playlistManager.repeatMode {
-        case .off: return "Repeat: Off"
-        case .one: return "Repeat: Current Track"
-        case .all: return "Repeat: All"
+        case .off: return String(localized: "Repeat: Off")
+        case .one: return String(localized: "Repeat: Current Track")
+        case .all: return String(localized: "Repeat: All")
         }
     }
 
@@ -326,7 +326,7 @@ struct PlayerView: View {
         }
         .buttonStyle(.plain)
         .hoverEffect(scale: 1.1)
-        .help(isMuted ? "Unmute" : "Mute")
+        .help(isMuted ? String(localized: "Unmute") : String(localized: "Mute"))
     }
 
     private var volumeSlider: some View {
@@ -357,7 +357,7 @@ struct PlayerView: View {
         .controlSize(.small)
         .overlay(alignment: .leading) {
             if isDraggingVolume {
-                Text("\(Int(playbackManager.volume * 100))%")
+                Text(playbackManager.volume.formatted(.percent.precision(.fractionLength(0))))
                     .font(.caption)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
@@ -388,7 +388,7 @@ struct PlayerView: View {
         })
         .buttonStyle(PlainButtonStyle())
         .hoverEffect(scale: 1.1)
-        .help(rightSidebarContent == .queue ? "Hide Queue" : "Show Queue")
+        .help(rightSidebarContent == .queue ? String(localized: "Hide Queue") : String(localized: "Show Queue"))
     }
     
     private var lyricsButton: some View {
@@ -407,7 +407,7 @@ struct PlayerView: View {
         .disabled(!hasCurrentTrack)
         .opacity(hasCurrentTrack ? 1.0 : 0.5)
         .hoverEffect(scale: hasCurrentTrack ? 1.1 : 1.0)
-        .help(rightSidebarContent == .lyrics ? "Hide Lyrics" : "Show Lyrics")
+        .help(rightSidebarContent == .lyrics ? String(localized: "Hide Lyrics") : String(localized: "Show Lyrics"))
     }
 
     // MARK: - Computed Properties
@@ -560,7 +560,7 @@ struct PlayerTrackDetailsView: View, Equatable {
 
             // Artist with marquee
             MarqueeText(
-                text: track?.artist ?? "",
+                text: track?.displayArtist ?? "",
                 font: .system(size: 12),
                 color: .secondary
             )
@@ -572,7 +572,7 @@ struct PlayerTrackDetailsView: View, Equatable {
 
             // Album with marquee
             MarqueeText(
-                text: track?.album ?? "",
+                text: track?.displayAlbum ?? "",
                 font: .system(size: 11),
                 color: .secondary
             )
@@ -606,7 +606,7 @@ struct FavoriteButtonView: View, Equatable {
         .buttonStyle(.plain)
         .focusable(false)
         .hoverEffect(scale: 1.15)
-        .help(isFavorite ? "Remove from Favorites" : "Add to Favorites")
+        .help(isFavorite ? String(localized: "Remove from Favorites") : String(localized: "Add to Favorites"))
     }
 }
 

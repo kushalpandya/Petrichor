@@ -32,7 +32,7 @@ struct PlaylistSidebarView: View {
             }
         } message: {
             if let playlist = playlistToDelete {
-                Text("Are you sure you want to delete \"\(playlist.name)\"? This action cannot be undone.")
+                Text("Are you sure you want to delete \"\(DefaultPlaylists.displayName(for: playlist))\"? This action cannot be undone.")
             }
         }
         .onAppear {
@@ -138,7 +138,7 @@ struct PlaylistSidebarView: View {
 
         return AnyView(
             Menu {
-                Button(isPinned ? "Remove from Home" : "Pin to Home") {
+                Button(isPinned ? String(localized: "Remove from Home") : String(localized: "Pin to Home")) {
                     Task {
                         if isPinned {
                             await playlistManager.unpinPlaylist(item.playlist)
@@ -194,9 +194,9 @@ struct PlaylistSidebarView: View {
         
         if playlist.isUserEditable {
             items.append(.divider)
-            items.append(.button(title: "Rename") {})
+            items.append(.button(title: String(localized: "Rename")) {})
             items.append(.divider)
-            items.append(.button(title: "Delete", role: .destructive) {
+            items.append(.button(title: String(localized: "Delete"), role: .destructive) {
                 playlistToDelete = playlist
                 showingDeleteConfirmation = true
             })

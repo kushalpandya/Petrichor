@@ -191,11 +191,11 @@ private struct EntityGridItem<T: Entity>: View {
             }
             
             VStack(alignment: .leading, spacing: 2) {
-                Text(entity.name)
+                Text(entity.displayName)
                     .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
                     .foregroundColor(.primary)
-                    .help(entity.name)
+                    .help(entity.displayName)
 
                 if let albumEntity = entity as? AlbumEntity {
                     if let artistName = albumEntity.artistName {
@@ -222,7 +222,7 @@ private struct EntityGridItem<T: Entity>: View {
                 }
 
                 if entity is AlbumEntity {
-                    Text("\(entity.trackCount) \(entity.trackCount == 1 ? "song" : "songs")")
+                    Text("\(entity.trackCount) songs")
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                         .lineLimit(1)

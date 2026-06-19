@@ -120,7 +120,7 @@ enum AudioFormat {
     static var supportedFormatsDisplay: String {
         let exts = supportedExtensions.map { $0.uppercased() }
         guard exts.count > 1 else { return exts.first ?? "" }
-        return exts.dropLast().joined(separator: ", ") + ", and " + (exts.last ?? "")
+        return ListFormatter.localizedString(byJoining: exts)
     }
     
     static func isSupported(_ fileExtension: String) -> Bool {
@@ -199,36 +199,54 @@ enum DefaultPlaylists {
 }
 
 extension DefaultPlaylists {
+    static func displayName(for playlist: Playlist) -> String {
+        guard playlist.type == .smart && !playlist.isUserEditable else { return playlist.name }
+        return displayName(forStoredName: playlist.name)
+    }
+
+    static func displayName(forStoredName name: String) -> String {
+        switch name {
+        case DefaultPlaylists.favorites:
+            return String(localized: "Favorites")
+        case DefaultPlaylists.mostPlayed:
+            return String(localized: "Top 25 Most Played")
+        case DefaultPlaylists.recentlyPlayed:
+            return String(localized: "Top 25 Recently Played")
+        default:
+            return name
+        }
+    }
+
     static func noSongsText(for playlist: Playlist) -> String {
         if playlist.type == .smart && !playlist.isUserEditable {
             switch playlist.name {
             case DefaultPlaylists.favorites:
-                return "No Favorite Songs"
+                return String(localized: "No Favorite Songs")
             case DefaultPlaylists.mostPlayed:
-                return "No Frequently Played Songs"
+                return String(localized: "No Frequently Played Songs")
             case DefaultPlaylists.recentlyPlayed:
-                return "No Recently Played Songs"
+                return String(localized: "No Recently Played Songs")
             default:
-                return "Empty Smart Playlist"
+                return String(localized: "Empty Smart Playlist")
             }
         }
-        return "Empty Playlist"
+        return String(localized: "Empty Playlist")
     }
     
     static func emptyStateText(for playlist: Playlist) -> String {
         if playlist.type == .smart && !playlist.isUserEditable {
             switch playlist.name {
             case DefaultPlaylists.favorites:
-                return "Mark songs as favorites to see them here"
+                return String(localized: "Mark songs as favorites to see them here")
             case DefaultPlaylists.mostPlayed:
-                return "Songs played 5 or more times will appear here"
+                return String(localized: "Songs played 5 or more times will appear here")
             case DefaultPlaylists.recentlyPlayed:
-                return "Songs played in the last week will appear here"
+                return String(localized: "Songs played in the last week will appear here")
             default:
-                return "This smart playlist will update automatically based on its criteria"
+                return String(localized: "This smart playlist will update automatically based on its criteria")
             }
         }
-        return "Add some tracks to this playlist to get started"
+        return String(localized: "Add some tracks to this playlist to get started")
     }
 }
 

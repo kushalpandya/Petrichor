@@ -75,7 +75,7 @@ extension PlaylistManager {
         let isPinned = isPlaylistPinned(playlist)
         
         return .button(
-            title: isPinned ? "Remove from Home" : "Pin to Home",
+            title: isPinned ? String(localized: "Remove from Home") : String(localized: "Pin to Home"),
             role: nil
         ) {
                 Task {

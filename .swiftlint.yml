@@ -184,5 +184,48 @@ custom_rules:
     message: "Add a space after MARK:"
     severity: warning
 
+  # --- Localization guards ---
+  # These catch the common ways an un-localized, user-facing string slips in.
+  # They are deliberately scoped to specific "sink" APIs so they do NOT fire on
+  # already-correct code (a literal wrapped in String(localized:) or a plain
+  # SwiftUI Text("…")/Button("…") literal, both of which ARE localized).
+  # They cannot catch every case — run the app under the Accented Pseudolanguage
+  # before a release to find anything these miss (see docs/LOCALIZATION.md).
+
+  localized_view_string_ternary:
+    included: ".*\\.swift"
+    name: "Unlocalized View String Ternary"
+    # Text/Button/Label/.help/.navigationTitle whose argument is a ternary of
+    # two string literals. Swift resolves this to the verbatim String overload,
+    # so it is NOT localized. Use a ternary of Text(...) values, or wrap each
+    # branch in String(localized:).
+    regex: '(Text|Button|Label|\.help|\.navigationTitle)\([^"\n]*\?\s*"[^"]*"\s*:\s*"'
+    message: "Ternary of string literals in a SwiftUI view is not localized. Use Text(...) branches or String(localized:) per branch."
+    severity: warning
+
+  localized_notification_message:
+    included: ".*\\.swift"
+    name: "Unlocalized Notification Message"
+    # A hardcoded literal passed to NotificationManager. Wrap it in String(localized:).
+    regex: '\.(addMessage\([^,)\n]+,|startActivity\()\s*"'
+    message: "Pass a String(localized:) value to NotificationManager, not a hardcoded literal."
+    severity: warning
+
+  localized_context_menu_title:
+    included: ".*\\.swift"
+    name: "Unlocalized Context Menu Title"
+    # ContextMenuItem .button(title:)/.menu(title:) with a hardcoded literal.
+    regex: '\.(button|menu)\(\s*title:\s*"'
+    message: "Localize context menu titles with String(localized:)."
+    severity: warning
+
+  localized_appkit_string:
+    included: ".*\\.swift"
+    name: "Unlocalized AppKit String"
+    # AppKit menu/alert/panel UI strings assigned a hardcoded literal.
+    regex: '(NSMenuItem\(\s*title:|addButton\(withTitle:|\.messageText\s*=|\.informativeText\s*=|\.prompt\s*=)\s*"'
+    message: "Localize AppKit UI strings (menu item / alert / panel) with String(localized:)."
+    severity: warning
+
 # Reporter type
 reporter: "xcode" # Use "json" for CI environments

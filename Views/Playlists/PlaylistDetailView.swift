@@ -165,14 +165,14 @@ struct PlaylistDetailView: View {
                 .foregroundColor(.secondary)
                 .fontWeight(.medium)
 
-            Text(playlist?.name ?? "")
+            Text(playlist.map(DefaultPlaylists.displayName) ?? "")
                 .font(.title)
                 .fontWeight(.bold)
                 .lineLimit(2)
 
             if let playlist = playlist {
                 HStack {
-                    Text("\(playlist.trackCount) songs")
+                    Text(String(localized: "\(playlist.trackCount) songs"))
                         .font(.subheadline)
                         .foregroundColor(.secondary)
 
@@ -207,7 +207,7 @@ struct PlaylistDetailView: View {
                     .padding(.horizontal, verticalPadding)
             }
             .adaptiveCircularButtonStyle()
-            .help(isPinned ? "Remove from Home" : "Pin to Home")
+            .help(isPinned ? String(localized: "Remove from Home") : String(localized: "Pin to Home"))
 
             Button(action: { playPlaylist() }, label: {
                 HStack(spacing: iconTextSpacing) {
@@ -342,14 +342,14 @@ struct PlaylistDetailView: View {
 
         switch playlist.type {
         case .smart:
-            return "SMART PLAYLIST"
+            return String(localized: "SMART PLAYLIST")
         case .regular:
-            return "PLAYLIST"
+            return String(localized: "PLAYLIST")
         }
     }
 
     private var emptyStateTitle: String {
-        guard let playlist = playlist else { return "Empty Playlist" }
+        guard let playlist = playlist else { return String(localized: "Empty Playlist") }
 
         return DefaultPlaylists.noSongsText(for: playlist)
     }

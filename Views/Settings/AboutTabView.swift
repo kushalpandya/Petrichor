@@ -214,10 +214,10 @@ struct AboutTabView: View {
     
     private struct FooterLink: View {
         let icon: String
-        let title: String
+        let title: LocalizedStringKey
         var url: URL?
         var action: (() -> Void)?
-        let tooltip: String
+        let tooltip: LocalizedStringKey
         
         @State private var isHovered = false
         

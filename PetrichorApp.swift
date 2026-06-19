@@ -362,11 +362,11 @@ extension PetrichorApp {
 
             if #available(macOS 26.0, *) {
                 Label(
-                    isFavorite ? "Remove from Favorites" : "Add to Favorites",
+                    isFavorite ? String(localized: "Remove from Favorites") : String(localized: "Add to Favorites"),
                     systemImage: isFavorite ? Icons.starFill : Icons.star
                 )
             } else {
-                Text(isFavorite ? "Remove from Favorites" : "Add to Favorites")
+                Text(isFavorite ? String(localized: "Remove from Favorites") : String(localized: "Add to Favorites"))
             }
         }
         .keyboardShortcut("f", modifiers: [.command, .shift])
@@ -666,9 +666,9 @@ extension PetrichorApp {
     
     private var repeatModeLabel: String {
         switch appCoordinator.playlistManager.repeatMode {
-        case .off: return "Repeat: Off"
-        case .one: return "Repeat: Current Track"
-        case .all: return "Repeat: All"
+        case .off: return String(localized: "Repeat: Off")
+        case .one: return String(localized: "Repeat: Current Track")
+        case .all: return String(localized: "Repeat: All")
         }
     }
 }

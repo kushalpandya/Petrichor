@@ -47,6 +47,16 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
         url.lastPathComponent
     }
 
+    // MARK: - Localized Display
+
+    // These translate only the stored English "Unknown X" sentinel for display.
+    // Use at UI display sites only; sorting/grouping/queries use the raw fields.
+    var displayArtist: String { LibraryFilterType.artists.localizedDisplay(artist) }
+    var displayAlbum: String { LibraryFilterType.albums.localizedDisplay(album) }
+    var displayGenre: String { LibraryFilterType.genres.localizedDisplay(genre) }
+    var displayComposer: String { LibraryFilterType.composers.localizedDisplay(composer) }
+    var displayYear: String { LibraryFilterType.years.localizedDisplay(year) }
+
     var dominantColors: [NSColor] {
         guard let original = albumArtworkData else { return [] }
         return ImageUtils.cachedDominantColors(id: id, imageData: original)

@@ -51,7 +51,7 @@ struct ReorderTracksSheet: View {
                     .font(.subheadline)
                     .foregroundColor(.secondary)
 
-                Text(playlist.name)
+                Text(DefaultPlaylists.displayName(for: playlist))
                     .font(.headline)
             }
 
@@ -100,7 +100,7 @@ struct ReorderTracksSheet: View {
 
     private var sheetFooter: some View {
         HStack {
-            Text(hasChanges ? "Order changed" : "\(reorderedTracks.count) songs")
+            (hasChanges ? Text("Order changed") : Text("\(reorderedTracks.count) songs"))
                 .font(.caption)
                 .foregroundColor(.secondary)
 
@@ -169,7 +169,7 @@ private struct ReorderTrackRow: View {
                     .font(.system(size: 13))
                     .lineLimit(1)
 
-                Text("\(track.artist) • \(track.album)")
+                Text("\(track.displayArtist) • \(track.displayAlbum)")
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
                     .lineLimit(1)

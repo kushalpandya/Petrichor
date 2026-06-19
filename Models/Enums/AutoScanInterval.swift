@@ -10,15 +10,15 @@ enum AutoScanInterval: String, CaseIterable, Codable {
     var displayName: String {
         switch self {
         case .every15Minutes:
-            return "Every 15 minutes"
+            return String(localized: "Every 15 minutes")
         case .every30Minutes:
-            return "Every 30 minutes"
+            return String(localized: "Every 30 minutes")
         case .every60Minutes:
-            return "Every hour"
+            return String(localized: "Every hour")
         case .onlyOnLaunch:
-            return "Only on app launch"
+            return String(localized: "Only on app launch")
         case .manually:
-            return "Manually"
+            return String(localized: "Manually")
         }
     }
 
