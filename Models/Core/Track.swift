@@ -18,6 +18,13 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
     let format: String
     var folderId: Int64?
     var lossless: Bool?
+
+    // Audio format details (read-only projection, populated from the tracks table).
+    // Used for the format badges in the player; not written back via `encode`.
+    var codec: String?
+    var bitrate: Int?
+    var sampleRate: Int?
+    var channels: Int?
     
     // Navigation fields (for "Go to" functionality)
     var albumArtist: String?
@@ -101,6 +108,10 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
         static let duration = Column("duration")
         static let format = Column("format")
         static let lossless = Column("lossless")
+        static let codec = Column("codec")
+        static let bitrate = Column("bitrate")
+        static let sampleRate = Column("sample_rate")
+        static let channels = Column("channels")
         static let dateAdded = Column("date_added")
         static let isFavorite = Column("is_favorite")
         static let playCount = Column("play_count")
@@ -132,6 +143,10 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
         let storedDuration: Double = row[Columns.duration]
         duration = HelperUtils.sanitizedDuration(storedDuration)
         lossless = row[Columns.lossless]
+        codec = row[Columns.codec]
+        bitrate = row[Columns.bitrate]
+        sampleRate = row[Columns.sampleRate]
+        channels = row[Columns.channels]
         dateAdded = row[Columns.dateAdded]
         isFavorite = row[Columns.isFavorite]
         playCount = row[Columns.playCount]
@@ -194,6 +209,10 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
     }
 }
 
+// MARK: - Audio Format
+
+extension Track: AudioFormatDescribing {}
+
 // MARK: - Helper Methods
 
 extension Track {
@@ -231,6 +250,11 @@ extension Track {
             Columns.year,
             Columns.duration,
             Columns.format,
+            Columns.lossless,
+            Columns.codec,
+            Columns.bitrate,
+            Columns.sampleRate,
+            Columns.channels,
             Columns.dateAdded,
             Columns.isFavorite,
             Columns.playCount,

@@ -301,88 +301,13 @@ struct FullTrack: Identifiable, Equatable, Hashable, FetchableRecord, Persistabl
     }
 }
 
-// MARK: - Display Formatting
+// MARK: - Audio Format
 
-extension FullTrack {
-    // Canonical, properly-cased codec display names. Engines report codec casing
-    // differently (SFB upper-cases, Crescendo uses TagLib's lowercase short name),
-    // so we normalize for display. A blanket uppercase won't do - Opus/Vorbis/
-    // WavPack/Musepack aren't acronyms; unknown codecs fall back to uppercase
-    // since they're almost always acronyms.
-    private static let codecDisplayNames: [String: String] = [
-        "flac": "FLAC",
-        "alac": "ALAC",
-        "aac": "AAC",
-        "mp3": "MP3",
-        "opus": "Opus",
-        "vorbis": "Vorbis",
-        "ogg": "Ogg",
-        "wav": "WAV",
-        "aiff": "AIFF",
-        "aifc": "AIFF",
-        "wavpack": "WavPack",
-        "ape": "APE",
-        "musepack": "Musepack",
-        "tta": "TTA",
-        "dsd": "DSD",
-        "speex": "Speex",
-        "pcm": "PCM"
-    ]
-
-    /// The codec name normalized for display, or nil when no codec is recorded.
-    var codecDisplay: String? {
-        guard let codec = codec, !codec.isEmpty else { return nil }
-        return Self.codecDisplayNames[codec.lowercased()] ?? codec.uppercased()
-    }
-
-    /// The bitrate formatted for display (e.g. "320 kbps"), or nil when absent.
-    /// Assumes the stored value is kbps - the metadata readers normalize to kbps
-    /// at scan time (SFB/TagLib already reports kbps; Crescendo reports bps).
-    var bitrateDisplay: String? {
-        guard let bitrate = bitrate, bitrate > 0 else { return nil }
-        return "\(bitrate) kbps"
-    }
-}
+extension FullTrack: AudioFormatDescribing {}
 
 // MARK: - Quality Scoring
 
 extension FullTrack {
-    /// Determines if the track is in a lossless format
-    var isLossless: Bool {
-        // Check if we already have flag set in db during metadata extraction
-        if let lossless = lossless {
-            return lossless
-        }
-        
-        // Fallback to manual computation
-        let formatLower = format.lowercased()
-        let codecLower = codec?.lowercased() ?? ""
-        
-        let losslessCodecs: Set<String> = [
-            "flac", "apple lossless", "alac", "wavpack", "ape", "tta",
-            "dsd", "dsf", "dff"
-        ]
-        
-        for losslessCodec in losslessCodecs where codecLower.contains(losslessCodec) {
-            return true
-        }
-        
-        let losslessFormats: Set<String> = [
-            // Lossless PCM
-            "flac", "alac", "wav", "wave", "aiff", "aif", "aifc",
-            // Lossless compressed
-            "ape", "wv", "tta",
-            // DSD formats
-            "dsf", "dff",
-            // Legacy lossless
-            "au",
-            // Module/tracker formats
-            "mod", "it", "s3m", "xm"
-        ]
-        
-        return losslessFormats.contains(formatLower)
-    }
-
     /// Calculate a quality score for duplicate detection
     /// Higher score = better quality
     var qualityScore: Int {

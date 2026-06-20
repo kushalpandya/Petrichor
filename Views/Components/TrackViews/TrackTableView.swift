@@ -291,7 +291,7 @@ struct TrackTableView: View {
                 
                 // Duration
                 TableColumn("Duration", value: \.duration) { track in
-                    Text(HelperUtils.formattedShortDuration(track.duration))
+                    Text(HelperUtils.formattedDuration(track.duration))
                         .font(isCurrentTrack(track) ? Self.currentTrackFont : Self.trackFont)
                         .foregroundColor(.secondary)
                         .monospacedDigit()

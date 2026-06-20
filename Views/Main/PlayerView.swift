@@ -87,7 +87,7 @@ struct PlayerView: View {
             albumArtwork
             trackDetails
         }
-        .frame(width: 250, alignment: .leading)
+        .frame(width: 320, alignment: .leading)
     }
 
     private var centerSection: some View {
@@ -104,7 +104,7 @@ struct PlayerView: View {
             queueButton
             lyricsButton
         }
-        .frame(width: 250, alignment: .trailing)
+        .frame(width: 320, alignment: .trailing)
     }
 
     // MARK: - Left Section Components
@@ -155,9 +155,9 @@ struct PlayerView: View {
             playlistManager.toggleShuffle()
         }, label: {
             Image(systemName: Icons.shuffleFill)
-                .font(.system(size: 14, weight: .medium))
+                .font(.system(size: 16, weight: .medium))
                 .foregroundColor(playlistManager.isShuffleEnabled ? Color.accentColor : Color.secondary)
-                .frame(width: 28, height: 28)
+                .frame(width: 32, height: 32)
         })
         .buttonStyle(ControlButtonStyle())
         .hoverEffect(scale: 1.1)
@@ -170,9 +170,9 @@ struct PlayerView: View {
             playlistManager.playPreviousTrack()
         }, label: {
             Image(systemName: Icons.backwardFill)
-                .font(.system(size: 16, weight: .medium))
+                .font(.system(size: 18, weight: .medium))
                 .foregroundColor(.primary)
-                .frame(width: 28, height: 28)
+                .frame(width: 32, height: 32)
         })
         .buttonStyle(ControlButtonStyle())
         .hoverEffect(scale: 1.1)
@@ -185,10 +185,11 @@ struct PlayerView: View {
             playbackManager.togglePlayPause()
         }, label: {
             PlayPauseIcon(isPlaying: playbackManager.isPlaying)
-                .frame(width: 36, height: 36)
+                .frame(width: 42, height: 42)
                 .background(
                     Circle()
                         .fill(Color.accentColor)
+                        .shadow(color: Color.accentColor.opacity(0.3), radius: 6, x: 0, y: 3)
                 )
         })
         .buttonStyle(PlainButtonStyle())
@@ -213,9 +214,9 @@ struct PlayerView: View {
             playlistManager.playNextTrack()
         }, label: {
             Image(systemName: Icons.forwardFill)
-                .font(.system(size: 16, weight: .medium))
+                .font(.system(size: 18, weight: .medium))
                 .foregroundColor(.primary)
-                .frame(width: 28, height: 28)
+                .frame(width: 32, height: 32)
         })
         .buttonStyle(ControlButtonStyle())
         .hoverEffect(scale: 1.1)
@@ -228,9 +229,9 @@ struct PlayerView: View {
             playlistManager.toggleRepeatMode()
         }, label: {
             Image(systemName: Icons.repeatIcon(for: playlistManager.repeatMode))
-                .font(.system(size: 14, weight: .medium))
+                .font(.system(size: 16, weight: .medium))
                 .foregroundColor(playlistManager.repeatMode != .off ? Color.accentColor : Color.secondary)
-                .frame(width: 28, height: 28)
+                .frame(width: 32, height: 32)
         })
         .buttonStyle(ControlButtonStyle())
         .hoverEffect(scale: 1.1)
@@ -248,23 +249,29 @@ struct PlayerView: View {
 
     private var progressBar: some View {
         HStack(spacing: 8) {
-            // Current time - updated to use displayTime
-            Text(HelperUtils.formattedShortDuration(isDraggingProgress ? tempProgressValue : playbackManager.currentTime))
+            // Current time
+            Text(HelperUtils.formattedDuration(isDraggingProgress ? tempProgressValue : playbackManager.currentTime))
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(.secondary)
                 .monospacedDigit()
-                .frame(width: 40, alignment: .trailing)
+                .frame(width: timeLabelWidth, alignment: .trailing)
 
             // Progress slider
             progressSlider
 
             // Total duration
-            Text(HelperUtils.formattedShortDuration(playbackManager.currentTrack?.duration ?? 0))
+            Text(HelperUtils.formattedDuration(playbackManager.currentTrack?.duration ?? 0))
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(.secondary)
                 .monospacedDigit()
-                .frame(width: 40, alignment: .leading)
+                .frame(width: timeLabelWidth, alignment: .leading)
         }
+    }
+
+    /// Widens the time labels when the current track is an hour or longer so the
+    /// `H:MM:SS` form isn't clipped; otherwise keeps the compact `M:SS` width.
+    private var timeLabelWidth: CGFloat {
+        (playbackManager.currentTrack?.duration ?? 0) >= 3600 ? 56 : 40
     }
 
     private var progressSlider: some View {
@@ -283,6 +290,7 @@ struct PlayerView: View {
                             width: geometry.size.width * progressPercentage,
                             height: 4
                         )
+                        .animation(isDraggingProgress ? .none : .easeInOut(duration: 0.2), value: progressPercentage)
 
                     // Drag handle
                     Circle()
@@ -290,7 +298,7 @@ struct PlayerView: View {
                         .frame(width: 12, height: 12)
                         .opacity(isDraggingProgress || hoveredOverProgress ? 1.0 : 0.0)
                         .offset(x: (geometry.size.width * progressPercentage) - 6)
-                        .animation(isDraggingProgress ? .none : .easeInOut(duration: 0.15), value: progressPercentage)
+                        .animation(isDraggingProgress ? .none : .easeInOut(duration: 0.2), value: progressPercentage)
                         .animation(.easeInOut(duration: 0.15), value: hoveredOverProgress)
                 }
                 .contentShape(Rectangle())
@@ -479,7 +487,7 @@ struct PlayerView: View {
     }
 
     private func progressDragGesture(in geometry: GeometryProxy) -> some Gesture {
-        DragGesture(minimumDistance: 0)
+        DragGesture(minimumDistance: 4)
             .onChanged { value in
                 if !isDraggingProgress {
                     isDraggingProgress = true
@@ -521,8 +529,6 @@ struct PlayerView: View {
     }
 }
 
-// Keep the existing supporting views and structs below...
-
 // MARK: - Album Art
 
 struct PlayerTrackDetailsView: View, Equatable {
@@ -556,6 +562,7 @@ struct PlayerTrackDetailsView: View, Equatable {
                     ) { playlistManager.toggleFavorite(for: track) }
                 }
             }
+            .frame(height: 16)
             .frame(maxWidth: .infinity, alignment: .leading)
 
             // Artist with marquee
@@ -564,7 +571,7 @@ struct PlayerTrackDetailsView: View, Equatable {
                 font: .system(size: 12),
                 color: .secondary
             )
-            .frame(height: 16)
+            .frame(height: 15)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contextMenu {
                 TrackContextMenuContent(items: contextMenuItems)
@@ -576,13 +583,60 @@ struct PlayerTrackDetailsView: View, Equatable {
                 font: .system(size: 11),
                 color: .secondary
             )
-            .frame(height: 14)
+            .frame(height: 15)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contextMenu {
                 TrackContextMenuContent(items: contextMenuItems)
             }
+            
+            formatBadgeRow
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var formatBadgeRow: some View {
+        HStack(spacing: 4) {
+            if let track = track {
+                if track.isLossless {
+                    LosslessLabel(iconSize: 12, font: .system(size: 10), spacing: 3)
+                }
+                if let codec = track.codecDisplay {
+                    FormatBadge(text: codec)
+                }
+                // No need to show Bitrate for Lossless tracks, as it is pointless
+                if !track.isLossless, let bitrate = track.bitrateDisplay {
+                    FormatBadge(text: bitrate)
+                }
+                if let sampleRate = track.sampleRateDisplay {
+                    FormatBadge(text: sampleRate)
+                }
+                if let channels = track.channelsDisplay {
+                    FormatBadge(text: channels)
+                }
+            }
+        }
+        .frame(height: 15)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// MARK: - Format Badge
+
+private struct FormatBadge: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 9, weight: .medium))
+            .foregroundColor(.secondary)
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Color.secondary.opacity(0.2))
+            )
     }
 }
 
@@ -648,7 +702,7 @@ private struct AlbumArtworkImage: View {
             // Static image content
             AlbumArtworkContent(trackInfo: trackInfo)
         }
-        .frame(width: 56, height: 56)
+        .frame(width: 76, height: 76)
         .shadow(
             color: .black.opacity(isHovered ? 0.4 : 0.2),
             radius: isHovered ? 6 : 2,
@@ -673,14 +727,14 @@ private struct AlbumArtworkContent: View {
             Image(nsImage: nsImage)
                 .resizable()
                 .aspectRatio(contentMode: .fill)
-                .frame(width: 56, height: 56)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .frame(width: 76, height: 76)
+                .clipShape(RoundedRectangle(cornerRadius: 5))
         } else {
-            RoundedRectangle(cornerRadius: 4)
+            RoundedRectangle(cornerRadius: 5)
                 .fill(Color.secondary.opacity(0.15))
                 .overlay(
                     Image(systemName: Icons.musicNote)
-                        .font(.system(size: 16, weight: .light))
+                        .font(.system(size: 22, weight: .light))
                         .foregroundColor(.secondary)
                 )
         }
@@ -704,14 +758,14 @@ private struct PlayPauseIcon: View {
     var body: some View {
         ZStack {
             Image(systemName: Icons.playFill)
-                .font(.system(size: 18, weight: .medium))
+                .font(.system(size: 20, weight: .medium))
                 .foregroundColor(.white)
                 .opacity(isPlaying ? 0 : 1)
                 .scaleEffect(isPlaying ? 0.8 : 1)
                 .rotationEffect(.degrees(isPlaying ? -90 : 0))
 
             Image(systemName: Icons.pauseFill)
-                .font(.system(size: 18, weight: .medium))
+                .font(.system(size: 20, weight: .medium))
                 .foregroundColor(.white)
                 .opacity(isPlaying ? 1 : 0)
                 .scaleEffect(isPlaying ? 1 : 0.8)

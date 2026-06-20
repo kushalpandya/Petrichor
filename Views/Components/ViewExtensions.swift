@@ -54,6 +54,34 @@ extension View {
     }
 }
 
+// MARK: - Lossless Label
+
+/// A glyph + "Lossless" label, shared between the track-detail view and the
+/// player's format badges. Defaults match the track-detail sizing; the player
+/// passes a more compact configuration.
+struct LosslessLabel: View {
+    var iconSize: CGFloat = 14
+    var font: Font = .subheadline
+    var spacing: CGFloat = 5
+
+    var body: some View {
+        HStack(spacing: spacing) {
+            Image(Icons.customLossless)
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: iconSize, height: iconSize)
+                .foregroundColor(.secondary)
+
+            Text("Lossless")
+                .font(font)
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+                .fixedSize()
+        }
+    }
+}
+
 // MARK: - Gradient Background
 
 struct GradientBackground: View {
