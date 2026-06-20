@@ -100,6 +100,7 @@ struct PlayerView: View {
 
     private var rightSection: some View {
         HStack(spacing: 12) {
+            miniPlayerButton
             volumeControl
             queueButton
             lyricsButton
@@ -235,16 +236,8 @@ struct PlayerView: View {
         })
         .buttonStyle(ControlButtonStyle())
         .hoverEffect(scale: 1.1)
-        .help(repeatModeTooltip)
+        .help(playlistManager.repeatMode.tooltip)
         .disabled(playbackManager.currentTrack == nil)
-    }
-    
-    private var repeatModeTooltip: String {
-        switch playlistManager.repeatMode {
-        case .off: return String(localized: "Repeat: Off")
-        case .one: return String(localized: "Repeat: Current Track")
-        case .all: return String(localized: "Repeat: All")
-        }
     }
 
     private var progressBar: some View {
@@ -385,7 +378,7 @@ struct PlayerView: View {
         Button(action: {
             rightSidebarContent = rightSidebarContent == .queue ? .none : .queue
         }, label: {
-            Image(systemName: "list.bullet")
+            Image(systemName: Icons.queueList)
                 .font(.system(size: 16))
                 .foregroundColor(rightSidebarContent == .queue ? .white : .secondary)
                 .frame(width: 32, height: 32)
@@ -399,6 +392,26 @@ struct PlayerView: View {
         .help(rightSidebarContent == .queue ? String(localized: "Hide Queue") : String(localized: "Show Queue"))
     }
     
+    private var miniPlayerButton: some View {
+        Button(action: {
+            MiniPlayerWindowManager.shared.show()
+        }, label: {
+            Image(systemName: Icons.miniPlayer)
+                .font(.system(size: 14))
+                .foregroundColor(.secondary)
+                .frame(width: 32, height: 32)
+                .background(
+                    Circle()
+                        .fill(Color.secondary.opacity(0.1))
+                )
+        })
+        .buttonStyle(PlainButtonStyle())
+        .disabled(!hasCurrentTrack)
+        .opacity(hasCurrentTrack ? 1.0 : 0.5)
+        .hoverEffect(scale: hasCurrentTrack ? 1.1 : 1.0)
+        .help("Open Mini Player")
+    }
+
     private var lyricsButton: some View {
         Button(action: {
             rightSidebarContent = rightSidebarContent == .lyrics ? .none : .lyrics
@@ -749,29 +762,6 @@ struct ControlButtonStyle: ButtonStyle {
             .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
             .opacity(configuration.isPressed ? 0.7 : 1.0)
             .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
-    }
-}
-
-private struct PlayPauseIcon: View {
-    let isPlaying: Bool
-
-    var body: some View {
-        ZStack {
-            Image(systemName: Icons.playFill)
-                .font(.system(size: 20, weight: .medium))
-                .foregroundColor(.white)
-                .opacity(isPlaying ? 0 : 1)
-                .scaleEffect(isPlaying ? 0.8 : 1)
-                .rotationEffect(.degrees(isPlaying ? -90 : 0))
-
-            Image(systemName: Icons.pauseFill)
-                .font(.system(size: 20, weight: .medium))
-                .foregroundColor(.white)
-                .opacity(isPlaying ? 1 : 0)
-                .scaleEffect(isPlaying ? 1 : 0.8)
-                .rotationEffect(.degrees(isPlaying ? 0 : 90))
-        }
-        .animation(.easeInOut(duration: 0.2), value: isPlaying)
     }
 }
 

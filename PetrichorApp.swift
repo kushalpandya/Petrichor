@@ -556,7 +556,22 @@ extension PetrichorApp {
                 }
             }
             .keyboardShortcut("e", modifiers: [.command, .option])
-            
+
+            Button {
+                MiniPlayerWindowManager.shared.show()
+            } label: {
+                if #available(macOS 26.0, *) {
+                    Label(
+                        "Mini Player",
+                        systemImage: Icons.miniPlayer
+                    )
+                } else {
+                    Text("Mini Player")
+                }
+            }
+            .keyboardShortcut("m", modifiers: [.command, .option])
+            .disabled(appCoordinator.playbackManager.currentTrack == nil)
+
             Divider()
         }
     }

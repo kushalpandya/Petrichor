@@ -76,7 +76,11 @@ enum Icons {
     static let sortAscending = "sort.ascending"
     static let sortDescending = "sort.descending"
     static let reorderTracks = "arrow.up.and.down.text.horizontal"
-    
+
+    // Mini Player
+    static let miniPlayer = "pip.enter"
+    static let queueList = "list.bullet"
+
     // Custom Icons (from project assets)
     static let customLossless = "custom.lossless"
     static let customMusicNoteRectangleStack = "custom.music.note.rectangle.stack"

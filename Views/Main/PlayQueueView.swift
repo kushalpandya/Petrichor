@@ -4,7 +4,6 @@ import UniformTypeIdentifiers
 struct PlayQueueView: View {
     @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var playlistManager: PlaylistManager
-    @State private var draggedIndex: Int?
     @State private var showingClearConfirmation = false
     @Binding var showingQueue: Bool
 
@@ -13,19 +12,10 @@ struct PlayQueueView: View {
             queueHeader
             Divider()
 
-            if playlistManager.currentQueue.isEmpty {
-                emptyQueueView
-            } else {
-                queueListView
-            }
+            PlayQueueContent()
         }
-        .alert("Clear Queue", isPresented: $showingClearConfirmation) {
-            Button("Cancel", role: .cancel) { }
-            Button("Clear", role: .destructive) {
-                playlistManager.clearQueue()
-            }
-        } message: {
-            Text("Are you sure you want to clear the entire queue? This will stop playback.")
+        .clearQueueConfirmation(isPresented: $showingClearConfirmation) {
+            playlistManager.clearQueue()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -76,6 +66,45 @@ struct PlayQueueView: View {
         .buttonStyle(.plain)
         .help("Clear Queue")
     }
+}
+
+extension View {
+    /// Shared confirmation alert for clearing the play queue, used by both the
+    /// main-window queue header and the mini player's queue panel.
+    func clearQueueConfirmation(isPresented: Binding<Bool>, onClear: @escaping () -> Void) -> some View {
+        alert("Clear Queue", isPresented: isPresented) {
+            Button("Cancel", role: .cancel) { }
+            Button("Clear", role: .destructive, action: onClear)
+        } message: {
+            Text("Are you sure you want to clear the entire queue? This will stop playback.")
+        }
+    }
+}
+
+// MARK: - Queue Content (header-less, reusable)
+
+/// The scrollable queue list / empty state without any header chrome, so it can
+/// be hosted inside a custom shell (e.g. the mini player) as well as the main
+/// PlayQueueView.
+struct PlayQueueContent: View {
+    /// Highlight color for the current track / hover state. Defaults to the app
+    /// accent; the mini player passes the artwork's dominant color.
+    var accentColor: Color = .accentColor
+
+    @EnvironmentObject var playbackManager: PlaybackManager
+    @EnvironmentObject var playlistManager: PlaylistManager
+    @State private var draggedIndex: Int?
+
+    var body: some View {
+        Group {
+            if playlistManager.currentQueue.isEmpty {
+                emptyQueueView
+            } else {
+                queueListView
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
 
     // MARK: - Empty Queue View
 
@@ -96,19 +125,34 @@ struct PlayQueueView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // MARK: - Queue List View (List-based)
+    // MARK: - Queue List View (LazyVStack-based)
 
+    // A ScrollView + LazyVStack scrolls noticeably smoother than a List here:
+    // List's NSTableView diffing stutters as per-row hover / now-playing state
+    // updates, especially when layered over a translucent background.
     private var queueListView: some View {
-        List {
-            ForEach(Array(playlistManager.currentQueue.enumerated()), id: \.element.id) { pair in
-                queueRow(for: pair.element, at: pair.offset)
-                    .listRowInsets(.init(top: 0, leading: 0, bottom: 0, trailing: 0))
-                    .listRowSeparator(.hidden)
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(playlistManager.currentQueue.enumerated()), id: \.element.id) { pair in
+                        queueRow(for: pair.element, at: pair.offset)
+                    }
+                }
+                .padding(.horizontal, 6)
+                .padding(.vertical, 6)
             }
+            .onAppear { scrollToCurrentTrack(using: proxy) }
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .safeAreaPadding(.vertical, 6)
+    }
+
+    /// Brings the currently playing track to the top when the queue opens.
+    private func scrollToCurrentTrack(using proxy: ScrollViewProxy) {
+        let index = playlistManager.currentQueueIndex
+        guard index >= 0, index < playlistManager.currentQueue.count else { return }
+        let id = playlistManager.currentQueue[index].id
+        DispatchQueue.main.async {
+            proxy.scrollTo(id, anchor: .top)
+        }
     }
 
     private func queueRow(for track: Track, at position: Int) -> some View {
@@ -121,7 +165,8 @@ struct PlayQueueView: View {
             isCurrentTrack: isCurrentTrack,
             isPlaying: isCurrentTrack && playbackManager.isPlaying,
             playlistManager: playlistManager,
-            isLastItem: isLastItem
+            isLastItem: isLastItem,
+            accentColor: accentColor
         )
         .onDrag {
             draggedIndex = position
@@ -144,6 +189,7 @@ struct PlayQueueRow: View {
     let isPlaying: Bool
     let playlistManager: PlaylistManager
     let isLastItem: Bool
+    var accentColor: Color = .accentColor
 
     @State private var isHovered = false
 
@@ -237,9 +283,9 @@ struct PlayQueueRow: View {
     private var rowBackground: some View {
         ZStack {
             if isCurrentTrack {
-                Color.accentColor
+                accentColor
             } else if isHovered {
-                Color.accentColor.opacity(0.1)
+                accentColor.opacity(0.1)
             } else {
                 Color.clear
             }
