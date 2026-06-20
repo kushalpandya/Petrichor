@@ -233,7 +233,7 @@ struct ContentView: View {
             Divider()
 
             PlayerView(rightSidebarContent: $rightSidebarContent)
-                .frame(height: 90)
+                .frame(height: 110)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }

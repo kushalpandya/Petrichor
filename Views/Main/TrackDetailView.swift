@@ -217,18 +217,7 @@ struct TrackDetailView: View {
             }
             
             if fullTrack.isLossless {
-                HStack(spacing: 5) {
-                    Image(Icons.customLossless)
-                        .renderingMode(.template)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 14, height: 14)
-                        .foregroundColor(.secondary)
-
-                    Text("Lossless")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
+                LosslessLabel()
             }
         }
     }
@@ -486,17 +475,16 @@ private struct FileDetailsSection: View {
             items.append((String(localized: "Bitrate"), bitrate))
         }
 
-        if let sampleRate = fullTrack.sampleRate, sampleRate > 0 {
-            let formatted = formatSampleRate(sampleRate)
-            items.append((String(localized: "Sample Rate"), formatted))
+        if let sampleRate = fullTrack.sampleRateDisplay {
+            items.append((String(localized: "Sample Rate"), sampleRate))
         }
 
         if let bitDepth = fullTrack.bitDepth, bitDepth > 0 {
             items.append((String(localized: "Bit Depth"), String(localized: "\(bitDepth)-bit")))
         }
 
-        if let channels = fullTrack.channels, channels > 0 {
-            items.append((String(localized: "Channels"), formatChannels(channels)))
+        if let channels = fullTrack.channelsDisplay {
+            items.append((String(localized: "Channels"), channels))
         }
 
         // File info
@@ -522,25 +510,6 @@ private struct FileDetailsSection: View {
         }
 
         return items
-    }
-
-    private func formatSampleRate(_ sampleRate: Int) -> String {
-        if sampleRate >= 1000 {
-            let khz = Double(sampleRate) / 1000.0
-            return String(format: "%.1f kHz", khz)
-        }
-        return "\(sampleRate) Hz"
-    }
-
-    private func formatChannels(_ channels: Int) -> String {
-        switch channels {
-        case 1: return String(localized: "Mono")
-        case 2: return String(localized: "Stereo")
-        case 4: return String(localized: "Quadraphonic")
-        case 6: return String(localized: "5.1 Surround")
-        case 8: return String(localized: "7.1 Surround")
-        default: return String(localized: "\(channels) channels")
-        }
     }
 
     private func formatFileSize(_ bytes: Int64) -> String {
