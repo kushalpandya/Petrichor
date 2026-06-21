@@ -48,10 +48,13 @@ class MenuBarManager: NSObject {
 
     @objc
     private func handleCloseToMenubarChange() {
-        if UserDefaults.standard.bool(forKey: "closeToMenubar") {
-            setupMenuBar()
-        } else {
-            removeMenuBar()
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if UserDefaults.standard.bool(forKey: "closeToMenubar") {
+                self.setupMenuBar()
+            } else {
+                self.removeMenuBar()
+            }
         }
     }
 
