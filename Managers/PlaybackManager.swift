@@ -56,6 +56,13 @@ class PlaybackManager: NSObject, ObservableObject {
     private var stateSaveTimer: Timer?
     private var restoredPosition: Double = 0
 
+    /// Position to seek to and resume from once a restored track settles in
+    /// `.paused` (see `audioPlayerStateChanged`). Deferring to that transition
+    /// instead of a fixed delay ensures the asset is open before the resume lands,
+    /// avoiding the stuck-paused race on the async Crescendo backend. Carries the
+    /// entry identity so a normal user-pause never trips the restore.
+    private var pendingRestoreResume: (entryId: AudioEntryId, position: Double)?
+
     // MARK: - Gapless lookahead (Crescendo path)
 
     /// Identity of the track currently loaded in the engine.
@@ -422,21 +429,14 @@ class PlaybackManager: NSObject, ObservableObject {
         restoredPosition = 0
 
         if seekToPosition > 0 {
-            audioPlayer.play(url: fullTrack.url, entryId: entryId, startPaused: true)
+            // Load paused and defer the seek+resume to the `.paused` transition
+            // this produces (see audioPlayerStateChanged): that signal fires only
+            // once the engine has the asset open, so the resume can't race the
+            // engine's async loading. Set the marker before play() because the
+            // `.paused` callback can arrive synchronously on some backends.
+            pendingRestoreResume = (entryId, seekToPosition)
             currentTime = seekToPosition
-
-            // Wait for decoder to be ready before resuming playback
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
-                guard let self = self else { return }
-                if self.audioPlayer.seek(to: seekToPosition) {
-                    self.audioPlayer.resume()
-                    Logger.info("Resumed playback: \(lightweightTrack.title) from \(seekToPosition)s")
-                } else {
-                    Logger.warning("Seek failed, starting from beginning")
-                    self.currentTime = 0
-                    self.audioPlayer.play(url: fullTrack.url, entryId: entryId, startPaused: false)
-                }
-            }
+            audioPlayer.play(url: fullTrack.url, entryId: entryId, startPaused: true)
         } else {
             currentTime = 0
             audioPlayer.play(url: fullTrack.url, entryId: entryId, startPaused: false)
@@ -682,6 +682,24 @@ extension PlaybackManager: AudioPlayerDelegate {
             
             if oldIsPlaying != self.isPlaying {
                 self.updateNowPlayingInfo()
+            }
+
+            // Finish a deferred restore-resume: the startPaused load has now
+            // settled in `.paused`, so the asset is open and the seek+resume is
+            // safe. Guarded by entry identity so an unrelated pause never trips it.
+            if newState == .paused,
+               let pending = self.pendingRestoreResume,
+               pending.entryId == self.currentEntryId {
+                self.pendingRestoreResume = nil
+                if self.audioPlayer.seek(to: pending.position) {
+                    self.currentTime = pending.position
+                    self.audioPlayer.resume()
+                    Logger.info("Resumed restored playback from \(pending.position)s")
+                } else if let url = self.currentFullTrack?.url {
+                    Logger.warning("Restore seek failed, starting from beginning")
+                    self.currentTime = 0
+                    self.audioPlayer.play(url: url, entryId: pending.entryId, startPaused: false)
+                }
             }
 
             // Prime the gapless next once the engine is actually playing. This
