@@ -21,7 +21,6 @@ struct ContentView: View {
     @State private var rightSidebarContent: RightSidebarContent = .none
     @State private var pendingLibraryFilter: LibraryFilterRequest?
     @State private var windowDelegate = WindowDelegate()
-    @State private var isSettingsHovered = false
     @State private var shouldFocusSearch = false
     @State private var showingExportPlaylistSheet = false
 
@@ -268,9 +267,6 @@ struct ContentView: View {
                 )
                 .frame(width: 280)
                 .disabled(!libraryManager.shouldShowMainUI)
-                
-                settingsButton
-                    .disabled(!libraryManager.shouldShowMainUI)
             }
         }
     }
@@ -305,27 +301,6 @@ struct ContentView: View {
         }
     }
     
-    private var settingsButton: some View {
-        Button(action: {
-            showingSettings = true
-        }, label: {
-            Image(systemName: "gear")
-                .font(.system(size: 16))
-                .frame(width: 24, height: 24)
-                .foregroundColor(isSettingsHovered ? .primary : .secondary)
-        })
-        .buttonStyle(.borderless)
-        .background(
-            Circle()
-                .fill(Color.gray.opacity(isSettingsHovered ? 0.1 : 0))
-                .animation(.easeInOut(duration: AnimationDuration.standardDuration), value: isSettingsHovered)
-        )
-        .onHover { hovering in
-            isSettingsHovered = hovering
-        }
-        .help("Settings")
-    }
-
     // MARK: - Event Handlers
 
     private func handleOnAppear() {
