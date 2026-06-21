@@ -23,6 +23,9 @@ struct GeneralTabView: View {
     @AppStorage("useArtworkColors")
     private var useArtworkColors = true
 
+    @AppStorage("miniPlayerAlwaysOnTop")
+    private var miniPlayerAlwaysOnTop = false
+
     @AppStorage(MediaBackend.userDefaultsKey)
     private var useModernPlaybackEngine = true
 
@@ -101,6 +104,9 @@ struct GeneralTabView: View {
 
                 Toggle("Use album artwork colors in backgrounds", isOn: $useArtworkColors)
                     .help("Applies a gradient background derived from album artwork colors across the app")
+
+                Toggle("Keep Mini Player on top of all other windows", isOn: $miniPlayerAlwaysOnTop)
+                    .help("Floats the Mini Player window above windows from other apps")
             }
 
             Section("Media Backend") {

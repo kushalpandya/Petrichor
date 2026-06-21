@@ -52,6 +52,9 @@ class PlaybackManager: NSObject, ObservableObject {
     private var currentFullTrack: FullTrack?
     private var progressUpdateTimer: DispatchSourceTimer?
     private var fineProgressSampling = false
+    // Reference count of views requesting fine sampling (e.g. main-window and
+    // mini-player lyrics can be visible at once); sampling stays fine while > 0.
+    private var fineSamplingConsumers = 0
     private var lastNowPlayingUpdate: TimeInterval = 0
     private var stateSaveTimer: Timer?
     private var restoredPosition: Double = 0
@@ -574,12 +577,21 @@ class PlaybackManager: NSObject, ObservableObject {
         progressUpdateTimer = timer
     }
 
-    /// Switches the progress sampler to 0.5s while the lyrics view is visible (for
+    /// Switches the progress sampler to 0.5s while a lyrics view is visible (for
     /// tight line highlighting) and back to 1s otherwise (minimum CPU during normal
-    /// listening). Called by the lyrics view on appear/disappear.
+    /// listening). Reference-counted so multiple lyrics views (main window +
+    /// mini player) don't disable sampling out from under each other; called by
+    /// each lyrics view on appear (`true`) / disappear (`false`).
     func setFineProgressSampling(_ enabled: Bool) {
-        guard enabled != fineProgressSampling else { return }
-        fineProgressSampling = enabled
+        if enabled {
+            fineSamplingConsumers += 1
+        } else {
+            fineSamplingConsumers = max(0, fineSamplingConsumers - 1)
+        }
+
+        let shouldSampleFine = fineSamplingConsumers > 0
+        guard shouldSampleFine != fineProgressSampling else { return }
+        fineProgressSampling = shouldSampleFine
         startProgressUpdateTimer()
     }
 
