@@ -1,15 +1,18 @@
 //
-// MiniPlayerControlsView
+// NowPlayingControlsView
 //
-// Compact transport row for the mini player window. Reuses the same manager
-// calls and button styling as PlayerView (ControlButtonStyle, hoverEffect).
+// Compact, artwork-tinted transport row shared by the mini player and immersive
+// mode. Reuses the same manager calls and button styling as PlayerView
+// (ControlButtonStyle, hoverEffect).
 //
 
 import SwiftUI
+import AppKit
 
-struct MiniPlayerControlsView: View {
+struct NowPlayingControlsView: View {
     /// Fill color for the play/pause button (artwork dominant color from the host).
     let tint: Color
+    var scale: CGFloat = 1
 
     @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var playlistManager: PlaylistManager
@@ -20,8 +23,16 @@ struct MiniPlayerControlsView: View {
         playbackManager.currentTrack != nil
     }
 
+    /// A lightened version of the tint, used as the play/pause button's backdrop
+    /// shadow so it reads as a soft glow of the button's own (artwork) color.
+    private var lightenedTint: Color {
+        let base = NSColor(tint).usingColorSpace(.sRGB) ?? NSColor(tint)
+        let lightened = base.blended(withFraction: 0.5, of: .white) ?? base
+        return Color(nsColor: lightened)
+    }
+
     var body: some View {
-        HStack(spacing: 20) {
+        HStack(spacing: 20 * scale) {
             shuffleButton
             previousButton
             playPauseButton
@@ -35,9 +46,9 @@ struct MiniPlayerControlsView: View {
             playlistManager.toggleShuffle()
         }, label: {
             Image(systemName: Icons.shuffleFill)
-                .font(.system(size: 13, weight: .medium))
+                .font(.system(size: 13 * scale, weight: .medium))
                 .foregroundColor(playlistManager.isShuffleEnabled ? tint : Color.white.opacity(0.65))
-                .frame(width: 24, height: 24)
+                .frame(width: 24 * scale, height: 24 * scale)
         })
         .buttonStyle(ControlButtonStyle())
         .hoverEffect(scale: 1.1)
@@ -50,9 +61,9 @@ struct MiniPlayerControlsView: View {
             playlistManager.playPreviousTrack()
         }, label: {
             Image(systemName: Icons.backwardFill)
-                .font(.system(size: 16, weight: .medium))
+                .font(.system(size: 16 * scale, weight: .medium))
                 .foregroundColor(.white)
-                .frame(width: 24, height: 24)
+                .frame(width: 24 * scale, height: 24 * scale)
         })
         .buttonStyle(ControlButtonStyle())
         .hoverEffect(scale: 1.1)
@@ -65,11 +76,11 @@ struct MiniPlayerControlsView: View {
             playbackManager.togglePlayPause()
         }, label: {
             PlayPauseIcon(isPlaying: playbackManager.isPlaying)
-                .frame(width: 42, height: 42)
+                .frame(width: 42 * scale, height: 42 * scale)
                 .background(
                     Circle()
                         .fill(tint)
-                        .shadow(color: tint.opacity(0.35), radius: 6, x: 0, y: 3)
+                        .shadow(color: lightenedTint.opacity(0.6), radius: 7 * scale, x: 0, y: 2 * scale)
                 )
         })
         .buttonStyle(PlainButtonStyle())
@@ -93,9 +104,9 @@ struct MiniPlayerControlsView: View {
             playlistManager.playNextTrack()
         }, label: {
             Image(systemName: Icons.forwardFill)
-                .font(.system(size: 16, weight: .medium))
+                .font(.system(size: 16 * scale, weight: .medium))
                 .foregroundColor(.white)
-                .frame(width: 24, height: 24)
+                .frame(width: 24 * scale, height: 24 * scale)
         })
         .buttonStyle(ControlButtonStyle())
         .hoverEffect(scale: 1.1)
@@ -108,9 +119,9 @@ struct MiniPlayerControlsView: View {
             playlistManager.toggleRepeatMode()
         }, label: {
             Image(systemName: Icons.repeatIcon(for: playlistManager.repeatMode))
-                .font(.system(size: 13, weight: .medium))
+                .font(.system(size: 13 * scale, weight: .medium))
                 .foregroundColor(playlistManager.repeatMode != .off ? tint : Color.white.opacity(0.65))
-                .frame(width: 24, height: 24)
+                .frame(width: 24 * scale, height: 24 * scale)
         })
         .buttonStyle(ControlButtonStyle())
         .hoverEffect(scale: 1.1)

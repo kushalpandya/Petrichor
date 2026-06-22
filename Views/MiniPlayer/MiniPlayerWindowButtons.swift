@@ -29,7 +29,7 @@ struct MiniPlayerWindowButtons: View {
             }
         }
         .padding(6)
-        .miniPlayerControlClusterBackground()
+        .floatingControlClusterBackground()
         .onHover { isHoveringCluster = $0 }
     }
 
@@ -53,19 +53,5 @@ struct MiniPlayerWindowButtons: View {
         }
         .buttonStyle(.plain)
         .help(help)
-    }
-}
-
-extension View {
-    /// Blurred, slightly-tinted capsule used behind the mini player's floating
-    /// control clusters (window buttons + queue/lyrics toolbar) so their glyphs
-    /// stay legible over any artwork.
-    func miniPlayerControlClusterBackground() -> some View {
-        background(
-            Capsule()
-                .fill(.regularMaterial)
-                .overlay(Capsule().fill(.black.opacity(0.12)))
-                .overlay(Capsule().stroke(.white.opacity(0.12), lineWidth: 0.5))
-        )
     }
 }

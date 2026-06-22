@@ -8,7 +8,6 @@ struct PlaybackUIState: Codable {
     let playbackPosition: Double
     let trackDuration: Double
     let volume: Float
-    let queueVisible: Bool
 }
 
 struct PlaybackState: Codable {
@@ -24,7 +23,6 @@ struct PlaybackState: Codable {
     let trackDuration: Double
 
     // Queue state
-    let queueVisible: Bool
     let queueTrackPaths: [String]
     let queueTrackIds: [Int64]
     let currentQueueIndex: Int
@@ -44,7 +42,6 @@ struct PlaybackState: Codable {
     init(
         currentTrack: Track?,
         playbackPosition: Double,
-        queueVisible: Bool,
         queue: [Track],
         currentQueueIndex: Int,
         queueSource: PlaylistManager.QueueSource,
@@ -60,7 +57,6 @@ struct PlaybackState: Codable {
         self.playbackPosition = playbackPosition
         self.trackDuration = currentTrack?.duration ?? 0
 
-        self.queueVisible = queueVisible
         self.queueTrackPaths = queue.map { $0.url.path }
         self.queueTrackIds = queue.compactMap { $0.trackId }
         self.currentQueueIndex = currentQueueIndex
@@ -121,7 +117,6 @@ struct PlaybackState: Codable {
         self.isMuted = try container.decode(Bool.self, forKey: .isMuted)
         self.shuffleEnabled = try container.decode(Bool.self, forKey: .shuffleEnabled)
         self.repeatMode = try container.decode(String.self, forKey: .repeatMode)
-        self.queueVisible = try container.decode(Bool.self, forKey: .queueVisible)
         self.savedDate = try container.decode(Date.self, forKey: .savedDate)
         self.appVersion = try container.decode(String.self, forKey: .appVersion)
     }
@@ -154,8 +149,7 @@ struct PlaybackState: Codable {
             artworkData: track.artworkData,
             playbackPosition: playbackPosition,
             trackDuration: trackDuration,
-            volume: volume,
-            queueVisible: queueVisible
+            volume: volume
         )
     }
 }

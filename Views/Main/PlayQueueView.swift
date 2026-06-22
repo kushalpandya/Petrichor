@@ -27,7 +27,6 @@ struct PlayQueueView: View {
             HStack(spacing: 12) {
                 Button {
                     showingQueue = false
-                    AppCoordinator.shared?.isQueueVisible = showingQueue
                 } label: {
                     Image(systemName: Icons.xmarkCircleFill)
                         .font(.system(size: 16))
@@ -90,6 +89,11 @@ struct PlayQueueContent: View {
     /// Highlight color for the current track / hover state. Defaults to the app
     /// accent; the mini player passes the artwork's dominant color.
     var accentColor: Color = .accentColor
+    /// Text colors for non-playing rows. Defaults to the system primary/secondary;
+    /// immersive mode passes an artwork-adaptive color for legibility.
+    var primaryTextColor: Color = .primary
+    var secondaryTextColor: Color = .secondary
+    var scale: CGFloat = 1
 
     @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var playlistManager: PlaylistManager
@@ -109,16 +113,16 @@ struct PlayQueueContent: View {
     // MARK: - Empty Queue View
 
     private var emptyQueueView: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 16 * scale) {
             Image(systemName: Icons.musicNoteList)
-                .font(.system(size: 48))
+                .font(.system(size: 48 * scale))
                 .foregroundColor(.gray)
 
             Text("Queue is Empty")
-                .font(.headline)
+                .font(.system(size: 15 * scale, weight: .semibold))
 
             Text("Play a song to start building your queue")
-                .font(.caption)
+                .font(.system(size: 12 * scale))
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
         }
@@ -139,7 +143,7 @@ struct PlayQueueContent: View {
                     }
                 }
                 .padding(.horizontal, 6)
-                .padding(.vertical, 6)
+                .padding(.vertical, 6 * scale)
             }
             .onAppear { scrollToCurrentTrack(using: proxy) }
         }
@@ -151,7 +155,9 @@ struct PlayQueueContent: View {
         guard index >= 0, index < playlistManager.currentQueue.count else { return }
         let id = playlistManager.currentQueue[index].id
         DispatchQueue.main.async {
-            proxy.scrollTo(id, anchor: .top)
+            withAnimation(.easeInOut(duration: AnimationDuration.standardDuration)) {
+                proxy.scrollTo(id, anchor: .top)
+            }
         }
     }
 
@@ -166,7 +172,10 @@ struct PlayQueueContent: View {
             isPlaying: isCurrentTrack && playbackManager.isPlaying,
             playlistManager: playlistManager,
             isLastItem: isLastItem,
-            accentColor: accentColor
+            accentColor: accentColor,
+            primaryTextColor: primaryTextColor,
+            secondaryTextColor: secondaryTextColor,
+            scale: scale
         )
         .onDrag {
             draggedIndex = position
@@ -190,18 +199,21 @@ struct PlayQueueRow: View {
     let playlistManager: PlaylistManager
     let isLastItem: Bool
     var accentColor: Color = .accentColor
+    var primaryTextColor: Color = .primary
+    var secondaryTextColor: Color = .secondary
+    var scale: CGFloat = 1
 
     @State private var isHovered = false
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 8 * scale) {
             positionIndicator
             trackInfo
             Spacer()
             trackControls
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 6 * scale)
+        .padding(.vertical, 6 * scale)
         .background(rowBackground)
         .contentShape(Rectangle())
         .overlay(
@@ -225,40 +237,40 @@ struct PlayQueueRow: View {
         ZStack {
             if isCurrentTrack {
                 Image(systemName: isPlaying ? Icons.playFill : Icons.pauseFill)
-                    .font(.system(size: 12))
+                    .font(.system(size: 12 * scale))
                     .foregroundColor(.white)
-                    .frame(width: 20)
+                    .frame(width: 20 * scale)
             } else {
                 Text("\(position + 1)")
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
+                    .font(.system(size: 12 * scale))
+                    .foregroundColor(secondaryTextColor)
                     .monospacedDigit()
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
         }
-        .frame(width: 55)
+        .frame(width: 55 * scale)
     }
 
     private var trackInfo: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 2 * scale) {
             Text(track.title)
-                .font(.system(size: 13, weight: isCurrentTrack ? .semibold : .regular))
+                .font(.system(size: 13 * scale, weight: isCurrentTrack ? .semibold : .regular))
                 .lineLimit(1)
-                .foregroundColor(isCurrentTrack ? .white : .primary)
+                .foregroundColor(isCurrentTrack ? .white : primaryTextColor)
 
             Text(track.displayArtist)
-                .font(.system(size: 11))
+                .font(.system(size: 11 * scale))
                 .lineLimit(1)
-                .foregroundColor(isCurrentTrack ? .white : .secondary)
+                .foregroundColor(isCurrentTrack ? .white : secondaryTextColor)
         }
     }
 
     private var trackControls: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: 5 * scale) {
             Text(HelperUtils.formattedShortDuration(track.duration))
-                .font(.system(size: 11))
-                .foregroundColor(isCurrentTrack ? .white : .secondary)
+                .font(.system(size: 11 * scale))
+                .foregroundColor(isCurrentTrack ? .white : secondaryTextColor)
                 .monospacedDigit()
 
             if isHovered && !isCurrentTrack {
@@ -272,7 +284,7 @@ struct PlayQueueRow: View {
             playlistManager.removeFromQueue(at: position)
         } label: {
             Image(systemName: Icons.xmarkCircleFill)
-                .font(.system(size: 14))
+                .font(.system(size: 14 * scale))
                 .foregroundColor(.secondary)
         }
         .help("Remove from queue")

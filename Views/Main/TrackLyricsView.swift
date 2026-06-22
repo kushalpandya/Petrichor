@@ -36,6 +36,14 @@ struct TrackLyricsView: View {
 /// chrome, so it can be hosted inside a custom shell (e.g. the mini player) as
 /// well as the main TrackLyricsView. Self-manages loading and line sync.
 struct TrackLyricsContent: View {
+    /// Font size for lyric lines. Larger hosts (e.g. immersive mode) pass a bigger
+    /// value; defaults preserve the compact main-window / mini-player sizing.
+    var fontSize: CGFloat = 14
+    /// Color for the active (or, for untimed lyrics, every) line.
+    var activeColor: Color = .primary
+    /// Color for inactive lines.
+    var inactiveColor: Color = .secondary
+
     @EnvironmentObject var libraryManager: LibraryManager
     @EnvironmentObject var playbackManager: PlaybackManager
 
@@ -79,14 +87,24 @@ struct TrackLyricsContent: View {
 
     // MARK: - Loading View
     private var loadingView: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-                .scaleEffect(0.8)
-            Text("Loading lyrics...")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+        VStack(spacing: 12) {
+            ForEach([170.0, 130.0, 190.0, 110.0], id: \.self) { width in
+                Capsule()
+                    .fill(inactiveColor)
+                    .frame(width: width, height: 13)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // A gently pulsing skeleton of lyric lines. PhaseAnimator loops on its own
+        // while visible (no extra @State) and restarts each time loading reappears.
+        .phaseAnimator(
+            [0.3, 0.7],
+            content: { view, opacity in
+                view.opacity(opacity)
+            },
+            animation: { _ in .easeInOut(duration: 0.85) }
+        )
+        .accessibilityLabel("Loading lyrics")
     }
 
     // MARK: - Empty Lyrics View
@@ -94,15 +112,15 @@ struct TrackLyricsContent: View {
         VStack(spacing: 16) {
             Image(Icons.customLyrics)
                 .font(.system(size: 48))
-                .foregroundColor(.gray)
+                .foregroundColor(activeColor)
 
             Text("No Lyrics Available")
                 .font(.headline)
-                .foregroundColor(.secondary)
+                .foregroundColor(activeColor)
 
             if fetchFailed {
                 Button {
-                    loadLyricsForCurrentTrack()
+                    loadLyricsForCurrentTrack(forceReload: true)
                 } label: {
                     Label("Retry", systemImage: Icons.arrowClockwise)
                 }
@@ -117,14 +135,14 @@ struct TrackLyricsContent: View {
     private var lyricsContent: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                VStack(spacing: 10) {
+                VStack(spacing: fontSize * 0.7) {
                     ForEach(Array(lyricLines.enumerated()), id: \.offset) { index, line in
                         Text(line.text.isEmpty ? " " : line.text)
-                            .font(.system(size: 14))
+                            .font(.system(size: fontSize))
                             // Only apply highlight styles if lyrics are timed
                             .fontWeight(hasTimedLyrics && currentLineIndex == index ? .bold : .regular)
                             .scaleEffect(hasTimedLyrics && currentLineIndex == index ? 1.1 : 1.0)
-                            .foregroundColor(hasTimedLyrics && currentLineIndex == index ? .primary : .secondary)
+                            .foregroundColor(hasTimedLyrics && currentLineIndex == index ? activeColor : inactiveColor)
                             .multilineTextAlignment(.center)
                             .lineSpacing(6)
                             .id(index)   // For scrollTo
@@ -147,7 +165,7 @@ struct TrackLyricsContent: View {
 
     // MARK: - Helper Methods
 
-    private func loadLyricsForCurrentTrack() {
+    private func loadLyricsForCurrentTrack(forceReload: Bool = false) {
         guard let track = currentTrack else {
             lyricLines = []
             isLoading = false
@@ -155,26 +173,38 @@ struct TrackLyricsContent: View {
             return
         }
 
+        currentLineIndex = -1
+        let loadedTrackId = track.id
+
+        if !forceReload, let cached = LyricsStore.shared.cachedLyrics(for: loadedTrackId) {
+            lyricLines = cached.lines
+            hasTimedLyrics = cached.hasTimed
+            isLoading = false
+            fetchFailed = false
+            updateCurrentLine(for: playbackManager.playbackProgressState.currentTime)
+            return
+        }
+
         isLoading = true
         lyricLines = []
         fetchFailed = false
-        currentLineIndex = -1
         hasTimedLyrics = false   // Reset until we know
-        let loadedTrackId = track.id
 
         Task {
             do {
-                let result = try await LyricsLoader.loadLyrics(
+                // Shared cache + single-flight: concurrent lyrics views (main window,
+                // mini player, immersive) for the same track load only once.
+                let result = try await LyricsStore.shared.lyrics(
                     for: track,
                     using: libraryManager.databaseManager.dbQueue,
-                    databaseManager: libraryManager.databaseManager
+                    databaseManager: libraryManager.databaseManager,
+                    forceReload: forceReload
                 )
 
                 await MainActor.run {
                     guard currentTrack?.id == loadedTrackId else { return }
-                    lyricLines = result.lyrics
-                    // Determine if lyrics contain actual timing information
-                    hasTimedLyrics = lyricLines.contains { $0.startTime > 0 || $0.endTime != nil }
+                    lyricLines = result.lines
+                    hasTimedLyrics = result.hasTimed
                     isLoading = false
                     fetchFailed = false
                 }
