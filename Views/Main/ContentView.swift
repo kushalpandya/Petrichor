@@ -312,44 +312,44 @@ struct ContentView: View {
     // MARK: - Playlist Import/Export
 
     private func importPlaylists() {
-          let panel = NSOpenPanel()
-          panel.title = String(localized: "Import Playlists")
-          panel.message = String(localized: "Select up to 25 playlist files to import")
-         panel.canChooseFiles = true
-         panel.canChooseDirectories = false
-         panel.allowsMultipleSelection = true
-         panel.allowedContentTypes = ["m3u", "m3u8"].compactMap { UTType(filenameExtension: $0) }
+        let panel = NSOpenPanel()
+        panel.title = String(localized: "Import Playlists")
+        panel.message = String(localized: "Select up to 25 playlist files to import")
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = true
+        panel.allowedContentTypes = ["m3u", "m3u8"].compactMap { UTType(filenameExtension: $0) }
          
-         panel.begin { response in
-             guard response == .OK else { return }
+        panel.begin { response in
+            guard response == .OK else { return }
              
-             let urls = panel.urls
+            let urls = panel.urls
              
-              guard urls.count <= 25 else {
-                  NotificationManager.shared.addMessage(
-                      .warning,
-                      String(localized: "Selected \(urls.count) files. Please select up to 25 files at a time.")
-                  )
-                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                     importPlaylists()
-                 }
-                 return
-             }
+            guard urls.count <= 25 else {
+                NotificationManager.shared.addMessage(
+                    .warning,
+                    String(localized: "Selected \(urls.count) files. Please select up to 25 files at a time.")
+                )
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    importPlaylists()
+                }
+                return
+            }
              
-             guard !urls.isEmpty else { return }
+            guard !urls.isEmpty else { return }
              
-             NotificationManager.shared.startActivity(String(localized: "Importing playlists..."))
+            NotificationManager.shared.startActivity(String(localized: "Importing playlists..."))
              
-             Task {
-                 let importResult = await playlistManager.importPlaylists(from: urls)
-                 
-                 await MainActor.run {
-                     NotificationManager.shared.stopActivity()
-                     showImportNotifications(result: importResult)
-                 }
-             }
-         }
-     }
+            Task {
+                let importResult = await playlistManager.importPlaylists(from: urls)
+                
+                await MainActor.run {
+                    NotificationManager.shared.stopActivity()
+                    showImportNotifications(result: importResult)
+                }
+            }
+        }
+    }
 
     private func showImportNotifications(result: BulkImportResult) {
         var notifications: [(type: NotificationType, message: String)] = []
