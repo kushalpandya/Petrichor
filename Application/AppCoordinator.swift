@@ -23,8 +23,6 @@ class AppCoordinator: ObservableObject {
     private var isRestoringPlayback = false
     private var libraryObserver: NSObjectProtocol?
     
-    @Published var isQueueVisible: Bool = false
-    
     // MARK: - Initialization
     
     init() {
@@ -106,7 +104,6 @@ class AppCoordinator: ObservableObject {
         let state = PlaybackState(
             currentTrack: currentTrack,
             playbackPosition: playbackManager.actualCurrentTime,
-            queueVisible: isQueueVisible,
             queue: playlistManager.currentQueue,
             currentQueueIndex: playlistManager.currentQueueIndex,
             queueSource: playlistManager.currentQueueSource,
@@ -142,7 +139,6 @@ class AppCoordinator: ObservableObject {
         
         // Restore UI immediately
         playbackManager.restoreUIState(uiState)
-        isQueueVisible = uiState.queueVisible
     }
     
     func restorePlaybackState() {
@@ -297,9 +293,6 @@ class AppCoordinator: ObservableObject {
         default:
             break
         }
-        
-        // Restore UI state
-        isQueueVisible = state.queueVisible
         
         // Find and prepare the current track
         if let currentTrackId = state.currentTrackId,

@@ -6,6 +6,7 @@ struct PlayerView: View {
     @EnvironmentObject var playbackProgressState: PlaybackProgressState
     @EnvironmentObject var playlistManager: PlaylistManager
     @Binding var rightSidebarContent: RightSidebarContent
+    @Binding var isImmersiveActive: Bool
     
     @Environment(\.scenePhase)
     var scenePhase
@@ -100,10 +101,11 @@ struct PlayerView: View {
 
     private var rightSection: some View {
         HStack(spacing: 12) {
-            miniPlayerButton
+            lyricsButton
             volumeControl
             queueButton
-            lyricsButton
+            miniPlayerButton
+            immersiveButton
         }
         .frame(width: 320, alignment: .trailing)
     }
@@ -392,6 +394,28 @@ struct PlayerView: View {
         .help(rightSidebarContent == .queue ? String(localized: "Hide Queue") : String(localized: "Show Queue"))
     }
     
+    private var immersiveButton: some View {
+        Button(action: {
+            withAnimation(.easeInOut(duration: AnimationDuration.immersiveTransition)) {
+                isImmersiveActive = true
+            }
+        }, label: {
+            Image(systemName: Icons.immersive)
+                .font(.system(size: 14))
+                .foregroundColor(.secondary)
+                .frame(width: 32, height: 32)
+                .background(
+                    Circle()
+                        .fill(Color.secondary.opacity(0.1))
+                )
+        })
+        .buttonStyle(PlainButtonStyle())
+        .disabled(!hasCurrentTrack)
+        .opacity(hasCurrentTrack ? 1.0 : 0.5)
+        .hoverEffect(scale: hasCurrentTrack ? 1.1 : 1.0)
+        .help("Open Immersive Mode")
+    }
+
     private var miniPlayerButton: some View {
         Button(action: {
             MiniPlayerWindowManager.shared.show()
@@ -768,9 +792,13 @@ struct ControlButtonStyle: ButtonStyle {
 #Preview {
     struct PreviewWrapper: View {
         @State private var rightSidebarContent: RightSidebarContent = .none
+        @State private var isImmersiveActive = false
 
         var body: some View {
-            PlayerView(rightSidebarContent: $rightSidebarContent)
+            PlayerView(
+                rightSidebarContent: $rightSidebarContent,
+                isImmersiveActive: $isImmersiveActive
+            )
                 .environmentObject({
                     let coordinator = AppCoordinator()
                     return coordinator.playbackManager

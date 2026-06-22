@@ -1,7 +1,8 @@
 //
-// MiniPlayerProgressBar
+// NowPlayingProgressBar
 //
-// A compact, self-contained seek bar for the mini player window.
+// A compact, self-contained, artwork-tinted seek bar shared by the mini player
+// and immersive mode.
 //
 // The slider logic mirrors PlayerView.progressSlider. That implementation is
 // private to PlayerView, so rather than refactor the main player we duplicate
@@ -11,9 +12,10 @@
 import SwiftUI
 import AppKit
 
-struct MiniPlayerProgressBar: View {
+struct NowPlayingProgressBar: View {
     /// Fill color for the progress track / handle (artwork dominant color from the host).
     let tint: Color
+    var scale: CGFloat = 1
 
     @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var playbackProgressState: PlaybackProgressState
@@ -31,9 +33,9 @@ struct MiniPlayerProgressBar: View {
     @State private var hoveredOverProgress = false
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 8 * scale) {
             Text(HelperUtils.formattedDuration(isDraggingProgress ? tempProgressValue : playbackProgressState.currentTime))
-                .font(.system(size: 10, weight: .medium))
+                .font(.system(size: 10 * scale, weight: .medium))
                 .foregroundColor(.white.opacity(0.8))
                 .monospacedDigit()
                 .frame(width: timeLabelWidth, alignment: .trailing)
@@ -41,7 +43,7 @@ struct MiniPlayerProgressBar: View {
             progressSlider
 
             Text(HelperUtils.formattedDuration(playbackManager.currentTrack?.duration ?? 0))
-                .font(.system(size: 10, weight: .medium))
+                .font(.system(size: 10 * scale, weight: .medium))
                 .foregroundColor(.white.opacity(0.8))
                 .monospacedDigit()
                 .frame(width: timeLabelWidth, alignment: .leading)
@@ -54,20 +56,20 @@ struct MiniPlayerProgressBar: View {
                 // Background track
                 RoundedRectangle(cornerRadius: 2)
                     .fill(Color.secondary.opacity(0.3))
-                    .frame(height: 4)
+                    .frame(height: 4 * scale)
 
                 // Progress track
                 RoundedRectangle(cornerRadius: 2)
                     .fill(fillColor)
-                    .frame(width: geometry.size.width * progressPercentage, height: 4)
+                    .frame(width: geometry.size.width * progressPercentage, height: 4 * scale)
                     .animation(isDraggingProgress ? .none : .easeInOut(duration: 0.2), value: progressPercentage)
 
                 // Drag handle
                 Circle()
                     .fill(fillColor)
-                    .frame(width: 10, height: 10)
+                    .frame(width: 10 * scale, height: 10 * scale)
                     .opacity(isDraggingProgress || hoveredOverProgress ? 1.0 : 0.0)
-                    .offset(x: (geometry.size.width * progressPercentage) - 5)
+                    .offset(x: (geometry.size.width * progressPercentage) - (5 * scale))
                     .animation(isDraggingProgress ? .none : .easeInOut(duration: 0.2), value: progressPercentage)
                     .animation(.easeInOut(duration: 0.15), value: hoveredOverProgress)
             }
@@ -80,14 +82,14 @@ struct MiniPlayerProgressBar: View {
                 hoveredOverProgress = hovering
             }
         }
-        .frame(height: 10)
+        .frame(height: 10 * scale)
         .disabled(playbackManager.currentTrack == nil)
     }
 
     // MARK: - Helpers
 
     private var timeLabelWidth: CGFloat {
-        (playbackManager.currentTrack?.duration ?? 0) >= 3600 ? 50 : 36
+        ((playbackManager.currentTrack?.duration ?? 0) >= 3600 ? 50 : 36) * scale
     }
 
     private var progressPercentage: Double {

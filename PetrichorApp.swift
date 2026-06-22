@@ -572,6 +572,21 @@ extension PetrichorApp {
             .keyboardShortcut("m", modifiers: [.command, .option])
             .disabled(appCoordinator.playbackManager.currentTrack == nil)
 
+            Button {
+                NotificationCenter.default.post(name: .toggleImmersivePlayer, object: nil)
+            } label: {
+                if #available(macOS 26.0, *) {
+                    Label(
+                        "Immersive Mode",
+                        systemImage: Icons.immersive
+                    )
+                } else {
+                    Text("Immersive Mode")
+                }
+            }
+            .keyboardShortcut("f", modifiers: [.command, .option])
+            .disabled(appCoordinator.playbackManager.currentTrack == nil)
+
             Divider()
         }
     }
@@ -610,7 +625,7 @@ extension PetrichorApp {
                 Text("Folders Tab")
             }
         }
-        .keyboardShortcut("f", modifiers: [.command, .option])
+        .keyboardShortcut("f", modifiers: [.command, .option, .shift])
     }
     
     // MARK: - Help Menu Commands

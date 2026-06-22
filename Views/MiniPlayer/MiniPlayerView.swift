@@ -29,8 +29,6 @@ struct MiniPlayerView: View {
 
     @Environment(\.colorScheme)
     private var colorScheme
-    @AppStorage("useArtworkColors")
-    private var useArtworkColors = true
     @AppStorage("miniPlayerAlwaysOnTop")
     private var miniPlayerAlwaysOnTop = false
     // Persisted independently from the main window's queue/lyrics state so the
@@ -46,9 +44,6 @@ struct MiniPlayerView: View {
     @State private var showingClearConfirmation = false
     @State private var dragStartOrigin: CGPoint?
     @State private var dragStartMouse: CGPoint?
-    // What the panel area currently renders. Tracks `panel` on open, but lags
-    // behind on close so the content stays mounted during the shrink animation.
-    @State private var renderedPanel: MiniPlayerPanel
 
     private let minSide: CGFloat = 260
     private let maxSide: CGFloat = 560
@@ -68,13 +63,6 @@ struct MiniPlayerView: View {
         }
     }
 
-    init() {
-        // Render the persisted panel immediately on launch so a restored
-        // queue/lyrics panel doesn't pop in after the window has opened.
-        let raw = UserDefaults.standard.string(forKey: miniPlayerPanelStateKey)
-        _renderedPanel = State(initialValue: MiniPlayerPanel(rawValue: raw ?? "") ?? .none)
-    }
-
     private var hasCurrentTrack: Bool {
         playbackManager.currentTrack != nil
     }
@@ -84,11 +72,7 @@ struct MiniPlayerView: View {
     /// accent color when artwork colors are unavailable or disabled.
     /// `dominantColors` is cached per track, so this is cheap.
     private var artworkTint: Color {
-        guard useArtworkColors,
-              let dominant = playbackManager.currentTrack?.dominantColors.first else {
-            return .accentColor
-        }
-        return Color(nsColor: dominant)
+        NowPlayingArtwork.tint(for: playbackManager.currentTrack)
     }
 
     var body: some View {
@@ -96,11 +80,7 @@ struct MiniPlayerView: View {
             VStack(spacing: 0) {
                 artwork(side: geo.size.width)
 
-                // `renderedPanel` (not `panel`) keeps the content mounted through
-                // the collapse animation. Its maxHeight-infinity frame lets it
-                // squeeze to zero as the window shrinks, so the content always
-                // fills the window and the bare background never flashes.
-                if renderedPanel != .none {
+                if panel != .none {
                     expandedPanel
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .clipped()
@@ -130,15 +110,12 @@ struct MiniPlayerView: View {
         .onChange(of: colorScheme) {
             updateGradientColors()
         }
-        .onChange(of: useArtworkColors) {
-            updateGradientColors()
-        }
     }
 
     // MARK: - Artwork + Overlays
 
     private func artwork(side: CGFloat) -> some View {
-        ZStack {
+        ZStack(alignment: .top) {
             artworkImage(side: side)
 
             windowButtons
@@ -203,9 +180,10 @@ struct MiniPlayerView: View {
             HStack {
                 Spacer()
                 HStack(spacing: 4) {
-                    toolbarButton(
+                    PanelToolbarButton(
                         isActive: panel == .queue,
                         isEnabled: true,
+                        activeTint: artworkTint,
                         activeHelp: String(localized: "Hide Queue"),
                         inactiveHelp: String(localized: "Show Queue"),
                         action: { toggle(.queue) },
@@ -215,9 +193,10 @@ struct MiniPlayerView: View {
                         }
                     )
 
-                    toolbarButton(
+                    PanelToolbarButton(
                         isActive: panel == .lyrics,
                         isEnabled: hasCurrentTrack,
+                        activeTint: artworkTint,
                         activeHelp: String(localized: "Hide Lyrics"),
                         inactiveHelp: String(localized: "Show Lyrics"),
                         action: { toggle(.lyrics) },
@@ -227,7 +206,7 @@ struct MiniPlayerView: View {
                     )
                 }
                 .padding(6)
-                .miniPlayerControlClusterBackground()
+                .floatingControlClusterBackground()
             }
             Spacer()
         }
@@ -255,9 +234,9 @@ struct MiniPlayerView: View {
                 // text/controls are light regardless of light/dark appearance.
                 .shadow(color: .black.opacity(0.5), radius: 3, x: 0, y: 1)
 
-                MiniPlayerControlsView(tint: artworkTint)
+                NowPlayingControlsView(tint: artworkTint)
 
-                MiniPlayerProgressBar(tint: artworkTint)
+                NowPlayingProgressBar(tint: artworkTint)
             }
             .padding(.horizontal, 16)
             .padding(.top, 120)
@@ -317,6 +296,7 @@ struct MiniPlayerView: View {
                 panelHeader
                 panelContent
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .clearQueueConfirmation(isPresented: $showingClearConfirmation) {
             playlistManager.clearQueue()
@@ -324,7 +304,7 @@ struct MiniPlayerView: View {
     }
 
     @ViewBuilder private var panelContent: some View {
-        switch renderedPanel {
+        switch panel {
         case .queue:
             PlayQueueContent(accentColor: artworkTint)
         case .lyrics:
@@ -345,12 +325,12 @@ struct MiniPlayerView: View {
             }
             .buttonStyle(.plain)
 
-            Text(renderedPanel == .queue ? String(localized: "Play Queue") : String(localized: "Lyrics"))
+            Text(panel == .queue ? String(localized: "Play Queue") : String(localized: "Lyrics"))
                 .font(.headline)
 
             Spacer()
 
-            if renderedPanel == .queue {
+            if panel == .queue {
                 Text("\(playlistManager.currentQueue.count) tracks")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -400,56 +380,17 @@ struct MiniPlayerView: View {
             }
     }
 
-    // MARK: - Toolbar Button Builder
-
-    private func toolbarButton<Label: View>(
-        isActive: Bool,
-        isEnabled: Bool,
-        activeHelp: String,
-        inactiveHelp: String,
-        action: @escaping () -> Void,
-        @ViewBuilder label: () -> Label
-    ) -> some View {
-        Button(action: action) {
-            label()
-                .foregroundColor(isActive ? .white : .secondary)
-                .frame(width: 26, height: 26)
-                .background(Circle().fill(isActive ? artworkTint : Color.clear))
-        }
-        .buttonStyle(.plain)
-        .disabled(!isEnabled)
-        .opacity(isEnabled ? 1 : 0.5)
-        .hoverEffect(scale: isEnabled ? 1.1 : 1.0)
-        .help(isActive ? activeHelp : inactiveHelp)
-    }
-
     // MARK: - Helpers
 
     private func toggle(_ target: MiniPlayerPanel) {
-        if panel == target {
-            collapsePanel()
-        } else {
-            // Expand: mount the content and grow the window. The panel grows in
-            // from zero height as the window animates open.
-            renderedPanel = target
-            panel = target
-            applyWindowSizing(animated: true)
-        }
+        panel = (panel == target) ? .none : target
+        applyWindowSizing(animated: true)
     }
 
     private func collapsePanel() {
         guard panel != .none else { return }
-        // Drop the target state now (shrinks the window + deactivates the toolbar
-        // button) but keep `renderedPanel` mounted so the content squeezes down
-        // with the window. Unmount only once the resize animation has finished,
-        // so the bare window background never shows.
         panel = .none
-        let duration = applyWindowSizing(animated: true)
-        DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.02) {
-            if panel == .none {
-                renderedPanel = .none
-            }
-        }
+        applyWindowSizing(animated: true)
     }
 
     private func refreshArtwork() {
@@ -457,11 +398,7 @@ struct MiniPlayerView: View {
         guard track?.id != currentTrackId || cachedArtwork == nil else { return }
 
         currentTrackId = track?.id
-        if let data = track?.artworkData, let image = NSImage(data: data) {
-            cachedArtwork = image
-        } else {
-            cachedArtwork = nil
-        }
+        cachedArtwork = NowPlayingArtwork.image(for: track)
     }
 
     private func applyWindowLevel() {
@@ -480,14 +417,10 @@ struct MiniPlayerView: View {
     }
 
     private func updateGradientColors() {
-        guard useArtworkColors,
-              let track = playbackManager.currentTrack,
-              !track.dominantColors.isEmpty else {
-            gradientColors = []
-            return
-        }
-
-        gradientColors = track.backgroundGradientColors(isDark: colorScheme == .dark)
+        gradientColors = NowPlayingArtwork.gradient(
+            for: playbackManager.currentTrack,
+            isDark: colorScheme == .dark
+        )
     }
 
     // MARK: - Window Sizing

@@ -8,6 +8,36 @@ enum RightSidebarContent: Equatable {
     case lyrics
 }
 
+private enum MainWindowPanelState: String {
+    case none
+    case queue
+    case lyrics
+
+    init(content: RightSidebarContent) {
+        switch content {
+        case .queue:
+            self = .queue
+        case .lyrics:
+            self = .lyrics
+        case .none, .trackDetail:
+            self = .none
+        }
+    }
+
+    var content: RightSidebarContent {
+        switch self {
+        case .none:
+            return .none
+        case .queue:
+            return .queue
+        case .lyrics:
+            return .lyrics
+        }
+    }
+}
+
+private let mainWindowPanelStateKey = "mainWindowPanelState"
+
 struct ContentView: View {
     @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var libraryManager: LibraryManager
@@ -15,10 +45,15 @@ struct ContentView: View {
         
     @AppStorage("showFoldersTab")
     private var showFoldersTab = false
-    
+    @Environment(\.colorScheme)
+    private var colorScheme
+
     @State private var selectedTab: Sections = .home
     @State private var showingSettings = false
+    @AppStorage(mainWindowPanelStateKey)
+    private var mainWindowPanelState: MainWindowPanelState = .none
     @State private var rightSidebarContent: RightSidebarContent = .none
+    @State private var isImmersiveActive = false
     @State private var pendingLibraryFilter: LibraryFilterRequest?
     @State private var windowDelegate = WindowDelegate()
     @State private var shouldFocusSearch = false
@@ -37,6 +72,12 @@ struct ContentView: View {
     @State private var librarySelectedSidebarItem: LibrarySidebarItem?
     
     @ObservedObject private var notificationManager = NotificationManager.shared
+
+    init() {
+        let raw = UserDefaults.standard.string(forKey: mainWindowPanelStateKey)
+        let restoredPanel = MainWindowPanelState(rawValue: raw ?? "") ?? .none
+        _rightSidebarContent = State(initialValue: restoredPanel.content)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -62,6 +103,20 @@ struct ContentView: View {
             return .ignored
         }
         .frame(minWidth: 1000, minHeight: 600)
+        .overlay {
+            if isImmersiveActive {
+                ImmersiveView(
+                    isPresented: $isImmersiveActive,
+                    artwork: NowPlayingArtwork.image(for: playbackManager.currentTrack),
+                    gradient: NowPlayingArtwork.gradient(
+                        for: playbackManager.currentTrack,
+                        isDark: colorScheme == .dark
+                    ),
+                    trackID: playbackManager.currentTrack?.id
+                )
+                .transition(.move(edge: .bottom))
+            }
+        }
         .onAppear(perform: handleOnAppear)
         .contentViewNotificationHandlers(
             shouldFocusSearch: $shouldFocusSearch,
@@ -76,6 +131,9 @@ struct ContentView: View {
                let newTrack = playbackManager.currentTrack {
                 rightSidebarContent = .trackDetail(newTrack)
             }
+        }
+        .onChange(of: rightSidebarContent) { _, newValue in
+            mainWindowPanelState = MainWindowPanelState(content: newValue)
         }
         .onChange(of: libraryManager.globalSearchText) { _, newValue in
             if !newValue.isEmpty && selectedTab != .library {
@@ -123,6 +181,12 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .exportPlaylists)) { _ in
             showingExportPlaylistSheet = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .toggleImmersivePlayer)) { _ in
+            guard playbackManager.currentTrack != nil || isImmersiveActive else { return }
+            withAnimation(.easeInOut(duration: AnimationDuration.immersiveTransition)) {
+                isImmersiveActive.toggle()
+            }
         }
     }
 
@@ -231,7 +295,10 @@ struct ContentView: View {
         if libraryManager.shouldShowMainUI {
             Divider()
 
-            PlayerView(rightSidebarContent: $rightSidebarContent)
+            PlayerView(
+                rightSidebarContent: $rightSidebarContent,
+                isImmersiveActive: $isImmersiveActive
+            )
                 .frame(height: 110)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
         }

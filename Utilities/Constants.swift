@@ -76,8 +76,9 @@ enum Icons {
     static let sortDescending = "sort.descending"
     static let reorderTracks = "arrow.up.and.down.text.horizontal"
 
-    // Mini Player
+    // Mini/Immersive Player
     static let miniPlayer = "pip.enter"
+    static let immersive = "arrow.up.left.and.arrow.down.right.square"
     static let queueList = "list.bullet"
 
     // Custom Icons (from project assets)
@@ -183,6 +184,7 @@ enum AnimationDuration {
     static let quickDuration: TimeInterval = 0.1
     static let standardDuration: TimeInterval = 0.15
     static let mediumDuration: TimeInterval = 0.2
+    static let immersiveTransition: TimeInterval = 0.25
 }
 
 // MARK: - Delay Durations
@@ -278,6 +280,8 @@ extension Notification.Name {
     static let createPlaylistFromSelection = Notification.Name("createPlaylistFromSelection")
     
     static let focusSearchField = Notification.Name("FocusSearchField")
+
+    static let toggleImmersivePlayer = Notification.Name("ToggleImmersivePlayer")
 }
 
 // MARK: - Icon Helpers
