@@ -172,6 +172,21 @@ struct ContentView: View {
             }
             .environmentObject(playlistManager)
         }
+        .sheet(isPresented: $playlistManager.showingSmartPlaylistEditor) {
+            SmartPlaylistEditorSheet(
+                isPresented: $playlistManager.showingSmartPlaylistEditor,
+                editingPlaylist: playlistManager.smartPlaylistToEdit
+            )
+            .environmentObject(playlistManager)
+        }
+        .sheet(isPresented: $playlistManager.showingRegularPlaylistEditor) {
+            RegularPlaylistEditorSheet(
+                isPresented: $playlistManager.showingRegularPlaylistEditor,
+                editingPlaylist: playlistManager.regularPlaylistToEdit
+            )
+            .environmentObject(libraryManager)
+            .environmentObject(playlistManager)
+        }
         .sheet(isPresented: $showingExportPlaylistSheet) {
             ExportPlaylistsSheet(isPresented: $showingExportPlaylistSheet)
                 .environmentObject(playlistManager)

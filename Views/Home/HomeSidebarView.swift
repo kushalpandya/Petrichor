@@ -8,6 +8,8 @@ struct HomeSidebarView: View {
     @State private var allItems: [HomeSidebarItem] = []
     @State private var hasLoadedInitialCounts = false
     @State private var pinnedItemTrackCounts: [Int64: Int] = [:]
+    @State private var playlistToDelete: Playlist?
+    @State private var showingDeleteConfirmation = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -44,6 +46,21 @@ struct HomeSidebarView: View {
                 }
             )
         }
+        .alert("Delete Playlist", isPresented: $showingDeleteConfirmation) {
+            Button("Cancel", role: .cancel) {
+                playlistToDelete = nil
+            }
+            Button("Delete", role: .destructive) {
+                if let playlist = playlistToDelete {
+                    playlistManager.deletePlaylist(playlist)
+                    playlistToDelete = nil
+                }
+            }
+        } message: {
+            if let playlist = playlistToDelete {
+                Text("Are you sure you want to delete \"\(DefaultPlaylists.displayName(for: playlist))\"? This action cannot be undone.")
+            }
+        }
         .onAppear {
             updateAllItems()
             updateSelectedItem()
@@ -73,7 +90,9 @@ struct HomeSidebarView: View {
                 }
             }
         }
-        .onChange(of: playlistManager.playlists.map { "\($0.id)-\($0.trackCount)" }) {
+        .onChange(of: pinnedPlaylistCountSignature) {
+            // Only rebuild when a *pinned* playlist's count changes. Count changes on
+            // non-pinned playlists don't affect anything shown in the Home sidebar.
             updateAllItems()
         }
         .onReceive(NotificationCenter.default.publisher(for: .libraryDataDidChange)) { _ in
@@ -86,11 +105,21 @@ struct HomeSidebarView: View {
     }
 
     // MARK: - Update Items Helper
-    
+
+    /// Change signature of just the pinned playlists' counts, so the Home sidebar only
+    /// rebuilds when a pinned playlist's count changes (not on any library playlist edit).
+    private var pinnedPlaylistCountSignature: String {
+        let playlistsById = Dictionary(playlistManager.playlists.map { ($0.id, $0) }) { first, _ in first }
+        return libraryManager.pinnedItems
+            .compactMap { $0.playlistId }
+            .map { id in "\(id)-\(playlistsById[id]?.trackCount ?? 0)" }
+            .joined(separator: ",")
+    }
+
     private func updateAllItems() {
         let artistCount = libraryManager.artistCount
         let albumCount = libraryManager.albumCount
-        
+
         var items: [HomeSidebarItem] = [
             HomeSidebarItem(type: .discover, trackCount: libraryManager.discoverTracks.count),
             HomeSidebarItem(type: .tracks, trackCount: libraryManager.totalTrackCount),
@@ -98,11 +127,11 @@ struct HomeSidebarView: View {
             HomeSidebarItem(type: .albums, albumCount: albumCount)
         ]
 
+        // O(1) playlist lookups instead of a linear scan per pinned item.
+        let playlistsById = Dictionary(playlistManager.playlists.map { ($0.id, $0) }) { first, _ in first }
         let pinnedSidebarItems = libraryManager.pinnedItems.map { pinnedItem in
             let cachedCount = pinnedItemTrackCounts[pinnedItem.id ?? 0] ?? 0
-            let playlist = pinnedItem.playlistId.flatMap { id in
-                playlistManager.playlists.first { $0.id == id }
-            }
+            let playlist = pinnedItem.playlistId.flatMap { playlistsById[$0] }
             return HomeSidebarItem(pinnedItem: pinnedItem, trackCount: cachedCount, playlist: playlist)
         }
         items.append(contentsOf: pinnedSidebarItems)
@@ -156,16 +185,32 @@ struct HomeSidebarView: View {
     // MARK: - Context Menu & Trailing Content
 
     private func createContextMenuItems(for item: HomeSidebarItem) -> [ContextMenuItem] {
-        if case .pinned(let pinnedItem) = item.source {
-            return [
-                .button(title: String(localized: "Remove from Home"), role: nil) {
-                    Task {
-                        await libraryManager.removePinnedItem(pinnedItem)
-                    }
-                }
-            ]
+        guard case .pinned(let pinnedItem) = item.source else { return [] }
+
+        // Pinned playlist: show the full playlist options menu, identical to the Playlist
+        // sidebar's. (The Pin entry reads "Remove from Home" since it's already pinned.)
+        if let playlist = playlist(for: item) {
+            return PlaylistMenuBuilder.items(for: playlist, playlistManager: playlistManager) {
+                playlistToDelete = playlist
+                showingDeleteConfirmation = true
+            }
         }
-        return []
+
+        // Pinned library item (artist/album/etc.): just unpin.
+        return [
+            .button(title: String(localized: "Remove from Home"), role: nil) {
+                Task {
+                    await libraryManager.removePinnedItem(pinnedItem)
+                }
+            }
+        ]
+    }
+
+    /// Resolves the underlying playlist for a pinned playlist item, if any.
+    private func playlist(for item: HomeSidebarItem) -> Playlist? {
+        guard case .pinned(let pinnedItem) = item.source,
+              let playlistId = pinnedItem.playlistId else { return nil }
+        return playlistManager.playlists.first { $0.id == playlistId }
     }
 
     private func trailingContentView(for item: HomeSidebarItem) -> AnyView {

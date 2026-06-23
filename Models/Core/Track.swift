@@ -220,6 +220,10 @@ extension Track {
     var artworkData: Data? {
         albumArtworkData
     }
+
+    var sortableLastPlayedDate: Date {
+        lastPlayedDate ?? .distantPast
+    }
 }
 
 // MARK: - Update Helpers

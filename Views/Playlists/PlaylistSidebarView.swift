@@ -7,7 +7,6 @@ struct PlaylistSidebarView: View {
     @State private var selectedSidebarItem: PlaylistSidebarItem?
     @State private var playlistToDelete: Playlist?
     @State private var showingDeleteConfirmation = false
-    @State private var editingPlaylistID: UUID?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -66,14 +65,25 @@ struct PlaylistSidebarView: View {
 
             Spacer()
 
-            Button(action: { playlistManager.showCreatePlaylistModal() }, label: {
+            Menu {
+                Button("New Playlist") {
+                    playlistManager.showCreateRegularPlaylistModal()
+                }
+
+                Button("New Smart Playlist") {
+                    playlistManager.showCreateSmartPlaylistModal()
+                }
+            } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 14))
-            })
-            .buttonStyle(.borderless)
-            .hoverEffect(scale: 1.1)
+                    .frame(width: 20, height: 20)
+                    .contentShape(Rectangle())
+                    .hoverEffect(scale: 1.1)
+            }
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
             .help("Create New Playlist")
-            
+
             // Kebab menu button
             Menu {
                 Button("Import Playlists...") {
@@ -109,10 +119,7 @@ struct PlaylistSidebarView: View {
                 selectedPlaylist = item.playlist
             },
             contextMenuItems: { item in
-                createContextMenuItems(for: item.playlist)
-            },
-            onRename: { item, newName in
-                playlistManager.renamePlaylist(item.playlist, newName: newName)
+                playlistMenuItems(for: item)
             },
             showIcon: true,
             iconColor: .secondary,
@@ -121,10 +128,10 @@ struct PlaylistSidebarView: View {
                 kebabMenu(for: item)
             },
             reorderableFromIndex: nonEditableCount,
+            // swiftlint:disable:next trailing_closure
             onReorder: { reorderedItems in
                 handlePlaylistReorder(reorderedItems)
-            },
-            externalEditingItemID: $editingPlaylistID
+            }
         )
     }
 
@@ -134,31 +141,12 @@ struct PlaylistSidebarView: View {
         guard item.playlist.isUserEditable else { return AnyView(EmptyView()) }
 
         let isSelected = selectedSidebarItem?.id == item.id
-        let isPinned = playlistManager.isPlaylistPinned(item.playlist)
 
         return AnyView(
             Menu {
-                Button(isPinned ? String(localized: "Remove from Home") : String(localized: "Pin to Home")) {
-                    Task {
-                        if isPinned {
-                            await playlistManager.unpinPlaylist(item.playlist)
-                        } else {
-                            await playlistManager.pinPlaylist(item.playlist)
-                        }
-                    }
-                }
-
-                Divider()
-
-                Button("Rename") {
-                    editingPlaylistID = item.id
-                }
-
-                Divider()
-
-                Button("Delete", role: .destructive) {
-                    playlistToDelete = item.playlist
-                    showingDeleteConfirmation = true
+                // Same items as the right-click context menu.
+                ForEach(playlistMenuItems(for: item), id: \.id) { menuItem in
+                    ContextMenuItemView(item: menuItem)
                 }
             } label: {
                 Image(systemName: "ellipsis")
@@ -184,25 +172,16 @@ struct PlaylistSidebarView: View {
         playlistManager.reorderPlaylists(reorderedPlaylists)
     }
 
-    // MARK: - Context Menu
+    // MARK: - Menu Items
 
-    private func createContextMenuItems(for playlist: Playlist) -> [ContextMenuItem] {
-        var items: [ContextMenuItem] = []
-        
-        // Add pin/unpin option
-        items.append(playlistManager.createPinContextMenuItem(for: playlist))
-        
-        if playlist.isUserEditable {
-            items.append(.divider)
-            items.append(.button(title: String(localized: "Rename")) {})
-            items.append(.divider)
-            items.append(.button(title: String(localized: "Delete"), role: .destructive) {
-                playlistToDelete = playlist
-                showingDeleteConfirmation = true
-            })
+    /// Single source of truth for a playlist's actions, rendered by both the right-click
+    /// context menu and the kebab menu so the two stay identical. Shared with the Home
+    /// sidebar via `PlaylistMenuBuilder`.
+    private func playlistMenuItems(for item: PlaylistSidebarItem) -> [ContextMenuItem] {
+        PlaylistMenuBuilder.items(for: item.playlist, playlistManager: playlistManager) {
+            playlistToDelete = item.playlist
+            showingDeleteConfirmation = true
         }
-        
-        return items
     }
 }
 

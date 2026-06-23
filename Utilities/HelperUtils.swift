@@ -1,6 +1,11 @@
 import Foundation
 
 enum HelperUtils {
+    /// Pluralized "N song(s)" label.
+    static func songCount(_ count: Int) -> String {
+        count == 1 ? String(localized: "1 song") : String(localized: "\(count) songs")
+    }
+
     /// Sanitizes a duration value for safe display, persistence, and numeric conversion.
     /// Converts negative, NaN, and infinite values to zero.
     /// - Parameter seconds: Duration in seconds.

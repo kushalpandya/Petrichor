@@ -19,6 +19,13 @@ class PlaylistManager: ObservableObject {
     @Published var showingCreatePlaylistModal = false
     @Published var tracksToAddToNewPlaylist: [Track] = []
     @Published var newPlaylistName = ""
+    // Smart playlist editor: presented for both creating (toEdit == nil) and editing.
+    @Published var showingSmartPlaylistEditor = false
+    @Published var smartPlaylistToEdit: Playlist?
+    // Regular playlist editor (name + song selection): presented for both creating
+    // (toEdit == nil) and editing an existing playlist.
+    @Published var showingRegularPlaylistEditor = false
+    @Published var regularPlaylistToEdit: Playlist?
 
     enum QueueSource {
         case library
@@ -28,6 +35,11 @@ class PlaylistManager: ObservableObject {
 
     // MARK: - Private/Internal Properties
     internal var libraryManager: LibraryManager?
+
+    /// Smart playlists whose tracks are currently being loaded, to collapse concurrent
+    /// duplicate loads (e.g. PlaylistDetailView firing onAppear + onChange together).
+    /// Mutated only on the main actor.
+    internal var loadingSmartPlaylistIDs: Set<UUID> = []
 
     // MARK: - Dependencies
     internal weak var audioPlayer: PlaybackManager?
@@ -83,12 +95,19 @@ class PlaylistManager: ObservableObject {
     }
     
     func updateSmartPlaylistCounts() {
+        // Only auto-updating smart playlists need their count computed from criteria.
+        // Frozen playlists already carry the correct count from their persisted snapshot.
+        let autoSmart = playlists.filter { $0.type == .smart && ($0.smartCriteria?.autoUpdate ?? true) }
+        guard let dbManager = libraryManager?.databaseManager, !autoSmart.isEmpty else { return }
+
+        // One batched read for all counts instead of N separate awaited reads.
         Task {
-            for index in playlists.indices where playlists[index].type == .smart {
-                let count = await libraryManager?.databaseManager.getSmartPlaylistTrackCount(playlists[index]) ?? 0
-                
-                await MainActor.run {
-                    self.playlists[index].trackCount = count
+            let counts = await dbManager.getSmartPlaylistTrackCounts(autoSmart)
+            await MainActor.run {
+                for (id, count) in counts {
+                    if let index = self.playlists.firstIndex(where: { $0.id == id }) {
+                        self.playlists[index].trackCount = count
+                    }
                 }
             }
         }

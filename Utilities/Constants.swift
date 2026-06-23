@@ -6,6 +6,7 @@ enum Icons {
     // Music & Audio
     static let musicNote = "music.note"
     static let musicNoteList = "music.note.list"
+    static let smartPlaylist = "custom.music.note.gear"
     static let musicNoteHouse = "music.note.house"
     static let musicNoteHouseFill = "music.note.house.fill"
     static let musicPagesFill = "custom.music.pages.fill"
@@ -42,6 +43,7 @@ enum Icons {
     // UI Elements
     static let sparkles = "sparkles"
     static let settings = "gear"
+    static let edit = "square.and.pencil"
     static let magnifyingGlass = "magnifyingglass"
     static let checkmarkSquareFill = "checkmark.square.fill"
     static let square = "square"
@@ -74,7 +76,6 @@ enum Icons {
     // Sort Icons
     static let sortAscending = "sort.ascending"
     static let sortDescending = "sort.descending"
-    static let reorderTracks = "arrow.up.and.down.text.horizontal"
 
     // Mini/Immersive Player
     static let miniPlayer = "pip.enter"
@@ -312,17 +313,21 @@ extension Icons {
     }
     
     static func defaultPlaylistIcon(for playlist: Playlist) -> String {
-        if playlist.type == .smart && !playlist.isUserEditable {
-            switch playlist.name {
-            case DefaultPlaylists.favorites:
-                return Icons.starFill
-            case DefaultPlaylists.mostPlayed:
-                return Icons.chartUptrendFill
-            case DefaultPlaylists.recentlyPlayed:
-                return Icons.clockFill
-            default:
-                return Icons.musicNoteList
+        if playlist.type == .smart {
+            if !playlist.isUserEditable {
+                switch playlist.name {
+                case DefaultPlaylists.favorites:
+                    return Icons.starFill
+                case DefaultPlaylists.mostPlayed:
+                    return Icons.chartUptrendFill
+                case DefaultPlaylists.recentlyPlayed:
+                    return Icons.clockFill
+                default:
+                    return Icons.smartPlaylist
+                }
             }
+            // User-created smart playlists use the dedicated smart-playlist symbol
+            return Icons.smartPlaylist
         }
         return Icons.musicNoteList
     }

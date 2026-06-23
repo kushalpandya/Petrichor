@@ -8,12 +8,6 @@ protocol SidebarItem: Identifiable, Equatable {
     var subtitle: String? { get }
     var icon: String? { get }
     var count: Int? { get }
-    var isEditable: Bool { get }
-}
-
-// Default implementation
-extension SidebarItem {
-    var isEditable: Bool { false }
 }
 
 // MARK: - Home Sidebar Item
@@ -24,7 +18,6 @@ struct HomeSidebarItem: SidebarItem {
     let subtitle: String?
     let icon: String?
     var count: Int?
-    let isEditable: Bool = false
     let type: HomeItemType?
     
     // Item source
@@ -148,7 +141,6 @@ struct LibrarySidebarItem: SidebarItem {
     let count: Int?
     let filterType: LibraryFilterType
     let filterName: String
-    let isEditable: Bool = false
 
     init(filterItem: LibraryFilterItem) {
         self.id = filterItem.id
@@ -185,14 +177,12 @@ struct PlaylistSidebarItem: SidebarItem {
     let icon: String?
     let count: Int?
     let playlist: Playlist
-    let isEditable: Bool
 
     init(playlist: Playlist) {
         self.id = playlist.id
         self.title = DefaultPlaylists.displayName(for: playlist)
         self.icon = Icons.defaultPlaylistIcon(for: playlist)
         self.playlist = playlist
-        self.isEditable = playlist.isUserEditable
 
         // Set subtitle and count based on playlist type
         if playlist.type == .smart {
@@ -219,7 +209,6 @@ struct FolderNodeSidebarItem: SidebarItem {
     let icon: String?
     let count: Int?
     let folderNode: FolderNode
-    let isEditable: Bool = false
 
     init(folderNode: FolderNode) {
         self.id = folderNode.id

@@ -6,53 +6,35 @@ struct SidebarItemRow<Item: SidebarItem>: View {
     let item: Item
     let isSelected: Bool
     let isHovered: Bool
-    let isEditing: Bool
-    @Binding var editingText: String
-    @FocusState var isEditingFieldFocused: Bool
     let showIcon: Bool
     let iconColor: Color
     let showCount: Bool
     let trailingContent: ((Item) -> AnyView)?
     let onTap: () -> Void
     let onHover: (Bool) -> Void
-    let onStartEditing: () -> Void
-    let onCommitEditing: () -> Void
-    let onCancelEditing: () -> Void
-    
+
     init(
         item: Item,
         isSelected: Bool,
         isHovered: Bool,
-        isEditing: Bool,
-        editingText: Binding<String>,
-        isEditingFieldFocused: FocusState<Bool>,
         showIcon: Bool = true,
         iconColor: Color = .secondary,
         showCount: Bool = true,
         trailingContent: ((Item) -> AnyView)? = nil,
         onTap: @escaping () -> Void,
-        onHover: @escaping (Bool) -> Void,
-        onStartEditing: @escaping () -> Void,
-        onCommitEditing: @escaping () -> Void,
-        onCancelEditing: @escaping () -> Void
+        onHover: @escaping (Bool) -> Void
     ) {
         self.item = item
         self.isSelected = isSelected
         self.isHovered = isHovered
-        self.isEditing = isEditing
-        self._editingText = editingText
-        self._isEditingFieldFocused = isEditingFieldFocused
         self.showIcon = showIcon
         self.iconColor = iconColor
         self.showCount = showCount
         self.trailingContent = trailingContent
         self.onTap = onTap
         self.onHover = onHover
-        self.onStartEditing = onStartEditing
-        self.onCommitEditing = onCommitEditing
-        self.onCancelEditing = onCancelEditing
     }
-    
+
     @State private var isTitleTruncated = false
     @State private var isSubtitleTruncated = false
     
@@ -76,15 +58,10 @@ struct SidebarItemRow<Item: SidebarItem>: View {
         .contentShape(Rectangle())
         .background(rowBackground)
         .onTapGesture {
-            if !isEditing {
-                onTap()
-            }
+            onTap()
         }
         .onHover { hovering in
             onHover(hovering)
-        }
-        .contextMenu {
-            // Handled in parent view
         }
     }
     
@@ -108,30 +85,9 @@ struct SidebarItemRow<Item: SidebarItem>: View {
     // MARK: - Content View
     
     @ViewBuilder private var contentView: some View {
-        if isEditing {
-            editingField
-        } else {
-            displayContent
-        }
+        displayContent
     }
-    
-    private var editingField: some View {
-        TextField("", text: $editingText)
-            .textFieldStyle(.plain)
-            .font(.system(size: 13, weight: isSelected ? .medium : .regular))
-            .foregroundColor(isSelected ? .white : .primary)
-            .focused($isEditingFieldFocused)
-            .task {
-                isEditingFieldFocused = true
-            }
-            .onSubmit {
-                onCommitEditing()
-            }
-            .onExitCommand {
-                onCancelEditing()
-            }
-    }
-    
+
     private var displayContent: some View {
         VStack(alignment: .leading, spacing: 1) {
             titleView

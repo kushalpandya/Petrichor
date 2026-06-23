@@ -7,13 +7,12 @@ struct SidebarView<Item: SidebarItem>: View {
     @Binding var selectedItem: Item?
     let onItemTap: (Item) -> Void
     let contextMenuItems: ((Item) -> [ContextMenuItem])?
-    let onRename: ((Item, String) -> Void)?
     let trailingContent: ((Item) -> AnyView)?
-    
+
     // Header configuration
     let headerTitle: String?
     let headerControls: AnyView?
-    
+
     // Customization
     let showIcon: Bool
     let iconColor: Color
@@ -23,15 +22,11 @@ struct SidebarView<Item: SidebarItem>: View {
     let reorderableFromIndex: Int?
     let onReorder: (([Item]) -> Void)?
 
-    // External editing trigger
-    @Binding var externalEditingItemID: UUID?
-
     init(
         items: [Item],
         selectedItem: Binding<Item?>,
         onItemTap: @escaping (Item) -> Void,
         contextMenuItems: ((Item) -> [ContextMenuItem])? = nil,
-        onRename: ((Item, String) -> Void)? = nil,
         headerTitle: String? = nil,
         headerControls: AnyView? = nil,
         showIcon: Bool = true,
@@ -39,14 +34,12 @@ struct SidebarView<Item: SidebarItem>: View {
         showCount: Bool = false,
         trailingContent: ((Item) -> AnyView)? = nil,
         reorderableFromIndex: Int? = nil,
-        onReorder: (([Item]) -> Void)? = nil,
-        externalEditingItemID: Binding<UUID?> = .constant(nil)
+        onReorder: (([Item]) -> Void)? = nil
     ) {
         self.items = items
         self._selectedItem = selectedItem
         self.onItemTap = onItemTap
         self.contextMenuItems = contextMenuItems
-        self.onRename = onRename
         self.headerTitle = headerTitle
         self.headerControls = headerControls
         self.showIcon = showIcon
@@ -55,7 +48,6 @@ struct SidebarView<Item: SidebarItem>: View {
         self.trailingContent = trailingContent
         self.reorderableFromIndex = reorderableFromIndex
         self.onReorder = onReorder
-        self._externalEditingItemID = externalEditingItemID
     }
 
     var body: some View {
@@ -64,7 +56,6 @@ struct SidebarView<Item: SidebarItem>: View {
             selectedItem: $selectedItem,
             onItemTap: onItemTap,
             contextMenuItems: contextMenuItems,
-            onRename: onRename,
             headerTitle: headerTitle,
             headerControls: headerControls,
             showIcon: showIcon,
@@ -72,8 +63,7 @@ struct SidebarView<Item: SidebarItem>: View {
             showCount: showCount,
             trailingContent: trailingContent,
             reorderableFromIndex: reorderableFromIndex,
-            onReorder: onReorder,
-            externalEditingItemID: $externalEditingItemID
+            onReorder: onReorder
         )
     }
 }
@@ -115,7 +105,6 @@ extension SidebarView where Item == LibrarySidebarItem {
             selectedItem: selectedItem,
             onItemTap: onItemTap,
             contextMenuItems: contextMenuItems,
-            onRename: nil,
             headerTitle: nil,
             headerControls: nil,
             showIcon: true,

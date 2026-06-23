@@ -8,7 +8,7 @@ enum PlaylistType: String, Codable {
 }
 
 // Smart playlist criteria
-struct SmartPlaylistCriteria: Codable {
+struct SmartPlaylistCriteria: Codable, Equatable {
     enum MatchType: String, Codable {
         case all
         case any
@@ -25,7 +25,7 @@ struct SmartPlaylistCriteria: Codable {
         case lessThanOrEqual
     }
     
-    struct Rule: Codable {
+    struct Rule: Codable, Equatable {
         let field: String  // "artist", "album", "genre", "year", "playCount", etc.
         let condition: Condition
         let value: String
@@ -36,34 +36,58 @@ struct SmartPlaylistCriteria: Codable {
     let limit: Int?  // Track count limit (e.g., 25 for "Top 25")
     let sortBy: String?  // "dateAdded", "lastPlayed", "playCount", etc.
     let sortAscending: Bool
-    
+    // When true, the playlist re-evaluates its rules on library changes.
+    // When false, the rules run once at creation and the result is frozen as a snapshot.
+    let autoUpdate: Bool
+
     // Default initializer
     init(
         matchType: MatchType = .all,
         rules: [Rule] = [],
         limit: Int? = nil,
         sortBy: String? = nil,
-        sortAscending: Bool = true
+        sortAscending: Bool = true,
+        autoUpdate: Bool = true
     ) {
         self.matchType = matchType
         self.rules = rules
         self.limit = limit
         self.sortBy = sortBy
         self.sortAscending = sortAscending
+        self.autoUpdate = autoUpdate
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case matchType, rules, limit, sortBy, sortAscending, autoUpdate
+    }
+
+    // Custom decoder keeps backward compatibility: criteria persisted before
+    // `autoUpdate` existed (the built-in defaults and any user playlists) lack
+    // the key, so default it to `true` rather than failing to decode.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        matchType = try container.decode(MatchType.self, forKey: .matchType)
+        rules = try container.decode([Rule].self, forKey: .rules)
+        limit = try container.decodeIfPresent(Int.self, forKey: .limit)
+        sortBy = try container.decodeIfPresent(String.self, forKey: .sortBy)
+        sortAscending = try container.decodeIfPresent(Bool.self, forKey: .sortAscending) ?? true
+        autoUpdate = try container.decodeIfPresent(Bool.self, forKey: .autoUpdate) ?? true
     }
 }
 
 // Cache manager for playlist artwork
 private class PlaylistArtworkCache {
     static let shared = PlaylistArtworkCache()
-    private var cache: [UUID: (artwork: Data, trackIDs: [UUID])] = [:]
-    
-    func getCachedArtwork(for playlistID: UUID, currentTrackIDs: [UUID]) -> Data? {
+    // Keyed on the cover-feeding tracks' stable database IDs (order-independent), so the
+    // cache survives reloads (which mint new per-instance `Track.id`s) and reorders.
+    private var cache: [UUID: (artwork: Data, trackIDs: [Int64])] = [:]
+
+    func getCachedArtwork(for playlistID: UUID, currentTrackIDs: [Int64]) -> Data? {
         guard let cached = cache[playlistID] else { return nil }
         return cached.trackIDs == currentTrackIDs ? cached.artwork : nil
     }
-    
-    func setCachedArtwork(_ artwork: Data, for playlistID: UUID, trackIDs: [UUID]) {
+
+    func setCachedArtwork(_ artwork: Data, for playlistID: UUID, trackIDs: [Int64]) {
         cache[playlistID] = (artwork, trackIDs)
     }
     
@@ -276,7 +300,7 @@ struct Playlist: Identifiable, FetchableRecord, PersistableRecord {
             return customCover
         }
         let selected = collageTracks()
-        let selectedIDs = selected.map { $0.id }
+        let selectedIDs = selected.compactMap { $0.trackId }
         return PlaylistArtworkCache.shared.getCachedArtwork(for: id, currentTrackIDs: selectedIDs)
     }
 
@@ -285,7 +309,7 @@ struct Playlist: Identifiable, FetchableRecord, PersistableRecord {
             return customCover
         }
         let selected = collageTracks()
-        let selectedIDs = selected.map { $0.id }
+        let selectedIDs = selected.compactMap { $0.trackId }
         if let cached = PlaylistArtworkCache.shared.getCachedArtwork(for: id, currentTrackIDs: selectedIDs) {
             return cached
         }
@@ -299,24 +323,45 @@ struct Playlist: Identifiable, FetchableRecord, PersistableRecord {
         return collage
     }
 
+    /// Stable, order-independent signature of the playlist's track membership. Used as the
+    /// view's artwork task id so the collage work only re-fires when the *set* of tracks
+    /// changes, not when the playlist is merely reordered. Kept cheap (no sort/allocation)
+    /// since it's evaluated on every `body` pass; the cache check inside
+    /// `warmArtworkCacheIfNeeded` still skips the actual render when the cover is unchanged.
+    var artworkSignature: String {
+        if coverArtworkData != nil {
+            return "\(id)-custom"
+        }
+        var digest: Int64 = 0
+        for track in tracks {
+            if let trackId = track.trackId { digest = digest &+ trackId }
+        }
+        return "\(id)-\(tracks.count)-\(digest)"
+    }
+
     // Get the effective track limit for display
     var trackLimit: Int? {
         smartCriteria?.limit
     }
 
-    /// Returns up to 4 tracks with artwork, preferring unique albums.
+    /// Returns up to 4 tracks with artwork, preferring unique albums. Selection is
+    /// order-independent (candidates are taken in stable `trackId` order) so the cover is a
+    /// function of the playlist's *contents*, not its current sort/manual order.
     private func collageTracks() -> [Track] {
+        let candidates = tracks
+            .filter { $0.artworkData != nil }
+            .sorted { ($0.trackId ?? .max) < ($1.trackId ?? .max) }
+
         var seenAlbumIds = Set<Int64>()
         var result: [Track] = []
-        for track in tracks {
-            guard track.artworkData != nil,
-                  let albumId = track.albumId, !seenAlbumIds.contains(albumId) else { continue }
+        for track in candidates {
+            guard let albumId = track.albumId, !seenAlbumIds.contains(albumId) else { continue }
             seenAlbumIds.insert(albumId)
             result.append(track)
             if result.count == 4 { return result }
         }
         if result.count < 4 {
-            for track in tracks where track.artworkData != nil && !result.contains(where: { $0.id == track.id }) {
+            for track in candidates where !result.contains(where: { $0.id == track.id }) {
                 result.append(track)
                 if result.count == 4 { break }
             }
