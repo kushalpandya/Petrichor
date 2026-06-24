@@ -201,49 +201,51 @@ extension DatabaseManager {
     // pinned and Library counts can never diverge.
     func getTrackCountForPinnedPlaylists(_ items: [PinnedItem]) async -> [Int64: Int] {
         do {
-            var counts = try await dbQueue.read { db -> [Int64: Int] in
+            // One read: fetch the referenced playlists once, compute regular counts inline,
+            // and collect the smart playlists (reusing the already-fetched records).
+            let (counts0, smartPlaylists) = try await dbQueue.read { db -> ([Int64: Int], [Playlist]) in
                 var counts: [Int64: Int] = [:]
 
                 let playlistIds = items.compactMap { $0.playlistId?.uuidString }
-                guard !playlistIds.isEmpty else { return counts }
+                guard !playlistIds.isEmpty else { return (counts, []) }
 
                 let playlists = try Playlist
                     .filter(playlistIds.contains(Playlist.Columns.id))
                     .fetchAll(db)
+                let playlistsById = Dictionary(playlists.map { ($0.id, $0) }) { first, _ in first }
 
+                var smart: [Playlist] = []
                 for item in items {
                     guard let itemId = item.id,
-                          let playlistId = item.playlistId else { continue }
+                          let playlistId = item.playlistId,
+                          let playlist = playlistsById[playlistId] else { continue }
 
-                    if let playlist = playlists.first(where: { $0.id == playlistId }) {
-                        if playlist.type == .regular {
-                            let count = try PlaylistTrack
-                                .filter(PlaylistTrack.Columns.playlistId == playlistId.uuidString)
-                                .fetchCount(db)
-                            counts[itemId] = count
-                        } else {
-                            counts[itemId] = -1
-                        }
+                    // Regular playlists and frozen smart playlists (autoUpdate == false) serve
+                    // a persisted snapshot, so count its rows. Only live smart playlists are
+                    // re-evaluated against the current library below.
+                    let isFrozenSmart = playlist.type == .smart && playlist.smartCriteria?.autoUpdate == false
+                    if playlist.type == .regular || isFrozenSmart {
+                        counts[itemId] = try PlaylistTrack
+                            .filter(PlaylistTrack.Columns.playlistId == playlistId.uuidString)
+                            .fetchCount(db)
+                    } else {
+                        smart.append(playlist)
                     }
                 }
 
-                return counts
+                return (counts, smart)
             }
 
-            // Handle smart playlists outside the database read
-            for item in items {
-                guard let itemId = item.id,
-                      let playlistId = item.playlistId,
-                      counts[itemId] == -1 else { continue }
+            var counts = counts0
 
-                if let playlist = try? await dbQueue.read({ db in
-                    try Playlist
-                        .filter(Playlist.Columns.id == playlistId.uuidString)
-                        .fetchOne(db)
-                }), playlist.type == .smart {
-                    counts[itemId] = await getSmartPlaylistTrackCount(playlist)
-                } else {
-                    counts[itemId] = 0
+            // Batch all pinned smart-playlist counts in a single read (shared artist fetch)
+            // instead of a separate playlist re-fetch + count read per pinned item.
+            if !smartPlaylists.isEmpty {
+                let smartCounts = await getSmartPlaylistTrackCounts(smartPlaylists)
+                for item in items {
+                    guard let itemId = item.id, let playlistId = item.playlistId,
+                          smartPlaylists.contains(where: { $0.id == playlistId }) else { continue }
+                    counts[itemId] = smartCounts[playlistId] ?? 0
                 }
             }
 

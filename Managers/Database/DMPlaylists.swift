@@ -66,6 +66,41 @@ extension DatabaseManager {
         }
     }
     
+    /// Persist a frozen snapshot of tracks for a smart playlist into `playlist_tracks`.
+    ///
+    /// `savePlaylistAsync` only writes track associations for regular playlists, so a
+    /// non-auto-updating ("frozen") smart playlist needs this explicit path to store the
+    /// one-time evaluation result. Once stored, the snapshot is loaded back exactly like a
+    /// regular playlist via `loadTracksForPlaylist`, and its count is picked up by the
+    /// generic `playlist_tracks` count query in `loadAllPlaylists`.
+    func saveSmartPlaylistSnapshot(playlistId: UUID, tracks: [Track]) async throws {
+        try await dbQueue.write { db in
+            // Replace any existing snapshot
+            try PlaylistTrack
+                .filter(PlaylistTrack.Columns.playlistId == playlistId.uuidString)
+                .deleteAll(db)
+
+            let now = Date()
+            var seenTrackIds = Set<Int64>()
+            let playlistTracks = tracks.enumerated().compactMap { index, track -> PlaylistTrack? in
+                guard let trackId = track.trackId else { return nil }
+                guard seenTrackIds.insert(trackId).inserted else { return nil }
+                return PlaylistTrack(
+                    playlistId: playlistId.uuidString,
+                    trackId: trackId,
+                    position: index,
+                    // Stagger timestamps so the snapshot's evaluated order is preserved
+                    dateAdded: now.addingTimeInterval(TimeInterval(index))
+                )
+            }
+
+            if !playlistTracks.isEmpty {
+                try PlaylistTrack.insertMany(playlistTracks, db: db)
+            }
+            Logger.info("Saved frozen smart playlist snapshot with \(playlistTracks.count) tracks")
+        }
+    }
+
     /// Update playlist metadata (name, dateModified) and the display name of any pinned item referencing this playlist
     func updatePlaylistMetadata(_ playlist: Playlist) async throws {
         _ = try await dbQueue.write { db in
@@ -166,40 +201,35 @@ extension DatabaseManager {
         }
     }
     
-    /// Get track count for a smart playlist without loading tracks
-    func getSmartPlaylistTrackCount(_ playlist: Playlist) async -> Int {
-        guard playlist.type == .smart,
-              let criteria = playlist.smartCriteria else {
-            return 0
-        }
-        
+    /// Batch-compute track counts for many smart playlists in a single read transaction,
+    /// sharing one Artists/Genres fetch (and skipping it entirely when no rule needs it).
+    /// Replaces N separate awaited reads (each of which previously re-fetched the full
+    /// artist and genre tables) with one read for the whole set.
+    func getSmartPlaylistTrackCounts(_ playlists: [Playlist]) async -> [UUID: Int] {
+        let smart = playlists.filter { $0.type == .smart && $0.smartCriteria != nil }
+        guard !smart.isEmpty else { return [:] }
+
+        let criteriaList = smart.compactMap { $0.smartCriteria }
+        let needArtists = criteriaList.contains { criteriaNeedsArtists($0) }
+        let needGenres = criteriaList.contains { criteriaNeedsGenres($0) }
+
         do {
             return try await dbQueue.read { db in
-                // Build the same query as getTracksForSmartPlaylist but only count
-                var query = self.applyDuplicateFilter(Track.all())
-                
-                // Pre-load artists and genres for normalized matching
-                let artists = try Artist.fetchAll(db)
-                let genres = try Genre.fetchAll(db)
-                
-                // Build query from criteria
-                if let whereClause = self.buildWhereClause(for: criteria, artists: artists, genres: genres) {
-                    query = query.filter(whereClause)
+                let artists = needArtists ? try Artist.fetchAll(db) : []
+                let genres = needGenres ? try Genre.fetchAll(db) : []
+
+                var counts: [UUID: Int] = [:]
+                for playlist in smart {
+                    guard let criteria = playlist.smartCriteria else { continue }
+                    counts[playlist.id] = try self.countSmartPlaylistTracks(
+                        criteria, artists: artists, genres: genres, db: db
+                    )
                 }
-                
-                // Apply limit if specified (for "Top 25" playlists)
-                if let limit = criteria.limit {
-                    // For count with limit, we need to fetch and count
-                    let limitedCount = try query.limit(limit).fetchCount(db)
-                    return limitedCount
-                } else {
-                    // Without limit, just count
-                    return try query.fetchCount(db)
-                }
+                return counts
             }
         } catch {
-            Logger.error("Failed to get count for smart playlist '\(playlist.name)': \(error)")
-            return 0
+            Logger.error("Failed to batch smart playlist counts: \(error)")
+            return [:]
         }
     }
     
@@ -244,9 +274,10 @@ extension DatabaseManager {
                         // Keep tracks array empty for lazy loading
                         playlists[index].tracks = []
                     } else if playlists[index].type == .smart {
-                        // For smart playlists, we'll need to calculate count on demand
-                        // For now, set to 0 - will be updated when viewed
-                        playlists[index].trackCount = 0
+                        // Frozen smart playlists store a snapshot in playlist_tracks, so their
+                        // count is available here. Auto-updating ones have no snapshot rows and
+                        // get their count computed on demand via updateSmartPlaylistCounts().
+                        playlists[index].trackCount = countsByPlaylistId[playlists[index].id.uuidString] ?? 0
                         playlists[index].tracks = []
                     }
                 }
@@ -317,6 +348,111 @@ extension DatabaseManager {
         }
     }
     
+    // MARK: - Incremental Track Mutations
+
+    /// Append tracks that aren't already present, preserving existing rows and their order.
+    /// Unlike savePlaylistAsync this never deletes existing associations, so it is safe to
+    /// call even when the in-memory track list is partially loaded. Returns how many were
+    /// actually inserted.
+    @discardableResult
+    func appendTracksToPlaylist(playlistId: UUID, tracks: [Track]) async throws -> Int {
+        try await dbQueue.write { db in
+            let pid = playlistId.uuidString
+
+            var seen = try PlaylistTrack
+                .select(PlaylistTrack.Columns.trackId, as: Int64.self)
+                .filter(PlaylistTrack.Columns.playlistId == pid)
+                .fetchSet(db)
+
+            let maxPosition = try Int.fetchOne(db, PlaylistTrack
+                .select(max(PlaylistTrack.Columns.position))
+                .filter(PlaylistTrack.Columns.playlistId == pid)) ?? -1
+
+            let now = Date()
+            var rows: [PlaylistTrack] = []
+            for track in tracks {
+                guard let trackId = track.trackId, seen.insert(trackId).inserted else { continue }
+                rows.append(PlaylistTrack(
+                    playlistId: pid,
+                    trackId: trackId,
+                    position: maxPosition + 1 + rows.count,
+                    // Stagger so the appended order is preserved under a "date added" sort.
+                    dateAdded: now.addingTimeInterval(TimeInterval(rows.count))
+                ))
+            }
+
+            if !rows.isEmpty {
+                try PlaylistTrack.insertMany(rows, db: db)
+                try self.touchPlaylistModified(pid, db: db, date: now)
+            }
+            return rows.count
+        }
+    }
+
+    /// Remove the given tracks and renumber the remaining positions, in a single write.
+    func removeTracksFromPlaylist(playlistId: UUID, trackIds: [Int64]) async throws {
+        guard !trackIds.isEmpty else { return }
+        try await dbQueue.write { db in
+            let pid = playlistId.uuidString
+            let idSet = Set(trackIds)
+
+            try PlaylistTrack
+                .filter(PlaylistTrack.Columns.playlistId == pid)
+                .filter(idSet.contains(PlaylistTrack.Columns.trackId))
+                .deleteAll(db)
+
+            try self.renumberPlaylistPositions(pid, db: db)
+            try self.touchPlaylistModified(pid, db: db, date: Date())
+        }
+    }
+
+    /// Set the explicit order of a playlist's tracks by updating positions only, in a single
+    /// write. Avoids the delete-all-then-reinsert-all cost of savePlaylistAsync and preserves
+    /// each row's dateAdded.
+    func setPlaylistTrackOrder(playlistId: UUID, orderedTrackIds: [Int64]) async throws {
+        try await dbQueue.write { db in
+            let pid = playlistId.uuidString
+
+            let currentPositions = try PlaylistTrack
+                .filter(PlaylistTrack.Columns.playlistId == pid)
+                .fetchAll(db)
+                .reduce(into: [Int64: Int]()) { dict, row in dict[row.trackId] = row.position }
+
+            for (index, trackId) in orderedTrackIds.enumerated() where currentPositions[trackId] != index {
+                try db.execute(
+                    sql: "UPDATE playlist_tracks SET position = ? WHERE playlist_id = ? AND track_id = ?",
+                    arguments: [index, pid, trackId]
+                )
+            }
+
+            try self.touchPlaylistModified(pid, db: db, date: Date())
+        }
+    }
+
+    /// Renumber a playlist's positions to a contiguous 0-based sequence in current order.
+    /// Only rows whose position actually changes are updated.
+    private func renumberPlaylistPositions(_ playlistId: String, db: Database) throws {
+        let remaining = try PlaylistTrack
+            .filter(PlaylistTrack.Columns.playlistId == playlistId)
+            .order(PlaylistTrack.Columns.position)
+            .fetchAll(db)
+
+        for (index, playlistTrack) in remaining.enumerated() where playlistTrack.position != index {
+            try db.execute(
+                sql: "UPDATE playlist_tracks SET position = ? WHERE playlist_id = ? AND track_id = ?",
+                arguments: [index, playlistId, playlistTrack.trackId]
+            )
+        }
+    }
+
+    /// Bump a playlist's date_modified without rewriting its track associations.
+    private func touchPlaylistModified(_ playlistId: String, db: Database, date: Date) throws {
+        try db.execute(
+            sql: "UPDATE playlists SET date_modified = ? WHERE id = ?",
+            arguments: [date, playlistId]
+        )
+    }
+
     func deletePlaylist(_ playlistId: UUID) async throws {
         try await dbQueue.write { db in
             // Use GRDB's model deletion

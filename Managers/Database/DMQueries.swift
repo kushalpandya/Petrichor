@@ -106,6 +106,27 @@ extension DatabaseManager {
             return []
         }
     }
+
+    /// Get tracks by IDs with their album artwork populated, in a single read. Tracks are
+    /// returned in the same order as `trackIds` (a plain `IN` fetch returns DB order), so
+    /// callers building a playlist preserve the intended track order.
+    func getTracksWithArtwork(byIds trackIds: [Int64]) -> [Track] {
+        do {
+            return try dbQueue.read { db in
+                var tracks = try Track
+                    .filter(trackIds.contains(Track.Columns.trackId))
+                    .fetchAll(db)
+                try self.populateAlbumArtworkForTracks(&tracks, db: db)
+
+                let positionByID = Dictionary(uniqueKeysWithValues: trackIds.enumerated().map { ($1, $0) })
+                tracks.sort { (positionByID[$0.trackId ?? -1] ?? .max) < (positionByID[$1.trackId ?? -1] ?? .max) }
+                return tracks
+            }
+        } catch {
+            Logger.error("Failed to get tracks with artwork by IDs: \(error)")
+            return []
+        }
+    }
     
     /// Get total track count without loading tracks
     func getTotalTrackCount() -> Int {

@@ -111,16 +111,19 @@ extension PlaylistManager {
 
     private func getSmartPlaylistTracks(_ playlist: Playlist) -> [Track] {
         guard libraryManager != nil else { return [] }
-        
-        // Check if playlist needs refresh
-        if smartPlaylistNeedsRefresh(playlist) {
+
+        // A frozen playlist (autoUpdate == false) serves its persisted snapshot, which is
+        // empty in memory after relaunch until loaded; a live one re-evaluates when stale.
+        // loadSmartPlaylistTracks reads the snapshot for frozen playlists and re-runs the
+        // criteria for live ones.
+        let isFrozen = playlist.smartCriteria?.autoUpdate == false
+        let needsLoad = isFrozen ? playlist.tracks.isEmpty : smartPlaylistNeedsRefresh(playlist)
+        if needsLoad {
             Task {
                 await loadSmartPlaylistTracks(playlist)
             }
-            return []
         }
-        
-        // Return cached tracks
+
         return playlist.tracks
     }
 }

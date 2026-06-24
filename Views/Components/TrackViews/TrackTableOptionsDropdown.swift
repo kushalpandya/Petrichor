@@ -15,6 +15,8 @@ enum TrackSortField: String, CaseIterable {
     case filename
     case duration
     case dateAdded
+    case playCount
+    case lastPlayedDate
     case custom
 
     var displayName: String {
@@ -31,6 +33,8 @@ enum TrackSortField: String, CaseIterable {
         case .filename: return "Filename"
         case .duration: return "Duration"
         case .dateAdded: return "Date added"
+        case .playCount: return "Play count"
+        case .lastPlayedDate: return "Last played"
         case .custom: return "Custom"
         }
     }
@@ -49,15 +53,22 @@ enum TrackSortField: String, CaseIterable {
             .filename: KeyPathComparator(\Track.filename, order: ascending ? .forward : .reverse),
             .duration: KeyPathComparator(\Track.duration, order: ascending ? .forward : .reverse),
             .dateAdded: KeyPathComparator(\Track.dateAdded, order: ascending ? .forward : .reverse),
+            .playCount: KeyPathComparator(\Track.playCount, order: ascending ? .forward : .reverse),
+            .lastPlayedDate: KeyPathComparator(\Track.sortableLastPlayedDate, order: ascending ? .forward : .reverse),
             .custom: KeyPathComparator(\Track.sortableDateAdded, order: .forward)
         ]
 
         return sortComparators[self] ?? KeyPathComparator(\Track.title, order: ascending ? .forward : .reverse)
     }
 
-    /// Standard sort fields (excludes custom, which is playlist-only)
+    /// User-selectable sort fields. Hidden smart-playlist sort keys like play count and
+    /// last played remain supported internally, but are omitted because the table has no
+    /// matching visible columns for them.
     static var sortFields: [TrackSortField] {
-        [.trackNumber, .discNumber, .favorite, .title, .artist, .album, .genre, .year, .composer, .filename, .duration, .dateAdded]
+        [
+            .trackNumber, .discNumber, .favorite, .title, .artist, .album, .genre,
+            .year, .composer, .filename, .duration, .dateAdded
+        ]
     }
 
     // MARK: - Comparator Parsing
@@ -68,7 +79,10 @@ enum TrackSortField: String, CaseIterable {
         ("sortableDiscNumber", .discNumber),
         ("sortableIsFavorite", .favorite),
         ("sortableDateAdded", .dateAdded),
+        ("sortableLastPlayedDate", .lastPlayedDate),
         ("dateAdded", .dateAdded),
+        ("playCount", .playCount),
+        ("lastPlayedDate", .lastPlayedDate),
         ("title", .title),
         ("artist", .artist),
         ("album", .album),
@@ -136,6 +150,10 @@ struct TrackTableOptionsDropdown: View {
         TrackSortField.isAscending(from: sortOrder)
     }
 
+    private var canChangeSortOrder: Bool {
+        !isCustomSort && TrackSortField.sortFields.contains(currentSortField)
+    }
+
     var body: some View {
         Menu {
             Section("Sort by") {
@@ -169,7 +187,7 @@ struct TrackTableOptionsDropdown: View {
                     set: { _ in setSortAscending(false) }
                 ))
             }
-            .disabled(isCustomSort)
+            .disabled(!canChangeSortOrder)
 
             Divider()
 

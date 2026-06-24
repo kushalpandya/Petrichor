@@ -7,7 +7,6 @@ struct SidebarListView<Item: SidebarItem>: View {
     @Binding var selectedItem: Item?
     let onItemTap: (Item) -> Void
     let contextMenuItems: ((Item) -> [ContextMenuItem])?
-    let onRename: ((Item, String) -> Void)?
     let trailingContent: ((Item) -> AnyView)?
 
     // Header configuration
@@ -23,15 +22,7 @@ struct SidebarListView<Item: SidebarItem>: View {
     let reorderableFromIndex: Int?
     let onReorder: (([Item]) -> Void)?
 
-    // External editing trigger
-    @Binding var externalEditingItemID: UUID?
-
     @State private var hoveredItemID: UUID?
-    @State private var editingItemID: UUID?
-    @State private var editingText: String = ""
-    @FocusState private var isEditingFieldFocused: Bool
-    @State private var lastClickTime = Date()
-    @State private var lastClickedItemID: UUID?
     @State private var draggedItemID: UUID?
     @State private var dropTargetItemID: UUID?
 
@@ -40,7 +31,6 @@ struct SidebarListView<Item: SidebarItem>: View {
         selectedItem: Binding<Item?>,
         onItemTap: @escaping (Item) -> Void,
         contextMenuItems: ((Item) -> [ContextMenuItem])? = nil,
-        onRename: ((Item, String) -> Void)? = nil,
         headerTitle: String? = nil,
         headerControls: AnyView? = nil,
         showIcon: Bool = true,
@@ -48,14 +38,12 @@ struct SidebarListView<Item: SidebarItem>: View {
         showCount: Bool = false,
         trailingContent: ((Item) -> AnyView)? = nil,
         reorderableFromIndex: Int? = nil,
-        onReorder: (([Item]) -> Void)? = nil,
-        externalEditingItemID: Binding<UUID?> = .constant(nil)
+        onReorder: (([Item]) -> Void)? = nil
     ) {
         self.items = items
         self._selectedItem = selectedItem
         self.onItemTap = onItemTap
         self.contextMenuItems = contextMenuItems
-        self.onRename = onRename
         self.headerTitle = headerTitle
         self.headerControls = headerControls
         self.showIcon = showIcon
@@ -64,7 +52,6 @@ struct SidebarListView<Item: SidebarItem>: View {
         self.trailingContent = trailingContent
         self.reorderableFromIndex = reorderableFromIndex
         self.onReorder = onReorder
-        self._externalEditingItemID = externalEditingItemID
     }
 
     var body: some View {
@@ -98,12 +85,6 @@ struct SidebarListView<Item: SidebarItem>: View {
                 itemsList
             }
         }
-        .onChange(of: externalEditingItemID) { _, newID in
-            if let id = newID, let item = items.first(where: { $0.id == id }) {
-                startEditing(item)
-                externalEditingItemID = nil
-            }
-        }
     }
 
     // MARK: - Items List
@@ -118,9 +99,6 @@ struct SidebarListView<Item: SidebarItem>: View {
                         item: item,
                         isSelected: selectedItem?.id == item.id,
                         isHovered: hoveredItemID == item.id,
-                        isEditing: editingItemID == item.id,
-                        editingText: $editingText,
-                        isEditingFieldFocused: _isEditingFieldFocused,
                         showIcon: showIcon,
                         iconColor: iconColor,
                         trailingContent: trailingContent,
@@ -129,15 +107,6 @@ struct SidebarListView<Item: SidebarItem>: View {
                         },
                         onHover: { isHovered in
                             hoveredItemID = isHovered ? item.id : nil
-                        },
-                        onStartEditing: {
-                            startEditing(item)
-                        },
-                        onCommitEditing: {
-                            commitEditing(for: item)
-                        },
-                        onCancelEditing: {
-                            cancelEditing()
                         }
                     )
                     .opacity(draggedItemID == item.id ? 0.4 : 1.0)
@@ -170,29 +139,8 @@ struct SidebarListView<Item: SidebarItem>: View {
                     .contextMenu {
                         if let menuItems = contextMenuItems?(item) {
                             ForEach(Array(menuItems.enumerated()), id: \.offset) { _, menuItem in
-                                if case .button(let title, _, _, _) = menuItem,
-                                   title == "Rename", item.isEditable, onRename != nil {
-                                    Button("Rename") { startEditing(item) }
-                                } else {
-                                    contextMenuItem(menuItem)
-                                }
+                                contextMenuItem(menuItem)
                             }
-                        }
-                    }
-                    .onTapGesture {
-                        // Handle single click
-                        let now = Date()
-                        if lastClickedItemID == item.id && now.timeIntervalSince(lastClickTime) < 0.5 {
-                            // Double click detected
-                            if item.isEditable, onRename != nil {
-                                startEditing(item)
-                            }
-                        } else {
-                            // Single click
-                            selectedItem = item
-                            onItemTap(item)
-                            lastClickTime = now
-                            lastClickedItemID = item.id
                         }
                     }
                 }
@@ -230,27 +178,6 @@ struct SidebarListView<Item: SidebarItem>: View {
     @ViewBuilder
     private func contextMenuItem(_ item: ContextMenuItem) -> some View {
         ContextMenuItemView(item: item)
-    }
-
-    // MARK: - Editing Helpers
-
-    private func startEditing(_ item: Item) {
-        editingItemID = item.id
-        editingText = item.title
-    }
-
-    private func commitEditing(for item: Item) {
-        let trimmedText = editingText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedText.isEmpty && trimmedText != item.title {
-            onRename?(item, trimmedText)
-        }
-        cancelEditing()
-    }
-
-    private func cancelEditing() {
-        editingItemID = nil
-        editingText = ""
-        isEditingFieldFocused = false
     }
 
     private func handleItemTap(_ item: Item) {

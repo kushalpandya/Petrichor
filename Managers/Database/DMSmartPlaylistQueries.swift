@@ -10,99 +10,114 @@ import Foundation
 import GRDB
 
 extension DatabaseManager {
+    // MARK: - Normalized-table need detection
+
+    /// Whether evaluating these rules requires the normalized Artists table. Artist matching
+    /// now resolves against the denormalized column in all cases, so this never requires the
+    /// fetch; kept as a gate for clarity/future use.
+    func criteriaNeedsArtists(_ criteria: SmartPlaylistCriteria) -> Bool {
+        false
+    }
+
+    /// Whether evaluating these rules requires the normalized Genres table.
+    /// Genre matching always resolves against the denormalized column, so this is only
+    /// kept as a gate for clarity/future use; it currently never requires the fetch.
+    func criteriaNeedsGenres(_ criteria: SmartPlaylistCriteria) -> Bool {
+        false
+    }
+
     // MARK: - Smart Playlist Query Builder
-    
+
+    /// The filtered (not yet sorted or limited) track query for a smart playlist's criteria.
+    /// Shared by the track-fetch and count paths so the filter logic lives in one place.
+    func smartPlaylistFilteredQuery(
+        _ criteria: SmartPlaylistCriteria,
+        artists: [Artist],
+        genres: [Genre]
+    ) -> QueryInterfaceRequest<Track> {
+        var query = applyDuplicateFilter(Track.all())
+        if let whereClause = buildWhereClause(for: criteria, artists: artists, genres: genres) {
+            query = query.filter(whereClause)
+        }
+        return query
+    }
+
+    /// Count tracks matching a criteria (honoring its limit) within an already-open read.
+    func countSmartPlaylistTracks(
+        _ criteria: SmartPlaylistCriteria,
+        artists: [Artist],
+        genres: [Genre],
+        db: Database
+    ) throws -> Int {
+        let query = smartPlaylistFilteredQuery(criteria, artists: artists, genres: genres)
+        if let limit = criteria.limit {
+            return try query.limit(limit).fetchCount(db)
+        }
+        return try query.fetchCount(db)
+    }
+
+    /// Count how many library tracks match a criteria's rules, ignoring any limit. Used by
+    /// the editor's live "Matches N songs" footer to convey how selective the rules are
+    /// (the limit is a separate, explicit cap). Opens its own read.
+    func countMatchesForCriteria(_ criteria: SmartPlaylistCriteria) async -> Int {
+        do {
+            return try await dbQueue.read { db in
+                let artists = self.criteriaNeedsArtists(criteria) ? try Artist.fetchAll(db) : []
+                let genres = self.criteriaNeedsGenres(criteria) ? try Genre.fetchAll(db) : []
+                return try self.smartPlaylistFilteredQuery(criteria, artists: artists, genres: genres).fetchCount(db)
+            }
+        } catch {
+            Logger.error("Failed to count smart playlist matches: \(error)")
+            return 0
+        }
+    }
+
+    /// Build and run a smart playlist's full track query (filter, sort, limit, artwork) within
+    /// an already-open read, loading the normalized tables only when a rule needs them.
+    private func fetchSmartPlaylistTracks(for criteria: SmartPlaylistCriteria, db: Database) throws -> [Track] {
+        let artists = criteriaNeedsArtists(criteria) ? try Artist.fetchAll(db) : []
+        let genres = criteriaNeedsGenres(criteria) ? try Genre.fetchAll(db) : []
+
+        var query = smartPlaylistFilteredQuery(criteria, artists: artists, genres: genres)
+        query = applySorting(to: query, criteria: criteria)
+        if let limit = criteria.limit {
+            query = query.limit(limit)
+        }
+
+        var tracks = try query.fetchAll(db)
+        try populateAlbumArtworkForTracks(&tracks, db: db)
+        return tracks
+    }
+
     /// Build and execute a database query for a smart playlist
     func getTracksForSmartPlaylist(_ playlist: Playlist) async throws -> [Track] {
         guard playlist.type == .smart,
               let criteria = playlist.smartCriteria else {
             return []
         }
-        
-        // Pre-load artists and genres for normalized matching
-        let artists = try await dbQueue.read { db in
-            try Artist.fetchAll(db)
-        }
-        
-        let genres = try await dbQueue.read { db in
-            try Genre.fetchAll(db)
-        }
-        
+
         return try await dbQueue.read { db in
-            // Start with base query
-            var query = self.applyDuplicateFilter(Track.all())
-            
-            // Build query from criteria
-            if let whereClause = self.buildWhereClause(for: criteria, artists: artists, genres: genres) {
-                query = query.filter(whereClause)
-            }
-            
-            // Apply sorting
-            query = self.applySorting(to: query, criteria: criteria)
-            
-            // Apply limit
-            if let limit = criteria.limit {
-                query = query.limit(limit)
-            }
-            
-            // Fetch tracks
-            var tracks = try query.fetchAll(db)
-            
-            // Populate album artwork using existing method
-            try self.populateAlbumArtworkForTracks(&tracks, db: db)
-            
-            return tracks
+            try self.fetchSmartPlaylistTracks(for: criteria, db: db)
         }
     }
-    
+
     /// Get tracks for a smart playlist synchronously (for use in pinned items)
     func getTracksForSmartPlaylistSync(_ playlist: Playlist) -> [Track] {
         guard playlist.type == .smart,
               let criteria = playlist.smartCriteria else {
             return []
         }
-        
+
         do {
-            // Load artists and genres synchronously
-            let artists = try dbQueue.read { db in
-                try Artist.fetchAll(db)
-            }
-            
-            let genres = try dbQueue.read { db in
-                try Genre.fetchAll(db)
-            }
-            
             return try dbQueue.read { db in
-                // Start with base query
-                var query = self.applyDuplicateFilter(Track.all())
-                
-                // Build query from criteria
-                if let whereClause = self.buildWhereClause(for: criteria, artists: artists, genres: genres) {
-                    query = query.filter(whereClause)
-                }
-                
-                // Apply sorting
-                query = self.applySorting(to: query, criteria: criteria)
-                
-                // Apply limit
-                if let limit = criteria.limit {
-                    query = query.limit(limit)
-                }
-                
-                // Fetch tracks
-                var tracks = try query.fetchAll(db)
-                
-                // Populate album artwork
-                try self.populateAlbumArtworkForTracks(&tracks, db: db)
-                
-                return tracks
+                try self.fetchSmartPlaylistTracks(for: criteria, db: db)
             }
         } catch {
             Logger.error("Failed to get tracks for smart playlist '\(playlist.name)': \(error)")
             return []
         }
     }
-    
+
     /// Build WHERE clause from smart playlist criteria
     internal func buildWhereClause(for criteria: SmartPlaylistCriteria, artists: [Artist], genres: [Genre]) -> SQLExpression? {
         let expressions = criteria.rules.compactMap { rule in
@@ -162,10 +177,19 @@ extension DatabaseManager {
             
         case "composer":
             return buildComposerExpression(rule: rule, artists: artists)
-            
+
         case "duration":
             return buildNumericExpression(column: Track.Columns.duration, rule: rule)
-            
+
+        case "trackNumber":
+            return buildNumericExpression(column: Track.Columns.trackNumber, rule: rule)
+
+        case "discNumber":
+            return buildNumericExpression(column: Track.Columns.discNumber, rule: rule)
+
+        case "filename":
+            return buildStringExpression(column: Track.Columns.filename, rule: rule)
+
         default:
             Logger.warning("Unsupported smart playlist field: \(rule.field)")
             return nil
@@ -217,10 +241,12 @@ extension DatabaseManager {
     
     private func buildNumericExpression(column: Column, rule: SmartPlaylistCriteria.Rule) -> SQLExpression? {
         guard let numericValue = Double(rule.value) else { return nil }
-        
+
         switch rule.condition {
         case .equals:
-            return column == numericValue
+            // Match the whole integer unit so a fractional-second duration still matches a
+            // "M:SS" rule; for integer columns (play count, track/disc number) this is exact.
+            return column >= numericValue && column < numericValue + 1
         case .greaterThan:
             return column > numericValue
         case .greaterThanOrEqual:
@@ -253,22 +279,46 @@ extension DatabaseManager {
             }
         }
         
-        // Handle absolute date comparisons if needed in the future
+        // Handle absolute calendar dates ("yyyy-MM-dd"), matching by day in the local
+        // calendar so the stored time-of-day is ignored.
+        if let day = SmartPlaylistDate.date(from: rule.value) {
+            let calendar = Calendar.current
+            let startOfDay = calendar.startOfDay(for: day)
+            guard let nextDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) else { return nil }
+
+            switch rule.condition {
+            case .equals:
+                // "on" that day
+                return column != nil && column >= startOfDay && column < nextDay
+            case .greaterThan:
+                // "after" that day (strictly later than the whole day)
+                return column != nil && column >= nextDay
+            case .lessThan:
+                // "before" the start of that day
+                return column != nil && column < startOfDay
+            default:
+                return nil
+            }
+        }
+
         return nil
     }
     
     private func buildYearExpression(column: Column, rule: SmartPlaylistCriteria.Rule) -> SQLExpression? {
-        // For year comparisons, we'll use string comparison since years are stored as strings
+        // Year is stored as text. Exact match is a plain string compare, but greater/less
+        // must compare numerically: a lexicographic compare would match non-numeric years
+        // like "Unknown Year" (which sorts after digits). CAST makes the compare numeric and
+        // turns non-numeric years into 0, which we exclude.
         switch rule.condition {
         case .equals:
             return column == rule.value
         case .greaterThan, .lessThan:
-            // For numeric comparisons on year strings, we need to ensure proper ordering
-            // We'll compare as strings which works for 4-digit years
+            guard let yearValue = Int(rule.value) else { return nil }
+            let numericYear = cast(column, as: .integer)
             if rule.condition == .greaterThan {
-                return column > rule.value
+                return numericYear > yearValue
             } else {
-                return column < rule.value
+                return numericYear > 0 && numericYear < yearValue
             }
         default:
             return buildStringExpression(column: column, rule: rule)
@@ -278,49 +328,15 @@ extension DatabaseManager {
     // MARK: - Normalized Table Expressions
     
     private func buildArtistExpression(rule: SmartPlaylistCriteria.Rule, artists: [Artist]) -> SQLExpression? {
+        // Match against the denormalized artist column. Querying the normalized track_artists
+        // table here would need a raw SQL literal subquery, so we accept the same limitation
+        // as genre/composer matching and compare the track's own artist string.
         switch rule.condition {
         case .equals:
-            // Find matching artists by name or normalized name
-            let normalizedSearch = ArtistParser.normalizeArtistName(rule.value)
-            let matchingArtistIds = artists.compactMap { artist -> Int64? in
-                if artist.name == rule.value || artist.normalizedName == normalizedSearch {
-                    return artist.id
-                }
-                return nil
-            }
-            
-            if !matchingArtistIds.isEmpty {
-                // Check track_artists table for these artist IDs
-                return matchingArtistIds.contains(TrackArtist.Columns.artistId) &&
-                       TrackArtist.Columns.trackId == Track.Columns.trackId
-            }
-            
-            // Fall back to denormalized column
             return Track.Columns.artist.collating(.nocase) == rule.value
-            
         case .contains, .startsWith, .endsWith:
-            // For partial matching, find artists whose normalized names match the pattern
-            let normalizedSearch = ArtistParser.normalizeArtistName(rule.value)
-            let pattern = buildLikePattern(for: normalizedSearch, condition: rule.condition)
-            
-            let matchingArtistIds = artists.compactMap { artist -> Int64? in
-                if matchesPattern(artist.normalizedName, pattern: pattern) {
-                    return artist.id
-                }
-                return nil
-            }
-            
-            if !matchingArtistIds.isEmpty {
-                // For now, fall back to denormalized column with the pattern
-                // This is because we can't easily create complex subqueries without SQL literals
-                let stringPattern = buildLikePattern(for: rule.value, condition: rule.condition)
-                return Track.Columns.artist.collating(.nocase).like(stringPattern)
-            }
-            
-            // Fall back to denormalized column
-            let stringPattern = buildLikePattern(for: rule.value, condition: rule.condition)
-            return Track.Columns.artist.collating(.nocase).like(stringPattern)
-            
+            let pattern = buildLikePattern(for: rule.value, condition: rule.condition)
+            return Track.Columns.artist.collating(.nocase).like(pattern)
         default:
             return buildStringExpression(column: Track.Columns.artist, rule: rule)
         }
@@ -365,31 +381,6 @@ extension DatabaseManager {
         buildStringExpression(column: Track.Columns.composer, rule: rule)
     }
     
-    /// Helper function to check if a string matches a SQL LIKE pattern
-    private func matchesPattern(_ string: String, pattern: String) -> Bool {
-        // Convert SQL LIKE pattern to regex
-        var regexPattern = pattern
-            .replacingOccurrences(of: "%", with: ".*")
-            .replacingOccurrences(of: "_", with: ".")
-        
-        // Escape regex special characters
-        let specialChars = ["[", "]", "(", ")", "{", "}", "^", "$", "+", "?", "|", "\\", ".", "*"]
-        for char in specialChars {
-            if char != "." && char != "*" { // Don't escape our wildcards
-                regexPattern = regexPattern.replacingOccurrences(of: char, with: "\\\(char)")
-            }
-        }
-        
-        do {
-            let regex = try NSRegularExpression(pattern: "^" + regexPattern + "$", options: .caseInsensitive)
-            let range = NSRange(location: 0, length: string.utf16.count)
-            return regex.firstMatch(in: string, options: [], range: range) != nil
-        } catch {
-            // If regex fails, fall back to simple contains check
-            return string.lowercased().contains(pattern.replacingOccurrences(of: "%", with: "").lowercased())
-        }
-    }
-    
     // MARK: - Sorting
     
     private func applySorting(to query: QueryInterfaceRequest<Track>, criteria: SmartPlaylistCriteria) -> QueryInterfaceRequest<Track> {
@@ -418,6 +409,14 @@ extension DatabaseManager {
             return ascending ? query.order(Track.Columns.duration) : query.order(Track.Columns.duration.desc)
         case "year":
             return ascending ? query.order(Track.Columns.year) : query.order(Track.Columns.year.desc)
+        case "genre":
+            return ascending ? query.order(Track.Columns.genre) : query.order(Track.Columns.genre.desc)
+        case "trackNumber":
+            return ascending ? query.order(Track.Columns.trackNumber) : query.order(Track.Columns.trackNumber.desc)
+        case "discNumber":
+            return ascending ? query.order(Track.Columns.discNumber) : query.order(Track.Columns.discNumber.desc)
+        case "filename":
+            return ascending ? query.order(Track.Columns.filename) : query.order(Track.Columns.filename.desc)
         default:
             return query
         }

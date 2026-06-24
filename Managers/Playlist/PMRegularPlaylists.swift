@@ -8,30 +8,56 @@
 import Foundation
 
 extension PlaylistManager {
+    // MARK: - Editor Presentation
+
+    /// Present the name-only dialog (used by the track context menu's "New Playlist...").
     func showCreatePlaylistModal(with tracks: [Track] = []) {
         tracksToAddToNewPlaylist = tracks
         newPlaylistName = ""
         showingCreatePlaylistModal = true
     }
-    
-    func createPlaylistFromModal() {
-        guard !newPlaylistName.isEmpty else { return }
-        
-        let newPlaylist = createPlaylist(name: newPlaylistName, tracks: tracksToAddToNewPlaylist)
-        
-        // Reset modal state
-        newPlaylistName = ""
-        tracksToAddToNewPlaylist = []
-        showingCreatePlaylistModal = false
-        
-        // Notify to navigate to the new playlist
+
+    /// Present the unified editor (name + song selection) to create a new playlist.
+    func showCreateRegularPlaylistModal() {
+        regularPlaylistToEdit = nil
+        showingRegularPlaylistEditor = true
+    }
+
+    /// Present the unified editor pre-filled to edit an existing regular playlist.
+    func showEditRegularPlaylistModal(_ playlist: Playlist) {
+        guard playlist.type == .regular, playlist.isUserEditable else { return }
+        regularPlaylistToEdit = playlist
+        showingRegularPlaylistEditor = true
+    }
+
+    // MARK: - Create
+
+    /// Create a new playlist with an optional set of tracks and navigate to it. Shared by
+    /// both creation flows (the name-only dialog and the unified editor) so they stay in sync.
+    @discardableResult
+    func createRegularPlaylist(name: String, tracks: [Track] = []) -> Playlist {
+        let newPlaylist = createPlaylist(name: name, tracks: tracks)
+
         NotificationCenter.default.post(
             name: .navigateToPlaylists,
             object: nil,
             userInfo: ["playlistID": newPlaylist.id]
         )
+
+        return newPlaylist
     }
-    
+
+    func createPlaylistFromModal() {
+        guard !newPlaylistName.isEmpty else { return }
+
+        createRegularPlaylist(name: newPlaylistName, tracks: tracksToAddToNewPlaylist)
+
+        // Reset modal state
+        newPlaylistName = ""
+        tracksToAddToNewPlaylist = []
+        showingCreatePlaylistModal = false
+    }
+
     /// Create a new basic playlist
     func createPlaylist(name: String, tracks: [Track] = []) -> Playlist {
         let newPlaylist = Playlist(name: name, tracks: [])
@@ -163,7 +189,9 @@ extension PlaylistManager {
     internal func removeTrackFromRegularPlaylist(track: Track, playlistID: UUID) async {
         guard let index = playlists.firstIndex(where: { $0.id == playlistID }),
               playlists[index].type == .regular,
-              playlists[index].isContentEditable else {
+              playlists[index].isContentEditable,
+              let dbManager = libraryManager?.databaseManager,
+              let trackId = track.trackId else {
             Logger.warning("Cannot remove from this playlist")
             return
         }
@@ -174,13 +202,9 @@ extension PlaylistManager {
             self.playlists[index].trackCount = self.playlists[index].tracks.count
         }
 
-        // Save to database
+        // Save to database (incremental delete + renumber)
         do {
-            if let dbManager = libraryManager?.databaseManager {
-                // Get the updated playlist from main thread
-                let updatedPlaylist = await MainActor.run { self.playlists[index] }
-                try await dbManager.savePlaylistAsync(updatedPlaylist)
-            }
+            try await dbManager.removeTracksFromPlaylist(playlistId: playlistID, trackIds: [trackId])
         } catch {
             Logger.error("Failed to save playlist: \(error)")
             await MainActor.run {
@@ -198,38 +222,39 @@ extension PlaylistManager {
             Logger.warning("Cannot add tracks to this playlist")
             return
         }
-        
-        await MainActor.run {
-            let existingTrackIds = Set(self.playlists[index].tracks.compactMap { $0.trackId })
-            let newTracks = tracks.filter { track in
-                guard let trackId = track.trackId else { return false }
-                return !existingTrackIds.contains(trackId)
-            }
-            
-            // Batch append all new tracks with playlist-specific dateAdded
-            let now = Date()
-            let playlistTracks = newTracks.map { track -> Track in
-                var t = track
-                t.dateAdded = now
-                return t
-            }
-            self.playlists[index].tracks.append(contentsOf: playlistTracks)
-            
-            // Update metadata
-            self.playlists[index].dateModified = Date()
-            self.playlists[index].trackCount = self.playlists[index].tracks.count
-            
-            Logger.info("Added \(newTracks.count) tracks to playlist '\(self.playlists[index].name)'")
-        }
-        
-        let updatedPlaylist = await MainActor.run { self.playlists[index] }
+
+        guard let dbManager = libraryManager?.databaseManager else { return }
+
         do {
-            if let dbManager = libraryManager?.databaseManager {
-                try await dbManager.savePlaylistAsync(updatedPlaylist)
-                Logger.info("Saved playlist with \(updatedPlaylist.trackCount) tracks to database")
+            // Incremental append (never deletes), so this is correct even if the in-memory
+            // track list isn't fully loaded.
+            let inserted = try await dbManager.appendTracksToPlaylist(playlistId: playlistID, tracks: tracks)
+
+            await MainActor.run {
+                guard let index = self.playlists.firstIndex(where: { $0.id == playlistID }) else { return }
+
+                if self.playlists[index].tracks.isEmpty {
+                    // Cold playlist: tracks reload lazily on view; keep the count accurate.
+                    self.playlists[index].trackCount += inserted
+                } else {
+                    let existingTrackIds = Set(self.playlists[index].tracks.compactMap { $0.trackId })
+                    let now = Date()
+                    let newTracks = tracks
+                        .filter { track in track.trackId.map { !existingTrackIds.contains($0) } ?? false }
+                        .map { track -> Track in
+                            var copy = track
+                            copy.dateAdded = now
+                            return copy
+                        }
+                    self.playlists[index].tracks.append(contentsOf: newTracks)
+                    self.playlists[index].trackCount = self.playlists[index].tracks.count
+                }
+
+                self.playlists[index].dateModified = Date()
+                Logger.info("Added \(inserted) tracks to playlist '\(self.playlists[index].name)'")
             }
         } catch {
-            Logger.error("Failed to save playlist after adding tracks: \(error)")
+            Logger.error("Failed to add tracks to playlist: \(error)")
         }
     }
     
@@ -241,53 +266,64 @@ extension PlaylistManager {
             Logger.warning("Cannot remove tracks from this playlist")
             return
         }
-        
-        // Update the playlist on main thread
-        await MainActor.run {
-            // Create a Set of track IDs to remove for efficient lookup
-            let trackIdsToRemove = Set(tracks.compactMap { $0.trackId })
-            
-            // Remove all matching tracks in one go
-            self.playlists[index].tracks.removeAll { track in
-                guard let trackId = track.trackId else { return false }
-                return trackIdsToRemove.contains(trackId)
-            }
-            
-            // Update metadata
-            self.playlists[index].dateModified = Date()
-            self.playlists[index].trackCount = self.playlists[index].tracks.count
-            
-            Logger.info("Removed \(tracks.count) tracks from playlist '\(self.playlists[index].name)'")
-        }
-        
-        // Save to database in background (single write)
-        let updatedPlaylist = await MainActor.run { self.playlists[index] }
+
+        guard let dbManager = libraryManager?.databaseManager else { return }
+        let trackIdsToRemove = tracks.compactMap { $0.trackId }
+
         do {
-            if let dbManager = libraryManager?.databaseManager {
-                try await dbManager.savePlaylistAsync(updatedPlaylist)
-                Logger.info("Saved playlist with \(updatedPlaylist.trackCount) tracks to database")
+            // Incremental delete + renumber instead of rewriting the whole association set.
+            try await dbManager.removeTracksFromPlaylist(playlistId: playlistID, trackIds: trackIdsToRemove)
+
+            await MainActor.run {
+                guard let index = self.playlists.firstIndex(where: { $0.id == playlistID }) else { return }
+                let idSet = Set(trackIdsToRemove)
+
+                if self.playlists[index].tracks.isEmpty {
+                    // Cold playlist: keep the count accurate; tracks reload lazily on view.
+                    self.playlists[index].trackCount = max(0, self.playlists[index].trackCount - idSet.count)
+                } else {
+                    self.playlists[index].tracks.removeAll { track in
+                        track.trackId.map { idSet.contains($0) } ?? false
+                    }
+                    self.playlists[index].trackCount = self.playlists[index].tracks.count
+                }
+
+                self.playlists[index].dateModified = Date()
+                Logger.info("Removed \(idSet.count) tracks from playlist '\(self.playlists[index].name)'")
             }
         } catch {
-            Logger.error("Failed to save playlist after removing tracks: \(error)")
+            Logger.error("Failed to remove tracks from playlist: \(error)")
         }
     }
     
-    /// Reorder tracks within a playlist
-    func reorderPlaylistTracks(playlistID: UUID, reorderedTracks: [Track]) async {
+    /// Apply a new track order to a playlist by ID. Reorders the existing in-memory `Track`
+    /// objects (preserving their loaded artwork/state) for hot playlists, and persists the
+    /// positions to the database. Cold playlists reload lazily, so only the DB is updated.
+    func applyPlaylistTrackOrder(playlistID: UUID, orderedTrackIds: [Int64]) async {
         guard let index = playlists.firstIndex(where: { $0.id == playlistID }),
               playlists[index].type == .regular,
-              playlists[index].isContentEditable else { return }
+              playlists[index].isContentEditable,
+              let dbManager = libraryManager?.databaseManager else { return }
 
-        await MainActor.run {
-            self.playlists[index].tracks = reorderedTracks
-            self.playlists[index].dateModified = Date()
-        }
-
-        let updatedPlaylist = await MainActor.run { self.playlists[index] }
         do {
-            if let dbManager = libraryManager?.databaseManager {
-                try await dbManager.savePlaylistAsync(updatedPlaylist)
-                Logger.info("Saved reordered playlist '\(updatedPlaylist.name)' with \(updatedPlaylist.tracks.count) tracks")
+            // Position-only updates instead of delete-all + reinsert-all.
+            try await dbManager.setPlaylistTrackOrder(playlistId: playlistID, orderedTrackIds: orderedTrackIds)
+
+            await MainActor.run {
+                guard let index = self.playlists.firstIndex(where: { $0.id == playlistID }) else { return }
+
+                if !self.playlists[index].tracks.isEmpty {
+                    let byId = Dictionary(
+                        self.playlists[index].tracks.compactMap { track in track.trackId.map { ($0, track) } }
+                    ) { first, _ in first }
+                    let reordered = orderedTrackIds.compactMap { byId[$0] }
+                    if reordered.count == self.playlists[index].tracks.count {
+                        self.playlists[index].tracks = reordered
+                    }
+                }
+
+                self.playlists[index].dateModified = Date()
+                Logger.info("Reordered playlist '\(self.playlists[index].name)' (\(orderedTrackIds.count) tracks)")
             }
         } catch {
             Logger.error("Failed to save reordered playlist: \(error)")

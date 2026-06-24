@@ -5,9 +5,6 @@ struct PlaylistDetailView: View {
 
     @EnvironmentObject var playlistManager: PlaylistManager
     @State private var selectedTrackID: UUID?
-    @State private var showingAddSongs = false
-    @State private var showingReorderTracks = false
-    @State private var isCustomSort = false
     @State private var gradientColors: [Color] = []
     @State private var artworkData: Data?
 
@@ -46,35 +43,23 @@ struct PlaylistDetailView: View {
 
                 playlistContent
             }
-            .sheet(isPresented: $showingAddSongs) {
-                AddSongsToPlaylistSheet(playlist: playlist)
-            }
-            .sheet(isPresented: $showingReorderTracks) {
-                ReorderTracksSheet(playlist: playlist)
-            }
             .task(id: playlistArtworkTaskID) {
                 artworkData = await playlist.warmArtworkCacheIfNeeded()
                 updateGradientColors()
             }
             .onChange(of: playlistID) {
+                // Fired when this view is reused for a different playlist.
                 selectedTrackID = nil
+                loadPlaylistTracksIfNeeded()
                 loadSortPreference()
             }
             .onChange(of: playlist.dateModified) {
+                // Fired after an edit (e.g. smart-playlist rules changed) that cleared tracks.
                 loadPlaylistTracksIfNeeded()
             }
             .onAppear {
                 loadPlaylistTracksIfNeeded()
                 loadSortPreference()
-            }
-            .onChange(of: playlist.id) {
-                loadPlaylistTracksIfNeeded()
-                loadSortPreference()
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .trackTableSortChanged)) { notification in
-                if let customSort = notification.userInfo?["isCustomSort"] as? Bool {
-                    isCustomSort = customSort
-                }
             }
             .onChange(of: colorScheme) {
                 updateGradientColors()
@@ -110,18 +95,6 @@ struct PlaylistDetailView: View {
             }
             .overlay(alignment: .bottomTrailing) {
                 HStack(spacing: 8) {
-                    if playlist?.type == .regular && isCustomSort {
-                        Button(action: { showingReorderTracks = true }, label: {
-                            Image(systemName: Icons.reorderTracks)
-                                .font(.system(size: 14))
-                                .foregroundColor(.secondary)
-                        })
-                        .buttonStyle(.plain)
-                        .hoverEffect(activeBackgroundColor: Color(NSColor.controlColor))
-                        .help("Edit track order")
-                        .disabled(playlist?.tracks.isEmpty ?? true)
-                    }
-
                     TrackTableOptionsDropdown(
                         sortOrder: $playlistSortOrder,
                         tableRowSize: $trackTableRowSize,
@@ -150,7 +123,7 @@ struct PlaylistDetailView: View {
                     .fill(Color.secondary.opacity(0.2))
                     .frame(width: 120, height: 120)
                     .overlay(
-                        Image(systemName: playlistIcon)
+                        SymbolImage(playlistIcon)
                             .font(.system(size: 40))
                             .foregroundColor(.secondary)
                     )
@@ -236,16 +209,28 @@ struct PlaylistDetailView: View {
             .disabled(playlist?.trackCount == 0)
 
             if playlist?.type == .regular {
-                Button(action: { showingAddSongs = true }, label: {
+                Button(action: editRegularPlaylist) {
                     HStack(spacing: iconTextSpacing) {
-                        Image(systemName: Icons.plusCircle)
+                        Image(systemName: Icons.edit)
                             .font(.system(size: iconSize))
-                        Text("Add Songs")
+                        Text("Edit")
                             .font(.system(size: textSize, weight: .medium))
                     }
                     .frame(width: buttonWidth)
                     .padding(.vertical, verticalPadding)
-                })
+                }
+                .adaptiveButtonStyle()
+            } else if playlist?.type == .smart && playlist?.isUserEditable == true {
+                Button(action: editSmartPlaylistRules) {
+                    HStack(spacing: iconTextSpacing) {
+                        Image(systemName: Icons.edit)
+                            .font(.system(size: iconSize))
+                        Text("Edit")
+                            .font(.system(size: textSize, weight: .medium))
+                    }
+                    .frame(width: buttonWidth)
+                    .padding(.vertical, verticalPadding)
+                }
                 .adaptiveButtonStyle()
             }
         }
@@ -288,7 +273,7 @@ struct PlaylistDetailView: View {
     @ViewBuilder private var emptyPlaylistView: some View {
         if let playlist = playlist {
             VStack(spacing: 20) {
-                Image(systemName: playlistIcon)
+                SymbolImage(playlistIcon)
                     .font(.system(size: 60))
                     .foregroundColor(.gray)
 
@@ -302,8 +287,8 @@ struct PlaylistDetailView: View {
                     .frame(maxWidth: 300)
 
                 if playlist.type == .regular {
-                    Button("Add Songs") {
-                        showingAddSongs = true
+                    Button("Edit") {
+                        editRegularPlaylist()
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
@@ -381,8 +366,10 @@ struct PlaylistDetailView: View {
     }
 
     private var playlistArtworkTaskID: String {
-        guard let playlist else { return "nil" }
-        return "\(playlist.id)-\(playlist.dateModified.timeIntervalSince1970)-\(playlist.tracks.count)"
+        // Order-independent signature of the cover-feeding tracks, so the collage + gradient
+        // only recompute when the cover content actually changes, not on reorder or other
+        // unrelated edits (dateModified/track count).
+        playlist?.artworkSignature ?? "nil"
     }
 
     private func loadSortPreference() {
@@ -391,7 +378,6 @@ struct PlaylistDetailView: View {
         // If user has explicitly set a sort preference, use it
         if sortManager.hasSortPreference(for: playlistID) {
             let field = sortManager.getSortField(for: playlistID)
-            isCustomSort = field == .custom
             if field == .custom {
                 NotificationCenter.default.post(
                     name: .trackTableSortChanged,
@@ -405,8 +391,7 @@ struct PlaylistDetailView: View {
             return
         }
 
-        // No stored preference — use smart playlist default or dateAdded
-        isCustomSort = false
+        // No stored preference: use smart playlist default or dateAdded
         if let criteria = playlist?.smartCriteria,
            let sortBy = criteria.sortBy {
             let fieldMap: [String: TrackSortField] = [
@@ -417,13 +402,17 @@ struct PlaylistDetailView: View {
                 "genre": .genre,
                 "year": .year,
                 "duration": .duration,
+                "playCount": .playCount,
+                "lastPlayedDate": .lastPlayedDate,
+                "trackNumber": .trackNumber,
+                "discNumber": .discNumber,
+                "filename": .filename,
             ]
             if let field = fieldMap[sortBy] {
                 playlistSortOrder = [field.getComparator(ascending: criteria.sortAscending)]
             } else {
-                // Smart criteria sort (e.g. playCount, lastPlayedDate) has no table column —
-                // tracks arrive pre-sorted from DB, so preserve that order
-                isCustomSort = true
+                // Smart criteria sort (e.g. playCount, lastPlayedDate) has no table column,
+                // so tracks arrive pre-sorted from DB and we preserve that order.
                 NotificationCenter.default.post(
                     name: .trackTableSortChanged,
                     object: nil,
@@ -461,7 +450,7 @@ struct PlaylistDetailView: View {
     
     private func pinPlaylist() {
         guard let playlist = playlist else { return }
-        
+
         Task {
             if isPinned {
                 await playlistManager.unpinPlaylist(playlist)
@@ -469,6 +458,16 @@ struct PlaylistDetailView: View {
                 await playlistManager.pinPlaylist(playlist)
             }
         }
+    }
+
+    private func editSmartPlaylistRules() {
+        guard let playlist = playlist else { return }
+        playlistManager.showEditSmartPlaylistModal(playlist)
+    }
+
+    private func editRegularPlaylist() {
+        guard let playlist = playlist else { return }
+        playlistManager.showEditRegularPlaylistModal(playlist)
     }
 }
 
