@@ -109,7 +109,6 @@ struct SidebarListView<Item: SidebarItem>: View {
                             hoveredItemID = isHovered ? item.id : nil
                         }
                     )
-                    .opacity(draggedItemID == item.id ? 0.4 : 1.0)
                     .overlay(alignment: .top) {
                         if dropTargetItemID == item.id && draggedItemID != item.id && isDraggable {
                             Rectangle()
@@ -144,13 +143,40 @@ struct SidebarListView<Item: SidebarItem>: View {
                         }
                     }
                 }
+
+                if isReorderingEnabled {
+                    // Drop zone for moving an item to the very bottom (dropping onto the last row
+                    // only inserts above it).
+                    Color.clear
+                        .frame(height: 24)
+                        .contentShape(Rectangle())
+                        .onDrop(
+                            of: [.text],
+                            delegate: SidebarEndDropDelegate(
+                                items: items,
+                                reorderableFromIndex: reorderableFromIndex ?? 0,
+                                draggedItemID: $draggedItemID,
+                                dropTargetItemID: $dropTargetItemID,
+                                onReorder: onReorder ?? { _ in }
+                            )
+                        )
+                }
             }
             .padding(.horizontal, 4)
             .padding(.vertical, 4)
         }
+        .onAppear {
+            // Clear leftover drag state so a stale indicator can't leak in from another sidebar.
+            draggedItemID = nil
+            dropTargetItemID = nil
+        }
     }
 
     // MARK: - Reordering Helpers
+
+    private var isReorderingEnabled: Bool {
+        reorderableFromIndex != nil && onReorder != nil
+    }
 
     private func isItemDraggable(at index: Int) -> Bool {
         guard let fromIndex = reorderableFromIndex, onReorder != nil else { return false }
@@ -198,7 +224,7 @@ private struct SidebarReorderDropDelegate<Item: SidebarItem>: DropDelegate {
     let onReorder: ([Item]) -> Void
 
     func dropEntered(info: DropInfo) {
-        guard draggedItemID != targetItem.id else { return }
+        guard let draggedItemID, draggedItemID != targetItem.id else { return }
         dropTargetItemID = targetItem.id
     }
 
@@ -209,14 +235,23 @@ private struct SidebarReorderDropDelegate<Item: SidebarItem>: DropDelegate {
     }
 
     func dropUpdated(info: DropInfo) -> DropProposal? {
-        DropProposal(operation: .move)
+        guard draggedItemID != nil else { return nil }
+        return DropProposal(operation: .move)
     }
 
     func performDrop(info: DropInfo) -> Bool {
-        guard let draggedID = draggedItemID else { return false }
-        guard let fromIndex = items.firstIndex(where: { $0.id == draggedID }) else { return false }
-        guard fromIndex >= reorderableFromIndex else { return false }
-        guard targetIndex >= reorderableFromIndex else { return false }
+        // Clear drag state on every exit, including no-op drops, so nothing stays stuck afterward.
+        defer {
+            draggedItemID = nil
+            dropTargetItemID = nil
+        }
+
+        guard let draggedID = draggedItemID,
+              let fromIndex = items.firstIndex(where: { $0.id == draggedID }),
+              fromIndex >= reorderableFromIndex,
+              targetIndex >= reorderableFromIndex else {
+            return false
+        }
 
         var reordered = items
         let movedItem = reordered.remove(at: fromIndex)
@@ -225,8 +260,42 @@ private struct SidebarReorderDropDelegate<Item: SidebarItem>: DropDelegate {
         let clampedIndex = max(reorderableFromIndex, min(toIndex, reordered.count))
         reordered.insert(movedItem, at: clampedIndex)
 
-        draggedItemID = nil
-        dropTargetItemID = nil
+        onReorder(reordered)
+        return true
+    }
+}
+
+// MARK: - End Drop Delegate
+
+/// Moves the dragged item to the end of the reorderable region (drops below the last row).
+private struct SidebarEndDropDelegate<Item: SidebarItem>: DropDelegate {
+    let items: [Item]
+    let reorderableFromIndex: Int
+    @Binding var draggedItemID: UUID?
+    @Binding var dropTargetItemID: UUID?
+    let onReorder: ([Item]) -> Void
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        guard draggedItemID != nil else { return nil }
+        return DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        defer {
+            draggedItemID = nil
+            dropTargetItemID = nil
+        }
+
+        guard let draggedID = draggedItemID,
+              let fromIndex = items.firstIndex(where: { $0.id == draggedID }),
+              fromIndex >= reorderableFromIndex else {
+            return false
+        }
+
+        var reordered = items
+        let movedItem = reordered.remove(at: fromIndex)
+        reordered.append(movedItem)
+
         onReorder(reordered)
         return true
     }
