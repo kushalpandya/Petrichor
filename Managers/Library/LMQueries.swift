@@ -17,11 +17,11 @@ extension LibraryManager {
         return databaseManager.getTracksForFolder(folderId)
     }
 
-    func getTracksBy(filterType: LibraryFilterType, value: String) -> [Track] {
+    func getTracksBy(filterType: LibraryFilterType, value: String, albumId: Int64? = nil) -> [Track] {
         if filterType.usesMultiArtistParsing && value != filterType.unknownPlaceholder {
             return databaseManager.getTracksByFilterTypeContaining(filterType, value: value)
         } else {
-            return databaseManager.getTracksByFilterType(filterType, value: value)
+            return databaseManager.getTracksByFilterType(filterType, value: value, albumId: albumId)
         }
     }
 
@@ -37,8 +37,12 @@ extension LibraryManager {
         return items
     }
 
-    func libraryFilterTrackCount(for filterType: LibraryFilterType, value: String) -> Int {
-        getLibraryFilterItems(for: filterType).first { $0.name == value }?.count ?? 0
+    func libraryFilterTrackCount(for filterType: LibraryFilterType, value: String, albumId: Int64? = nil) -> Int {
+        let items = getLibraryFilterItems(for: filterType)
+        if filterType == .albums, let albumId {
+            return items.first { $0.albumId == albumId }?.count ?? 0
+        }
+        return items.first { $0.name == value }?.count ?? 0
     }
 
     func getTrackCountsByFolderPath() -> [String: Int] {

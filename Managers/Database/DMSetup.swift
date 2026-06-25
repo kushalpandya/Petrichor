@@ -23,6 +23,8 @@ extension DatabaseManager {
         try createTrackArtistsTable(in: db)
         try createTrackGenresTable(in: db)
         try createPinnedItemsTable(in: db)
+        try createArtistAliasesTable(in: db)
+        try createAlbumAliasesTable(in: db)
         // Create all indices
         try createIndices(in: db)
         
@@ -284,6 +286,32 @@ extension DatabaseManager {
         Logger.info("Created `pinned_items` table")
     }
     
+    // MARK: - Artist Aliases Table
+    // Maps a normalized old artist name to the canonical artist it was merged into, so
+    // merges survive re-ingestion. Machine-local, excluded from data export.
+    static func createArtistAliasesTable(in db: Database) throws {
+        try db.createTableIfNotExists("artist_aliases") { t in
+            t.column("normalized_alias", .text).primaryKey()
+            t.column("display_name", .text).notNull()
+            t.column("canonical_artist_id", .integer).notNull().references("artists", onDelete: .cascade)
+            t.column("created_at", .datetime).notNull()
+        }
+        Logger.info("Created `artist_aliases` table")
+    }
+
+    // MARK: - Album Aliases Table
+    // Maps a normalized album key (title|primary-artist) to the canonical album it was
+    // merged into. Same durability role as `artist_aliases`.
+    static func createAlbumAliasesTable(in db: Database) throws {
+        try db.createTableIfNotExists("album_aliases") { t in
+            t.column("normalized_key", .text).primaryKey()
+            t.column("display_title", .text).notNull()
+            t.column("canonical_album_id", .integer).notNull().references("albums", onDelete: .cascade)
+            t.column("created_at", .datetime).notNull()
+        }
+        Logger.info("Created `album_aliases` table")
+    }
+
     // MARK: - FTS5 Search Table
     static func createFTSTable(in db: Database) throws {
         // Create FTS5 virtual table for tracks
@@ -465,6 +493,10 @@ extension DatabaseManager {
         // Pinned items indices
         try db.createIndexIfNotExists(name: "idx_pinned_items_sort_order", table: "pinned_items", columns: ["sort_order"])
         try db.createIndexIfNotExists(name: "idx_pinned_items_item_type", table: "pinned_items", columns: ["item_type"])
+
+        // Merge alias indices for re-pointing aliases when a canonical entity is merged
+        try db.createIndexIfNotExists(name: "idx_artist_aliases_canonical", table: "artist_aliases", columns: ["canonical_artist_id"])
+        try db.createIndexIfNotExists(name: "idx_album_aliases_canonical", table: "album_aliases", columns: ["canonical_album_id"])
 
         Logger.info("Created column indices")
     }

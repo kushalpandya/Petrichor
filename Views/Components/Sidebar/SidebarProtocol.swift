@@ -141,6 +141,7 @@ struct LibrarySidebarItem: SidebarItem {
     let count: Int?
     let filterType: LibraryFilterType
     let filterName: String
+    let albumId: Int64?
 
     init(filterItem: LibraryFilterItem) {
         self.id = filterItem.id
@@ -150,6 +151,7 @@ struct LibrarySidebarItem: SidebarItem {
         self.count = nil
         self.filterType = filterItem.filterType
         self.filterName = filterItem.name
+        self.albumId = filterItem.albumId
     }
 
     // Special "All" item
@@ -161,6 +163,7 @@ struct LibrarySidebarItem: SidebarItem {
         self.count = nil
         self.filterType = filterType
         self.filterName = ""
+        self.albumId = nil
     }
 
     private static func getIcon(for filterType: LibraryFilterType, isAllItem: Bool) -> String {

@@ -191,6 +191,10 @@ struct ContentView: View {
             ExportPlaylistsSheet(isPresented: $showingExportPlaylistSheet)
                 .environmentObject(playlistManager)
         }
+        .sheet(item: $libraryManager.pendingMergeRequest) { request in
+            MergeEntitySheet(request: request)
+                .environmentObject(libraryManager)
+        }
         .onReceive(NotificationCenter.default.publisher(for: .importPlaylists)) { _ in
             importPlaylists()
         }

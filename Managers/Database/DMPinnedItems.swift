@@ -44,20 +44,25 @@ extension DatabaseManager {
     }
     
     /// Remove a pinned item by matching criteria
-    func removePinnedItemMatching(filterType: LibraryFilterType?, filterValue: String?, playlistId: UUID?) async throws {
+    func removePinnedItemMatching(filterType: LibraryFilterType?, filterValue: String?, albumId: Int64? = nil, playlistId: UUID?) async throws {
         try await dbQueue.write { db in
             var request = PinnedItem.all()
-            
-            if let filterType = filterType {
-                request = request.filter(PinnedItem.Columns.filterType == filterType.rawValue)
+
+            if let albumId, filterType == .albums {
+                // Albums match strictly by id (legacy nil-albumId pins are backfilled on upgrade).
+                request = request.filter(PinnedItem.Columns.albumId == albumId)
+            } else {
+                if let filterType = filterType {
+                    request = request.filter(PinnedItem.Columns.filterType == filterType.rawValue)
+                }
+                if let filterValue = filterValue {
+                    request = request.filter(PinnedItem.Columns.filterValue == filterValue)
+                }
+                if let playlistId = playlistId {
+                    request = request.filter(PinnedItem.Columns.playlistId == playlistId.uuidString)
+                }
             }
-            if let filterValue = filterValue {
-                request = request.filter(PinnedItem.Columns.filterValue == filterValue)
-            }
-            if let playlistId = playlistId {
-                request = request.filter(PinnedItem.Columns.playlistId == playlistId.uuidString)
-            }
-            
+
             let deletedCount = try request.deleteAll(db)
             if deletedCount > 0 {
                 try self.reorderPinnedItems(in: db)
@@ -263,13 +268,21 @@ extension DatabaseManager {
         case .library:
             guard let filterType = item.filterType,
                   let filterValue = item.filterValue else { return nil }
-            
+
+            // Albums dedupe by exact id (titles aren't unique); legacy nil falls back to title.
+            if filterType == .albums, let albumId = item.albumId {
+                return try PinnedItem
+                    .filter(PinnedItem.Columns.itemType == PinnedItem.ItemType.library.rawValue)
+                    .filter(PinnedItem.Columns.albumId == albumId)
+                    .fetchOne(db)
+            }
+
             return try PinnedItem
                 .filter(PinnedItem.Columns.itemType == PinnedItem.ItemType.library.rawValue)
                 .filter(PinnedItem.Columns.filterType == filterType.rawValue)
                 .filter(PinnedItem.Columns.filterValue == filterValue)
                 .fetchOne(db)
-            
+
         case .playlist:
             guard let playlistId = item.playlistId else { return nil }
             

@@ -10,6 +10,7 @@ import GRDB
 
 /// Manages database migrations using GRDB's built-in migration system
 enum DatabaseMigrator {
+    // swiftlint:disable function_body_length
     /// Creates and configures the database migrator with all migrations
     static func setupMigrator() -> GRDB.DatabaseMigrator {
         var migrator = GRDB.DatabaseMigrator()
@@ -175,12 +176,50 @@ enum DatabaseMigrator {
             Logger.info("v10_add_filename_index_and_drop_pinned_icon_name migration completed")
         }
 
+        migrator.registerMigration("v11_add_merge_support") { db in
+            // Alias tables: durable old-name -> canonical mapping so manual merges survive re-ingestion.
+            try DatabaseManager.createArtistAliasesTable(in: db)
+            try DatabaseManager.createAlbumAliasesTable(in: db)
+            try db.createIndexIfNotExists(
+                name: "idx_artist_aliases_canonical",
+                table: "artist_aliases",
+                columns: ["canonical_artist_id"]
+            )
+            try db.createIndexIfNotExists(
+                name: "idx_album_aliases_canonical",
+                table: "album_aliases",
+                columns: ["canonical_album_id"]
+            )
+
+            // Backfill album_id on legacy title-only library album pins so distinct same-title
+            // albums pin independently. Ambiguous titles resolve to the most-tracks album.
+            let legacyAlbumPins = try PinnedItem
+                .filter(PinnedItem.Columns.itemType == PinnedItem.ItemType.library.rawValue)
+                .filter(PinnedItem.Columns.filterType == LibraryFilterType.albums.rawValue)
+                .filter(PinnedItem.Columns.albumId == nil)
+                .fetchAll(db)
+            for pin in legacyAlbumPins {
+                guard let pinId = pin.id, let title = pin.filterValue else { continue }
+                let albumId = try Album
+                    .select(Album.Columns.id, as: Int64.self)
+                    .filter(Album.Columns.title == title)
+                    .order(Album.Columns.totalTracks.desc)
+                    .fetchOne(db)
+                guard let albumId else { continue }
+                try PinnedItem
+                    .filter(PinnedItem.Columns.id == pinId)
+                    .updateAll(db, PinnedItem.Columns.albumId.set(to: albumId))
+            }
+            Logger.info("v11_add_merge_support migration completed")
+        }
+
         // MARK: - Future Migrations
-        // Add new migrations here as: migrator.registerMigration("v11_description") { db in ... }
-        
+        // Add new migrations here as: migrator.registerMigration("v12_description") { db in ... }
+
         return migrator
     }
-    
+    // swiftlint:enable function_body_length
+
     /// Apply all pending migrations to the database
     static func migrate(_ dbQueue: DatabaseQueue) throws {
         let migrator = setupMigrator()

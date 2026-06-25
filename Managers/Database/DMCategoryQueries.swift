@@ -25,10 +25,14 @@ extension DatabaseManager {
             count = 0
         }
         
+        // Albums carry their id so a merge can target the exact album (titles aren't unique).
+        let albumId: Int64? = filterType == .albums ? row["id"] : nil
+
         return LibraryFilterItem(
             name: actualName,
             count: count,
-            filterType: filterType
+            filterType: filterType,
+            albumId: albumId
         )
     }
     
@@ -195,7 +199,8 @@ extension DatabaseManager {
                     SELECT
                         a.title as name,
                         a.sort_title,
-                        COUNT(DISTINCT CASE WHEN t.is_duplicate = 0 THEN t.id END) as track_count
+                        COUNT(DISTINCT CASE WHEN t.is_duplicate = 0 THEN t.id END) as track_count,
+                        a.id as id
                     FROM albums a
                     LEFT JOIN tracks t ON a.id = t.album_id
                     GROUP BY a.id, a.title, a.sort_title
@@ -206,18 +211,20 @@ extension DatabaseManager {
                     SELECT
                         title as name,
                         sort_title,
-                        total_tracks as track_count
+                        total_tracks as track_count,
+                        id
                     FROM albums
                     WHERE total_tracks > 0
                     """
                 }
-                
+
                 let duplicateClause = hideDuplicates ? "AND t.is_duplicate = 0" : ""
                 let unknownAlbumQuery = """
                     SELECT
                         'Unknown Album' as name,
                         'Unknown Album' as sort_title,
-                        COUNT(*) as track_count
+                        COUNT(*) as track_count,
+                        NULL as id
                     FROM tracks t
                     WHERE t.album = 'Unknown Album' \(duplicateClause)
                     GROUP BY t.album

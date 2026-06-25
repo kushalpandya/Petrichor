@@ -172,7 +172,7 @@ struct LibrarySidebarView: View {
                 selectedFilterItem = filteredItems.first
             }
         } else if let current = selectedFilterItem, !current.isAllItem,
-                  let matching = filteredItems.first(where: { $0.name == current.name }) {
+                  let matching = filteredItems.first(where: { $0.name == current.name && $0.albumId == current.albumId }) {
             // Re-anchor to the current filteredItems instance so selection IDs align after the
             // sidebar was destroyed and recreated (e.g., after switching tabs).
             selectedFilterItem = matching
@@ -310,13 +310,7 @@ struct LibrarySidebarView: View {
     private func createContextMenuItems(for item: LibrarySidebarItem) -> [ContextMenuItem] {
         // Don't show context menu for "All" items
         guard !item.filterName.isEmpty else { return [] }
-        
-        return [
-            libraryManager.createPinContextMenuItem(
-                for: item.filterType,
-                filterValue: item.filterName
-            )
-        ]
+        return libraryManager.contextMenuItems(filterType: item.filterType, filterValue: item.filterName, albumId: item.albumId)
     }
 }
 

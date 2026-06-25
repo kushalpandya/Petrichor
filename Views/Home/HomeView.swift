@@ -287,7 +287,7 @@ struct HomeView: View {
                         isShowingEntityDetail = true
                     },
                     contextMenuItems: { artist in
-                        createArtistContextMenuItems(for: artist)
+                        libraryManager.contextMenuItems(for: artist)
                     }
                 )
             }
@@ -391,7 +391,7 @@ struct HomeView: View {
                         isShowingEntityDetail = true
                     },
                     contextMenuItems: { album in
-                        createAlbumContextMenuItems(for: album)
+                        libraryManager.contextMenuItems(for: album)
                     }
                 )
             }
@@ -533,7 +533,13 @@ struct HomeView: View {
             case .artists:
                 pinnedEntity = libraryManager.artistEntities.first { $0.name == filterValue }
             case .albums:
-                pinnedEntity = libraryManager.albumEntities.first { $0.name == filterValue }
+                // Match the exact album by id (titles aren't unique); legacy nil falls back to title.
+                if let albumId = item.albumId {
+                    pinnedEntity = libraryManager.albumEntities.first { $0.albumId == albumId }
+                        ?? libraryManager.albumEntities.first { $0.name == filterValue }
+                } else {
+                    pinnedEntity = libraryManager.albumEntities.first { $0.name == filterValue }
+                }
             case .albumArtists, .composers:
                 pinnedEntity = buildArtistEntityForPerson(name: filterValue)
             case .genres, .decades, .years:
@@ -542,14 +548,6 @@ struct HomeView: View {
         } else {
             pinnedEntity = nil
         }
-    }
-    
-    private func createAlbumContextMenuItems(for album: AlbumEntity) -> [ContextMenuItem] {
-        [libraryManager.createPinContextMenuItem(for: album)]
-    }
-    
-    private func createArtistContextMenuItems(for artist: ArtistEntity) -> [ContextMenuItem] {
-        [libraryManager.createPinContextMenuItem(for: artist)]
     }
 }
 
