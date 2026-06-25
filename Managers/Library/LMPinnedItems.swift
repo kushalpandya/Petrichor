@@ -24,17 +24,18 @@ extension LibraryManager {
     }
     
     /// Pin a library filter item (from sidebar)
-    func pinLibraryItem(filterType: LibraryFilterType, filterValue: String) async {
+    func pinLibraryItem(filterType: LibraryFilterType, filterValue: String, albumId: Int64? = nil) async {
         if filterValue.isEmpty {
             return
         }
-        
+
         // Create the pinned item
         let pinnedItem = PinnedItem(
             filterType: filterType,
             filterValue: filterValue,
             displayName: filterValue,
-            subtitle: nil
+            subtitle: nil,
+            albumId: albumId
         )
         
         do {
@@ -76,11 +77,12 @@ extension LibraryManager {
     }
     
     /// Unpin a library item
-    func unpinLibraryItem(filterType: LibraryFilterType, filterValue: String) async {
+    func unpinLibraryItem(filterType: LibraryFilterType, filterValue: String, albumId: Int64? = nil) async {
         do {
             try await databaseManager.removePinnedItemMatching(
                 filterType: filterType,
                 filterValue: filterValue,
+                albumId: albumId,
                 playlistId: nil
             )
             await loadPinnedItems()
@@ -127,11 +129,14 @@ extension LibraryManager {
     }
     
     /// Check if a library filter item is pinned
-    func isLibraryItemPinned(filterType: LibraryFilterType, filterValue: String) -> Bool {
+    func isLibraryItemPinned(filterType: LibraryFilterType, filterValue: String, albumId: Int64? = nil) -> Bool {
         pinnedItems.contains { item in
-            item.itemType == .library &&
-            item.filterType == filterType &&
-            item.filterValue == filterValue
+            guard item.itemType == .library else { return false }
+            // Albums match strictly by id (legacy nil-albumId pins are backfilled on upgrade).
+            if filterType == .albums, let albumId {
+                return item.albumId == albumId
+            }
+            return item.filterType == filterType && item.filterValue == filterValue
         }
     }
     
@@ -154,11 +159,22 @@ extension LibraryManager {
     func getTrackCountForPinnedItems(_ items: [PinnedItem]) async -> [Int64: Int] {
         var counts: [Int64: Int] = [:]
 
-        for item in items where item.itemType == .library {
-            guard let id = item.id,
-                  let filterType = item.filterType,
-                  let filterValue = item.filterValue else { continue }
-            counts[id] = libraryFilterTrackCount(for: filterType, value: filterValue)
+        // Library counts read (and lazily populate) `cachedLibraryCategories`, which is also
+        // mutated by refreshLibraryCategories/loadLibraryCategories on the MainActor. This
+        // method can run off-main, so do the cache-touching work on the MainActor to keep all
+        // access to that dictionary serialized.
+        let libraryItems = items.filter { $0.itemType == .library }
+        if !libraryItems.isEmpty {
+            counts = await MainActor.run {
+                var libraryCounts: [Int64: Int] = [:]
+                for item in libraryItems {
+                    guard let id = item.id,
+                          let filterType = item.filterType,
+                          let filterValue = item.filterValue else { continue }
+                    libraryCounts[id] = self.libraryFilterTrackCount(for: filterType, value: filterValue, albumId: item.albumId)
+                }
+                return libraryCounts
+            }
         }
 
         let playlistItems = items.filter { $0.itemType == .playlist }
@@ -173,18 +189,18 @@ extension LibraryManager {
     }
     
     /// Create context menu items for library sidebar
-    func createPinContextMenuItem(for filterType: LibraryFilterType, filterValue: String) -> ContextMenuItem {
-        let isPinned = isLibraryItemPinned(filterType: filterType, filterValue: filterValue)
-        
+    func createPinContextMenuItem(for filterType: LibraryFilterType, filterValue: String, albumId: Int64? = nil) -> ContextMenuItem {
+        let isPinned = isLibraryItemPinned(filterType: filterType, filterValue: filterValue, albumId: albumId)
+
         return .button(
             title: isPinned ? String(localized: "Remove from Home") : String(localized: "Pin to Home"),
             role: nil
         ) {
             Task {
                 if isPinned {
-                    await self.unpinLibraryItem(filterType: filterType, filterValue: filterValue)
+                    await self.unpinLibraryItem(filterType: filterType, filterValue: filterValue, albumId: albumId)
                 } else {
-                    await self.pinLibraryItem(filterType: filterType, filterValue: filterValue)
+                    await self.pinLibraryItem(filterType: filterType, filterValue: filterValue, albumId: albumId)
                 }
             }
         }

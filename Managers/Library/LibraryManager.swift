@@ -24,6 +24,7 @@ class LibraryManager: ObservableObject {
     @Published var searchResults: [Track] = []
     @Published var discoverTracks: [Track] = []
     @Published var pinnedItems: [PinnedItem] = []
+    @Published var pendingMergeRequest: MergeRequest?
     @Published internal var cachedArtistEntities: [ArtistEntity] = []
     @Published internal var cachedAlbumEntities: [AlbumEntity] = []
     @Published private(set) var totalTrackCount: Int = 0

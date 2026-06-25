@@ -6,12 +6,15 @@ struct LibraryFilterItem: Identifiable, Hashable {
     let count: Int
     let filterType: LibraryFilterType
     let isAllItem: Bool
+    /// Set for album items so merges can target an exact album (titles are not unique).
+    let albumId: Int64?
 
-    init(name: String, count: Int, filterType: LibraryFilterType, isAllItem: Bool = false) {
+    init(name: String, count: Int, filterType: LibraryFilterType, isAllItem: Bool = false, albumId: Int64? = nil) {
         self.name = name.isEmpty ? "Unknown \(filterType.rawValue.dropLast())" : name
         self.count = count
         self.filterType = filterType
         self.isAllItem = isAllItem
+        self.albumId = albumId
     }
 
     static func allItem(for filterType: LibraryFilterType, totalCount: Int) -> LibraryFilterItem {
@@ -30,6 +33,7 @@ struct LibraryFilterItem: Identifiable, Hashable {
             && lhs.count == rhs.count
             && lhs.filterType == rhs.filterType
             && lhs.isAllItem == rhs.isAllItem
+            && lhs.albumId == rhs.albumId
     }
 
     func hash(into hasher: inout Hasher) {
@@ -37,5 +41,6 @@ struct LibraryFilterItem: Identifiable, Hashable {
         hasher.combine(count)
         hasher.combine(filterType)
         hasher.combine(isAllItem)
+        hasher.combine(albumId)
     }
 }

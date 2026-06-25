@@ -505,18 +505,4 @@ extension DatabaseManager {
             return []
         }
     }
-    
-    /// Get tracks for a folder (always shows all tracks regardless of duplicate setting)
-    func getTracksForFolderIgnoringDuplicates(_ folderId: Int64) -> [Track] {
-        do {
-            return try dbQueue.read { db in
-                try Track
-                    .filter(Track.Columns.folderId == folderId)
-                    .fetchAll(db)
-            }
-        } catch {
-            Logger.error("Failed to fetch tracks for folder: \(error)")
-            return []
-        }
-    }
 }

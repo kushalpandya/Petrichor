@@ -51,18 +51,22 @@ extension DatabaseManager {
             var tracks = try dbQueue.read { db in
                 let prefixQuery = buildFTS5Query(searchText)
                 
+                // Respect the "hide duplicate songs" setting so playlist search results
+                // match what the rest of the library shows.
+                let duplicateClause = UserDefaults.standard.bool(forKey: "hideDuplicateTracks") ? " AND t.is_duplicate = 0" : ""
+
                 // Build the WHERE clause based on exclusions
                 let whereClause: String
                 let arguments: StatementArguments
-                
+
                 if excludingTrackIds.isEmpty {
-                    whereClause = "WHERE tracks_fts MATCH ?"
+                    whereClause = "WHERE tracks_fts MATCH ?\(duplicateClause)"
                     arguments = [prefixQuery]
                 } else {
                     let excludedIds = Array(excludingTrackIds)
                     let placeholders = databaseQuestionMarks(count: excludedIds.count)
-                    whereClause = "WHERE tracks_fts MATCH ? AND t.id NOT IN (\(placeholders))"
-                    
+                    whereClause = "WHERE tracks_fts MATCH ? AND t.id NOT IN (\(placeholders))\(duplicateClause)"
+
                     var args: [DatabaseValueConvertible] = [prefixQuery]
                     args.append(contentsOf: excludedIds)
                     arguments = StatementArguments(args)
@@ -117,7 +121,7 @@ extension DatabaseManager {
     }
     
     /// Generate SQL placeholders for IN clause
-    private func databaseQuestionMarks(count: Int) -> String {
+    func databaseQuestionMarks(count: Int) -> String {
         Array(repeating: "?", count: count).joined(separator: ",")
     }
 }

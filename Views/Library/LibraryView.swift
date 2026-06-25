@@ -210,6 +210,7 @@ struct LibraryView: View {
                 } else {
                     let filterType = selectedFilterType
                     let filterValue = filterItem.name
+                    let albumId = filterItem.albumId
                     let libManager = libraryManager
 
                     filterUpdateTask = Task {
@@ -220,7 +221,7 @@ struct LibraryView: View {
                         guard !Task.isCancelled else { return }
 
                         let tracks = await Task.detached {
-                            var tracks = libManager.getTracksBy(filterType: filterType, value: filterValue)
+                            var tracks = libManager.getTracksBy(filterType: filterType, value: filterValue, albumId: albumId)
                             libManager.databaseManager.populateAlbumArtworkForTracks(&tracks)
                             return tracks
                         }.value

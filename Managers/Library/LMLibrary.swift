@@ -153,6 +153,22 @@ extension LibraryManager {
         objectWillChange.send()
     }
 
+    /// Refresh in-memory state affected by the hide-duplicates setting (category cache,
+    /// totals, the All Tracks cache), then notify views to re-fetch. The cached lists are
+    /// load-once, so they must be invalidated rather than re-requested.
+    func reloadForDuplicateVisibilityChange() {
+        refreshLibraryCategories()
+        updateTotalCounts()
+        Task {
+            let loaded = await Task.detached { self.databaseManager.getAllTracks() }.value
+            await MainActor.run {
+                self.tracks = loaded
+                self.updateSearchResults()
+                NotificationCenter.default.post(name: .libraryDataDidChange, object: nil)
+            }
+        }
+    }
+
     func refreshLibrary(hardRefresh: Bool = false) {
         Logger.info("Refreshing library...")
         

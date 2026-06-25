@@ -40,6 +40,13 @@ extension DatabaseManager {
             return existing
         }
 
+        // Resolve a merged-away name to its canonical artist via alias (see DMMerge).
+        if let alias = try ArtistAlias.filter(ArtistAlias.Columns.normalizedAlias == normalizedName).fetchOne(db),
+           let canonical = try Artist.fetchOne(db, key: alias.canonicalArtistId) {
+            cache?.artists[normalizedName] = canonical
+            return canonical
+        }
+
         // Create new artist
         let artist = Artist(name: name)
         try artist.insert(db)
@@ -132,6 +139,13 @@ extension DatabaseManager {
         let cacheKey = ScanLookupCache.albumKey(normalizedTitle, normalizedArtistName)
         if let cached = cache?.albums[cacheKey] {
             return cached
+        }
+
+        // Resolve a merged-away album to its canonical album via alias (see DMMerge).
+        if let alias = try AlbumAlias.filter(AlbumAlias.Columns.normalizedKey == cacheKey).fetchOne(db),
+           let canonical = try Album.fetchOne(db, key: alias.canonicalAlbumId) {
+            cache?.albums[cacheKey] = canonical
+            return canonical
         }
 
         let query = Album.filter(Album.Columns.normalizedTitle == normalizedTitle)

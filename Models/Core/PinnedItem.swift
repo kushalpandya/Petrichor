@@ -23,13 +23,13 @@ struct PinnedItem: Identifiable, FetchableRecord, PersistableRecord {
     // MARK: - Initialization
     
     // For library sidebar items
-    init(filterType: LibraryFilterType, filterValue: String, displayName: String, subtitle: String? = nil) {
+    init(filterType: LibraryFilterType, filterValue: String, displayName: String, subtitle: String? = nil, albumId: Int64? = nil) {
         self.itemType = .library
         self.filterType = filterType
         self.filterValue = filterValue
         self.entityId = nil
         self.artistId = nil
-        self.albumId = nil
+        self.albumId = albumId
         self.playlistId = nil
         self.displayName = displayName
         self.subtitle = subtitle
@@ -176,9 +176,10 @@ struct PinnedItem: Identifiable, FetchableRecord, PersistableRecord {
                 return entity is ArtistEntity && filterValue == entity.name
             case .albums:
                 if let albumEntity = entity as? AlbumEntity {
-                    // For albums, also check if we have a matching album ID
-                    if let albumId = albumId, albumId == albumEntity.albumId {
-                        return true
+                    // Strict id match for id-bearing pins (titles aren't unique);
+                    // title only for legacy nil-albumId pins.
+                    if let albumId = albumId {
+                        return albumId == albumEntity.albumId
                     }
                     return filterValue == entity.name
                 }

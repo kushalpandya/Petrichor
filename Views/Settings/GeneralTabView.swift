@@ -2,6 +2,8 @@ import SwiftUI
 import Sparkle
 
 struct GeneralTabView: View {
+    @EnvironmentObject var libraryManager: LibraryManager
+
     @AppStorage("startAtLogin")
     private var startAtLogin = false
 
@@ -65,17 +67,14 @@ struct GeneralTabView: View {
                     .help("Starts app on login")
                 Toggle("Keep running in menubar on close", isOn: $closeToMenubar)
                     .help("Keeps the app running in the menubar even after closing")
-                Toggle("Hide duplicate songs (requires app relaunch)", isOn: $hideDuplicateTracks)
+                Toggle("Hide duplicate songs", isOn: $hideDuplicateTracks)
                     .help("Shows only the highest quality version when multiple copies exist")
                     .onChange(of: hideDuplicateTracks) {
-                        // Force UserDefaults to write immediately to prevent out of sync
-                        Logger.info(
-                            """
-                            Hide duplicate songs setting changed to \(hideDuplicateTracks), \
-                            synchronizing UserDefaults, this will require a relaunch
-                            """
-                        )
+                        // Filter is applied at query time; invalidate the load-once caches
+                        // and reload affected state so it takes effect without a relaunch.
+                        Logger.info("Hide duplicate songs setting changed to \(hideDuplicateTracks), refreshing library")
                         UserDefaults.standard.synchronize()
+                        libraryManager.reloadForDuplicateVisibilityChange()
                     }
                 Toggle("Check for updates automatically", isOn: $automaticUpdatesEnabled)
                     .help("Automatically download and install updates when available")
@@ -210,4 +209,5 @@ struct GeneralTabView: View {
 #Preview {
     GeneralTabView()
         .frame(width: 600, height: 500)
+        .environmentObject(LibraryManager())
 }

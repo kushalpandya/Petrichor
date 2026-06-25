@@ -245,7 +245,7 @@ extension DatabaseManager {
     }
 
     /// Get tracks by filter type and value using normalized tables
-    func getTracksByFilterType(_ filterType: LibraryFilterType, value: String) -> [Track] {
+    func getTracksByFilterType(_ filterType: LibraryFilterType, value: String, albumId: Int64? = nil) -> [Track] {
         do {
             return try dbQueue.read { db in
                 var tracks: [Track] = []
@@ -290,9 +290,16 @@ extension DatabaseManager {
                     }
                         
                 case .albums:
-                    tracks = try Track.lightweightRequest()
-                        .filter(Track.Columns.album == value)
-                        .fetchAll(db)
+                    // Prefer the exact album id (titles aren't unique); fall back to title.
+                    if let albumId {
+                        tracks = try Track.lightweightRequest()
+                            .filter(Track.Columns.albumId == albumId)
+                            .fetchAll(db)
+                    } else {
+                        tracks = try Track.lightweightRequest()
+                            .filter(Track.Columns.album == value)
+                            .fetchAll(db)
+                    }
                         
                 case .genres:
                     tracks = try Track.lightweightRequest()
