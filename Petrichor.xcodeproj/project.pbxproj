@@ -386,7 +386,8 @@
 				MARKETING_VERSION = "Development Build";
 				"OTHER_CODE_SIGN_FLAGS[sdk=*]" = "--timestamp";
 				PRODUCT_BUNDLE_IDENTIFIER = org.Petrichor.debug;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_MODULE_NAME = Petrichor;
+				PRODUCT_NAME = "Petrichor Dev";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = macosx;
