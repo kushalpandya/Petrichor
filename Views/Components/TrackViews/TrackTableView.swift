@@ -4,6 +4,9 @@ struct TrackTableView: View {
     let tracks: [Track]
     let playlistID: UUID?
     let entityID: UUID?
+    // Queue source recorded when playing from this table (non-playlist tables); folder detail
+    // views pass .folder so row playback keeps folder context, matching the header Play/Shuffle.
+    let queueSource: PlaylistManager.QueueSource
     let onPlayTrack: (Track) -> Void
     let contextMenuItems: ([Track], PlaybackManager) -> [ContextMenuItem]
     @Binding var sortOrder: [KeyPathComparator<Track>]
@@ -354,7 +357,7 @@ struct TrackTableView: View {
             playlistManager.currentPlaylist = playlist
             playlistManager.currentQueueSource = .playlist
         } else {
-            playlistManager.currentQueueSource = .library
+            playlistManager.currentQueueSource = queueSource
         }
     }
     
@@ -427,7 +430,7 @@ struct TrackTableView: View {
         
         if let firstTrack = tracksForPlayback.first {
             playlistManager.playTrack(firstTrack, fromTracks: tracksForPlayback)
-            playlistManager.currentQueueSource = .library
+            playlistManager.currentQueueSource = queueSource
         }
     }
     

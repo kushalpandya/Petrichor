@@ -18,6 +18,7 @@ struct PinnedItem: Identifiable, FetchableRecord, PersistableRecord {
     enum ItemType: String, Codable {
         case library
         case playlist
+        case folder
     }
     
     // MARK: - Initialization
@@ -63,6 +64,21 @@ struct PinnedItem: Identifiable, FetchableRecord, PersistableRecord {
         self.playlistId = nil
         self.displayName = albumEntity.name
         self.subtitle = albumEntity.year
+        self.sortOrder = 0
+        self.dateAdded = Date()
+    }
+
+    // For folders (identified by absolute path)
+    init(folderPath: String, name: String) {
+        self.itemType = .folder
+        self.filterType = nil
+        self.filterValue = folderPath
+        self.entityId = nil
+        self.artistId = nil
+        self.albumId = nil
+        self.playlistId = nil
+        self.displayName = name
+        self.subtitle = nil
         self.sortOrder = 0
         self.dateAdded = Date()
     }

@@ -321,6 +321,22 @@ enum ImageUtils {
         return adjusted
     }
 
+    private static var generatedArtworkCache = NSCache<NSString, NSData>()
+
+    /// Returns procedural artwork for the seed, generating (and caching) on a cache miss.
+    static func cachedCategoryArtwork(text: String, seed: String) -> Data? {
+        let cacheKey = seed as NSString
+        if let cached = generatedArtworkCache.object(forKey: cacheKey) {
+            return cached as Data
+        }
+
+        let generated = generateCategoryArtwork(text: text, seed: seed)
+        if let generated {
+            generatedArtworkCache.setObject(generated as NSData, forKey: cacheKey)
+        }
+        return generated
+    }
+
     // MARK: - Procedural Artwork
 
     /// Generate deterministic procedural artwork for category entities (Genre, Decade, Year).

@@ -164,7 +164,6 @@ struct CategoryEntity: Entity {
     let trackCount: Int
     let artworkData: Data?
     let filterType: LibraryFilterType
-    private static var generatedArtworkCache = NSCache<NSString, NSData>()
 
     var displayName: String { filterType.localizedDisplay(name) }
 
@@ -177,17 +176,29 @@ struct CategoryEntity: Entity {
         self.name = name
         self.trackCount = trackCount
         self.filterType = filterType
+        self.artworkData = ImageUtils.cachedCategoryArtwork(text: name, seed: "\(filterType.rawValue)-\(name)")
+    }
+}
 
-        let cacheKey = "\(filterType.rawValue)-\(name)" as NSString
-        if let cached = CategoryEntity.generatedArtworkCache.object(forKey: cacheKey) {
-            self.artworkData = cached as Data
-        } else {
-            let generated = ImageUtils.generateCategoryArtwork(text: name, seed: "\(filterType.rawValue)-\(name)")
-            if let generated {
-                CategoryEntity.generatedArtworkCache.setObject(generated as NSData, forKey: cacheKey)
-            }
-            self.artworkData = generated
-        }
+// MARK: - Folder Entity
+struct FolderEntity: Entity {
+    let id: UUID
+    let name: String
+    let path: String
+    let trackCount: Int
+    let artworkData: Data?
+
+    var subtitle: String? {
+        String(localized: "\(trackCount) songs")
+    }
+
+    init(path: String, name: String, trackCount: Int) {
+        self.id = UUID(name: "folder-\(path)".lowercased(), namespace: EntityNamespaces.category)
+        self.name = name
+        self.path = path
+        self.trackCount = trackCount
+        // Seed by path so same-named folders get distinct artwork.
+        self.artworkData = ImageUtils.cachedCategoryArtwork(text: name, seed: "folder-\(path)")
     }
 }
 

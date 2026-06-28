@@ -563,6 +563,56 @@ extension DatabaseManager {
         }
     }
     
+    /// LIKE pattern for descendants of `folderPath`, escaping wildcards so paths match literally. Use with `ESCAPE '\'`.
+    private func descendantLikePattern(for folderPath: String) -> String {
+        let escaped = folderPath
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "%", with: "\\%")
+            .replacingOccurrences(of: "_", with: "\\_")
+        return "\(escaped)/%"
+    }
+
+    /// Get tracks located directly in a folder path (immediate children only, no sub-folders).
+    /// Mirrors `FolderNode.getImmediateTracks` so pinned-folder track lists match the Folders tab.
+    func getImmediateTracksForFolderPath(_ folderPath: String) -> [Track] {
+        do {
+            // The LIKE is a coarse descendant pre-filter; the parent-path match is exact.
+            var tracks = try dbQueue.read { db in
+                try Track.lightweightRequest()
+                    .filter(sql: "path LIKE ? ESCAPE '\\'", arguments: [descendantLikePattern(for: folderPath)])
+                    .order(Track.Columns.title)
+                    .fetchAll(db)
+            }
+
+            tracks = tracks.filter { $0.url.deletingLastPathComponent().path == folderPath }
+
+            populateAlbumArtworkForTracks(&tracks)
+
+            return tracks
+        } catch {
+            Logger.error("Failed to fetch immediate tracks for folder path: \(error)")
+            return []
+        }
+    }
+
+    /// Count tracks directly in a folder path (immediate children only), selecting paths only
+    /// and respecting the duplicate-hiding preference so the count matches the list and Folders tab.
+    func getImmediateTrackCountForFolderPath(_ folderPath: String) -> Int {
+        do {
+            let paths = try dbQueue.read { db in
+                try applyDuplicateFilter(Track.all())
+                    .filter(sql: "path LIKE ? ESCAPE '\\'", arguments: [descendantLikePattern(for: folderPath)])
+                    .select(Track.Columns.path)
+                    .asRequest(of: String.self)
+                    .fetchAll(db)
+            }
+            return paths.filter { URL(fileURLWithPath: $0).deletingLastPathComponent().path == folderPath }.count
+        } catch {
+            Logger.error("Failed to count immediate tracks for folder path: \(error)")
+            return 0
+        }
+    }
+
     /// Get artist ID by name
     func getArtistId(for artistName: String) -> Int64? {
         do {

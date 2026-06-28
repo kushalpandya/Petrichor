@@ -156,7 +156,11 @@ extension DatabaseManager {
             populateAlbumArtworkForTracks(&tracks)
 
             return tracks
-            
+
+        case .folder:
+            guard let path = item.filterValue else { return [] }
+            return getImmediateTracksForFolderPath(path)
+
         case .playlist:
             guard let playlistId = item.playlistId else { return [] }
             
@@ -281,6 +285,13 @@ extension DatabaseManager {
                 .filter(PinnedItem.Columns.itemType == PinnedItem.ItemType.library.rawValue)
                 .filter(PinnedItem.Columns.filterType == filterType.rawValue)
                 .filter(PinnedItem.Columns.filterValue == filterValue)
+                .fetchOne(db)
+
+        case .folder:
+            guard let path = item.filterValue else { return nil }
+            return try PinnedItem
+                .filter(PinnedItem.Columns.itemType == PinnedItem.ItemType.folder.rawValue)
+                .filter(PinnedItem.Columns.filterValue == path)
                 .fetchOne(db)
 
         case .playlist:

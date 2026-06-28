@@ -107,6 +107,8 @@ struct HomeSidebarItem: SidebarItem {
             return playlist.map { Icons.defaultPlaylistIcon(for: $0) } ?? Icons.musicNoteList
         case .library:
             return pinnedItem.filterType?.icon ?? Icons.musicNote
+        case .folder:
+            return Icons.folderFill
         }
     }
 }
