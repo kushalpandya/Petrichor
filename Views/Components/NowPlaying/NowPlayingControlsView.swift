@@ -12,6 +12,13 @@ import AppKit
 struct NowPlayingControlsView: View {
     /// Fill color for the play/pause button (artwork dominant color from the host).
     let tint: Color
+    /// Legible, mode-adjusted color for the active shuffle/repeat states.
+    var accent: Color
+    /// Color for the prev/next transport icons.
+    var transport: Color
+    /// Base color for inactive/secondary icons (white on the mini player's dark
+    /// scrim; adaptive in immersive mode).
+    var neutral: Color = .white
     var scale: CGFloat = 1
 
     @EnvironmentObject var playbackManager: PlaybackManager
@@ -47,7 +54,7 @@ struct NowPlayingControlsView: View {
         }, label: {
             Image(systemName: Icons.shuffleFill)
                 .font(.system(size: 13 * scale, weight: .medium))
-                .foregroundColor(playlistManager.isShuffleEnabled ? tint : Color.white.opacity(0.65))
+                .foregroundColor(playlistManager.isShuffleEnabled ? accent : neutral.opacity(0.65))
                 .frame(width: 24 * scale, height: 24 * scale)
         })
         .buttonStyle(ControlButtonStyle())
@@ -62,8 +69,9 @@ struct NowPlayingControlsView: View {
         }, label: {
             Image(systemName: Icons.backwardFill)
                 .font(.system(size: 16 * scale, weight: .medium))
-                .foregroundColor(.white)
+                .foregroundColor(transport)
                 .frame(width: 24 * scale, height: 24 * scale)
+                .shadow(color: lightenedTint.opacity(0.6), radius: 4 * scale, x: 0, y: 1 * scale)
         })
         .buttonStyle(ControlButtonStyle())
         .hoverEffect(scale: 1.1)
@@ -105,8 +113,9 @@ struct NowPlayingControlsView: View {
         }, label: {
             Image(systemName: Icons.forwardFill)
                 .font(.system(size: 16 * scale, weight: .medium))
-                .foregroundColor(.white)
+                .foregroundColor(transport)
                 .frame(width: 24 * scale, height: 24 * scale)
+                .shadow(color: lightenedTint.opacity(0.6), radius: 4 * scale, x: 0, y: 1 * scale)
         })
         .buttonStyle(ControlButtonStyle())
         .hoverEffect(scale: 1.1)
@@ -120,7 +129,7 @@ struct NowPlayingControlsView: View {
         }, label: {
             Image(systemName: Icons.repeatIcon(for: playlistManager.repeatMode))
                 .font(.system(size: 13 * scale, weight: .medium))
-                .foregroundColor(playlistManager.repeatMode != .off ? tint : Color.white.opacity(0.65))
+                .foregroundColor(playlistManager.repeatMode != .off ? accent : neutral.opacity(0.65))
                 .frame(width: 24 * scale, height: 24 * scale)
         })
         .buttonStyle(ControlButtonStyle())

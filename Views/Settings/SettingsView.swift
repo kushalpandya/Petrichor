@@ -9,15 +9,17 @@ struct SettingsView: View {
 
     enum SettingsTab: String, CaseIterable {
         case general = "General"
+        case appearance = "Appearance"
         case library = "Library"
-        case online = "Online"
+        case integrations = "Integrations"
         case about = "About"
 
         var icon: String {
             switch self {
             case .general: return Icons.settings
+            case .appearance: return Icons.paintpalette
             case .library: return Icons.customMusicNoteRectangleStack
-            case .online: return Icons.globe
+            case .integrations: return Icons.globe
             case .about: return Icons.infoCircle
             }
         }
@@ -25,8 +27,9 @@ struct SettingsView: View {
         var selectedIcon: String {
             switch self {
             case .general: return Icons.settings
+            case .appearance: return Icons.paintpalette
             case .library: return Icons.customMusicNoteRectangleStack
-            case .online: return Icons.globe
+            case .integrations: return Icons.globe
             case .about: return Icons.infoCircleFill
             }
         }
@@ -64,17 +67,19 @@ struct SettingsView: View {
                 switch selectedTab {
                 case .general:
                     GeneralTabView()
+                case .appearance:
+                    AppearanceTabView()
                 case .library:
                     LibraryTabView()
-                case .online:
-                    OnlineTabView()
+                case .integrations:
+                    IntegrationsTabView()
                 case .about:
                     AboutTabView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(width: 600, height: 670)
+        .frame(width: 650, height: 670)
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SettingsSelectTab"))) { notification in
             if let tab = notification.object as? SettingsTab {
                 selectedTab = tab

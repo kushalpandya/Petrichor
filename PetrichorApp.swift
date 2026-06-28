@@ -16,7 +16,10 @@ struct PetrichorApp: App {
     
     @AppStorage("closeToMenubar")
     private var closeToMenubar = true
-    
+
+    @AppStorage("miniPlayerAlwaysOnTop")
+    private var miniPlayerAlwaysOnTop = false
+
     @State private var menuUpdateTrigger = UUID()
     @Environment(\.openWindow)
     private var openWindow
@@ -598,6 +601,17 @@ extension PetrichorApp {
         CommandGroup(after: .toolbar) {
             focusSearchMenuItem()
             foldersTabToggle()
+            miniPlayerOnTopToggle()
+        }
+    }
+
+    private func miniPlayerOnTopToggle() -> some View {
+        Toggle(isOn: $miniPlayerAlwaysOnTop) {
+            if #available(macOS 26.0, *) {
+                Label("Keep Mini Player always on top", systemImage: Icons.miniPlayer)
+            } else {
+                Text("Keep Mini Player always on top")
+            }
         }
     }
     

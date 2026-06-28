@@ -52,6 +52,13 @@ struct ImmersiveView: View {
     @Environment(\.colorScheme)
     private var colorScheme
 
+    @AppStorage("useArtworkColors")
+    private var useArtworkColors = true
+    @AppStorage("tintPlaybackControls")
+    private var tintPlaybackControls = true
+    @AppStorage("tintNowPlayingBackground")
+    private var tintNowPlayingBackground = true
+
     @AppStorage(immersivePanelStateKey)
     private var panel: ImmersivePanel = .none
     @State private var cachedArtwork: NSImage?
@@ -63,11 +70,6 @@ struct ImmersiveView: View {
     @State private var adaptiveText: Color = .white
     @State private var showingClearConfirmation = false
 
-    // Toolbar visibility captured on open and restored on close, so dismissing
-    // immersive doesn't force the toolbar visible in a context (e.g. native
-    // fullscreen) where AppKit had hidden it.
-    @State private var toolbarWasVisible = true
-
     // Gates the gradient crossfade so the first (seeded) gradient appears instantly
     // and slides up with the view, rather than fading in independently. Later track
     // changes do crossfade.
@@ -76,42 +78,66 @@ struct ImmersiveView: View {
     /// Artwork/gradient/adaptive color are seeded from ContentView so they're present
     /// on the very first frame; otherwise they'd populate in `onAppear` (after
     /// insertion) and pop/fade in while the view is sliding up.
-    init(isPresented: Binding<Bool>, artwork: NSImage?, gradient: [Color], trackID: UUID?) {
+    init(isPresented: Binding<Bool>, artwork: NSImage?, gradient: [Color], trackID: UUID?, isDarkMode: Bool) {
         _isPresented = isPresented
         _cachedArtwork = State(initialValue: artwork)
         _gradientColors = State(initialValue: gradient)
         _currentTrackId = State(initialValue: trackID)
-        _adaptiveText = State(initialValue: Self.computeAdaptiveText(for: gradient))
+        _adaptiveText = State(initialValue: Self.adaptiveTextColor(for: gradient, isDark: isDarkMode))
     }
 
     private var hasCurrentTrack: Bool {
         playbackManager.currentTrack != nil
     }
 
-    private var artworkTint: Color {
-        NowPlayingArtwork.tint(for: playbackManager.currentTrack)
+    private var controlsUseArtworkTint: Bool {
+        useArtworkColors && tintPlaybackControls
     }
 
-    /// White or black, whichever keeps text legible against the current background.
-    /// Estimated from the displayed gradient's average luminance (already adjusted
-    /// for light/dark mode), accounting for the dark scrim drawn over it.
-    private static func computeAdaptiveText(for gradient: [Color]) -> Color {
-        var total: CGFloat = 0
-        var count: CGFloat = 0
-        for color in gradient {
-            guard let ns = NSColor(color).usingColorSpace(.sRGB) else { continue }
-            // The background draws a 0.25 black scrim over the gradient.
-            let r = ns.redComponent * 0.75
-            let g = ns.greenComponent * 0.75
-            let b = ns.blueComponent * 0.75
-            total += 0.299 * r + 0.587 * g + 0.114 * b
-            count += 1
-        }
+    private var backgroundUsesArtwork: Bool {
+        useArtworkColors && tintNowPlayingBackground
+    }
 
-        // Without artwork colors the immersive background falls back to black plus
-        // material/scrim, regardless of system appearance.
-        guard count > 0 else { return .white }
-        return (total / count) > 0.55 ? .black : .white
+    private var artworkTint: Color {
+        NowPlayingArtwork.tint(for: playbackManager.currentTrack, useArtworkTint: controlsUseArtworkTint)
+    }
+
+    /// Whether the immersive background reads as dark: the gradient (under its scrim)
+    /// when tinting is on, or the plain window background's appearance when it's off.
+    /// Drives both the adaptive text and whether the tinted controls brighten/deepen.
+    private var backgroundIsDark: Bool {
+        Self.backgroundIsDark(for: gradientColors, isDark: colorScheme == .dark)
+    }
+
+    /// Legible, mode-adjusted dominant color for the secondary controls, brightened or
+    /// deepened to match the actual background rather than always assuming dark.
+    private var controlColor: Color {
+        NowPlayingArtwork.controlColor(
+            for: playbackManager.currentTrack,
+            useArtworkTint: controlsUseArtworkTint,
+            isDarkBackground: backgroundIsDark
+        )
+    }
+
+    /// Prev/next icon color: the artwork control color when tinting is on, otherwise
+    /// the adaptive neutral so it stays legible on the plain window background.
+    private var transportColor: Color {
+        controlsUseArtworkTint ? controlColor : adaptiveText
+    }
+
+    /// Whether the background reads as dark: with no gradient (tinting off) the plain
+    /// window background follows the appearance; otherwise it's the gradient's average
+    /// luminance under the 0.25 black scrim.
+    private static func backgroundIsDark(for gradient: [Color], isDark: Bool) -> Bool {
+        guard !gradient.isEmpty else { return isDark }
+        // The background draws a 0.25 black scrim, so scale luminance by 0.75.
+        let average = gradient.reduce(CGFloat(0)) { $0 + NowPlayingArtwork.luminance(of: $1) * 0.75 } / CGFloat(gradient.count)
+        return average <= 0.55
+    }
+
+    /// White or black foreground, whichever stays legible against the background.
+    private static func adaptiveTextColor(for gradient: [Color], isDark: Bool) -> Color {
+        backgroundIsDark(for: gradient, isDark: isDark) ? .white : .black
     }
 
     var body: some View {
@@ -127,22 +153,19 @@ struct ImmersiveView: View {
         .background(escapeKeyCatcher)
         .onExitCommand { close() }
         .onAppear {
-            // Artwork/gradient/adaptive color are already seeded via init; only the
-            // window-toolbar state and the crossfade gate need setting up here.
-            toolbarWasVisible = WindowManager.shared.mainWindow?.toolbar?.isVisible ?? true
-            setToolbarVisible(false)
-            // Open the gradient-crossfade gate after the first frame so subsequent
-            // track changes crossfade while the initial gradient slid in untouched.
+            // Artwork/gradient/adaptive color are already seeded via init. Open the
+            // gradient-crossfade gate after the first frame so subsequent track
+            // changes crossfade while the initial gradient slid in untouched.
             DispatchQueue.main.async { didAppear = true }
-        }
-        .onDisappear {
-            setToolbarVisible(toolbarWasVisible)
         }
         .onChange(of: playbackManager.currentTrack?.id) {
             refreshArtwork()
             updateGradientColors()
         }
         .onChange(of: colorScheme) {
+            updateGradientColors()
+        }
+        .onChange(of: backgroundUsesArtwork) {
             updateGradientColors()
         }
         .clearQueueConfirmation(isPresented: $showingClearConfirmation) {
@@ -154,18 +177,20 @@ struct ImmersiveView: View {
 
     private var background: some View {
         ZStack {
-            Color.black
-
             if !gradientColors.isEmpty {
+                Color.black
+
                 GradientBackground(colors: gradientColors)
                     .animation(didAppear ? .easeInOut(duration: AnimationDuration.standardDuration) : nil, value: gradientColors)
-            } else {
-                Rectangle().fill(.regularMaterial)
-            }
 
-            // A uniform dark scrim keeps the white transport controls, title, and
-            // panel chrome legible regardless of light/dark mode or artwork.
-            Color.black.opacity(0.25)
+                // A uniform dark scrim keeps the light transport controls, title, and
+                // panel chrome legible over the artwork gradient.
+                Color.black.opacity(0.25)
+            } else {
+                // Tinting off: match the app's standard window background rather than a
+                // forced dark backdrop; the controls/text adapt via `adaptiveText`.
+                Color(nsColor: .windowBackgroundColor)
+            }
         }
         .ignoresSafeArea()
     }
@@ -229,8 +254,14 @@ struct ImmersiveView: View {
             .frame(maxWidth: layout.artSide)
 
             VStack(spacing: layout.controlsSpacing) {
-                NowPlayingControlsView(tint: artworkTint, scale: layout.controlsScale)
-                NowPlayingProgressBar(tint: artworkTint, scale: layout.controlsScale)
+                NowPlayingControlsView(
+                    tint: artworkTint,
+                    accent: controlColor,
+                    transport: transportColor,
+                    neutral: adaptiveText,
+                    scale: layout.controlsScale
+                )
+                NowPlayingProgressBar(accent: controlColor, neutral: adaptiveText, scale: layout.controlsScale)
             }
             .frame(width: layout.artSide)
         }
@@ -411,13 +442,6 @@ struct ImmersiveView: View {
 
     // MARK: - Helpers
 
-    /// Hides/shows the main window's toolbar (tab buttons + search). Toggling the
-    /// NSToolbar instead of SwiftUI `.windowToolbar` visibility keeps the
-    /// titlebar (and its traffic-light buttons) in place.
-    private func setToolbarVisible(_ visible: Bool) {
-        WindowManager.shared.mainWindow?.toolbar?.isVisible = visible
-    }
-
     private func refreshArtwork() {
         let track = playbackManager.currentTrack
         guard track?.id != currentTrackId || cachedArtwork == nil else { return }
@@ -429,8 +453,9 @@ struct ImmersiveView: View {
     private func updateGradientColors() {
         gradientColors = NowPlayingArtwork.gradient(
             for: playbackManager.currentTrack,
-            isDark: colorScheme == .dark
+            isDark: colorScheme == .dark,
+            enabled: backgroundUsesArtwork
         )
-        adaptiveText = Self.computeAdaptiveText(for: gradientColors)
+        adaptiveText = Self.adaptiveTextColor(for: gradientColors, isDark: colorScheme == .dark)
     }
 }

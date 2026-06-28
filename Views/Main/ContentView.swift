@@ -45,6 +45,10 @@ struct ContentView: View {
         
     @AppStorage("showFoldersTab")
     private var showFoldersTab = false
+    @AppStorage("useArtworkColors")
+    private var useArtworkColors = true
+    @AppStorage("tintNowPlayingBackground")
+    private var tintNowPlayingBackground = true
     @Environment(\.colorScheme)
     private var colorScheme
 
@@ -54,6 +58,8 @@ struct ContentView: View {
     private var mainWindowPanelState: MainWindowPanelState = .none
     @State private var rightSidebarContent: RightSidebarContent = .none
     @State private var isImmersiveActive = false
+    // Toolbar state captured before immersive hides it, so closing restores it.
+    @State private var immersiveToolbarWasVisible = true
     @State private var pendingLibraryFilter: LibraryFilterRequest?
     @State private var windowDelegate = WindowDelegate()
     @State private var shouldFocusSearch = false
@@ -110,11 +116,20 @@ struct ContentView: View {
                     artwork: NowPlayingArtwork.image(for: playbackManager.currentTrack),
                     gradient: NowPlayingArtwork.gradient(
                         for: playbackManager.currentTrack,
-                        isDark: colorScheme == .dark
+                        isDark: colorScheme == .dark,
+                        enabled: useArtworkColors && tintNowPlayingBackground
                     ),
-                    trackID: playbackManager.currentTrack?.id
+                    trackID: playbackManager.currentTrack?.id,
+                    isDarkMode: colorScheme == .dark
                 )
                 .transition(.move(edge: .bottom))
+            }
+        }
+        .onChange(of: isImmersiveActive) { _, active in
+            // Restore the toolbar at the start of the close, while immersive still
+            // covers the window, so its reflow stays off-screen.
+            if !active {
+                WindowManager.shared.mainWindow?.toolbar?.isVisible = immersiveToolbarWasVisible
             }
         }
         .onAppear(perform: handleOnAppear)
@@ -203,8 +218,26 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .toggleImmersivePlayer)) { _ in
             guard playbackManager.currentTrack != nil || isImmersiveActive else { return }
-            withAnimation(.easeInOut(duration: AnimationDuration.immersiveTransition)) {
-                isImmersiveActive.toggle()
+            if isImmersiveActive {
+                withAnimation(.easeInOut(duration: AnimationDuration.immersiveTransition)) {
+                    isImmersiveActive = false
+                }
+            } else {
+                openImmersive()
+            }
+        }
+    }
+
+    /// Opens immersive mode, hiding the toolbar only once the cover animation finishes
+    /// so its reflow stays hidden behind immersive (hiding earlier reveals a jump).
+    private func openImmersive() {
+        immersiveToolbarWasVisible = WindowManager.shared.mainWindow?.toolbar?.isVisible ?? true
+        withAnimation(.easeInOut(duration: AnimationDuration.immersiveTransition)) {
+            isImmersiveActive = true
+        } completion: {
+            // Guard against a quick re-close before the open animation completes.
+            if isImmersiveActive {
+                WindowManager.shared.mainWindow?.toolbar?.isVisible = false
             }
         }
     }
@@ -315,8 +348,7 @@ struct ContentView: View {
             Divider()
 
             PlayerView(
-                rightSidebarContent: $rightSidebarContent,
-                isImmersiveActive: $isImmersiveActive
+                rightSidebarContent: $rightSidebarContent
             )
                 .frame(height: 110)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -334,12 +366,12 @@ struct ContentView: View {
                 isDisabled: libraryManager.folders.isEmpty
             )
         }
-        
+
         // Do not remove this spacer, it allows
         // for pushing toolbar items below to the
         // right-edge of window frame on macOS 14.x
         ToolbarItem { Spacer() }
-        
+
         ToolbarItem(placement: .confirmationAction) {
             HStack(spacing: 8) {
                 NotificationTray()
@@ -356,7 +388,7 @@ struct ContentView: View {
             }
         }
     }
-    
+
     @available(macOS 26.0, *)
     @ToolbarContentBuilder private var modernToolbarContent: some ToolbarContent {
         ToolbarItem(placement: .principal) {
@@ -368,7 +400,7 @@ struct ContentView: View {
                 isDisabled: libraryManager.folders.isEmpty
             )
         }
-        
+
         ToolbarItem(placement: .confirmationAction) {
             NotificationTray()
                 .frame(width: 34, height: 30)

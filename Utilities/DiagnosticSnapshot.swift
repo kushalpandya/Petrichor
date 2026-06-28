@@ -72,17 +72,24 @@ enum DiagnosticSnapshot {
                 "startAtLogin": defaults.boolOrNull("startAtLogin"),
                 "hideDuplicateTracks": defaults.boolOrNull("hideDuplicateTracks"),
                 "automaticUpdatesEnabled": defaults.boolOrNull("automaticUpdatesEnabled"),
-                "colorMode": defaults.stringOrNull("colorMode"),
-                "showFoldersTab": defaults.boolOrNull("showFoldersTab"),
-                "useArtworkColors": defaults.boolOrNull("useArtworkColors"),
                 "useModernPlaybackEngine": defaults.boolOrNull(MediaBackend.userDefaultsKey)
+            ],
+            "appearance": [
+                "showFoldersTab": defaults.boolOrNull("showFoldersTab"),
+                "showTrackTechnicalInfo": defaults.boolOrNull("showTrackTechnicalInfo"),
+                "miniPlayerAlwaysOnTop": defaults.boolOrNull("miniPlayerAlwaysOnTop"),
+                "colorMode": defaults.stringOrNull("colorMode"),
+                "useArtworkColors": defaults.boolOrNull("useArtworkColors"),
+                "playerBarBackgroundStyle": defaults.stringOrNull("playerBarBackgroundStyle"),
+                "tintPlaybackControls": defaults.boolOrNull("tintPlaybackControls"),
+                "tintNowPlayingBackground": defaults.boolOrNull("tintNowPlayingBackground")
             ],
             "library": [
                 "autoScanInterval": defaults.stringOrNull("autoScanInterval"),
                 "discoverUpdateInterval": defaults.stringOrNull("discoverUpdateInterval"),
                 "discoverTrackCount": defaults.intOrNull("discoverTrackCount")
             ],
-            "online": [
+            "integrations": [
                 "lastfmUsername": defaults.string(forKey: "lastfmUsername") != nil ? "<set>" : "<unset>",
                 "scrobblingEnabled": defaults.boolOrNull("scrobblingEnabled"),
                 "loveSyncEnabled": defaults.boolOrNull("loveSyncEnabled"),

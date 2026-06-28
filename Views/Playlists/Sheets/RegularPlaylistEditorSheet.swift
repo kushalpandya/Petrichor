@@ -93,7 +93,8 @@ struct RegularPlaylistEditorSheet: View {
         verticalPadding: 5,
         contentShapeRadius: 6,
         backgroundViewRadius: 6,
-        expandButtons: true
+        expandButtons: true,
+        horizontalContentPadding: 0
     )
 
     var body: some View {

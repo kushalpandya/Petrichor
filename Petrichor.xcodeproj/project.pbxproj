@@ -15,7 +15,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		550F4A0E2DB45B1A005F794E /* Petrichor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Petrichor.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		550F4A0E2DB45B1A005F794E /* Petrichor Dev.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Petrichor Dev.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		550F4A3F2DB4786F005F794E /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		55593A412DE019E400640247 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		55613A822E04A7230000E217 /* .swiftlint.yml */ = {isa = PBXFileReference; lastKnownFileType = text.yaml; path = .swiftlint.yml; sourceTree = "<group>"; };
@@ -126,7 +126,7 @@
 				55593A412DE019E400640247 /* README.md */,
 				55FB816B2EC22E6E008321CA /* ACKNOWLEDGEMENTS.md */,
 				5590877E2DE0C078009E7719 /* PetrichorApp.swift */,
-				550F4A0E2DB45B1A005F794E /* Petrichor.app */,
+				550F4A0E2DB45B1A005F794E /* Petrichor Dev.app */,
 			);
 			sourceTree = "<group>";
 		};
@@ -163,7 +163,7 @@
 				552CE3E42FE3263900A5C93D /* Crescendo */,
 			);
 			productName = Petrichor;
-			productReference = 550F4A0E2DB45B1A005F794E /* Petrichor.app */;
+			productReference = 550F4A0E2DB45B1A005F794E /* Petrichor Dev.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */

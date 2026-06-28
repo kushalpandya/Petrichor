@@ -14,6 +14,17 @@ private enum AnimationConstants {
     static let hoverDuration: Double = 0.1
 }
 
+// MARK: - Button Width Measurement
+// Collects the widest tab's intrinsic content width so every button can adopt a
+// single uniform width, which keeps the moving (transform) background aligned and gives
+// locale-agnostic margins regardless of label length.
+private struct TabButtonWidthPreferenceKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
 // MARK: - Generic Tab Protocol
 protocol TabbedItem: Hashable {
     var title: String { get }
@@ -35,6 +46,16 @@ struct TabbedButtons<Item: TabbedItem>: View {
     let style: TabbedButtonStyle
     let animation: TabbedButtonAnimation
     let isDisabled: Bool
+
+    @State private var measuredContentWidth: CGFloat = 0
+
+    // Uniform width applied to every button: the widest tab's intrinsic content,
+    // floored by the style's nominal width so short labels never shrink below it.
+    private var resolvedButtonWidth: CGFloat? {
+        let floor = style.buttonWidth ?? 0
+        let width = max(floor, measuredContentWidth)
+        return width > 0 ? width : nil
+    }
 
     init(
         items: [Item],
@@ -58,7 +79,8 @@ struct TabbedButtons<Item: TabbedItem>: View {
                     isSelected: selection == item,
                     style: style,
                     animation: animation,
-                    isDisabled: isDisabled
+                    isDisabled: isDisabled,
+                    resolvedWidth: resolvedButtonWidth
                 ) {
                     if !isDisabled {
                         selection = item
@@ -66,6 +88,7 @@ struct TabbedButtons<Item: TabbedItem>: View {
                 }
             }
         }
+        .onPreferenceChange(TabButtonWidthPreferenceKey.self) { measuredContentWidth = $0 }
         .padding(4)
         .background(
             ZStack {
@@ -114,8 +137,13 @@ private struct TabbedButton<Item: TabbedItem>: View {
     let style: TabbedButtonStyle
     let animation: TabbedButtonAnimation
     let isDisabled: Bool
+    let resolvedWidth: CGFloat?
     let action: () -> Void
     @State private var isHovered = false
+
+    private var effectiveWidth: CGFloat? {
+        resolvedWidth ?? style.buttonWidth
+    }
 
     var body: some View {
         Button(action: {
@@ -141,6 +169,8 @@ private struct TabbedButton<Item: TabbedItem>: View {
                     Text(item.title)
                         .font(.system(size: style.textSize, weight: .medium))
                         .foregroundColor(foregroundColor)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
                         .animation(
                             .easeInOut(duration: AnimationConstants.transformDuration)
                                 .delay(animation == .transform && isSelected
@@ -150,9 +180,16 @@ private struct TabbedButton<Item: TabbedItem>: View {
                         )
                 }
             }
+            .padding(.horizontal, style.horizontalContentPadding)
+            .background(
+                GeometryReader { geometry in
+                    Color.clear
+                        .preference(key: TabButtonWidthPreferenceKey.self, value: geometry.size.width)
+                }
+            )
             .frame(
-                minWidth: style.buttonWidth,
-                maxWidth: style.expandButtons ? .infinity : style.buttonWidth,
+                minWidth: effectiveWidth,
+                maxWidth: style.expandButtons ? .infinity : effectiveWidth,
                 minHeight: style.buttonHeight,
                 maxHeight: style.buttonHeight
             )
@@ -260,6 +297,9 @@ struct TabbedButtonStyle {
     let contentShapeRadius: CGFloat?
     let backgroundViewRadius: CGFloat?
     let expandButtons: Bool
+    // Margin reserved on each side of the icon/label, ensuring the content never
+    // runs to the button edge regardless of (localized) label length.
+    let horizontalContentPadding: CGFloat
 
     var buttonHeight: CGFloat? {
         (self.iconSize == 14 && !self.showTitle && self.verticalPadding == 0) ? 24 : nil
@@ -275,9 +315,10 @@ struct TabbedButtonStyle {
         verticalPadding: 5,
         contentShapeRadius: 6,
         backgroundViewRadius: 6,
-        expandButtons: false
+        expandButtons: false,
+        horizontalContentPadding: 0
     )
-    
+
     static let modern = TabbedButtonStyle(
         showIcon: true,
         showTitle: true,
@@ -288,7 +329,8 @@ struct TabbedButtonStyle {
         verticalPadding: 5,
         contentShapeRadius: 16,
         backgroundViewRadius: 16,
-        expandButtons: false
+        expandButtons: false,
+        horizontalContentPadding: 0
     )
 
     static let compact = TabbedButtonStyle(
@@ -301,9 +343,10 @@ struct TabbedButtonStyle {
         verticalPadding: 5,
         contentShapeRadius: 6,
         backgroundViewRadius: 6,
-        expandButtons: false
+        expandButtons: false,
+        horizontalContentPadding: 12
     )
-    
+
     static let moderncompact = TabbedButtonStyle(
         showIcon: true,
         showTitle: true,
@@ -314,7 +357,8 @@ struct TabbedButtonStyle {
         verticalPadding: 5,
         contentShapeRadius: 16,
         backgroundViewRadius: 16,
-        expandButtons: false
+        expandButtons: false,
+        horizontalContentPadding: 12
     )
 
     static let flexible = TabbedButtonStyle(
@@ -327,7 +371,8 @@ struct TabbedButtonStyle {
         verticalPadding: 4,
         contentShapeRadius: 6,
         backgroundViewRadius: 6,
-        expandButtons: true
+        expandButtons: true,
+        horizontalContentPadding: 0
     )
 }
 
@@ -343,7 +388,8 @@ extension TabbedButtonStyle: Equatable {
                lhs.verticalPadding == rhs.verticalPadding &&
                lhs.contentShapeRadius == rhs.contentShapeRadius &&
                lhs.backgroundViewRadius == rhs.backgroundViewRadius &&
-               lhs.expandButtons == rhs.expandButtons
+               lhs.expandButtons == rhs.expandButtons &&
+               lhs.horizontalContentPadding == rhs.horizontalContentPadding
     }
 }
 
@@ -355,8 +401,9 @@ extension SettingsView.SettingsTab: TabbedItem {
     var title: String {
         switch self {
         case .general: return String(localized: "General")
+        case .appearance: return String(localized: "Appearance")
         case .library: return String(localized: "Library")
-        case .online: return String(localized: "Online")
+        case .integrations: return String(localized: "Integrations")
         case .about: return String(localized: "About")
         }
     }
