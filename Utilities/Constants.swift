@@ -59,6 +59,7 @@ enum Icons {
     static let arrowClockwise = "arrow.clockwise"
     static let arrowClockwiseCircle = "arrow.clockwise.circle"
     static let globe = "globe"
+    static let paintpalette = "paintpalette"
 
     // Entity Icons
     static let personFill = "person.fill"

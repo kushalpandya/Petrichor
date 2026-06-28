@@ -21,15 +21,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         // Register UserDefaults with default settings
         AppDelegate.registerUserDefaultsDefaults()
         
-        // Apply color mode very early, before any windows are shown
-        let colorMode = UserDefaults.standard.string(forKey: "colorMode") ?? "auto"
-        
+        // Apply color mode very early, before any windows are shown. Compared
+        // case-insensitively so registered defaults or any legacy values match.
+        let colorMode = (UserDefaults.standard.string(forKey: "colorMode") ?? "auto").lowercased()
+
         switch colorMode {
-        case "Light":
+        case "light":
             NSApp.appearance = NSAppearance(named: .aqua)
-        case "Dark":
+        case "dark":
             NSApp.appearance = NSAppearance(named: .darkAqua)
-        default: // "Auto" or any other value
+        default: // "auto" or any other value
             NSApp.appearance = nil // Follow system
         }
     }
@@ -397,8 +398,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             "hideDuplicateTracks": true,
             "automaticUpdatesEnabled": true,
             "autoScanInterval": "every60Minutes",
-            "colorMode": "auto",
+            "colorMode": "Auto",
             "showFoldersTab": false,
+            "showTrackTechnicalInfo": true,
+            "tintPlaybackControls": true,
+            "tintNowPlayingBackground": true,
+            "playerBarBackgroundStyle": "Full width",
             "discoverUpdateInterval": "weekly",
             "discoverTrackCount": 50,
             MediaBackend.userDefaultsKey: true

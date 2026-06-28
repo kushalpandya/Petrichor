@@ -13,20 +13,16 @@ import SwiftUI
 import AppKit
 
 struct NowPlayingProgressBar: View {
-    /// Fill color for the progress track / handle (artwork dominant color from the host).
-    let tint: Color
+    /// Fill color for the progress track / handle: the host's resolved, legible
+    /// control color (or accent when tinting is disabled).
+    let accent: Color
+    /// Base color for the time labels (white on the mini player's dark scrim;
+    /// adaptive in immersive mode).
+    var neutral: Color = .white
     var scale: CGFloat = 1
 
     @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var playbackProgressState: PlaybackProgressState
-
-    /// A lightened version of the tint so the filled progress stays visible even
-    /// when the artwork's dominant color is dark.
-    private var fillColor: Color {
-        let base = NSColor(tint).usingColorSpace(.sRGB) ?? NSColor(tint)
-        let lightened = base.blended(withFraction: 0.45, of: .white) ?? base
-        return Color(nsColor: lightened)
-    }
 
     @State private var isDraggingProgress = false
     @State private var tempProgressValue: Double = 0
@@ -36,7 +32,7 @@ struct NowPlayingProgressBar: View {
         HStack(spacing: 8 * scale) {
             Text(HelperUtils.formattedDuration(isDraggingProgress ? tempProgressValue : playbackProgressState.currentTime))
                 .font(.system(size: 10 * scale, weight: .medium))
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundColor(neutral.opacity(0.8))
                 .monospacedDigit()
                 .frame(width: timeLabelWidth, alignment: .trailing)
 
@@ -44,7 +40,7 @@ struct NowPlayingProgressBar: View {
 
             Text(HelperUtils.formattedDuration(playbackManager.currentTrack?.duration ?? 0))
                 .font(.system(size: 10 * scale, weight: .medium))
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundColor(neutral.opacity(0.8))
                 .monospacedDigit()
                 .frame(width: timeLabelWidth, alignment: .leading)
         }
@@ -60,13 +56,13 @@ struct NowPlayingProgressBar: View {
 
                 // Progress track
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(fillColor)
+                    .fill(accent)
                     .frame(width: geometry.size.width * progressPercentage, height: 4 * scale)
                     .animation(isDraggingProgress ? .none : .easeInOut(duration: 0.2), value: progressPercentage)
 
                 // Drag handle
                 Circle()
-                    .fill(fillColor)
+                    .fill(accent)
                     .frame(width: 10 * scale, height: 10 * scale)
                     .opacity(isDraggingProgress || hoveredOverProgress ? 1.0 : 0.0)
                     .offset(x: (geometry.size.width * progressPercentage) - (5 * scale))

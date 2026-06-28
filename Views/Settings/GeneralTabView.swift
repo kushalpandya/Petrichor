@@ -16,49 +16,10 @@ struct GeneralTabView: View {
     @AppStorage("automaticUpdatesEnabled")
     private var automaticUpdatesEnabled = true
 
-    @AppStorage("colorMode")
-    private var colorMode: ColorMode = .auto
-
-    @AppStorage("showFoldersTab")
-    private var showFoldersTab = false
-
-    @AppStorage("useArtworkColors")
-    private var useArtworkColors = true
-
-    @AppStorage("miniPlayerAlwaysOnTop")
-    private var miniPlayerAlwaysOnTop = false
-
     @AppStorage(MediaBackend.userDefaultsKey)
     private var useModernPlaybackEngine = true
 
     @ObservedObject private var notificationManager = NotificationManager.shared
-
-    enum ColorMode: String, CaseIterable, TabbedItem {
-        case light = "Light"
-        case dark = "Dark"
-        case auto = "Auto"
-
-        var displayName: String {
-            switch self {
-            case .light: return String(localized: "Light")
-            case .dark: return String(localized: "Dark")
-            case .auto: return String(localized: "Auto")
-            }
-        }
-
-        var icon: String {
-            switch self {
-            case .light:
-                return "sun.max.fill"
-            case .dark:
-                return "moon.fill"
-            case .auto:
-                return "circle.lefthalf.filled"
-            }
-        }
-
-        var title: String { self.displayName }
-    }
 
     var body: some View {
         Form {
@@ -86,28 +47,6 @@ struct GeneralTabView: View {
                     }
             }
 
-            Section("Appearance") {
-                HStack {
-                    Text("Color mode")
-                    Spacer()
-                    TabbedButtons(
-                        items: ColorMode.allCases,
-                        selection: $colorMode,
-                        style: .flexible
-                    )
-                    .frame(width: 200)
-                }
-
-                Toggle("Show folders tab in main window", isOn: $showFoldersTab)
-                    .help("Shows Folders tab within the main window to browse music directly from added folders")
-
-                Toggle("Use album artwork colors in backgrounds", isOn: $useArtworkColors)
-                    .help("Applies a gradient background derived from album artwork colors across the app")
-
-                Toggle("Keep Mini Player on top of all other windows", isOn: $miniPlayerAlwaysOnTop)
-                    .help("Floats the Mini Player window above windows from other apps")
-            }
-
             Section("Media Backend") {
                 HStack(spacing: 6) {
                     Text("Use modern media engine")
@@ -130,12 +69,6 @@ struct GeneralTabView: View {
         .formStyle(.grouped)
         .scrollDisabled(true)
         .padding(5)
-        .onChange(of: colorMode) { _, newValue in
-            updateAppearance(newValue)
-        }
-        .onAppear {
-            updateAppearance(colorMode)
-        }
     }
 
     private var engineToggleHelp: String {
@@ -192,17 +125,6 @@ struct GeneralTabView: View {
             .background(Color.accentColor.opacity(0.15))
             .foregroundStyle(Color.accentColor)
             .clipShape(Capsule())
-    }
-
-    private func updateAppearance(_ mode: ColorMode) {
-        switch mode {
-        case .light:
-            NSApp.appearance = NSAppearance(named: .aqua)
-        case .dark:
-            NSApp.appearance = NSAppearance(named: .darkAqua)
-        case .auto:
-            NSApp.appearance = nil
-        }
     }
 }
 

@@ -1,29 +1,29 @@
 import SwiftUI
 
-struct OnlineTabView: View {
+struct IntegrationsTabView: View {
     @AppStorage("lastfmUsername")
     private var lastfmUsername: String = ""
-    
+
     @AppStorage("scrobblingEnabled")
     private var scrobblingEnabled: Bool = true
-    
+
     @AppStorage("loveSyncEnabled")
     private var loveSyncEnabled: Bool = true
-    
+
     @AppStorage("onlineLyricsEnabled")
     private var onlineLyricsEnabled: Bool = false
 
     @AppStorage("artistInfoFetchEnabled")
     private var artistInfoFetchEnabled: Bool = false
-    
+
     @State private var isAuthenticating = false
     @State private var showLoveSyncInfo = false
     @State private var showDisconnectConfirmation = false
-    
+
     private var isConnected: Bool {
         !lastfmUsername.isEmpty
     }
-    
+
     private var cachedLastFMAvatar: NSImage? {
         guard let data = UserDefaults.standard.data(forKey: "lastfmAvatarData"),
               let image = NSImage(data: data) else {
@@ -31,7 +31,7 @@ struct OnlineTabView: View {
         }
         return image
     }
-    
+
     var body: some View {
         Form {
             Section {
@@ -39,7 +39,7 @@ struct OnlineTabView: View {
             } header: {
                 Text("Last.fm")
             }
-            
+
             Section {
                 onlineFeaturesSection
             } header: {
@@ -58,9 +58,9 @@ struct OnlineTabView: View {
             Text("Your listening activity will no longer be scrobbled to Last.fm once you disconnect.")
         }
     }
-    
+
     // MARK: - Last.fm Section
-    
+
     @ViewBuilder private var lastfmSection: some View {
         if isConnected {
             connectedView
@@ -68,7 +68,7 @@ struct OnlineTabView: View {
             disconnectedView
         }
     }
-    
+
     private var connectedView: some View {
         Group {
             HStack {
@@ -85,7 +85,7 @@ struct OnlineTabView: View {
                             .foregroundColor(.secondary)
                     }
                 }
-                
+
                 VStack(alignment: .leading, spacing: 2) {
                     Text(lastfmUsername)
                         .font(.system(size: 13, weight: .medium))
@@ -93,9 +93,9 @@ struct OnlineTabView: View {
                         .font(.system(size: 11))
                         .foregroundColor(.green)
                 }
-                
+
                 Spacer()
-                
+
                 Button {
                     showDisconnectConfirmation = true
                 } label: {
@@ -110,14 +110,14 @@ struct OnlineTabView: View {
                 .cornerRadius(5)
             }
             .padding(.vertical, 4)
-            
+
             Toggle("Enable scrobbling", isOn: $scrobblingEnabled)
                 .help("Track your listening history on Last.fm")
-            
+
             Toggle(isOn: $loveSyncEnabled) {
                 HStack(spacing: 4) {
                     Text("Sync favorites as Loved tracks")
-                    
+
                     Button {
                         showLoveSyncInfo.toggle()
                     } label: {
@@ -136,7 +136,7 @@ struct OnlineTabView: View {
             }
         }
     }
-    
+
     private var disconnectedView: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
@@ -146,9 +146,9 @@ struct OnlineTabView: View {
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
             }
-            
+
             Spacer()
-            
+
             Button(action: startAuthentication) {
                 if isAuthenticating {
                     ProgressView()
@@ -164,7 +164,7 @@ struct OnlineTabView: View {
         }
         .padding(.vertical, 4)
     }
-    
+
     // MARK: - Online Features Section
 
     private var onlineFeaturesSection: some View {
@@ -181,43 +181,43 @@ struct OnlineTabView: View {
                 }
         }
     }
-    
+
     // MARK: - Actions
-    
+
     private func startAuthentication() {
         guard let scrobbleManager = AppCoordinator.shared?.scrobbleManager,
               let authURL = scrobbleManager.authenticationURL() else {
             return
         }
-        
+
         isAuthenticating = true
         NSWorkspace.shared.open(authURL)
         Logger.info("Opened Last.fm authorization page")
-        
+
         // Reset authenticating state after a delay
         // The actual authentication will complete via URL scheme callback
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             isAuthenticating = false
         }
     }
-    
+
     private func disconnect() {
         lastfmUsername = ""
         scrobblingEnabled = true
         loveSyncEnabled = true
-        
+
         // Clear cached avatar
         UserDefaults.standard.removeObject(forKey: "lastfmAvatarData")
-        
+
         // Clear session from Keychain
         KeychainManager.delete(key: KeychainManager.Keys.lastfmSessionKey)
-        
+
         Logger.info("Disconnected from Last.fm")
         NotificationManager.shared.addMessage(.info, String(localized: "Disconnected from Last.fm"))
     }
 }
 
 #Preview {
-    OnlineTabView()
+    IntegrationsTabView()
         .frame(width: 600, height: 400)
 }

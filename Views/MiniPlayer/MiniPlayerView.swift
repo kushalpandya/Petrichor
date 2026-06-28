@@ -31,6 +31,12 @@ struct MiniPlayerView: View {
     private var colorScheme
     @AppStorage("miniPlayerAlwaysOnTop")
     private var miniPlayerAlwaysOnTop = false
+    @AppStorage("useArtworkColors")
+    private var useArtworkColors = true
+    @AppStorage("tintPlaybackControls")
+    private var tintPlaybackControls = true
+    @AppStorage("tintNowPlayingBackground")
+    private var tintNowPlayingBackground = true
     // Persisted independently from the main window's queue/lyrics state so the
     // mini player remembers its own panel across relaunches.
     @AppStorage(miniPlayerPanelStateKey)
@@ -71,8 +77,58 @@ struct MiniPlayerView: View {
     /// progress bar, and the queue's current-track highlight. Falls back to the
     /// accent color when artwork colors are unavailable or disabled.
     /// `dominantColors` is cached per track, so this is cheap.
+    private var controlsUseArtworkTint: Bool {
+        useArtworkColors && tintPlaybackControls
+    }
+
+    private var backgroundUsesArtwork: Bool {
+        useArtworkColors && tintNowPlayingBackground
+    }
+
     private var artworkTint: Color {
-        NowPlayingArtwork.tint(for: playbackManager.currentTrack)
+        NowPlayingArtwork.tint(for: playbackManager.currentTrack, useArtworkTint: controlsUseArtworkTint)
+    }
+
+    /// Legible, mode-adjusted dominant color for the secondary controls, keyed off
+    /// the actual scrim luminance (not just the appearance) so it stays readable even
+    /// when an artwork-tinted scrim is darker/lighter than the mode would suggest.
+    private var controlColor: Color {
+        NowPlayingArtwork.controlColor(
+            for: playbackManager.currentTrack,
+            useArtworkTint: controlsUseArtworkTint,
+            isDarkBackground: overlayIsDark
+        )
+    }
+
+    /// Prev/next icon color: the artwork control color when tinting is on, otherwise
+    /// the adaptive overlay color so it stays readable over the scrim.
+    private var transportColor: Color {
+        controlsUseArtworkTint ? controlColor : overlayTextColor
+    }
+
+    /// Bottom color of the hover scrim: a mode-aware muted dominant when the Mini
+    /// Player / Immersive background tint is on, otherwise the plain window backdrop
+    /// (light in light mode, dark in dark mode) so the controls read exactly like the
+    /// main player bar. This is a background, so it follows the background tint toggle
+    /// rather than the controls toggle.
+    private var controlScrimColor: Color {
+        let fallback: Color = colorScheme == .dark ? .black : .white
+        guard backgroundUsesArtwork, let dominant = playbackManager.currentTrack?.dominantColors.first else {
+            return fallback
+        }
+        return ImageUtils.backgroundGradientColors(from: [dominant], isDark: colorScheme == .dark).first ?? fallback
+    }
+
+    /// Whether the scrim behind the hover overlay reads as dark, from its dominant
+    /// color's luminance. Mirrors the immersive overlay's adaptive-text logic so the
+    /// title/artist and control glyphs flip black/white to stay readable.
+    private var overlayIsDark: Bool {
+        NowPlayingArtwork.luminance(of: controlScrimColor) < 0.6
+    }
+
+    /// Black or white, whichever keeps the overlay text/glyphs legible over the scrim.
+    private var overlayTextColor: Color {
+        overlayIsDark ? .white : .black
     }
 
     var body: some View {
@@ -110,6 +166,9 @@ struct MiniPlayerView: View {
         .onChange(of: colorScheme) {
             updateGradientColors()
         }
+        .onChange(of: backgroundUsesArtwork) {
+            updateGradientColors()
+        }
     }
 
     // MARK: - Artwork + Overlays
@@ -138,6 +197,10 @@ struct MiniPlayerView: View {
         .contentShape(Rectangle())
         .onHover { hovering in
             isHovering = hovering
+        }
+        // Right-click anywhere on the artwork (but not the queue/lyrics drawer below).
+        .contextMenu {
+            Toggle("Keep always on top", isOn: $miniPlayerAlwaysOnTop)
         }
     }
 
@@ -219,24 +282,29 @@ struct MiniPlayerView: View {
             VStack(spacing: 10) {
                 VStack(spacing: 2) {
                     Text(playbackManager.currentTrack?.title ?? String(localized: "Not Playing"))
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.white)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(overlayTextColor)
                         .lineLimit(1)
                         .truncationMode(.tail)
                     Text(playbackManager.currentTrack?.displayArtist ?? "")
-                        .font(.system(size: 11))
-                        .foregroundColor(.white.opacity(0.75))
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(overlayTextColor.opacity(0.75))
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
                 .frame(maxWidth: .infinity)
-                // The overlay always sits on the dark scrim over artwork, so the
-                // text/controls are light regardless of light/dark appearance.
-                .shadow(color: .black.opacity(0.5), radius: 3, x: 0, y: 1)
+                // A shadow opposite the adaptive text color softly separates it from
+                // the artwork showing through the upper, more transparent scrim.
+                .shadow(color: (overlayIsDark ? Color.black : Color.white).opacity(0.5), radius: 3, x: 0, y: 1)
 
-                NowPlayingControlsView(tint: artworkTint)
+                NowPlayingControlsView(
+                    tint: artworkTint,
+                    accent: controlColor,
+                    transport: transportColor,
+                    neutral: overlayTextColor
+                )
 
-                NowPlayingProgressBar(tint: artworkTint)
+                NowPlayingProgressBar(accent: controlColor, neutral: overlayTextColor)
             }
             .padding(.horizontal, 16)
             .padding(.top, 120)
@@ -250,11 +318,12 @@ struct MiniPlayerView: View {
     /// scrim at the bottom, so the controls blend into the artwork rather than
     /// sitting on a hard opaque panel. The blur ramps in gradually over most of
     /// the height (no hard plateau) while staying strong enough behind the track
-    /// title / controls to keep them legible.
+    /// title / controls to keep them legible. The tint follows the appearance (and
+    /// the artwork when tinting is enabled) via `controlScrimColor`.
     private var controlScrim: some View {
         ZStack {
             LinearGradient(
-                colors: [.clear, .black.opacity(0.65)],
+                colors: [.clear, controlScrimColor.opacity(0.65)],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -383,14 +452,26 @@ struct MiniPlayerView: View {
     // MARK: - Helpers
 
     private func toggle(_ target: MiniPlayerPanel) {
-        panel = (panel == target) ? .none : target
-        applyWindowSizing(animated: true)
+        if panel == target {
+            collapsePanel()
+        } else {
+            panel = target
+            applyWindowSizing(animated: true)
+        }
     }
 
     private func collapsePanel() {
         guard panel != .none else { return }
-        panel = .none
-        applyWindowSizing(animated: true)
+        // Shrink the window while the (possibly tinted) panel is still rendered, so
+        // its background doesn't briefly flash to the window color, then drop the
+        // panel once the resize finishes. The small buffer guards against removing it
+        // a frame before the animation lands.
+        let collapsing = panel
+        let duration = applyWindowSizing(animated: true, expanded: false)
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.05) {
+            // Skip if a different panel was opened during the collapse animation.
+            if panel == collapsing { panel = .none }
+        }
     }
 
     private func refreshArtwork() {
@@ -419,7 +500,8 @@ struct MiniPlayerView: View {
     private func updateGradientColors() {
         gradientColors = NowPlayingArtwork.gradient(
             for: playbackManager.currentTrack,
-            isDark: colorScheme == .dark
+            isDark: colorScheme == .dark,
+            enabled: backgroundUsesArtwork
         )
     }
 
@@ -432,10 +514,11 @@ struct MiniPlayerView: View {
     /// is mutated async so this never runs during a SwiftUI layout pass.
     /// - Returns: the resize animation duration (0 when not animated).
     @discardableResult
-    private func applyWindowSizing(animated: Bool) -> TimeInterval {
+    private func applyWindowSizing(animated: Bool, expanded: Bool? = nil) -> TimeInterval {
         guard let window = miniWindow else { return 0 }
 
-        let ratioH = panel != .none ? (1 + panelRatio) : 1
+        let isExpanded = expanded ?? (panel != .none)
+        let ratioH = isExpanded ? (1 + panelRatio) : 1
         let width = min(max(window.contentLayoutRect.width, minSide), maxSide)
         let contentSize = NSSize(width: width, height: width * ratioH)
         let frameSize = window.frameRect(forContentRect: NSRect(origin: .zero, size: contentSize)).size

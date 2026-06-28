@@ -1,12 +1,25 @@
 import SwiftUI
 import Foundation
 
+/// How the artwork-derived gradient behind the main player bar is drawn. Only takes
+/// effect while "Tint interface with album artwork colors" is enabled.
+enum PlayerBarBackgroundStyle: String, CaseIterable {
+    case behindArtwork = "Behind album art"
+    case fullWidth = "Full width"
+
+    var displayName: String {
+        switch self {
+        case .behindArtwork: return String(localized: "Behind album art")
+        case .fullWidth: return String(localized: "Full width")
+        }
+    }
+}
+
 struct PlayerView: View {
     @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var playbackProgressState: PlaybackProgressState
     @EnvironmentObject var playlistManager: PlaylistManager
     @Binding var rightSidebarContent: RightSidebarContent
-    @Binding var isImmersiveActive: Bool
     
     @Environment(\.scenePhase)
     var scenePhase
@@ -15,6 +28,15 @@ struct PlayerView: View {
 
     @AppStorage("useArtworkColors")
     private var useArtworkColors = true
+
+    @AppStorage("showTrackTechnicalInfo")
+    private var showTrackTechnicalInfo = true
+
+    @AppStorage("tintPlaybackControls")
+    private var tintPlaybackControls = true
+
+    @AppStorage("playerBarBackgroundStyle")
+    private var playerBarBackgroundStyle: PlayerBarBackgroundStyle = .fullWidth
 
     @State private var gradientColors: [Color] = []
     @State private var isDraggingProgress = false
@@ -34,9 +56,9 @@ struct PlayerView: View {
                 GeometryReader { geometry in
                     RadialGradient(
                         colors: gradientColors + [.clear],
-                        center: .leading,
+                        center: playerBarBackgroundStyle == .fullWidth ? .center : .leading,
                         startRadius: 0,
-                        endRadius: geometry.size.width * 0.25
+                        endRadius: geometry.size.width * (playerBarBackgroundStyle == .fullWidth ? 1.0 : 0.25)
                     )
                     .overlay(.ultraThinMaterial)
                 }
@@ -136,7 +158,8 @@ struct PlayerView: View {
         PlayerTrackDetailsView(
             track: playbackManager.currentTrack,
             contextMenuItems: currentTrackContextMenuItems,
-            playlistManager: playlistManager
+            playlistManager: playlistManager,
+            showTechnicalInfo: showTrackTechnicalInfo
         )
         .equatable()
     }
@@ -159,7 +182,7 @@ struct PlayerView: View {
         }, label: {
             Image(systemName: Icons.shuffleFill)
                 .font(.system(size: 16, weight: .medium))
-                .foregroundColor(playlistManager.isShuffleEnabled ? Color.accentColor : Color.secondary)
+                .foregroundColor(playlistManager.isShuffleEnabled ? controlAccent : Color.secondary)
                 .frame(width: 32, height: 32)
         })
         .buttonStyle(ControlButtonStyle())
@@ -174,7 +197,7 @@ struct PlayerView: View {
         }, label: {
             Image(systemName: Icons.backwardFill)
                 .font(.system(size: 18, weight: .medium))
-                .foregroundColor(.primary)
+                .foregroundColor(controlsTinted ? controlAccent : .primary)
                 .frame(width: 32, height: 32)
         })
         .buttonStyle(ControlButtonStyle())
@@ -191,8 +214,8 @@ struct PlayerView: View {
                 .frame(width: 42, height: 42)
                 .background(
                     Circle()
-                        .fill(Color.accentColor)
-                        .shadow(color: Color.accentColor.opacity(0.3), radius: 6, x: 0, y: 3)
+                        .fill(controlTint)
+                        .shadow(color: controlTint.opacity(0.3), radius: 6, x: 0, y: 3)
                 )
         })
         .buttonStyle(PlainButtonStyle())
@@ -218,7 +241,7 @@ struct PlayerView: View {
         }, label: {
             Image(systemName: Icons.forwardFill)
                 .font(.system(size: 18, weight: .medium))
-                .foregroundColor(.primary)
+                .foregroundColor(controlsTinted ? controlAccent : .primary)
                 .frame(width: 32, height: 32)
         })
         .buttonStyle(ControlButtonStyle())
@@ -233,7 +256,7 @@ struct PlayerView: View {
         }, label: {
             Image(systemName: Icons.repeatIcon(for: playlistManager.repeatMode))
                 .font(.system(size: 16, weight: .medium))
-                .foregroundColor(playlistManager.repeatMode != .off ? Color.accentColor : Color.secondary)
+                .foregroundColor(playlistManager.repeatMode != .off ? controlAccent : Color.secondary)
                 .frame(width: 32, height: 32)
         })
         .buttonStyle(ControlButtonStyle())
@@ -280,7 +303,7 @@ struct PlayerView: View {
 
                     // Progress track
                     RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.accentColor)
+                        .fill(controlAccent)
                         .frame(
                             width: geometry.size.width * progressPercentage,
                             height: 4
@@ -289,7 +312,7 @@ struct PlayerView: View {
 
                     // Drag handle
                     Circle()
-                        .fill(Color.accentColor)
+                        .fill(controlAccent)
                         .frame(width: 12, height: 12)
                         .opacity(isDraggingProgress || hoveredOverProgress ? 1.0 : 0.0)
                         .offset(x: (geometry.size.width * progressPercentage) - 6)
@@ -358,6 +381,7 @@ struct PlayerView: View {
         }
         .frame(width: 100)
         .controlSize(.small)
+        .tint(controlAccent)
         .overlay(alignment: .leading) {
             if isDraggingVolume {
                 Text(playbackManager.volume.formatted(.percent.precision(.fractionLength(0))))
@@ -386,7 +410,7 @@ struct PlayerView: View {
                 .frame(width: 32, height: 32)
                 .background(
                     Circle()
-                        .fill(rightSidebarContent == .queue ? Color.accentColor : Color.secondary.opacity(0.1))
+                        .fill(rightSidebarContent == .queue ? controlTint : Color.secondary.opacity(0.1))
                 )
         })
         .buttonStyle(PlainButtonStyle())
@@ -396,9 +420,8 @@ struct PlayerView: View {
     
     private var immersiveButton: some View {
         Button(action: {
-            withAnimation(.easeInOut(duration: AnimationDuration.immersiveTransition)) {
-                isImmersiveActive = true
-            }
+            // Routed through ContentView to centralize the open animation + toolbar handling.
+            NotificationCenter.default.post(name: .toggleImmersivePlayer, object: nil)
         }, label: {
             Image(systemName: Icons.immersive)
                 .font(.system(size: 14))
@@ -445,7 +468,7 @@ struct PlayerView: View {
                 .frame(width: 32, height: 32)
                 .background(
                     Circle()
-                        .fill(rightSidebarContent == .lyrics ? Color.accentColor : Color.secondary.opacity(0.1))
+                        .fill(rightSidebarContent == .lyrics ? controlTint : Color.secondary.opacity(0.1))
                 )
         })
         .buttonStyle(PlainButtonStyle())
@@ -459,6 +482,24 @@ struct PlayerView: View {
     
     private var hasCurrentTrack: Bool {
         playbackManager.currentTrack != nil
+    }
+
+    private var controlsTinted: Bool {
+        useArtworkColors && tintPlaybackControls
+    }
+
+    /// Raw dominant color used to fill the play/pause button (shared with the mini
+    /// player and immersive mode via `NowPlayingArtwork`), or the accent color when
+    /// tinting is disabled.
+    private var controlTint: Color {
+        NowPlayingArtwork.tint(for: playbackManager.currentTrack, useArtworkTint: controlsTinted)
+    }
+
+    /// Legible, mode-adjusted dominant color for the secondary controls (shuffle/
+    /// repeat active, prev/next, progress, and volume), or the accent color when
+    /// tinting is disabled.
+    private var controlAccent: Color {
+        NowPlayingArtwork.controlColor(for: playbackManager.currentTrack, useArtworkTint: controlsTinted, isDarkBackground: colorScheme == .dark)
     }
 
     private var progressPercentage: Double {
@@ -572,18 +613,29 @@ struct PlayerTrackDetailsView: View, Equatable {
     let track: Track?
     let contextMenuItems: [ContextMenuItem]
     let playlistManager: PlaylistManager
+    let showTechnicalInfo: Bool
 
     static func == (lhs: PlayerTrackDetailsView, rhs: PlayerTrackDetailsView) -> Bool {
         lhs.track?.id == rhs.track?.id &&
-        lhs.track?.isFavorite == rhs.track?.isFavorite
+        lhs.track?.isFavorite == rhs.track?.isFavorite &&
+        lhs.showTechnicalInfo == rhs.showTechnicalInfo
     }
 
+    // When the format badges are hidden, the remaining three rows grow slightly
+    // and spread out so they stay vertically balanced against the album artwork.
+    private var titleFontSize: CGFloat { showTechnicalInfo ? 14 : 16 }
+    private var artistFontSize: CGFloat { showTechnicalInfo ? 12 : 14 }
+    private var albumFontSize: CGFloat { showTechnicalInfo ? 11 : 13 }
+    private var rowSpacing: CGFloat { showTechnicalInfo ? 4 : 10 }
+    private var titleRowHeight: CGFloat { showTechnicalInfo ? 16 : 20 }
+    private var textRowHeight: CGFloat { showTechnicalInfo ? 15 : 18 }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: rowSpacing) {
             // Title row with favorite button
             HStack(alignment: .center, spacing: 8) {
                 Text(track?.title ?? "")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: titleFontSize, weight: .medium))
                     .lineLimit(1)
                     .foregroundColor(.primary)
                     .truncationMode(.tail)
@@ -599,16 +651,16 @@ struct PlayerTrackDetailsView: View, Equatable {
                     ) { playlistManager.toggleFavorite(for: track) }
                 }
             }
-            .frame(height: 16)
+            .frame(height: titleRowHeight)
             .frame(maxWidth: .infinity, alignment: .leading)
 
             // Artist with marquee
             MarqueeText(
                 text: track?.displayArtist ?? "",
-                font: .system(size: 12),
+                font: .system(size: artistFontSize),
                 color: .secondary
             )
-            .frame(height: 15)
+            .frame(height: textRowHeight)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contextMenu {
                 TrackContextMenuContent(items: contextMenuItems)
@@ -617,16 +669,18 @@ struct PlayerTrackDetailsView: View, Equatable {
             // Album with marquee
             MarqueeText(
                 text: track?.displayAlbum ?? "",
-                font: .system(size: 11),
+                font: .system(size: albumFontSize),
                 color: .secondary
             )
-            .frame(height: 15)
+            .frame(height: textRowHeight)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contextMenu {
                 TrackContextMenuContent(items: contextMenuItems)
             }
-            
-            formatBadgeRow
+
+            if showTechnicalInfo {
+                formatBadgeRow
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -792,12 +846,10 @@ struct ControlButtonStyle: ButtonStyle {
 #Preview {
     struct PreviewWrapper: View {
         @State private var rightSidebarContent: RightSidebarContent = .none
-        @State private var isImmersiveActive = false
 
         var body: some View {
             PlayerView(
-                rightSidebarContent: $rightSidebarContent,
-                isImmersiveActive: $isImmersiveActive
+                rightSidebarContent: $rightSidebarContent
             )
                 .environmentObject({
                     let coordinator = AppCoordinator()
