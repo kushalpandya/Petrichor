@@ -519,13 +519,23 @@ struct HomeView: View {
         let tracks: [Track]
 
         switch item.itemType {
-        case .library:
+        case .library, .folder:
             tracks = libraryManager.getTracksForPinnedItem(item)
         case .playlist:
             tracks = playlistManager.getTracksForPinnedPlaylist(item)
         }
 
         pinnedItemTracks = tracks
+
+        // Folders are identified by path (filterType is nil); build a FolderEntity directly.
+        if item.itemType == .folder {
+            pinnedEntity = FolderEntity(
+                path: item.filterValue ?? "",
+                name: item.displayName,
+                trackCount: tracks.count
+            )
+            return
+        }
 
         // Build the entity for all library pinned types
         if let filterType = item.filterType, let filterValue = item.filterValue {

@@ -114,6 +114,7 @@ struct FoldersSidebarView: View {
 // MARK: - Folder Node Row
 
 private struct FolderNodeRow: View {
+    @EnvironmentObject var libraryManager: LibraryManager
     @ObservedObject var node: FolderNode
     @Binding var selectedNode: FolderNode?
     let level: Int
@@ -212,6 +213,9 @@ private struct FolderNodeRow: View {
             .onHover { hovering in
                 isHovered = hovering
             }
+            .contextMenu {
+                folderContextMenu
+            }
 
             // Child nodes (if expanded)
             if node.isExpanded {
@@ -225,6 +229,24 @@ private struct FolderNodeRow: View {
             }
         }
         .padding(.horizontal, level > 0 ? 0 : 4)
+    }
+
+    @ViewBuilder private var folderContextMenu: some View {
+        // Only folders with their own tracks can be pinned; a pinned folder can always unpin.
+        let isPinned = libraryManager.isFolderPinned(path: node.url.path)
+        if isPinned {
+            Button("Remove from Home") {
+                Task {
+                    await libraryManager.unpinFolder(path: node.url.path)
+                }
+            }
+        } else if node.displayTrackCount > 0 {
+            Button("Pin to Home") {
+                Task {
+                    await libraryManager.pinFolder(path: node.url.path, name: node.name)
+                }
+            }
+        }
     }
 
     private var backgroundColor: Color {

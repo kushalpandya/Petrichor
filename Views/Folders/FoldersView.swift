@@ -7,7 +7,6 @@ struct FoldersView: View {
     @Binding var selectedFolderNode: FolderNode?
     @State private var selectedTrackID: UUID?
     @State private var folderTracks: [Track] = []
-    @State private var isLoadingTracks = false
     @State private var trackTableSortOrder = [KeyPathComparator(\Track.title)]
 
     @AppStorage("trackTableRowSize")
@@ -52,9 +51,6 @@ struct FoldersView: View {
         Group {
             if selectedFolderNode == nil {
                 noFolderSelectedView
-            } else if isLoadingTracks {
-                ProgressView("Loading tracks...")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if folderTracks.isEmpty {
                 emptyFolderView
             } else {
@@ -89,6 +85,7 @@ struct FoldersView: View {
             selectedTrackID: $selectedTrackID,
             playlistID: nil,
             entityID: nil,
+            queueSource: .folder,
             sortOrder: $trackTableSortOrder,
             onPlayTrack: { track in
                 if selectedFolderNode != nil {
@@ -151,15 +148,9 @@ struct FoldersView: View {
     }
 
     private func loadTracksForFolderNode(_ node: FolderNode) {
-        isLoadingTracks = true
-
-        // Get immediate tracks for this folder node
-        let tracks = node.getImmediateTracks(using: libraryManager)
-
-        DispatchQueue.main.async {
-            self.folderTracks = tracks
-            self.isLoadingTracks = false
-        }
+        // Assign directly (not via an isLoading swap) so the track table stays mounted across
+        // folder switches and the active sort order is retained, matching the other track views.
+        folderTracks = node.getImmediateTracks(using: libraryManager)
     }
 }
 

@@ -51,6 +51,7 @@ struct EntityDetailView: View {
                     selectedTrackID: $selectedTrackID,
                     playlistID: nil,
                     entityID: entity.id,
+                    queueSource: queueSource,
                     sortOrder: $trackTableSortOrder,
                     onPlayTrack: { track in
                         playTrack(track)
@@ -256,6 +257,9 @@ struct EntityDetailView: View {
     }
     
     private var entityTypeLabel: String {
+        if entity is FolderEntity {
+            return String(localized: "Folder")
+        }
         if let category = entity as? CategoryEntity {
             return category.filterType.singularDisplayName
         }
@@ -417,6 +421,7 @@ struct EntityDetailView: View {
     private var emptyViewIcon: String {
         if entity is ArtistEntity { return "person.slash" }
         if entity is CategoryEntity { return "music.note.slash" }
+        if entity is FolderEntity { return Icons.folderFill }
         return "opticaldisc.slash"
     }
 
@@ -449,7 +454,9 @@ struct EntityDetailView: View {
     }
     
     private var isPinned: Bool {
-        if let category = entity as? CategoryEntity {
+        if let folder = entity as? FolderEntity {
+            return libraryManager.isFolderPinned(path: folder.path)
+        } else if let category = entity as? CategoryEntity {
             return libraryManager.isLibraryItemPinned(filterType: category.filterType, filterValue: category.name)
         } else if let artist = entity as? ArtistEntity {
             if let pinnedItem = pinnedItem {
@@ -464,9 +471,11 @@ struct EntityDetailView: View {
         }
         return false
     }
-    
-    // MARK: - Methods
+}
 
+// MARK: - Methods
+
+extension EntityDetailView {
     private func updateGradientColors() {
         guard useArtworkColors else {
             gradientColors = []
@@ -528,7 +537,13 @@ struct EntityDetailView: View {
     
     private func pinEntity() {
         Task {
-            if let category = entity as? CategoryEntity {
+            if let folder = entity as? FolderEntity {
+                if isPinned {
+                    await libraryManager.unpinFolder(path: folder.path)
+                } else {
+                    await libraryManager.pinFolder(path: folder.path, name: folder.name)
+                }
+            } else if let category = entity as? CategoryEntity {
                 if isPinned {
                     await libraryManager.unpinLibraryItem(filterType: category.filterType, filterValue: category.name)
                 } else {
@@ -554,6 +569,12 @@ struct EntityDetailView: View {
         }
     }
     
+    // Folders retain folder queue source; every other entity type plays as a library queue.
+    // Passed to TrackView so all of its playback paths (header, double-click, row button) agree.
+    private var queueSource: PlaylistManager.QueueSource {
+        entity is FolderEntity ? .folder : .library
+    }
+
     private func playTrack(_ track: Track) {
         playlistManager.playTrack(track, fromTracks: tracks)
         selectedTrackID = track.id
@@ -561,7 +582,7 @@ struct EntityDetailView: View {
 
     private func playEntity(shuffle: Bool = false) {
         guard !tracks.isEmpty else { return }
-        
+
         NotificationCenter.default.post(
             name: .playEntityTracks,
             object: entity,

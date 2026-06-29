@@ -145,10 +145,47 @@ extension LibraryManager {
         pinnedItems.contains { $0.matches(entity: entity) }
     }
     
+    /// Pin a folder by its absolute path (sub-folders aren't DB records, so identity is the path)
+    func pinFolder(path: String, name: String) async {
+        if path.isEmpty {
+            return
+        }
+
+        let pinnedItem = PinnedItem(folderPath: path, name: name)
+
+        do {
+            try await databaseManager.savePinnedItem(pinnedItem)
+            await loadPinnedItems()
+        } catch {
+            Logger.error("Failed to pin folder: \(error)")
+        }
+    }
+
+    /// Unpin a folder by its absolute path
+    func unpinFolder(path: String) async {
+        guard let pinnedItem = pinnedItems.first(where: {
+            $0.itemType == .folder && $0.filterValue == path
+        }) else {
+            return
+        }
+
+        do {
+            try await databaseManager.removePinnedItem(pinnedItem)
+            await loadPinnedItems()
+        } catch {
+            Logger.error("Failed to unpin folder: \(error)")
+        }
+    }
+
+    /// Check if a folder is pinned by its absolute path
+    func isFolderPinned(path: String) -> Bool {
+        pinnedItems.contains { $0.itemType == .folder && $0.filterValue == path }
+    }
+
     /// Get tracks for a pinned item
     func getTracksForPinnedItem(_ item: PinnedItem) -> [Track] {
-        // Only handle library items here
-        guard item.itemType == .library else { return [] }
+        // Library and folder items resolve through the database; playlists are handled elsewhere.
+        guard item.itemType == .library || item.itemType == .folder else { return [] }
 
         return databaseManager.getTracksForPinnedItem(item)
     }
@@ -183,6 +220,13 @@ extension LibraryManager {
             for (id, count) in playlistCounts {
                 counts[id] = count
             }
+        }
+
+        // Folder counts come from the database; cachedLibraryCategories only covers filter types.
+        let folderItems = items.filter { $0.itemType == .folder }
+        for item in folderItems {
+            guard let id = item.id, let path = item.filterValue else { continue }
+            counts[id] = databaseManager.getImmediateTrackCountForFolderPath(path)
         }
 
         return counts
