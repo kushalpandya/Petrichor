@@ -302,23 +302,48 @@ extension DatabaseManager {
                     }
                         
                 case .genres:
-                    tracks = try Track.lightweightRequest()
-                        .filter(Track.Columns.genre == value)
-                        .fetchAll(db)
+                    if value == filterType.unknownPlaceholder {
+                        // Mirror getGenreFilterItems: the Unknown bucket also covers
+                        // NULL/empty genres, which `== value` alone would miss.
+                        tracks = try Track.lightweightRequest()
+                            .filter(Track.Columns.genre == nil || Track.Columns.genre == "" || Track.Columns.genre == value)
+                            .fetchAll(db)
+                    } else {
+                        tracks = try Track.lightweightRequest()
+                            .filter(Track.Columns.genre == value)
+                            .fetchAll(db)
+                    }
                         
                 case .years:
-                    tracks = try Track.lightweightRequest()
-                        .filter(Track.Columns.year == value)
-                        .fetchAll(db)
+                    if value == filterType.unknownPlaceholder {
+                        // Mirror getYearFilterItems: the Unknown bucket also covers
+                        // NULL/empty years.
+                        tracks = try Track.lightweightRequest()
+                            .filter(Track.Columns.year == nil || Track.Columns.year == "" || Track.Columns.year == value)
+                            .fetchAll(db)
+                    } else {
+                        tracks = try Track.lightweightRequest()
+                            .filter(Track.Columns.year == value)
+                            .fetchAll(db)
+                    }
                         
                 case .decades:
-                    let decade = value.replacingOccurrences(of: "s", with: "")
-                    if let decadeInt = Int(decade) {
-                        let startYear = String(decadeInt)
-                        let endYear = String(decadeInt + 9)
+                    if value == filterType.unknownPlaceholder {
+                        // Mirror getDecadeFilterItems' Unknown Decade bucket: tracks with
+                        // null/empty/unknown year, which the numeric range can't match.
+                        let unknownYear = LibraryFilterType.years.unknownPlaceholder
                         tracks = try Track.lightweightRequest()
-                            .filter(Track.Columns.year >= startYear && Track.Columns.year <= endYear)
+                            .filter(Track.Columns.year == nil || Track.Columns.year == "" || Track.Columns.year == unknownYear)
                             .fetchAll(db)
+                    } else {
+                        let decade = value.replacingOccurrences(of: "s", with: "")
+                        if let decadeInt = Int(decade) {
+                            let startYear = String(decadeInt)
+                            let endYear = String(decadeInt + 9)
+                            tracks = try Track.lightweightRequest()
+                                .filter(Track.Columns.year >= startYear && Track.Columns.year <= endYear)
+                                .fetchAll(db)
+                        }
                     }
                 }
                 

@@ -80,10 +80,12 @@ extension DatabaseManager {
             )
         }
 
-        // Process album artists
-        if let albumArtist = track.albumArtist, !albumArtist.isEmpty {
+        // Process album artists; fall back to the track artist when there's no
+        // album-artist tag so the track still groups under an album artist (matches
+        // how most players treat a missing album-artist). See resolvedAlbumArtistField.
+        if let albumArtistField = resolvedAlbumArtistField(for: track) {
             try processArtistsForField(
-                albumArtist,
+                albumArtistField,
                 trackId: trackId,
                 role: TrackArtist.Role.albumArtist,
                 in: db,
@@ -92,7 +94,18 @@ extension DatabaseManager {
         }
     }
 
-    private func processArtistsForField(_ field: String, trackId: Int64, role: String, in db: Database, cache: ScanLookupCache? = nil) throws {
+    /// The album-artist field for a track: the album-artist tag when present, else the
+    /// track artist as a fallback (nil when neither is meaningful). Shared by ingestion
+    /// and the v12 backfill so both apply the same rule.
+    func resolvedAlbumArtistField(for track: FullTrack) -> String? {
+        if let albumArtist = track.albumArtist, !albumArtist.isEmpty {
+            return albumArtist
+        }
+        guard !track.artist.isEmpty, track.artist != "Unknown Artist" else { return nil }
+        return track.artist
+    }
+
+    func processArtistsForField(_ field: String, trackId: Int64, role: String, in db: Database, cache: ScanLookupCache? = nil) throws {
         let artistNames = ArtistParser.parse(field)
 
         for (index, artistName) in artistNames.enumerated() {
