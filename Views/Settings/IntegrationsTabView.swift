@@ -113,6 +113,11 @@ struct IntegrationsTabView: View {
 
             Toggle("Enable scrobbling", isOn: $scrobblingEnabled)
                 .help("Track your listening history on Last.fm")
+                .onChange(of: scrobblingEnabled) { _, enabled in
+                    if enabled {
+                        AppCoordinator.shared?.scrobbleManager.scrobblingEnabledDuringPlayback()
+                    }
+                }
 
             Toggle(isOn: $loveSyncEnabled) {
                 HStack(spacing: 4) {

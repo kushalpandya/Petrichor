@@ -107,6 +107,16 @@ class ScrobbleManager: ObservableObject {
         }
     }
     
+    /// Re-sends "Now Playing" when scrobbling is enabled mid-track; otherwise it'd
+    /// only update on the next track. trackStarted() self-guards, so it's a no-op
+    /// when not applicable.
+    func scrobblingEnabledDuringPlayback() {
+        guard let playbackManager = AppCoordinator.shared?.playbackManager,
+              playbackManager.isPlaying,
+              let track = playbackManager.currentTrack else { return }
+        trackStarted(track)
+    }
+
     /// Called when user favorites/unfavorites a track - syncs love status to Last.fm
     func trackLoveStatusChanged(_ track: Track, isLoved: Bool) {
         guard isConnected, isLoveSyncEnabled else { return }
