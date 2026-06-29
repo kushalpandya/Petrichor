@@ -388,7 +388,10 @@ extension DatabaseManager {
                         Artist.Columns.imageSource,
                         Artist.Columns.bio
                     )
+                    // INNER JOIN to require >=1 track; .distinct() collapses the
+                    // per-(artist, track) rows it emits (artist with N tracks -> N rows).
                     .joining(required: Artist.tracks)
+                    .distinct()
                     .filter(needsImage || needsBio)
                     .order(Artist.Columns.totalTracks.desc)
                     .asRequest(of: Row.self)

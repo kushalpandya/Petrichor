@@ -102,9 +102,29 @@ class ArtistBioManager {
             var lastUIUpdate = Date.distantPast
             let uiUpdateInterval: TimeInterval = 2
 
+            // Stop a doomed run (offline / APIs down) instead of timing out on every
+            // artist. The list is popular-first, so a long run yielding neither image
+            // nor bio means "offline", not "no data exists".
+            let maxConsecutiveFailures = 10
+            var consecutiveFailures = 0
+            var stoppedEarly = false
+
+            // Full (image+bio) misses deferred until we can tell "offline" from "no
+            // data": a success or finishing the whole list stamps them; any early exit
+            // (offline breaker or cancel) drops them so a later refresh retries them.
+            var deferredFullMisses: [Int64] = []
+            func flushDeferredFailures() {
+                for artistId in deferredFullMisses {
+                    databaseManager.markArtistImageFetchFailed(artistId: artistId)
+                    databaseManager.markArtistBioFetchFailed(artistId: artistId)
+                }
+                deferredFullMisses.removeAll()
+            }
+
             for artist in artists {
                 guard !Task.isCancelled, self.isArtistInfoFetchEnabled else {
                     Logger.info("Fetch stopped")
+                    stoppedEarly = true
                     break
                 }
 
@@ -112,6 +132,13 @@ class ArtistBioManager {
                 Logger.info("Fetching info for '\(artist.name)' (image: \(!artist.hasImage), bio: \(!artist.hasBio))")
                 let imageResult = artist.hasImage ? nil : await self.fetchArtistImage(name: artist.name)
                 let bio = artist.hasBio ? nil : await self.fetchArtistBio(name: artist.name)
+
+                // A cancel mid-fetch surfaces as nil results; bail before treating them
+                // as misses so we don't stamp an interrupted artist as failed.
+                if Task.isCancelled {
+                    stoppedEarly = true
+                    break
+                }
 
                 if let imageResult,
                    let compressed = ImageUtils.compressImage(from: imageResult.imageData, source: "ArtistBioManager/\(imageResult.source)") {
@@ -127,17 +154,37 @@ class ArtistBioManager {
                     pendingUpdates.append((name: artist.name, artworkData: compressed))
                 } else if let bio {
                     databaseManager.updateArtistInfo(artistId: artist.id, bio: bio, bioSource: "last.fm")
-                    if !artist.hasImage {
-                        databaseManager.markArtistImageFetchFailed(artistId: artist.id)
-                    }
-                } else if !artist.hasImage {
-                    databaseManager.markArtistImageFetchFailed(artistId: artist.id)
                 }
 
-                // Stamp bioUpdatedAt when a bio fetch was attempted but returned nil,
-                // so we don't re-query the same artist on every run.
-                if !artist.hasBio && bio == nil {
-                    databaseManager.markArtistBioFetchFailed(artistId: artist.id)
+                // A miss = an attempted fetch that got an empty remote response.
+                // (A downloaded image that fails local compression is not a miss; it
+                // stays unstamped so it retries rather than being skipped for 7 days.)
+                let imageMiss = !artist.hasImage && imageResult == nil
+                let bioMiss = !artist.hasBio && bio == nil
+
+                if imageResult != nil || bio != nil {
+                    // Got data, so we're online: flush deferred full misses (genuine),
+                    // stamp this artist's own miss, reset the breaker.
+                    flushDeferredFailures()
+                    if imageMiss { databaseManager.markArtistImageFetchFailed(artistId: artist.id) }
+                    if bioMiss { databaseManager.markArtistBioFetchFailed(artistId: artist.id) }
+                    consecutiveFailures = 0
+                } else if imageMiss && bioMiss {
+                    // Both attempted fields came back empty: an offline candidate.
+                    // Defer the stamps and count toward the breaker.
+                    deferredFullMisses.append(artist.id)
+                    consecutiveFailures += 1
+                    if consecutiveFailures >= maxConsecutiveFailures {
+                        Logger.warning("Stopping artist fetch after \(maxConsecutiveFailures) consecutive failures (likely offline)")
+                        stoppedEarly = true
+                        break
+                    }
+                } else {
+                    // Only one field was attempted and authoritatively returned nothing
+                    // (e.g. no Last.fm bio exists, or no Last.fm key): a genuine miss,
+                    // not evidence of offline. Stamp it; leave the breaker untouched.
+                    if imageMiss { databaseManager.markArtistImageFetchFailed(artistId: artist.id) }
+                    if bioMiss { databaseManager.markArtistBioFetchFailed(artistId: artist.id) }
                 }
 
                 // Flush pending UI updates every 2 seconds
@@ -147,6 +194,10 @@ class ArtistBioManager {
                     lastUIUpdate = Date()
                 }
             }
+
+            // Stamp trailing full misses only if we finished the whole list; any early
+            // exit (offline or cancel) leaves them for a later retry.
+            if !stoppedEarly { flushDeferredFailures() }
 
             // Flush remaining updates
             if !pendingUpdates.isEmpty {
@@ -214,9 +265,8 @@ class ArtistBioManager {
                 }
             }
             return images
-        } catch is CancellationError {
-            return []
         } catch {
+            if isCancellation(error) { return [] }
             Logger.error("MusicBrainz error for '\(name)': \(error.localizedDescription)")
             return []
         }
@@ -252,9 +302,8 @@ class ArtistBioManager {
                 }
             }
             return nil
-        } catch is CancellationError {
-            return nil
         } catch {
+            if isCancellation(error) { return nil }
             Logger.error("MusicBrainz lookup error for MBID '\(mbid)': \(error.localizedDescription)")
             return nil
         }
@@ -301,9 +350,8 @@ class ArtistBioManager {
                 return ImageResult(imageData: imageData, imageUrl: imageUrl, source: label)
             }
             return nil
-        } catch is CancellationError {
-            return nil
         } catch {
+            if isCancellation(error) { return nil }
             Logger.error("Wikidata error for '\(qid)': \(error.localizedDescription)")
             return nil
         }
@@ -367,9 +415,8 @@ class ArtistBioManager {
                 }
             }
             return images
-        } catch is CancellationError {
-            return []
         } catch {
+            if isCancellation(error) { return [] }
             Logger.error("TMDB error for '\(name)': \(error.localizedDescription)")
             return []
         }
@@ -409,15 +456,14 @@ class ArtistBioManager {
                 return nil
             }
 
-            // Last.fm appends a "Read more" link in HTML — strip it
+            // Last.fm appends a "Read more" link in HTML
             let cleaned = content
                 .replacingOccurrences(of: "<a href=\".*?\">.*?</a>", with: "", options: .regularExpression)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
 
             return cleaned.isEmpty ? nil : cleaned
-        } catch is CancellationError {
-            return nil
         } catch {
+            if isCancellation(error) { return nil }
             Logger.error("Last.fm bio error for '\(name)': \(error.localizedDescription)")
             return nil
         }
@@ -437,6 +483,14 @@ class ArtistBioManager {
     }
 
     // MARK: - Helpers
+
+    /// A cancelled URLSession request throws `URLError.cancelled`, not `CancellationError`,
+    /// so the fetch task being restarted/cancelled would otherwise log as an error.
+    private func isCancellation(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        if let urlError = error as? URLError, urlError.code == .cancelled { return true }
+        return false
+    }
 
     private func downloadImageData(from urlString: String) async -> Data? {
         guard let url = URL(string: urlString) else { return nil }
