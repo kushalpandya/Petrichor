@@ -55,18 +55,33 @@ extension DatabaseManager {
         totalFilesInFolder: Int? = nil,
         globalScanState: GlobalScanState? = nil
     ) async throws {
-        let chunkSize = max(100, ProcessInfo.processInfo.activeProcessorCount * 12)
-        
-        Logger.info("Processing batch of \(batch.count) files in chunks of \(chunkSize)")
-        
+        let chunkSize = 100  // DB-write batch + progress cadence
+        // Bound concurrent parses. Saturating every cooperative-pool thread (each
+        // briefly blocks on GRDB/artwork work) deadlocks macOS 14's runtime; 15+
+        // recovers, so only 14 needs headroom.
+        let cores = ProcessInfo.processInfo.activeProcessorCount
+        let maxConcurrent: Int
+        if #available(macOS 15, *) {
+            maxConcurrent = max(4, cores)
+        } else {
+            maxConcurrent = max(2, cores / 2)
+        }
+
+        Logger.info("Processing batch of \(batch.count) files in chunks of \(chunkSize), up to \(maxConcurrent) concurrent")
+
         let chunks = batch.chunked(into: chunkSize)
-        
+
         for chunk in chunks {
             let artworkCache = ArtworkCompressionCache()
             let lazyArtwork = artworkPaths.isEmpty ? nil : LazyArtworkLoader(artworkPaths: artworkPaths)
 
             let results = try await withThrowingTaskGroup(of: (URL, TrackProcessResult).self) { group in
-                for item in chunk {
+                var chunkResults: [(URL, TrackProcessResult)] = []
+                chunkResults.reserveCapacity(chunk.count)
+
+                var iterator = chunk.makeIterator()
+
+                func addTask(for item: (url: URL, folderId: Int64)) {
                     group.addTask { [weak self] in
                         guard let self = self else { return (item.url, .skipped) }
                         return await self.processFile(
@@ -80,10 +95,18 @@ extension DatabaseManager {
                         )
                     }
                 }
-                
-                var chunkResults: [(URL, TrackProcessResult)] = []
-                for try await result in group {
+
+                // Keep at most `maxConcurrent` parses in flight: prime, then refill
+                // on each completion.
+                for _ in 0..<maxConcurrent {
+                    guard let item = iterator.next() else { break }
+                    addTask(for: item)
+                }
+                while let result = try await group.next() {
                     chunkResults.append(result)
+                    if let item = iterator.next() {
+                        addTask(for: item)
+                    }
                 }
                 return chunkResults
             }

@@ -88,33 +88,60 @@ extension LibraryManager {
 
     func refreshFolder(_ folder: Folder, hardRefresh: Bool = false) {
         // First, ensure we have a valid bookmark
-        Task {
+        Task { [weak self] in
+            guard let self = self else { return }
+
             // Every successful start must be paired with a stop; track whether we took a ref.
             let startedAccess = folder.bookmarkData != nil
                 && folder.url.startAccessingSecurityScopedResource()
             if !startedAccess {
-                await refreshBookmarkForFolder(folder)
+                await self.refreshBookmarkForFolder(folder)
             }
 
-            // Then proceed with scanning
-            await MainActor.run { [weak self] in
-                guard let self = self else {
-                    if startedAccess { folder.url.stopAccessingSecurityScopedResource() }
-                    return
-                }
+            // Show the indicator before counting: enumerating a large folder can take
+            // a moment, and refreshLibrary() starts activity before counting too.
+            await MainActor.run {
+                NotificationManager.shared.startActivity(String(localized: "Refreshing \(folder.name)..."))
+            }
 
-                // Delegate to database manager for refresh
-                self.databaseManager.refreshFolder(folder, hardRefresh: hardRefresh) { result in
-                    if startedAccess { folder.url.stopAccessingSecurityScopedResource() }
-                    switch result {
-                    case .success:
-                        Logger.info("Successfully refreshed folder \(folder.name)")
-                        // Reload the library to reflect changes
-                        self.refreshLibraryCategories()
-                        self.loadMusicLibrary()
-                    case .failure(let error):
-                        Logger.error("Failed to refresh folder \(folder.name): \(error)")
-                    }
+            // Pre-count files so the progress bar can advance (needs a
+            // GlobalScanState); skip on slow filesystems, like refreshLibrary().
+            let isSlowFS = FilesystemUtils.isSlowFilesystem(url: folder.url)
+            let totalFiles = isSlowFS
+                ? 0
+                : await self.databaseManager.countFilesInFolder(
+                    folder,
+                    supportedExtensions: AudioFormat.supportedExtensions
+                )
+            let globalScanState = GlobalScanState(totalFiles: totalFiles)
+
+            // startActivity() above cleared progress; set the initial total now that
+            // we know it (the first update always passes the throttle after a start).
+            await MainActor.run {
+                NotificationManager.shared.updateActivityProgress(
+                    current: 0,
+                    total: totalFiles,
+                    detail: totalFiles > 0 ? String(localized: "0 of \(totalFiles) files") : String(localized: "Preparing files...")
+                )
+            }
+
+            // completion runs on the main actor (see DMFolders.refreshFolder)
+            self.databaseManager.refreshFolder(
+                folder,
+                hardRefresh: hardRefresh,
+                manageActivityIndicator: false,
+                globalScanState: globalScanState
+            ) { result in
+                if startedAccess { folder.url.stopAccessingSecurityScopedResource() }
+                NotificationManager.shared.stopActivity()
+                switch result {
+                case .success:
+                    Logger.info("Successfully refreshed folder \(folder.name)")
+                    // Reload the library to reflect changes
+                    self.refreshLibraryCategories()
+                    self.loadMusicLibrary()
+                case .failure(let error):
+                    Logger.error("Failed to refresh folder \(folder.name): \(error)")
                 }
             }
         }
