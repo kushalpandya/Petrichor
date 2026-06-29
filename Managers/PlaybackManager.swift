@@ -70,6 +70,9 @@ class PlaybackManager: NSObject, ObservableObject {
 
     /// Identity of the track currently loaded in the engine.
     private var currentEntryId: AudioEntryId?
+    /// Maps engine entry id -> the track it plays, so a finish can credit the track
+    /// that actually ended even after a gapless advance promoted the next one.
+    private var trackForEntry: [String: Track] = [:]
     /// The pre-decoded next track (the "+1") primed into a gapless engine, or nil.
     private var pendingNext: PendingNext?
     /// Set when the primed next track was rejected by the engine. On EOF, fall back
@@ -425,6 +428,8 @@ class PlaybackManager: NSObject, ObservableObject {
         // any previously primed gapless next is gone.
         let entryId = AudioEntryId(id: UUID().uuidString)
         currentEntryId = entryId
+        // Fresh play replaces the engine queue, so prior entries are gone.
+        trackForEntry = [entryId.id: lightweightTrack]
         pendingNext = nil
         pendingNextWasSkipped = false
 
@@ -525,6 +530,8 @@ class PlaybackManager: NSObject, ObservableObject {
         currentTrack = pending.track
         currentFullTrack = pending.fullTrack
         currentEntryId = pending.entryId
+        // Keep the outgoing entry so its (possibly late) finish can still credit it.
+        trackForEntry[pending.entryId.id] = pending.track
         playlistManager.advanceQueueIndex(to: pending.index)
         currentTime = 0
         isPlaying = true
@@ -561,7 +568,9 @@ class PlaybackManager: NSObject, ObservableObject {
         timer.schedule(deadline: .now(), repeating: interval, leeway: .milliseconds(50))
 
         timer.setEventHandler { [weak self] in
-            guard let self = self, self.isPlaying else { return }
+            // Gate on the engine's live state, not the cached isPlaying flag, which
+            // can be briefly stale and freeze the bar at 0.
+            guard let self = self, self.audioPlayer.state == .playing else { return }
             self.currentTime = self.audioPlayer.currentPlaybackProgress
             // Refresh the system Now Playing tile at ~1s regardless of sampling
             // rate - it extrapolates elapsed between updates from the rate anchor,
@@ -736,31 +745,36 @@ extension PlaybackManager: AudioPlayerDelegate {
         duration: Double
     ) {
         DispatchQueue.main.async {
-            guard let currentTrack = self.currentTrack else {
+            // Credit the track that actually finished, resolved by entry id: on a
+            // gapless advance currentTrack may already be the next track.
+            let finishedTrack = self.trackForEntry.removeValue(forKey: entryId.id)
+
+            guard self.currentTrack != nil else {
                 Logger.info("Ignoring finish - no current track")
                 return
             }
-            
+
             Logger.info("Track finished (reason: \(stopReason))")
-            
-            if stopReason == .eof {
-                // Fires before the next track's didStartPlaying on a gapless
-                // advance, so currentTrack is still the finished (outgoing) track.
-                self.playlistManager.incrementPlayCount(for: currentTrack)
-                self.scrobbleManager?.trackFinished(currentTrack)
+
+            if stopReason == .eof, let finishedTrack {
+                self.playlistManager.incrementPlayCount(for: finishedTrack)
+                self.scrobbleManager?.trackFinished(finishedTrack)
 
                 Logger.info("Track completed naturally, updating play count, last played date, and scrobbling it if configured")
             }
+
+            // Only tear down current playback when the finished entry is still
+            // current; a stale finish that raced ahead of a gapless advance must not
+            // flip isPlaying false under the now-playing track (which freezes its bar).
+            let finishedEntryIsCurrent = entryId == self.currentEntryId
 
             switch stopReason {
             case .eof:
                 self.restoredPosition = 0
                 if self.audioPlayer.supportsGaplessQueue {
-                    // The engine self-advances gaplessly; the primed next track's
-                    // didStartPlaying promotes it. Only handle a true end of queue
-                    // here (nothing was primed). Don't reset currentTime - the
-                    // incoming track owns it now.
-                    if self.pendingNext == nil {
+                    // True end of queue only: nothing primed and this finish is for
+                    // the current entry (not a stale one that raced the advance).
+                    if self.pendingNext == nil && finishedEntryIsCurrent {
                         self.currentTime = 0
                         if self.pendingNextWasSkipped {
                             self.pendingNextWasSkipped = false
