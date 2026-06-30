@@ -20,7 +20,7 @@ import AppKit
 final class MiniPlayerWindowManager: NSObject {
     static let shared = MiniPlayerWindowManager()
 
-    private static let frameAutosaveName = "PetrichorMiniPlayerWindow"
+    private static let frameKey = "PetrichorMiniPlayerWindow"
 
     private var window: NSWindow?
 
@@ -69,21 +69,45 @@ final class MiniPlayerWindowManager: NSObject {
         window.collectionBehavior = [.fullScreenAuxiliary]
         window.delegate = self
 
-        // Persist size + position (including which display) across relaunches,
-        // like the main window. Restores the saved frame if present, else centers.
-        if !window.setFrameUsingName(Self.frameAutosaveName) {
-            window.center()
-        }
-        window.setFrameAutosaveName(Self.frameAutosaveName)
+        // We persist the frame ourselves: NSWindow's autosave remaps onto the main
+        // display in multi-monitor setups.
+        restoreFrame(into: window)
 
         self.window = window
 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
+
+    /// Restores the saved global frame (origin encodes the display) when it's still
+    /// on a connected screen; otherwise centers.
+    private func restoreFrame(into window: NSWindow) {
+        guard let saved = UserDefaults.standard.string(forKey: Self.frameKey) else {
+            window.center()
+            return
+        }
+        let frame = NSRectFromString(saved)
+        guard frame.width > 0, frame.height > 0,
+              NSScreen.screens.contains(where: { $0.frame.intersects(frame) }) else {
+            window.center()
+            return
+        }
+        window.setFrame(frame, display: false)
+    }
+
+    /// Persists the current global frame (origin includes the display).
+    private func saveFrame() {
+        guard let window else { return }
+        UserDefaults.standard.set(NSStringFromRect(window.frame), forKey: Self.frameKey)
+    }
 }
 
 extension MiniPlayerWindowManager: NSWindowDelegate {
+    // MiniPlayerView's drag/resize fire these. saveFrame no-ops until self.window is
+    // set, so the initial restore doesn't overwrite the stored frame.
+    func windowDidMove(_ notification: Notification) { saveFrame() }
+    func windowDidResize(_ notification: Notification) { saveFrame() }
+
     func windowWillClose(_ notification: Notification) {
         // Intentionally does NOT save playback state here. During app
         // termination this fires after `applicationWillTerminate` has already
