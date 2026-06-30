@@ -24,7 +24,7 @@ struct TrackDetailView: View {
                     startPoint: .top,
                     endPoint: .bottom
                 )
-                .overlay(.ultraThinMaterial)
+                .overlay(FocusStableMaterial())
                 .animation(
                     .easeInOut(duration: AnimationDuration.standardDuration),
                     value: gradientColors

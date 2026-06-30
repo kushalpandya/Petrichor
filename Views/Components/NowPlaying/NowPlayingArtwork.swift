@@ -38,8 +38,10 @@ enum NowPlayingArtwork {
         srgb.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
 
         if isDarkBackground {
-            // Brighten and slightly tame saturation so it pops without glowing.
-            return Color(hue: Double(hue), saturation: Double(min(saturation, 0.9)), brightness: Double(max(brightness, 0.8)))
+            // Push saturation up and ease the brightness floor down so the color
+            // reads rich rather than pale, while staying bright enough for dark
+            // surfaces. The multiplicative saturation bump leaves grays gray.
+            return Color(hue: Double(hue), saturation: Double(min(1, saturation * 1.25)), brightness: Double(max(brightness, 0.74)))
         } else {
             // Deepen so it contrasts against light surfaces; the multiplicative
             // saturation bump keeps color identity while leaving grays gray.

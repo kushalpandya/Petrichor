@@ -54,6 +54,23 @@ extension View {
     }
 }
 
+// MARK: - Active Control Indicator
+
+extension View {
+    /// Overlays a small dot beneath a transport-control glyph to mark an active
+    /// toggle (shuffle/repeat on). An overlay adds no layout space, so the glyph
+    /// stays aligned with its neighbors whether or not the dot shows.
+    func activeControlIndicator(isActive: Bool, color: Color, scale: CGFloat = 1) -> some View {
+        overlay(alignment: .bottom) {
+            Circle()
+                .fill(color)
+                .frame(width: 3.5 * scale, height: 3.5 * scale)
+                .offset(y: -3 * scale)
+                .opacity(isActive ? 1 : 0)
+        }
+    }
+}
+
 // MARK: - Lossless Label
 
 /// A glyph + "Lossless" label, shared between the track-detail view and the
@@ -103,7 +120,7 @@ struct GradientBackground: View {
                     colors[2], colors[0], colors[3]
                 ]
             )
-            .overlay(.ultraThinMaterial)
+            .overlay(FocusStableMaterial())
         } else {
             GeometryReader { geometry in
                 RadialGradient(
@@ -112,7 +129,7 @@ struct GradientBackground: View {
                     startRadius: 0,
                     endRadius: geometry.size.width
                 )
-                .overlay(.ultraThinMaterial)
+                .overlay(FocusStableMaterial())
             }
         }
     }
