@@ -9,7 +9,10 @@ import Foundation
 import GRDB
 
 extension DatabaseManager {
-    func runPendingBackgroundMigrations() async {
+    /// Returns true if at least one migration actually performed data work, so the
+    /// caller can refresh category/sidebar caches that the migration may have changed.
+    @discardableResult
+    func runPendingBackgroundMigrations() async -> Bool {
         let pending: [(identifier: String, progress: String?)]
         do {
             pending = try await dbQueue.read { db -> [(String, String?)] in
@@ -25,9 +28,9 @@ extension DatabaseManager {
             }
         } catch {
             Logger.error("Failed to read pending background migrations: \(error)")
-            return
+            return false
         }
-        if pending.isEmpty { return }
+        if pending.isEmpty { return false }
 
         // Skip migrations on a fresh/empty database — nothing to migrate
         let trackCount = (try? await dbQueue.read { db in try Track.fetchCount(db) }) ?? 0
@@ -36,7 +39,7 @@ extension DatabaseManager {
                 completeBackgroundMigration(identifier)
             }
             Logger.info("Skipped \(pending.count) background migrations on empty database")
-            return
+            return false
         }
 
         for (identifier, progress) in pending {
@@ -45,10 +48,13 @@ extension DatabaseManager {
                 await convertArtworkToHEIC(progress: progress)
             case Self.knownArtistsMigrationIdentifier:
                 await loadKnownArtistsAndRebuild(progress: progress)
+            case Self.albumArtistBackfillIdentifier:
+                await backfillAlbumArtists(progress: progress)
             default:
                 Logger.warning("Unknown background migration: \(identifier)")
             }
         }
+        return true
     }
 
     // MARK: - v8: Convert Artwork to HEIC
@@ -471,6 +477,89 @@ extension DatabaseManager {
         } catch {
             return true
         }
+    }
+
+    // MARK: - v12: Backfill album-artist associations
+
+    private static let albumArtistBackfillIdentifier = "v12_background_backfill_album_artists"
+
+    private struct AlbumArtistBackfillProgress: Codable {
+        let offset: Int
+    }
+
+    private func backfillAlbumArtists(progress: String?) async {
+        NotificationManager.shared.startActivity(String(localized: "Updating album artists..."))
+
+        var resumeOffset = 0
+        if let progress = progress,
+           let data = progress.data(using: .utf8),
+           let state = try? JSONDecoder().decode(AlbumArtistBackfillProgress.self, from: data) {
+            resumeOffset = state.offset
+            Logger.info("Resuming album-artist backfill at offset \(resumeOffset)")
+        }
+
+        do {
+            try await performAlbumArtistBackfill(resumeOffset: resumeOffset)
+            completeBackgroundMigration(Self.albumArtistBackfillIdentifier)
+            NotificationManager.shared.stopActivity()
+            Logger.info("Album-artist backfill completed")
+        } catch {
+            // Leave the migration unfinished (completed_at stays NULL) so it resumes
+            // from the saved offset on next launch. Never rethrow - don't crash launch.
+            NotificationManager.shared.stopActivity()
+            Logger.error("Album-artist backfill failed (will resume next launch): \(error)")
+        }
+    }
+
+    /// Backfills a `role='album_artist'` junction row (falling back to the track
+    /// artist) for tracks that have none. Resumable (saved offset) and idempotent
+    /// (per-track existence check); append-only, never clearing existing rows.
+    private func performAlbumArtistBackfill(resumeOffset: Int) async throws {
+        let totalTracks = try await dbQueue.read { db in try Track.fetchCount(db) }
+        guard totalTracks > 0 else { return }
+
+        Logger.info("Backfilling album artists across \(totalTracks) tracks")
+
+        try await Task.detached(priority: .utility) { [dbQueue, weak self] in
+            guard let self = self else { return }
+
+            let batchSize = 500
+            var offset = resumeOffset
+
+            while offset < totalTracks {
+                let tracks = try dbQueue.read { db in
+                    try FullTrack
+                        .order(FullTrack.Columns.trackId)
+                        .limit(batchSize, offset: offset)
+                        .fetchAll(db)
+                }
+                if tracks.isEmpty { break }
+
+                try dbQueue.write { db in
+                    for track in tracks {
+                        guard let trackId = track.trackId else { continue }
+
+                        // Skip tracks that already have an album-artist relationship
+                        // (a real tag, or a prior backfill run). Makes resume safe.
+                        let alreadyLinked = try TrackArtist
+                            .filter(TrackArtist.Columns.trackId == trackId)
+                            .filter(TrackArtist.Columns.role == TrackArtist.Role.albumArtist)
+                            .fetchCount(db) > 0
+                        if alreadyLinked { continue }
+
+                        guard let field = self.resolvedAlbumArtistField(for: track) else { continue }
+                        try self.processArtistsForField(field, trackId: trackId, role: TrackArtist.Role.albumArtist, in: db)
+                    }
+                }
+
+                offset += tracks.count
+                NotificationManager.shared.updateActivityProgress(current: offset, total: totalTracks)
+                if let data = try? JSONEncoder().encode(AlbumArtistBackfillProgress(offset: offset)),
+                   let json = String(data: data, encoding: .utf8) {
+                    self.updateMigrationProgress(Self.albumArtistBackfillIdentifier, progress: json)
+                }
+            }
+        }.value
     }
 
     // MARK: - Helpers
