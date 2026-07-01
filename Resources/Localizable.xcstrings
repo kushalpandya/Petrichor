@@ -7112,7 +7112,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "播放 5 次或以上的歌曲将显示在此处"
+            "value" : "播放 5 次或以上的歌曲将在此显示"
           }
         }
       }
@@ -7123,7 +7123,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "过去一周播放的歌曲将显示在此处"
+            "value" : "过去一周播放的歌曲将在此显示"
           }
         }
       }
