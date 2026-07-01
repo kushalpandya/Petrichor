@@ -1346,7 +1346,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "确定要删除“%@”吗？此操作无法撤销"
+            "value" : "确定要删除 “%@” 吗？此操作无法撤销"
           }
         }
       }
@@ -1370,7 +1370,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "确定要停止监控“%@”吗？这将从你的资料库中移除该文件夹内的所有歌曲"
+            "value" : "确定要停止监控 “%@” 吗？这将从你的资料库中移除该文件夹内的所有歌曲"
           }
         }
       }
@@ -1581,7 +1581,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "无法播放“%@”：文件未找到"
+            "value" : "无法播放 “%@”：文件未找到"
           }
         }
       }
@@ -2347,7 +2347,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "拖拽以重新排序。当播放列表按“自定义”排序时，将采用此顺序"
+            "value" : "拖拽以重新排序。当播放列表按 “自定义” 排序时，将采用此顺序"
           }
         }
       }
@@ -3169,7 +3169,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "文件夹“%1$@”现已为空，已移除 %2$lld 首歌曲"
+            "value" : "文件夹 “%1$@” 现已为空，已移除 %2$lld 首歌曲"
           }
         }
       }
@@ -3181,7 +3181,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已刷新文件夹“%@”的变更"
+            "value" : "已刷新文件夹 “%@” 的变更"
           }
         }
       }
