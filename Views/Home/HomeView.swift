@@ -151,7 +151,7 @@ struct HomeView: View {
                 })
                 .buttonStyle(.borderless)
                 .hoverEffect(scale: 1.1)
-                .help("Refresh Discover tracks")
+                .help(String(localized: "Refresh Discover tracks"))
             }
             
             Divider()

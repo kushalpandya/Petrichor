@@ -73,7 +73,7 @@ struct AboutTabView: View {
 
     private var libraryStatisticsSection: some View {
         VStack(spacing: 12) {
-            Text("Library Statistics")
+            Text(String(localized: "Library Statistics"))
                 .font(.headline)
 
             statisticsRow
@@ -84,27 +84,27 @@ struct AboutTabView: View {
         HStack(spacing: 30) {
             statisticItem(
                 value: "\(libraryManager.folders.count)",
-                label: "Folders"
+                label: String(localized: "Folders")
             )
 
             statisticItem(
                 value: "\(libraryManager.totalTrackCount)",
-                label: "Tracks"
+                label: String(localized: "Tracks")
             )
 
             statisticItem(
                 value: "\(libraryManager.artistCount)",
-                label: "Artists"
+                label: String(localized: "Artists")
             )
 
             statisticItem(
                 value: "\(libraryManager.albumCount)",
-                label: "Albums"
+                label: String(localized: "Albums")
             )
 
             statisticItem(
                 value: formatTotalDuration(),
-                label: "Duration"
+                label: String(localized: "Duration")
             )
         }
         .padding()
@@ -260,12 +260,12 @@ struct AboutTabView: View {
         let remainingHours = totalHours % 24
 
         if days > 0 {
-            return "\(days)d \(remainingHours)h"
+            return String(localized: "\(days)d \(remainingHours)h")
         } else if totalHours > 0 {
-            return "\(totalHours)h"
+            return String(localized: "\(totalHours)h")
         } else {
             let minutes = totalSeconds / 60
-            return "\(minutes)m"
+            return String(localized: "\(minutes)m")
         }
     }
 }

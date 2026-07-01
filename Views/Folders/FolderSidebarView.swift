@@ -52,7 +52,7 @@ struct FoldersSidebarView: View {
 
     private var sidebarHeader: some View {
         ListHeader(opaque: true) {
-            Text("Folders")
+            Text(String(localized: "Folders"))
                 .headerTitleStyle()
 
             Spacer()
@@ -63,7 +63,7 @@ struct FoldersSidebarView: View {
 
     private var loadingView: some View {
         VStack {
-            ProgressView("Loading library folders...")
+            ProgressView(String(localized: "Loading library folders..."))
                 .font(.caption)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -76,7 +76,7 @@ struct FoldersSidebarView: View {
                 .font(.system(size: 32))
                 .foregroundColor(.gray)
 
-            Text("No Folders")
+            Text(String(localized: "No Folders"))
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
@@ -235,13 +235,13 @@ private struct FolderNodeRow: View {
         // Only folders with their own tracks can be pinned; a pinned folder can always unpin.
         let isPinned = libraryManager.isFolderPinned(path: node.url.path)
         if isPinned {
-            Button("Remove from Home") {
+            Button(String(localized: "Remove from Home")) {
                 Task {
                     await libraryManager.unpinFolder(path: node.url.path)
                 }
             }
         } else if node.displayTrackCount > 0 {
-            Button("Pin to Home") {
+            Button(String(localized: "Pin to Home")) {
                 Task {
                     await libraryManager.pinFolder(path: node.url.path, name: node.name)
                 }

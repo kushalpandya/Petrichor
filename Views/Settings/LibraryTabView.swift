@@ -160,8 +160,8 @@ struct LibraryTabView: View {
 
     private var refreshRow: some View {
         HStack {
-            Text("Refresh added library folders for updates")
-            infoButton(isPresented: $showRefreshInfo, text: "Hold the ⌘ key while clicking Refresh for a forced deep re-scan of all metadata.")
+            Text(String(localized: "Refresh added library folders for updates"))
+            infoButton(isPresented: $showRefreshInfo, text: String(localized: "Hold the ⌘ key while clicking Refresh for a forced deep re-scan of all metadata."))
 
             Spacer()
 
@@ -252,10 +252,10 @@ struct LibraryTabView: View {
 
     private var optimizeRow: some View {
         HStack {
-            Text("Optimize library database")
+            Text(String(localized: "Optimize library database"))
             infoButton(
                 isPresented: $showOptimizeInfo,
-                text: "Removes references to library data that no longer exists on disk and compacts the database to reclaim space."
+                text: String(localized: "Removes references to library data that no longer exists on disk and compacts the database to reclaim space.")
             )
 
             Spacer()
@@ -269,13 +269,13 @@ struct LibraryTabView: View {
 
     private var resetRow: some View {
         HStack {
-            Text("Reset all library data")
+            Text(String(localized: "Reset all library data"))
             infoButton(
                 isPresented: $showResetInfo,
-                text: """
-                    Removes all folders, tracks, playlists, and pinned items. \
-                    Use the checkbox in the confirmation dialog to optionally reset app preferences.
-                    """
+                text: String(localized: """
+                                    Removes all folders, tracks, playlists, and pinned items. \
+                                    Use the checkbox in the confirmation dialog to optionally reset app preferences.
+                                    """)
             )
 
             Spacer()
