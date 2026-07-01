@@ -198,7 +198,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已跳过“%2$@”中的 %1$lld 个文件——不支持的格式：%3$@"
+            "value" : "已跳过 “%2$@” 中的 %1$lld 个文件 —— 不支持的格式：%3$@"
           }
         }
       }
@@ -613,14 +613,34 @@
             "state" : "new",
             "value" : "%1$lldd %2$lldh"
           }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld天 %2$lld小时"
+          }
         }
       }
     },
     "%lldh" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld小时"
+          }
+        }
+      }
     },
     "%lldm" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld分钟"
+          }
+        }
+      }
     },
     "•" : {
       "comment" : "A dot separator.",
@@ -3173,7 +3193,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "文件夹“%@”不存在，现已移除"
+            "value" : "文件夹 “%@” 不存在，现已移除"
           }
         }
       }
@@ -3209,7 +3229,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已刷新文件夹“%@”的变更"
+            "value" : "已刷新文件夹 “%@” 的变更"
           }
         }
       }
@@ -4178,7 +4198,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "将 %1$lld 项合并到“%2$@”中？"
+            "value" : "将 %1$lld 项合并到 “%2$@” 中？"
           }
         }
       }
@@ -4238,7 +4258,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已将 %1$lld 项合并到“%2$@”中"
+            "value" : "已将 %1$lld 项合并到 “%2$@” 中"
           }
         }
       }
@@ -4723,7 +4743,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "未找到关于“%@”的歌曲"
+            "value" : "未找到关于 “%@” 的歌曲"
           }
         }
       }
@@ -4735,7 +4755,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "未找到与“%@”匹配的歌曲"
+            "value" : "未找到与 “%@” 匹配的歌曲"
           }
         }
       }
@@ -6101,7 +6121,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已从“%2$@”中移除 %1$lld 首缺失曲目"
+            "value" : "已从 “%2$@” 中移除 %1$lld 首缺失曲目"
           }
         }
       }
@@ -6113,7 +6133,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已从“%@”中移除 1 首缺失曲目"
+            "value" : "已从 “%@” 中移除 1 首缺失曲目"
           }
         }
       }
@@ -6125,7 +6145,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已移除文件夹“%@”"
+            "value" : "已移除文件夹 “%@”"
           }
         }
       }
@@ -6169,7 +6189,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在移除文件夹“%@”…"
+            "value" : "正在移除文件夹 “%@”…"
           }
         }
       }
