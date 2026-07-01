@@ -118,8 +118,17 @@ class LibraryManager: ObservableObject {
 
         Task {
             try? await Task.sleep(nanoseconds: TimeConstants.fiftyMilliseconds)
-            await databaseManager.runPendingBackgroundMigrations()
-            await MainActor.run { refreshEntities() }
+            let didRunMigration = await databaseManager.runPendingBackgroundMigrations()
+            await MainActor.run {
+                refreshEntities()
+                // A migration that ran (e.g. the v12 album-artist backfill) can change
+                // category membership; reload the load-once sidebar caches so it shows
+                // without requiring a relaunch.
+                if didRunMigration {
+                    refreshLibraryCategories()
+                    NotificationCenter.default.post(name: .libraryDataDidChange, object: nil)
+                }
+            }
             ArtistBioManager.shared.fetchMissingArtistImages(using: self)
         }
 

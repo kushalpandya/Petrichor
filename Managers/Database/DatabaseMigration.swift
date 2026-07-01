@@ -213,8 +213,19 @@ enum DatabaseMigrator {
             Logger.info("v11_add_merge_support migration completed")
         }
 
+        migrator.registerMigration("v12_backfill_album_artists") { db in
+            // Tracks with no album-artist tag have no role='album_artist' junction row,
+            // so they're missing from the Album Artists category. Flag a background
+            // backfill that creates those rows from the track artist (resumably).
+            try db.execute(
+                sql: "INSERT INTO background_migrations (identifier, resumable) VALUES (?, ?)",
+                arguments: ["v12_background_backfill_album_artists", true]
+            )
+            Logger.info("v12_backfill_album_artists: flagged for background album-artist backfill")
+        }
+
         // MARK: - Future Migrations
-        // Add new migrations here as: migrator.registerMigration("v12_description") { db in ... }
+        // Add new migrations here as: migrator.registerMigration("v13_description") { db in ... }
 
         return migrator
     }
