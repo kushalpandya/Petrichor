@@ -23,6 +23,39 @@ private enum MiniPlayerPanel: String {
 
 private let miniPlayerPanelStateKey = "miniPlayerPanelState"
 
+/// Glass-like backdrop that fades from transparent at the top into a blurred scrim at
+/// the bottom, so the controls blend into the artwork rather than a hard opaque panel.
+/// Kept separate (and Equatable) so it only re-renders when the scrim color changes,
+/// not on the mini player's play/pause re-renders.
+private struct MiniPlayerControlScrim: View, Equatable {
+    let scrimColor: Color
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [.clear, scrimColor.opacity(0.65)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+            FocusStableMaterial()
+                .mask(
+                    LinearGradient(
+                        stops: [
+                            .init(color: .clear, location: 0),
+                            .init(color: .black.opacity(0.5), location: 0.45),
+                            .init(color: .black.opacity(0.9), location: 0.75),
+                            .init(color: .black, location: 1)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+        }
+        .allowsHitTesting(false)
+    }
+}
+
 struct MiniPlayerView: View {
     @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var playlistManager: PlaylistManager
@@ -310,40 +343,8 @@ struct MiniPlayerView: View {
             .padding(.top, 120)
             .padding(.bottom, 14)
             .frame(maxWidth: .infinity)
-            .background(controlScrim)
+            .background(MiniPlayerControlScrim(scrimColor: controlScrimColor).equatable())
         }
-    }
-
-    /// Glass-like backdrop that fades from transparent at the top into a blurred
-    /// scrim at the bottom, so the controls blend into the artwork rather than
-    /// sitting on a hard opaque panel. The blur ramps in gradually over most of
-    /// the height (no hard plateau) while staying strong enough behind the track
-    /// title / controls to keep them legible. The tint follows the appearance (and
-    /// the artwork when tinting is enabled) via `controlScrimColor`.
-    private var controlScrim: some View {
-        ZStack {
-            LinearGradient(
-                colors: [.clear, controlScrimColor.opacity(0.65)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-
-            Rectangle()
-                .fill(.thinMaterial)
-                .mask(
-                    LinearGradient(
-                        stops: [
-                            .init(color: .clear, location: 0),
-                            .init(color: .black.opacity(0.5), location: 0.45),
-                            .init(color: .black.opacity(0.9), location: 0.75),
-                            .init(color: .black, location: 1)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-        }
-        .allowsHitTesting(false)
     }
 
     // MARK: - Expanded Panel
@@ -357,7 +358,7 @@ struct MiniPlayerView: View {
                     startPoint: .top,
                     endPoint: .bottom
                 )
-                .overlay(.ultraThinMaterial)
+                .overlay(FocusStableMaterial())
                 .animation(.easeInOut(duration: AnimationDuration.standardDuration), value: gradientColors)
             }
 

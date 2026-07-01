@@ -15,9 +15,163 @@ enum PlayerBarBackgroundStyle: String, CaseIterable {
     }
 }
 
-struct PlayerView: View {
+/// Artwork-tinted backdrop for the main player bar. Kept separate (and Equatable) so
+/// it only re-renders when the colors or style actually change, not on the play/pause
+/// and progress-time updates that re-render the surrounding PlayerView body.
+private struct PlayerBarBackground: View, Equatable {
+    let colors: [Color]
+    let style: PlayerBarBackgroundStyle
+
+    var body: some View {
+        if !colors.isEmpty {
+            GeometryReader { geometry in
+                if style == .fullWidth {
+                    // Spread the artwork colors across the whole bar as a soft wash
+                    // (mesh on macOS 15+, radial fallback below).
+                    GradientBackground(colors: colors)
+                } else {
+                    RadialGradient(
+                        colors: colors + [.clear],
+                        center: .leading,
+                        startRadius: 0,
+                        endRadius: geometry.size.width * 0.25
+                    )
+                    .overlay(FocusStableMaterial())
+                }
+            }
+            .animation(.easeInOut(duration: AnimationDuration.standardDuration), value: colors)
+        }
+    }
+}
+
+/// The player bar's seek bar (time labels + slider), extracted so it alone carries the
+/// `playbackProgressState` subscription. That keeps the ~10Hz progress ticks from
+/// re-rendering the whole player bar during playback, matching NowPlayingProgressBar.
+private struct PlayerProgressBar: View {
+    /// Fill color for the progress track / handle (the resolved control color).
+    let accent: Color
+
     @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var playbackProgressState: PlaybackProgressState
+
+    @State private var isDraggingProgress = false
+    @State private var tempProgressValue: Double = 0
+    @State private var hoveredOverProgress = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            // Current time
+            Text(HelperUtils.formattedDuration(isDraggingProgress ? tempProgressValue : playbackProgressState.currentTime))
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.secondary)
+                .monospacedDigit()
+                .frame(width: timeLabelWidth, alignment: .trailing)
+
+            // Progress slider
+            progressSlider
+
+            // Total duration
+            Text(HelperUtils.formattedDuration(playbackManager.currentTrack?.duration ?? 0))
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.secondary)
+                .monospacedDigit()
+                .frame(width: timeLabelWidth, alignment: .leading)
+        }
+        .onChange(of: playbackManager.currentTrack?.id) {
+            isDraggingProgress = false
+            tempProgressValue = 0
+        }
+    }
+
+    /// Widens the time labels when the current track is an hour or longer so the
+    /// `H:MM:SS` form isn't clipped; otherwise keeps the compact `M:SS` width.
+    private var timeLabelWidth: CGFloat {
+        (playbackManager.currentTrack?.duration ?? 0) >= 3600 ? 56 : 40
+    }
+
+    private var progressSlider: some View {
+        ZStack {
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    // Background track
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color.secondary.opacity(0.2))
+                        .frame(height: 4)
+
+                    // Progress track
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(accent)
+                        .frame(
+                            width: geometry.size.width * progressPercentage,
+                            height: 4
+                        )
+                        .animation(isDraggingProgress ? .none : .easeInOut(duration: 0.2), value: progressPercentage)
+
+                    // Drag handle
+                    Circle()
+                        .fill(accent)
+                        .frame(width: 12, height: 12)
+                        .opacity(isDraggingProgress || hoveredOverProgress ? 1.0 : 0.0)
+                        .offset(x: (geometry.size.width * progressPercentage) - 6)
+                        .animation(isDraggingProgress ? .none : .easeInOut(duration: 0.2), value: progressPercentage)
+                        .animation(.easeInOut(duration: 0.15), value: hoveredOverProgress)
+                }
+                .contentShape(Rectangle())
+                .gesture(progressDragGesture(in: geometry))
+                .onTapGesture { value in
+                    handleProgressTap(at: value.x, in: geometry.size.width)
+                }
+                .onHover { hovering in
+                    hoveredOverProgress = hovering
+                }
+            }
+        }
+        .frame(height: 10)
+        .frame(maxWidth: 400)
+    }
+
+    private var progressPercentage: Double {
+        guard let duration = playbackManager.currentTrack?.duration, duration > 0 else { return 0 }
+
+        if isDraggingProgress {
+            return min(1, max(0, tempProgressValue / duration))
+        } else {
+            return min(1, max(0, playbackProgressState.currentTime / duration))
+        }
+    }
+
+    private func progressDragGesture(in geometry: GeometryProxy) -> some Gesture {
+        DragGesture(minimumDistance: 4)
+            .onChanged { value in
+                if !isDraggingProgress {
+                    isDraggingProgress = true
+                }
+                let percentage = max(0, min(1, value.location.x / geometry.size.width))
+                let duration = HelperUtils.sanitizedDuration(playbackManager.currentTrack?.duration ?? 0)
+                tempProgressValue = percentage * duration
+            }
+            .onEnded { value in
+                let percentage = max(0, min(1, value.location.x / geometry.size.width))
+                let duration = HelperUtils.sanitizedDuration(playbackManager.currentTrack?.duration ?? 0)
+                let newTime = percentage * duration
+                playbackManager.seekTo(time: newTime)
+                // Reset dragging state after seek completes
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    isDraggingProgress = false
+                }
+            }
+    }
+
+    private func handleProgressTap(at x: CGFloat, in width: CGFloat) {
+        let percentage = x / width
+        let duration = HelperUtils.sanitizedDuration(playbackManager.currentTrack?.duration ?? 0)
+        let newTime = percentage * duration
+        playbackManager.seekTo(time: newTime)
+    }
+}
+
+struct PlayerView: View {
+    @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var playlistManager: PlaylistManager
     @Binding var rightSidebarContent: RightSidebarContent
     
@@ -39,11 +193,8 @@ struct PlayerView: View {
     private var playerBarBackgroundStyle: PlayerBarBackgroundStyle = .fullWidth
 
     @State private var gradientColors: [Color] = []
-    @State private var isDraggingProgress = false
-    @State private var tempProgressValue: Double = 0
     @State private var currentTrackId: UUID?
     @State private var cachedArtworkImage: NSImage?
-    @State private var hoveredOverProgress = false
     @State private var playButtonPressed = false
     @State private var isMuted = false
     @State private var previousVolume: Float = 0.7
@@ -51,22 +202,11 @@ struct PlayerView: View {
 
     var body: some View {
         ZStack {
-            // Background gradient layer
-            if !gradientColors.isEmpty {
-                GeometryReader { geometry in
-                    RadialGradient(
-                        colors: gradientColors + [.clear],
-                        center: playerBarBackgroundStyle == .fullWidth ? .center : .leading,
-                        startRadius: 0,
-                        endRadius: geometry.size.width * (playerBarBackgroundStyle == .fullWidth ? 1.0 : 0.25)
-                    )
-                    .overlay(.ultraThinMaterial)
-                }
-                .animation(
-                    .easeInOut(duration: AnimationDuration.standardDuration),
-                    value: gradientColors
-                )
-            }
+            // Artwork-tinted backdrop, isolated into its own equatable view so the
+            // frequent play/pause and progress-time re-renders of this body don't
+            // re-evaluate (and visibly flash) the gradient and material.
+            PlayerBarBackground(colors: gradientColors, style: playerBarBackgroundStyle)
+                .equatable()
 
             // Content layer
             HStack(spacing: 20) {
@@ -91,8 +231,6 @@ struct PlayerView: View {
             setupInitialState()
         }
         .onChange(of: playbackManager.currentTrack?.id) {
-            isDraggingProgress = false
-            tempProgressValue = 0
             updateGradientColors()
         }
         .onChange(of: colorScheme) {
@@ -116,7 +254,7 @@ struct PlayerView: View {
     private var centerSection: some View {
         VStack(spacing: 8) {
             playbackControls
-            progressBar
+            PlayerProgressBar(accent: controlAccent)
         }
         .frame(maxWidth: 500)
     }
@@ -184,6 +322,7 @@ struct PlayerView: View {
                 .font(.system(size: 16, weight: .medium))
                 .foregroundColor(playlistManager.isShuffleEnabled ? controlAccent : Color.secondary)
                 .frame(width: 32, height: 32)
+                .activeControlIndicator(isActive: playlistManager.isShuffleEnabled, color: controlAccent)
         })
         .buttonStyle(ControlButtonStyle())
         .hoverEffect(scale: 1.1)
@@ -258,79 +397,12 @@ struct PlayerView: View {
                 .font(.system(size: 16, weight: .medium))
                 .foregroundColor(playlistManager.repeatMode != .off ? controlAccent : Color.secondary)
                 .frame(width: 32, height: 32)
+                .activeControlIndicator(isActive: playlistManager.repeatMode != .off, color: controlAccent)
         })
         .buttonStyle(ControlButtonStyle())
         .hoverEffect(scale: 1.1)
         .help(playlistManager.repeatMode.tooltip)
         .disabled(playbackManager.currentTrack == nil)
-    }
-
-    private var progressBar: some View {
-        HStack(spacing: 8) {
-            // Current time
-            Text(HelperUtils.formattedDuration(isDraggingProgress ? tempProgressValue : playbackManager.currentTime))
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.secondary)
-                .monospacedDigit()
-                .frame(width: timeLabelWidth, alignment: .trailing)
-
-            // Progress slider
-            progressSlider
-
-            // Total duration
-            Text(HelperUtils.formattedDuration(playbackManager.currentTrack?.duration ?? 0))
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.secondary)
-                .monospacedDigit()
-                .frame(width: timeLabelWidth, alignment: .leading)
-        }
-    }
-
-    /// Widens the time labels when the current track is an hour or longer so the
-    /// `H:MM:SS` form isn't clipped; otherwise keeps the compact `M:SS` width.
-    private var timeLabelWidth: CGFloat {
-        (playbackManager.currentTrack?.duration ?? 0) >= 3600 ? 56 : 40
-    }
-
-    private var progressSlider: some View {
-        ZStack {
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    // Background track
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.secondary.opacity(0.2))
-                        .frame(height: 4)
-
-                    // Progress track
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(controlAccent)
-                        .frame(
-                            width: geometry.size.width * progressPercentage,
-                            height: 4
-                        )
-                        .animation(isDraggingProgress ? .none : .easeInOut(duration: 0.2), value: progressPercentage)
-
-                    // Drag handle
-                    Circle()
-                        .fill(controlAccent)
-                        .frame(width: 12, height: 12)
-                        .opacity(isDraggingProgress || hoveredOverProgress ? 1.0 : 0.0)
-                        .offset(x: (geometry.size.width * progressPercentage) - 6)
-                        .animation(isDraggingProgress ? .none : .easeInOut(duration: 0.2), value: progressPercentage)
-                        .animation(.easeInOut(duration: 0.15), value: hoveredOverProgress)
-                }
-                .contentShape(Rectangle())
-                .gesture(progressDragGesture(in: geometry))
-                .onTapGesture { value in
-                    handleProgressTap(at: value.x, in: geometry.size.width)
-                }
-                .onHover { hovering in
-                    hoveredOverProgress = hovering
-                }
-            }
-        }
-        .frame(height: 10)
-        .frame(maxWidth: 400)
     }
 
     // MARK: - Right Section Components
@@ -502,16 +574,6 @@ struct PlayerView: View {
         NowPlayingArtwork.controlColor(for: playbackManager.currentTrack, useArtworkTint: controlsTinted, isDarkBackground: colorScheme == .dark)
     }
 
-    private var progressPercentage: Double {
-        guard let duration = playbackManager.currentTrack?.duration, duration > 0 else { return 0 }
-
-        if isDraggingProgress {
-            return min(1, max(0, tempProgressValue / duration))
-        } else {
-            return min(1, max(0, playbackProgressState.currentTime / duration))
-        }
-    }
-
     private var volumeIcon: String {
         if isMuted || playbackManager.volume < 0.01 {
             return "speaker.slash.fill"
@@ -562,35 +624,6 @@ struct PlayerView: View {
         }
 
         gradientColors = track.backgroundGradientColors(isDark: colorScheme == .dark)
-    }
-
-    private func progressDragGesture(in geometry: GeometryProxy) -> some Gesture {
-        DragGesture(minimumDistance: 4)
-            .onChanged { value in
-                if !isDraggingProgress {
-                    isDraggingProgress = true
-                }
-                let percentage = max(0, min(1, value.location.x / geometry.size.width))
-                let duration = HelperUtils.sanitizedDuration(playbackManager.currentTrack?.duration ?? 0)
-                tempProgressValue = percentage * duration
-            }
-            .onEnded { value in
-                let percentage = max(0, min(1, value.location.x / geometry.size.width))
-                let duration = HelperUtils.sanitizedDuration(playbackManager.currentTrack?.duration ?? 0)
-                let newTime = percentage * duration
-                playbackManager.seekTo(time: newTime)
-                // Reset dragging state after seek completes
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    isDraggingProgress = false
-                }
-            }
-    }
-
-    private func handleProgressTap(at x: CGFloat, in width: CGFloat) {
-        let percentage = x / width
-        let duration = HelperUtils.sanitizedDuration(playbackManager.currentTrack?.duration ?? 0)
-        let newTime = percentage * duration
-        playbackManager.seekTo(time: newTime)
     }
 
     private func toggleMute() {
@@ -848,18 +881,14 @@ struct ControlButtonStyle: ButtonStyle {
         @State private var rightSidebarContent: RightSidebarContent = .none
 
         var body: some View {
+            let coordinator = AppCoordinator()
             PlayerView(
                 rightSidebarContent: $rightSidebarContent
             )
-                .environmentObject({
-                    let coordinator = AppCoordinator()
-                    return coordinator.playbackManager
-                }())
-                .environmentObject({
-                    let coordinator = AppCoordinator()
-                    return coordinator.playlistManager
-                }())
-                .frame(height: 200)
+            .environmentObject(coordinator.playbackManager)
+            .environmentObject(coordinator.playlistManager)
+            .environmentObject(coordinator.playbackManager.playbackProgressState)
+            .frame(height: 200)
         }
     }
 

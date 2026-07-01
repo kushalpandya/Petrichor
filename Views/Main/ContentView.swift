@@ -234,8 +234,10 @@ struct ContentView: View {
         immersiveToolbarWasVisible = WindowManager.shared.mainWindow?.toolbar?.isVisible ?? true
         withAnimation(.easeInOut(duration: AnimationDuration.immersiveTransition)) {
             isImmersiveActive = true
-        } completion: {
-            // Guard against a quick re-close before the open animation completes.
+        }
+        // Hide the toolbar after the cover animation via a timed dispatch rather than
+        // withAnimation's completion handler, which fires unreliably on macOS 14.
+        DispatchQueue.main.asyncAfter(deadline: .now() + AnimationDuration.immersiveTransition) {
             if isImmersiveActive {
                 WindowManager.shared.mainWindow?.toolbar?.isVisible = false
             }
@@ -345,13 +347,13 @@ struct ContentView: View {
 
     @ViewBuilder private var playerControls: some View {
         if libraryManager.shouldShowMainUI {
-            Divider()
-
             PlayerView(
                 rightSidebarContent: $rightSidebarContent
             )
-                .frame(height: 110)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+            .frame(height: 110)
+            .background(.windowBackground)
+            .shadow(color: .black.opacity(0.08), radius: 10, x: 0, y: -4)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
 
