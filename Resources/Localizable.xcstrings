@@ -333,6 +333,18 @@
               }
             }
           }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld 条通知"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -2972,7 +2984,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "从网络获取艺人图像与简介"
+            "value" : "从网络获取艺人图片与简介"
           }
         }
       }
