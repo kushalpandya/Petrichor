@@ -198,7 +198,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已跳过 “%2$@” 中的 %1$lld 个文件 —— 不支持的格式：%3$@"
+            "value" : "已跳过 “%2$@” 中的 %1$lld 个文件（不支持的格式：%3$@）"
           }
         }
       }
@@ -273,7 +273,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%1$lld 个文件夹， %2$lld 首歌曲"
+            "value" : "%1$lld 个文件夹，%2$lld 首歌曲"
           }
         }
       }
@@ -811,7 +811,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "添加 %1$@， 移除 %2$@"
+            "value" : "添加 %1$@，移除 %2$@"
           }
         }
       }
@@ -3938,7 +3938,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "资料库已优化 —— 已回收 %@ MB"
+            "value" : "资料库已优化，已回收 %@ MB"
           }
         }
       }
