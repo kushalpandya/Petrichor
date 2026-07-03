@@ -26,8 +26,6 @@ struct HomeView: View {
     @State private var pinnedEntity: (any Entity)?
     @State private var sortedArtistEntities: [ArtistEntity] = []
     @State private var sortedAlbumEntities: [AlbumEntity] = []
-    @State private var lastArtistCount: Int = 0
-    @State private var lastAlbumCount: Int = 0
     @State private var selectedArtistEntity: ArtistEntity?
     @State private var selectedAlbumEntity: AlbumEntity?
     @State private var isShowingEntityDetail = false
@@ -297,8 +295,9 @@ struct HomeView: View {
                 sortArtistEntities()
             }
         }
-        .onReceive(libraryManager.$cachedArtistEntities) { _ in
-            sortArtistEntities()
+        .onReceive(libraryManager.$cachedArtistEntities) { artists in
+            // Sort the received value; @Published fires on willSet, so the manager still holds the old array
+            sortArtistEntities(artists)
         }
     }
     
@@ -401,10 +400,9 @@ struct HomeView: View {
                 sortAlbumEntities()
             }
         }
-        .onReceive(libraryManager.$cachedAlbumEntities) { _ in
-            if libraryManager.albumEntities.count != lastAlbumCount {
-                sortAlbumEntities()
-            }
+        .onReceive(libraryManager.$cachedAlbumEntities) { albums in
+            // Sort the received value (see artists onReceive); no count guard, artwork updates keep the count
+            sortAlbumEntities(albums)
         }
         .onChange(of: albumSortBy) {
             sortAlbumEntities()
@@ -453,15 +451,15 @@ struct HomeView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func sortArtistEntities() {
+    private func sortArtistEntities(_ artists: [ArtistEntity]? = nil) {
+        let artists = artists ?? libraryManager.artistEntities
         sortedArtistEntities = entitySortAscending
-        ? libraryManager.artistEntities.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-        : libraryManager.artistEntities.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedDescending }
-        lastArtistCount = sortedArtistEntities.count
+        ? artists.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        : artists.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedDescending }
     }
-    
-    private func sortAlbumEntities() {
-        let albums = libraryManager.albumEntities
+
+    private func sortAlbumEntities(_ albums: [AlbumEntity]? = nil) {
+        let albums = albums ?? libraryManager.albumEntities
 
         func tiebreaker(_ a: AlbumEntity, _ b: AlbumEntity) -> Bool {
             let comparison = a.name.localizedCaseInsensitiveCompare(b.name)
@@ -506,8 +504,6 @@ struct HomeView: View {
                 return entitySortAscending ? date1 < date2 : date1 > date2
             }
         }
-
-        lastAlbumCount = sortedAlbumEntities.count
     }
     
     private func sortEntities() {

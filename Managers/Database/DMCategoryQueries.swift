@@ -38,26 +38,52 @@ extension DatabaseManager {
     
     // MARK: - Home - Entities
     
-    /// Get all artist entities - already efficient, using pure GRDB
+    /// Get all artist entities
     func getArtistEntities() -> [ArtistEntity] {
         let isImageFetchEnabled = ArtistBioManager.shared.isArtistInfoFetchEnabled
 
         do {
             return try dbQueue.read { db in
-                let artists = try Artist
-                    .filter(Artist.Columns.totalTracks > 0)
-                    .order(Artist.Columns.sortName)
-                    .fetchAll(db)
+                // Live count honoring the hide-duplicates setting, so the grid matches the detail view.
+                let hideDuplicates = UserDefaults.standard.bool(forKey: "hideDuplicateTracks")
+                let duplicateClause = hideDuplicates ? "AND tracks.is_duplicate = 0" : ""
+                let sql = """
+                    SELECT
+                        artists.name,
+                        artists.artwork_data,
+                        artists.image_source,
+                        COUNT(DISTINCT track_artists.track_id) as trackCount
+                    FROM artists
+                    JOIN track_artists ON track_artists.artist_id = artists.id AND track_artists.role = 'artist'
+                    JOIN tracks ON tracks.id = track_artists.track_id \(duplicateClause)
+                    GROUP BY artists.id
+                    HAVING trackCount > 0
+                    ORDER BY artists.sort_name
+                """
 
-                return artists.map { artist in
+                struct ArtistInfo: FetchableRecord {
+                    let name: String
+                    let artworkData: Data?
+                    let imageSource: String?
+                    let trackCount: Int
+
+                    init(row: Row) throws {
+                        name = row["name"]
+                        artworkData = row["artwork_data"]
+                        imageSource = row["image_source"]
+                        trackCount = row["trackCount"] ?? 0
+                    }
+                }
+
+                return try ArtistInfo.fetchAll(db, sql: sql).map { info in
                     // When fetch enabled: show fetched image or placeholder; when disabled: show album art
                     let artworkData = isImageFetchEnabled
-                        ? (artist.imageSource != nil ? artist.artworkData : nil)
-                        : artist.artworkData
+                        ? (info.imageSource != nil ? info.artworkData : nil)
+                        : info.artworkData
 
                     return ArtistEntity(
-                        name: artist.name,
-                        trackCount: artist.totalTracks,
+                        name: info.name,
+                        trackCount: info.trackCount,
                         artworkData: artworkData
                     )
                 }
@@ -75,11 +101,15 @@ extension DatabaseManager {
                 // Prefer the album's primary artist from the album_artists junction
                 // (which findOrCreateAlbum populates, including "Various Artists" for compilations)
                 // before falling back to per-track tag aggregates.
+                // Count live joined tracks (not albums.total_tracks, which drifts with duplicates),
+                // honoring the hide-duplicates setting so the grid matches the detail view.
+                let hideDuplicates = UserDefaults.standard.bool(forKey: "hideDuplicateTracks")
+                let duplicateClause = hideDuplicates ? "AND tracks.is_duplicate = 0" : ""
                 let sql = """
                     SELECT
                         albums.id,
                         albums.title,
-                        albums.total_tracks,
+                        COUNT(tracks.id) as trackCount,
                         albums.artwork_data,
                         albums.release_year,
                         COALESCE(SUM(tracks.duration), 0) as totalDuration,
@@ -96,9 +126,9 @@ extension DatabaseManager {
                         ) as artistName,
                         albums.created_at
                     FROM albums
-                    LEFT JOIN tracks ON albums.id = tracks.album_id AND tracks.is_duplicate = 0
-                    WHERE albums.total_tracks > 0
+                    LEFT JOIN tracks ON albums.id = tracks.album_id \(duplicateClause)
                     GROUP BY albums.id
+                    HAVING trackCount > 0
                     ORDER BY albums.sort_title
                 """
                 
@@ -115,7 +145,7 @@ extension DatabaseManager {
                     init(row: Row) throws {
                         id = row["id"]
                         title = row["title"]
-                        totalTracks = row["total_tracks"] ?? 0
+                        totalTracks = row["trackCount"] ?? 0
                         artworkData = row["artwork_data"]
                         releaseYear = row["release_year"]
                         totalDuration = row["totalDuration"] ?? 0

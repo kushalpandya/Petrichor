@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kushalpandya/CrescendoKit",
       "state" : {
-        "revision" : "c01fb59f6a255e61247a51b36be683e3ee329b83",
-        "version" : "1.0.0"
+        "revision" : "5784780099f2e4e82a3432028b20fc919fc0a2b4",
+        "version" : "1.1.0"
       }
     },
     {
@@ -105,8 +105,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/groue/GRDB.swift",
       "state" : {
-        "revision" : "9ed8c8457e00ff9c7aedb3bf213f20a2cfdf509e",
-        "version" : "7.11.0"
+        "revision" : "b83108d10f42680d78f23fe4d4d80fc88dab3212",
+        "version" : "7.11.1"
       }
     },
     {

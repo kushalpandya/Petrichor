@@ -29,9 +29,11 @@ struct CrescendoMetadataReader: MetadataReader {
 
         await map(source, into: &metadata)
 
-        if let firstPicture = source.pictures.first {
+        // Prefer the tagged front cover; multi-picture files can store a back cover first
+        let cover = source.pictures.first { $0.pictureType == "Front Cover" } ?? source.pictures.first
+        if let cover {
             metadata.artworkData = await MetadataMapping.compressedArtwork(
-                from: firstPicture.data,
+                from: cover.data,
                 source: url.lastPathComponent,
                 cache: artworkCache
             )

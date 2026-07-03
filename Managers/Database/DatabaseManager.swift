@@ -109,7 +109,18 @@ class DatabaseManager: ObservableObject {
         
         // Re-run migrations on the fresh database
         try DatabaseMigrator.migrate(dbQueue)
-        
+
+        // Re-running migrations re-seeds the one-time background "optimization" jobs
+        // as pending, but this fresh DB is at the latest schema and anything scanned
+        // later is already ingested in optimized form. Mark them complete so a
+        // reset -> add-folders flow skips a pointless "Optimizing Library..." pass.
+        try dbQueue.write { db in
+            try db.execute(
+                sql: "UPDATE background_migrations SET completed_at = ?, progress = NULL WHERE completed_at IS NULL",
+                arguments: [Date()]
+            )
+        }
+
         Logger.info("Database reset completed")
     }
     

@@ -47,15 +47,16 @@ struct TrackMetadata {
 
 /// Thread-safe cache for compressed artwork data within a processing chunk.
 /// Avoids re-compressing identical album artwork across tracks in the same batch.
+/// Keyed by full bytes, not `hashValue` (`Data` hashes only a prefix, so covers can collide).
 actor ArtworkCompressionCache {
-    private var cache: [Int: Data] = [:]
+    private var cache: [Data: Data] = [:]
 
     func get(for data: Data) -> Data? {
-        cache[data.hashValue]
+        cache[data]
     }
 
     func store(original: Data, compressed: Data) {
-        cache[original.hashValue] = compressed
+        cache[original] = compressed
     }
 }
 

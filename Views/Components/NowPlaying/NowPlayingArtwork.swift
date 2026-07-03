@@ -29,9 +29,11 @@ enum NowPlayingArtwork {
     ///   dark mode); when `false` it is deepened for light surfaces (the player bar
     ///   in light mode).
     static func controlColor(for track: Track?, useArtworkTint: Bool, isDarkBackground: Bool) -> Color {
-        guard useArtworkTint, let dominant = track?.dominantColors.first else {
-            return .accentColor
-        }
+        // Tinting off: accent is the theme color for active controls.
+        guard useArtworkTint else { return .accentColor }
+        // Tinting on but nothing playing: no artwork to derive from, so read as the
+        // primary label color (black/white) rather than the accent color.
+        guard let dominant = track?.dominantColors.first else { return .primary }
 
         let srgb = dominant.usingColorSpace(.sRGB) ?? dominant
         var hue: CGFloat = 0, saturation: CGFloat = 0, brightness: CGFloat = 0, alpha: CGFloat = 0

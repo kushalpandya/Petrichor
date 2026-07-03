@@ -145,22 +145,22 @@ extension DatabaseManager {
             return folders
         }
         
-        await MainActor.run {
-            NotificationCenter.default.post(name: .foldersAddedToDatabase, object: addedFolders)
-        }
-        
+        // Post .initialScanStarted before .foldersAddedToDatabase so the onboarding
+        // flag is set before folders publish, else shouldShowMainUI briefly flashes
+        // the main UI with an empty track list.
         let existingTrackCount = try await dbQueue.read { db in
             try Track.fetchCount(db)
         }
         let isInitialScan = existingTrackCount == 0
 
-        if !addedFolders.isEmpty {
+        await MainActor.run {
             if isInitialScan {
-                await MainActor.run {
-                    NotificationCenter.default.post(name: .initialScanStarted, object: nil)
-                }
+                NotificationCenter.default.post(name: .initialScanStarted, object: nil)
             }
-            
+            NotificationCenter.default.post(name: .foldersAddedToDatabase, object: addedFolders)
+        }
+
+        if !addedFolders.isEmpty {
             try await scanFoldersForTracks(addedFolders, showActivityInTray: true, isInitialScan: isInitialScan)
         }
 
@@ -240,12 +240,12 @@ extension DatabaseManager {
                 let trackCountAfter = getTracksForFolder(folder.id ?? -1).count
                 Logger.info("Completed refresh for folder \(folder.name) with \(trackCountAfter) tracks (was \(trackCountBefore))")
 
-                // Post-scan: normalize compilation albums, update stats, detect duplicates, and clean up
+                // Post-scan cleanup. Stats count non-duplicate tracks, so run after duplicate marking.
                 try await normalizeCompilationAlbums()
+                await detectAndMarkDuplicates()
                 try await dbQueue.write { db in
                     try self.updateEntityStats(in: db)
                 }
-                await detectAndMarkDuplicates()
                 try await cleanupOrphanedData()
 
                 await MainActor.run {
@@ -421,12 +421,12 @@ extension DatabaseManager {
             }
         }
 
-        // Post-scan: normalize compilation albums, update stats, detect duplicates, and clean up once for all folders
+        // Post-scan cleanup. Stats count non-duplicate tracks, so run after duplicate marking.
         try await normalizeCompilationAlbums()
+        await detectAndMarkDuplicates()
         try await dbQueue.write { db in
             try self.updateEntityStats(in: db)
         }
-        await detectAndMarkDuplicates()
         try await cleanupOrphanedData()
 
         await MainActor.run {

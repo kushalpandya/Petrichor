@@ -66,6 +66,10 @@ class PlaybackManager: NSObject, ObservableObject {
     /// entry identity so a normal user-pause never trips the restore.
     private var pendingRestoreResume: (entryId: AudioEntryId, position: Double)?
 
+    /// Play pressed before the restored track finished loading; honored by
+    /// `prepareTrackForRestoration` once the track lands.
+    private var pendingPlayOnRestore = false
+
     // MARK: - Gapless lookahead (Crescendo path)
 
     /// Identity of the track currently loaded in the engine.
@@ -145,37 +149,53 @@ class PlaybackManager: NSObject, ObservableObject {
     
     func prepareTrackForRestoration(_ track: Track, at position: Double) {
         restoredUITrack = nil
-        
+
         Task {
             do {
                 guard let fullTrack = try await track.fullTrack(using: libraryManager.databaseManager.dbQueue) else {
                     await MainActor.run {
                         Logger.error("Failed to fetch track data for restoration")
+                        self.abandonPendingPlayOnRestore()
                     }
                     return
                 }
-                
+
                 await MainActor.run {
                     self.currentTrack = track
                     self.currentFullTrack = fullTrack
                     self.restoredPosition = position
                     self.currentTime = position
-                    self.isPlaying = false
-                    
-                    self.nowPlayingManager.updateNowPlayingInfo(
-                        track: track,
-                        currentTime: position,
-                        isPlaying: false
-                    )
-                    
+
+                    if self.pendingPlayOnRestore {
+                        // Play was pressed while this fetch was in flight; honor it now
+                        self.pendingPlayOnRestore = false
+                        self.startPlayback(of: fullTrack, lightweightTrack: track)
+                    } else {
+                        self.isPlaying = false
+                        self.nowPlayingManager.updateNowPlayingInfo(
+                            track: track,
+                            currentTime: position,
+                            isPlaying: false
+                        )
+                    }
+
                     Logger.info("Prepared track for restoration at position: \(position)")
                 }
             } catch {
                 await MainActor.run {
                     Logger.error("Failed to prepare track for restoration: \(error)")
+                    self.abandonPendingPlayOnRestore()
                 }
             }
         }
+    }
+
+    /// Resets a latched play when the restore it was waiting on failed.
+    private func abandonPendingPlayOnRestore() {
+        guard pendingPlayOnRestore else { return }
+        pendingPlayOnRestore = false
+        isPlaying = false
+        updateNowPlayingInfo()
     }
     
     // MARK: - Playback Controls
@@ -227,37 +247,47 @@ class PlaybackManager: NSObject, ObservableObject {
         }
         
         if isPlaying {
+            // Pausing while a restored track is still loading cancels the latched play.
+            pendingPlayOnRestore = false
             audioPlayer.pause()
             isPlaying = false
             stopStateSaveTimer()
         } else {
             if let fullTrack = currentFullTrack, let track = currentTrack, audioPlayer.state != .paused {
                 startPlayback(of: fullTrack, lightweightTrack: track)
+            } else if currentFullTrack == nil, currentTrack != nil {
+                // Restored track still loading; resume() would no-op, so latch the intent
+                pendingPlayOnRestore = true
+                isPlaying = true
             } else {
                 audioPlayer.resume()
                 isPlaying = true
                 startStateSaveTimer()
             }
         }
-        
+
         updateNowPlayingInfo()
     }
     
     func stop() {
-        audioPlayer.stop()
-        currentTrack = nil
-        currentFullTrack = nil
-        currentEntryId = nil
-        pendingNext = nil
-        pendingNextWasSkipped = false
-        currentTime = 0
-        isPlaying = false
+        haltPlayback()
         restoredPosition = 0
-        stopStateSaveTimer()
         Logger.info("Playback stopped")
     }
 
+    /// Quiets the engine for a clean quit. Save state BEFORE calling: audioPlayer.stop()
+    /// queues a .userAction finish that zeroes currentTime, so a later save may persist
+    /// position 0. Track state is left intact so a stray later save can't wipe it entirely.
     func stopGracefully() {
+        audioPlayer.stop()
+        isPlaying = false
+        pendingPlayOnRestore = false
+        stopStateSaveTimer()
+        Logger.info("Playback stopped gracefully")
+    }
+
+    /// The shared teardown behind both stop flavors.
+    private func haltPlayback() {
         audioPlayer.stop()
         currentTrack = nil
         currentFullTrack = nil
@@ -266,8 +296,8 @@ class PlaybackManager: NSObject, ObservableObject {
         pendingNextWasSkipped = false
         currentTime = 0
         isPlaying = false
+        pendingPlayOnRestore = false
         stopStateSaveTimer()
-        Logger.info("Playback stopped gracefully")
     }
     
     func seekTo(time: Double) {
@@ -315,6 +345,7 @@ class PlaybackManager: NSObject, ObservableObject {
 
         audioPlayer.reload()
         isPlaying = false
+        pendingPlayOnRestore = false
         // The freshly built backend has nothing primed; the next play re-primes.
         pendingNext = nil
         pendingNextWasSkipped = false
@@ -421,6 +452,8 @@ class PlaybackManager: NSObject, ObservableObject {
     // MARK: - Private Methods
     
     private func startPlayback(of fullTrack: FullTrack, lightweightTrack: Track) {
+        // Any real play supersedes a play latched during the restore window.
+        pendingPlayOnRestore = false
         currentTrack = lightweightTrack
         currentFullTrack = fullTrack
 

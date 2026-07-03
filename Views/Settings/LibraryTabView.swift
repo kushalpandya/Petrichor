@@ -161,7 +161,10 @@ struct LibraryTabView: View {
     private var refreshRow: some View {
         HStack {
             Text(String(localized: "Refresh added library folders for updates"))
-            infoButton(isPresented: $showRefreshInfo, text: String(localized: "Hold the ⌘ key while clicking Refresh for a forced deep re-scan of all metadata."))
+            infoButton(
+                isPresented: $showRefreshInfo,
+                text: String(localized: "Hold the ⌘ key while clicking Refresh for a forced deep re-scan of all metadata.")
+            )
 
             Spacer()
 
@@ -255,6 +258,7 @@ struct LibraryTabView: View {
             Text(String(localized: "Optimize library database"))
             infoButton(
                 isPresented: $showOptimizeInfo,
+                // swiftlint:disable:next line_length
                 text: String(localized: "Removes references to library data that no longer exists on disk and compacts the database to reclaim space.")
             )
 
@@ -431,6 +435,11 @@ struct LibraryTabView: View {
         Task {
             do {
                 try await libraryManager.resetAllData()
+                await libraryManager.loadPinnedItems()
+                await MainActor.run {
+                    AppCoordinator.shared?.playlistManager.loadPlaylists()
+                }
+
                 Logger.info("All library data has been reset")
             } catch {
                 Logger.error("Failed to reset library data: \(error)")

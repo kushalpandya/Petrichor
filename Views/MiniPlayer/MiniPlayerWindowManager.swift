@@ -109,11 +109,9 @@ extension MiniPlayerWindowManager: NSWindowDelegate {
     func windowDidResize(_ notification: Notification) { saveFrame() }
 
     func windowWillClose(_ notification: Notification) {
-        // Intentionally does NOT save playback state here. During app
-        // termination this fires after `applicationWillTerminate` has already
-        // saved state and stopped playback (which nils `currentTrack`); saving
-        // again would hit savePlaybackState's empty-track branch and wipe the
-        // just-saved state. Frame/panel persistence is handled separately.
+        // Intentionally does NOT save playback state here. During app termination
+        // this fires after `applicationWillTerminate` has already saved state, so a
+        // second save would be redundant. Frame/panel persistence is handled separately.
 
         // Detach the hosting view so SwiftUI tears the view tree down now (firing
         // onDisappear). Otherwise, with isReleasedWhenClosed = false, a lingering

@@ -44,12 +44,16 @@ struct PlaylistDetailView: View {
                 playlistContent
             }
             .task(id: playlistArtworkTaskID) {
-                artworkData = await playlist.warmArtworkCacheIfNeeded()
+                let fresh = await playlist.warmArtworkCacheIfNeeded()
+                // nil with empty tracks means "not loaded yet", not "no artwork"
+                if fresh == nil && playlist.tracks.isEmpty { return }
+                artworkData = fresh
                 updateGradientColors()
             }
             .onChange(of: playlistID) {
                 // Fired when this view is reused for a different playlist.
                 selectedTrackID = nil
+                seedArtworkFromCache()
                 loadPlaylistTracksIfNeeded()
                 loadSortPreference()
             }
@@ -58,6 +62,9 @@ struct PlaylistDetailView: View {
                 loadPlaylistTracksIfNeeded()
             }
             .onAppear {
+                if artworkData == nil {
+                    seedArtworkFromCache()
+                }
                 loadPlaylistTracksIfNeeded()
                 loadSortPreference()
             }
@@ -350,6 +357,13 @@ struct PlaylistDetailView: View {
     }
 
     // MARK: - Action Methods
+
+    /// Swaps in the selected playlist's cover/cached collage synchronously, so
+    /// the reused view never flashes the previous playlist's artwork.
+    private func seedArtworkFromCache() {
+        artworkData = playlist?.artworkData
+        updateGradientColors()
+    }
 
     private func updateGradientColors() {
         guard useArtworkColors,

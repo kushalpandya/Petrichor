@@ -361,10 +361,12 @@ struct SFBMetadataReader: MetadataReader {
         source: String? = nil,
         artworkCache: ArtworkCompressionCache? = nil
     ) async {
-        guard let firstPicture = audioMetadata.attachedPictures.first else { return }
+        // Prefer the tagged front cover, mirroring the Crescendo reader
+        let pictures = audioMetadata.attachedPictures
+        guard let cover = pictures.first(where: { $0.type == .frontCover }) ?? pictures.first else { return }
 
         metadata.artworkData = await MetadataMapping.compressedArtwork(
-            from: firstPicture.imageData,
+            from: cover.imageData,
             source: source,
             cache: artworkCache
         )
