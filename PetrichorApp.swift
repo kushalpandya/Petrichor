@@ -49,6 +49,8 @@ struct PetrichorApp: App {
         
         equalizerWindow
 
+        reportProblemWindow
+
         .commands {
             // App Menu Commands
             appMenuCommands()
@@ -77,6 +79,15 @@ struct PetrichorApp: App {
         }
         .handlesExternalEvents(matching: [])
         .defaultSize(width: 500, height: 300)
+        .windowResizability(.contentSize)
+    }
+
+    private var reportProblemWindow: some Scene {
+        WindowGroup("Report a Problem", id: "report-problem") {
+            ReportProblemView()
+        }
+        .handlesExternalEvents(matching: [])
+        .defaultSize(width: 560, height: 680)
         .windowResizability(.contentSize)
     }
 }
@@ -651,6 +662,22 @@ extension PetrichorApp {
             sponsorProjectMenuItem()
             Divider()
             helpMenuItem()
+            reportProblemMenuItem()
+        }
+    }
+
+    private func reportProblemMenuItem() -> some View {
+        Button {
+            openWindow(id: "report-problem")
+        } label: {
+            if #available(macOS 26.0, *) {
+                Label(
+                    "Report a Problem...",
+                    systemImage: "exclamationmark.bubble"
+                )
+            } else {
+                Text("Report a Problem...")
+            }
         }
     }
     

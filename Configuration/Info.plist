@@ -68,5 +68,11 @@
     <!--  TMDB  -->
     <key>TMDB_READ_ACCESS_TOKEN</key>
     <string>$(TMDB_READ_ACCESS_TOKEN)</string>
+
+    <!--  Report a Problem (Sluice worker)  -->
+    <key>REPORT_ENDPOINT_URL</key>
+    <string>$(REPORT_ENDPOINT_URL)</string>
+    <key>REPORT_APP_KEY</key>
+    <string>$(REPORT_APP_KEY)</string>
 </dict>
 </plist>

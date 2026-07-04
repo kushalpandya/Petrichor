@@ -20,7 +20,27 @@ enum AppInfo {
             return "\(version) (\(build))"
         }
     }
-    
+
+    /// Full OS version including the build number, e.g. "macOS 14.5.1 (23F79)".
+    static var osVersion: String {
+        let v = ProcessInfo.processInfo.operatingSystemVersion
+        var version = "\(v.majorVersion).\(v.minorVersion)"
+        if v.patchVersion > 0 { version += ".\(v.patchVersion)" }
+        if let build = sysctlString("kern.osversion"), !build.isEmpty {
+            return "macOS \(version) (\(build))"
+        }
+        return "macOS \(version)"
+    }
+
+    /// Reads a string-valued `sysctl` (e.g. "hw.model", "kern.osversion").
+    static func sysctlString(_ name: String) -> String? {
+        var size = 0
+        guard sysctlbyname(name, nil, &size, nil, 0) == 0, size > 0 else { return nil }
+        var buffer = [CChar](repeating: 0, count: size)
+        guard sysctlbyname(name, &buffer, &size, nil, 0) == 0 else { return nil }
+        return String(cString: buffer)
+    }
+
     // MARK: - App Information
     
     static var name: String {

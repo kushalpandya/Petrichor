@@ -7,6 +7,15 @@ enum DiagnosticSnapshot {
     /// share the log for diagnosis. Always written regardless of the
     /// configured log level.
     static func write(phase: String) {
+        Logger.diagnostic(header: "DIAGNOSTIC SNAPSHOT (\(phase))", body: serialize(payload(phase: phase)))
+    }
+
+    /// Builds the diagnostic snapshot as a JSON-serializable dictionary
+    /// (app/OS version, device hardware, library statistics, and grouped
+    /// UserDefaults with token presence only, never values). This is the
+    /// single source of truth for both the logged snapshot (`write`) and the
+    /// in-app "Report a Problem" flow, which attaches it as a structured field.
+    static func payload(phase: String) -> [String: Any] {
         let defaults = UserDefaults.standard
         var payload: [String: Any] = [
             "phase": phase,
@@ -22,9 +31,9 @@ enum DiagnosticSnapshot {
 
         var device: [String: Any] = [
             "os": ProcessInfo.processInfo.operatingSystemVersionString,
-            "model": sysctlString("hw.model") ?? NSNull(),
-            "arch": sysctlString("hw.machine") ?? NSNull(),
-            "processor": sysctlString("machdep.cpu.brand_string") ?? NSNull(),
+            "model": AppInfo.sysctlString("hw.model") ?? NSNull(),
+            "arch": AppInfo.sysctlString("hw.machine") ?? NSNull(),
+            "processor": AppInfo.sysctlString("machdep.cpu.brand_string") ?? NSNull(),
             "physicalCores": sysctlInt32("hw.physicalcpu") ?? NSNull(),
             "logicalCores": sysctlInt32("hw.logicalcpu") ?? NSNull(),
             "memory": bytes(Int64(clamping: ProcessInfo.processInfo.physicalMemory), style: .memory)
@@ -119,8 +128,19 @@ enum DiagnosticSnapshot {
             "trackColumns": trackColumns(from: defaults)
         ]
 
-        Logger.diagnostic(header: "DIAGNOSTIC SNAPSHOT (\(phase))", body: serialize(payload))
+        return payload
     }
+
+    /// Pretty-printed JSON string of the snapshot, for display in the
+    /// "Report a Problem" disclosure and for attaching to a report.
+    static func prettyJSON(phase: String) -> String {
+        serialize(payload(phase: phase))
+    }
+
+    /// Stable, anonymous installation id. Exposed so a report can carry it even
+    /// when the user opts out of the full diagnostic snapshot (the Worker needs
+    /// it as the rate-limit / daily-cap subject).
+    static var installationId: String { uniqueInstallationId() }
 
     private static func bytes(_ count: Int64, style: ByteCountFormatter.CountStyle = .file) -> String {
         ByteCountFormatter.string(fromByteCount: count, countStyle: style)
@@ -136,14 +156,6 @@ enum DiagnosticSnapshot {
         } catch {
             return "{\"error\": \"failed to serialize diagnostic snapshot: \(error)\"}"
         }
-    }
-
-    private static func sysctlString(_ name: String) -> String? {
-        var size = 0
-        guard sysctlbyname(name, nil, &size, nil, 0) == 0, size > 0 else { return nil }
-        var buffer = [CChar](repeating: 0, count: size)
-        guard sysctlbyname(name, &buffer, &size, nil, 0) == 0 else { return nil }
-        return String(cString: buffer)
     }
 
     private static func sysctlInt32(_ name: String) -> Int? {
@@ -201,9 +213,9 @@ enum DiagnosticSnapshot {
 
     /// Returns a stable, anonymous identifier for this installation.
     /// Generated as a random UUID on first call and persisted in UserDefaults.
-    /// Survives app updates but resets on app data wipe or reinstall — which
-    /// is the correct semantics for "this specific installation". Contains no
-    /// hardware identifiers or user-derived data.
+    /// Survives app updates but resets on app data wipe or reinstall, the
+    /// correct semantics for "this specific installation". Contains no hardware
+    /// identifiers or user-derived data.
     private static func uniqueInstallationId() -> String {
         let key = "diagnosticUniqueId"
         let defaults = UserDefaults.standard
