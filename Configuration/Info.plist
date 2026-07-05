@@ -32,7 +32,7 @@
             <string>org.Petrichor.callback</string>
             <key>CFBundleURLSchemes</key>
             <array>
-                <string>petrichor</string>
+                <string>$(PETRICHOR_URL_SCHEME)</string>
             </array>
         </dict>
     </array>

@@ -385,6 +385,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = "Development Build";
 				"OTHER_CODE_SIGN_FLAGS[sdk=*]" = "--timestamp";
+				PETRICHOR_URL_SCHEME = "petrichor-debug";
 				PRODUCT_BUNDLE_IDENTIFIER = org.Petrichor.debug;
 				PRODUCT_MODULE_NAME = Petrichor;
 				PRODUCT_NAME = "Petrichor Dev";
@@ -434,6 +435,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = "Development Build";
 				"OTHER_CODE_SIGN_FLAGS[sdk=*]" = "--timestamp";
+				PETRICHOR_URL_SCHEME = petrichor;
 				PRODUCT_BUNDLE_IDENTIFIER = org.Petrichor;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

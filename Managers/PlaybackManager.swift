@@ -56,6 +56,8 @@ class PlaybackManager: NSObject, ObservableObject {
     // mini-player lyrics can be visible at once); sampling stays fine while > 0.
     private var fineSamplingConsumers = 0
     private var lastNowPlayingUpdate: TimeInterval = 0
+    // Detects a pinned engine position (see watchProgressForFreeze).
+    private let progressFreezeWatchdog = ProgressFreezeWatchdog()
     private var stateSaveTimer: Timer?
     private var restoredPosition: Double = 0
 
@@ -604,7 +606,9 @@ class PlaybackManager: NSObject, ObservableObject {
             // Gate on the engine's live state, not the cached isPlaying flag, which
             // can be briefly stale and freeze the bar at 0.
             guard let self = self, self.audioPlayer.state == .playing else { return }
-            self.currentTime = self.audioPlayer.currentPlaybackProgress
+            let sampled = self.audioPlayer.currentPlaybackProgress
+            self.currentTime = sampled
+            self.watchProgressForFreeze(sampled)
             // Refresh the system Now Playing tile at ~1s regardless of sampling
             // rate - it extrapolates elapsed between updates from the rate anchor,
             // so a higher rate is wasted work (and an artwork re-decode on SFB).
@@ -703,6 +707,76 @@ class PlaybackManager: NSObject, ObservableObject {
     }
 }
 
+// MARK: - Progress-freeze watchdog
+
+/// Flags when the sampled engine position stops advancing while the engine
+/// still reports playing (see watchProgressForFreeze).
+private final class ProgressFreezeWatchdog {
+    enum Recovery {
+        case none
+        case reload
+    }
+
+    private static let recoveryThreshold: TimeInterval = 3.0
+
+    private var lastSampled: Double = -1
+    private var frozenSince: TimeInterval?
+    private var attemptedTrackURL: URL?
+    private var attempts = 0
+
+    /// Reloads once the position stays pinned past the threshold, then stands
+    /// down until progress moves or the track changes.
+    func check(sampled: Double, isPlaying: Bool, trackURL: URL?) -> Recovery {
+        guard sampled == lastSampled, isPlaying else {
+            lastSampled = sampled
+            frozenSince = nil
+            attemptedTrackURL = nil
+            attempts = 0
+            return .none
+        }
+
+        let now = Date().timeIntervalSinceReferenceDate
+        guard let frozenSince else {
+            self.frozenSince = now
+            return .none
+        }
+        guard now - frozenSince >= Self.recoveryThreshold, let trackURL else { return .none }
+
+        if trackURL != attemptedTrackURL {
+            attemptedTrackURL = trackURL
+            attempts = 0
+        }
+        attempts += 1
+        // Restart the clock so a follow-up check also waits a full threshold.
+        self.frozenSince = nil
+
+        // One reload per stuck track, then stand down to avoid a restart loop.
+        return attempts == 1 ? .reload : .none
+    }
+}
+
+private extension PlaybackManager {
+    /// Crescendo can pin the reported position while audio keeps playing
+    /// (CrescendoKit issues #4/#5). Reloading the track at the frozen position
+    /// rebuilds the engine session and re-syncs audio + progress bar.
+    func watchProgressForFreeze(_ sampled: Double) {
+        switch progressFreezeWatchdog.check(
+            sampled: sampled, isPlaying: isPlaying, trackURL: currentTrack?.url
+        ) {
+        case .none:
+            return
+        case .reload:
+            guard let fullTrack = currentFullTrack, let track = currentTrack else { return }
+            Logger.warning(
+                "Playback progress pinned at \(sampled)s while engine reports playing; "
+                    + "reloading '\(track.title)'"
+            )
+            restoredPosition = sampled
+            startPlayback(of: fullTrack, lightweightTrack: track)
+        }
+    }
+}
+
 // MARK: - AudioPlayerDelegate
 
 extension PlaybackManager: AudioPlayerDelegate {
@@ -715,6 +789,7 @@ extension PlaybackManager: AudioPlayerDelegate {
             } else {
                 self.isPlaying = true
             }
+            self.currentTime = self.audioPlayer.currentPlaybackProgress
             Logger.info("Track started playing: \(entryId.id)")
         }
     }

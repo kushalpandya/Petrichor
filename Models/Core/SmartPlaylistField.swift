@@ -53,7 +53,7 @@ enum SmartField: String, CaseIterable, Identifiable {
         case .albumArtist: return String(localized: "Album Artist")
         case .genre: return String(localized: "Genre")
         case .composer: return String(localized: "Composer")
-        case .filename: return String(localized: "Filename")
+        case .filename: return String(localized: "Full Path")
         case .year: return String(localized: "Year")
         case .playCount: return String(localized: "Play Count")
         case .trackNumber: return String(localized: "Track Number")

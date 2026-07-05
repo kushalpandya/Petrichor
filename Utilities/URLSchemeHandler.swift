@@ -4,7 +4,7 @@ enum URLSchemeHandler {
     static func handle(_ url: URL) {
         Logger.info("URLSchemeHandler: Received URL - \(url.absoluteString)")
         
-        guard url.scheme == "petrichor" else { return }
+        guard url.scheme == AppInfo.urlScheme else { return }
         
         switch url.host {
         case "lastfm-callback":
