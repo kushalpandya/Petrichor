@@ -50,6 +50,16 @@ enum AppInfo {
     static var bundleIdentifier: String {
         Bundle.main.bundleIdentifier ?? About.bundleIdentifier
     }
+
+    /// The app's registered URL scheme from Info.plist
+    /// "petrichor-debug" for dev build and "petrichor" for prod
+    static var urlScheme: String {
+        let types = Bundle.main.infoDictionary?["CFBundleURLTypes"] as? [[String: Any]]
+        let scheme = types?
+            .compactMap { ($0["CFBundleURLSchemes"] as? [String])?.first }
+            .first
+        return scheme ?? "petrichor"
+    }
     
     // MARK: - Networking
 

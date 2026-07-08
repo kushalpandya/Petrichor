@@ -188,7 +188,8 @@ extension DatabaseManager {
             return buildNumericExpression(column: Track.Columns.discNumber, rule: rule)
 
         case "filename":
-            return buildStringExpression(column: Track.Columns.filename, rule: rule)
+            // Matches against the full path (folder + filename + extension), not just the basename.
+            return buildStringExpression(column: Track.Columns.path, rule: rule)
 
         default:
             Logger.warning("Unsupported smart playlist field: \(rule.field)")
@@ -416,7 +417,7 @@ extension DatabaseManager {
         case "discNumber":
             return ascending ? query.order(Track.Columns.discNumber) : query.order(Track.Columns.discNumber.desc)
         case "filename":
-            return ascending ? query.order(Track.Columns.filename) : query.order(Track.Columns.filename.desc)
+            return ascending ? query.order(Track.Columns.path) : query.order(Track.Columns.path.desc)
         default:
             return query
         }

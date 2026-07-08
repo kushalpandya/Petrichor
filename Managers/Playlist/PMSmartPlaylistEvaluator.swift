@@ -86,7 +86,11 @@ extension PlaylistManager {
             
         case "duration":
             return evaluateNumericRule(track.duration, condition: rule.condition, value: rule.value)
-            
+
+        case "filename":
+            // Matches against the full path (folder + filename + extension), not just the basename.
+            return evaluateStringRule(track.url.path, condition: rule.condition, value: rule.value)
+
         default:
             Logger.warning("Unknown field for smart playlist rule: \(rule.field)")
             return false

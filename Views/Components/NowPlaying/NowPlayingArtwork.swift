@@ -14,7 +14,8 @@ enum NowPlayingArtwork {
     /// accent color when tinting is disabled or artwork colors are unavailable.
     static func tint(for track: Track?, useArtworkTint: Bool) -> Color {
         guard useArtworkTint, let dominant = track?.dominantColors.first else {
-            return .accentColor
+            // Use the system accent (the empty AccentColor asset means Color.accentColor won't track it).
+            return Color(nsColor: .controlAccentColor)
         }
         return Color(nsColor: dominant)
     }
@@ -29,8 +30,8 @@ enum NowPlayingArtwork {
     ///   dark mode); when `false` it is deepened for light surfaces (the player bar
     ///   in light mode).
     static func controlColor(for track: Track?, useArtworkTint: Bool, isDarkBackground: Bool) -> Color {
-        // Tinting off: accent is the theme color for active controls.
-        guard useArtworkTint else { return .accentColor }
+        // Tinting off: use the system accent (the empty AccentColor asset means Color.accentColor won't track it).
+        guard useArtworkTint else { return Color(nsColor: .controlAccentColor) }
         // Tinting on but nothing playing: no artwork to derive from, so read as the
         // primary label color (black/white) rather than the accent color.
         guard let dominant = track?.dominantColors.first else { return .primary }
