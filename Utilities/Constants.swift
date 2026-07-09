@@ -101,8 +101,8 @@ enum About {
     static let reportIssue = "https://github.com/kushalpandya/Petrichor/issues/new/choose"
     static let appAcknowledgements = "https://github.com/kushalpandya/Petrichor/blob/main/ACKNOWLEDGEMENTS.md"
     static let sponsor = "https://github.com/sponsors/kushalpandya"
-    static let appVersion = "1.5.2"
-    static let appBuild = "152"
+    static let appVersion = "1.6.0"
+    static let appBuild = "160"
     static let knownArtistsSampleFile = "known_artists_YYYYMMDD.txt"
 }
 
