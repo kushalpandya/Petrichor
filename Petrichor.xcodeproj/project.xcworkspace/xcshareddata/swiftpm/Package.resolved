@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kushalpandya/CrescendoKit",
       "state" : {
-        "revision" : "5784780099f2e4e82a3432028b20fc919fc0a2b4",
-        "version" : "1.1.0"
+        "revision" : "ef50ecfcafad7b5976735c09a8741158b642d258",
+        "version" : "1.1.1"
       }
     },
     {
@@ -177,8 +177,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sparkle-project/Sparkle",
       "state" : {
-        "revision" : "d46d456107feacc80711b21847b82b07bd9fb46e",
-        "version" : "2.9.3"
+        "revision" : "b6496a74a087257ef5e6da1c5b29a447a60f5bd7",
+        "version" : "2.9.4"
       }
     },
     {
