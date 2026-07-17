@@ -2,7 +2,10 @@ import SwiftUI
 
 struct AboutTabView: View {
     @EnvironmentObject var libraryManager: LibraryManager
-    
+
+    @Environment(\.openWindow)
+    private var openWindow
+
     @State private var isAcknowledgementsExpanded = false
 
     var body: some View {
@@ -192,7 +195,9 @@ struct AboutTabView: View {
             FooterLink(
                 icon: "doc.text",
                 title: "License",
-                url: URL(string: About.appAcknowledgements),
+                action: {
+                    openWindow(id: "acknowledgements")
+                },
                 tooltip: "View third-party licenses and acknowledgements"
             )
             

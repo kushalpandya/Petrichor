@@ -51,6 +51,8 @@ struct PetrichorApp: App {
 
         reportProblemWindow
 
+        acknowledgementsWindow
+
         .commands {
             // App Menu Commands
             appMenuCommands()
@@ -88,6 +90,15 @@ struct PetrichorApp: App {
         }
         .handlesExternalEvents(matching: [])
         .defaultSize(width: 560, height: 680)
+        .windowResizability(.contentSize)
+    }
+
+    private var acknowledgementsWindow: some Scene {
+        WindowGroup("License & Acknowledgements", id: "acknowledgements") {
+            AcknowledgementsView()
+        }
+        .handlesExternalEvents(matching: [])
+        .defaultSize(width: 640, height: 720)
         .windowResizability(.contentSize)
     }
 }
@@ -660,6 +671,7 @@ extension PetrichorApp {
         CommandGroup(replacing: .help) {
             projectHomepageMenuItem()
             sponsorProjectMenuItem()
+            licenseMenuItem()
             Divider()
             helpMenuItem()
             reportProblemMenuItem()
@@ -700,7 +712,7 @@ extension PetrichorApp {
     
     private func sponsorProjectMenuItem() -> some View {
         Button {
-            if let url = URL(string: About.sponsor) {
+            if let url = URL(string: About.donate) {
                 NSWorkspace.shared.open(url)
             }
         } label: {
@@ -714,7 +726,22 @@ extension PetrichorApp {
             }
         }
     }
-    
+
+    private func licenseMenuItem() -> some View {
+        Button {
+            openWindow(id: "acknowledgements")
+        } label: {
+            if #available(macOS 26.0, *) {
+                Label(
+                    "License & Acknowledgements",
+                    systemImage: "doc.text"
+                )
+            } else {
+                Text("License & Acknowledgements")
+            }
+        }
+    }
+
     private func helpMenuItem() -> some View {
         Button {
             if let url = URL(string: About.appWiki) {
