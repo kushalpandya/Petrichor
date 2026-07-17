@@ -176,14 +176,14 @@ struct AboutTabView: View {
     private var footerSection: some View {
         HStack(spacing: 20) {
             FooterLink(
-                icon: "globe",
+                icon: Icons.globe,
                 title: "Website",
                 url: URL(string: About.appWebsite),
-                tooltip: "Visit project website"
+                tooltip: "Visit petrichor.page"
             )
-            
+
             FooterLink(
-                icon: "questionmark.circle",
+                icon: Icons.questionmarkCircle,
                 title: "Help",
                 url: URL(string: About.appWiki),
                 tooltip: "Visit Help Wiki"

@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Frequently Asked Questions
+    url: https://petrichor.page/faq/
+    about: Start here - the questions that come up most often are already answered
   - name: Questions & Discussions
     url: https://github.com/kushalpandya/Petrichor/discussions
     about: For general questions, help, and discussions

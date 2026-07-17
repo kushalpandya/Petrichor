@@ -7,7 +7,9 @@ body:
     attributes:
       value: |
         **Note:** Your issue title should start with "Feature Request:" followed by a brief description
-        
+
+        The [FAQ](https://petrichor.page/faq/) explains what Petrichor deliberately leaves alone, and covers a few things people often ask for that already exist. Worth a look before writing this up.
+
   - type: textarea
     id: description
     attributes:
@@ -52,5 +54,7 @@ body:
     attributes:
       label: Before submitting
       options:
+        - label: I checked the [FAQ](https://petrichor.page/faq/) and this isn't covered there
+          required: true
         - label: I searched existing issues to avoid duplicates
           required: true
