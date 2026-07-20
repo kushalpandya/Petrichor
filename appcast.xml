@@ -5,6 +5,61 @@
         <description>Updates for Petrichor</description>
         <language>en</language>
         <item>
+            <title>Version 1.6.0</title>
+            <pubDate>Mon, 20 Jul 2026 21:50:48 -0400</pubDate>
+            <sparkle:version>160</sparkle:version>
+            <sparkle:shortVersionString>1.6.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.6.0/Petrichor-1.6.0-Universal.dmg"
+                sparkle:edSignature="eG50Uy8JFkfGd995lFh/M0Txkm+YXaV8Fue3IVN6ouOZTdhp4H9DuI2/yE2XX6mYWVH1ODW9hPmpYbDtV4OyAw=="
+                length="23848367"
+                type="application/octet-stream"
+            />
+            <description><![CDATA[
+                <h2>A new playback engine, Mini Player &amp; Immersive mode, smart playlists, localization support, Siri shortcuts, enhanced UI, and a lot more.</h2>
+                <h3>Features</h3>
+                <ul>
+                    <li>Integrate Crescendo, a new playback backend built using modern AVFoundation APIs, enabling gapless playback, spatial audio support, and better-sounding stereo width.
+                        <ul>
+                            <li><strong>Note:</strong> It's currently in beta and opt-in, and will become the default in the next release (<a href="https://github.com/kushalpandya/Petrichor/pull/304">#304</a>)</li>
+                        </ul>
+                    </li>
+                    <li>Add Mini Player with embedded play queue and lyrics (<a href="https://github.com/kushalpandya/Petrichor/pull/307">#307</a>)</li>
+                    <li>Add Immersive mode with embedded play queue and lyrics (<a href="https://github.com/kushalpandya/Petrichor/pull/309">#309</a>)</li>
+                    <li>Add support for creating smart playlists with configurable rules (<a href="https://github.com/kushalpandya/Petrichor/pull/310">#310</a>)</li>
+                    <li>Add support for merging duplicate artists, albums, and composers (<a href="https://github.com/kushalpandya/Petrichor/pull/312">#312</a>)</li>
+                    <li>Add Automation API for Shortcuts, Spotlight, and Siri (<a href="https://github.com/kushalpandya/Petrichor/pull/313">#313</a>)</li>
+                    <li>Add support for in-app Problem Reporting (<a href="https://github.com/kushalpandya/Petrichor/pull/322">#322</a>)</li>
+                    <li>Add customization options for appearance and playback visuals (<a href="https://github.com/kushalpandya/Petrichor/pull/314">#314</a>)</li>
+                    <li>Add support for pinning folders to Home sidebar (<a href="https://github.com/kushalpandya/Petrichor/pull/315">#315</a>)</li>
+                    <li>Add support for localization (<a href="https://github.com/kushalpandya/Petrichor/pull/305">#305</a>)</li>
+                    <li>Add Simplified Chinese (zh-Hans) localization (<a href="https://github.com/kushalpandya/Petrichor/pull/318">#318</a>) (Thanks @akkva!)</li>
+                    <li>Add Animated sync lyrics during playback (<a href="https://github.com/kushalpandya/Petrichor/pull/291">#291</a>) (Thanks @hemingtsai!)</li>
+                    <li>Update Player bar to show track format, refine playback controls (<a href="https://github.com/kushalpandya/Petrichor/pull/306">#306</a>)</li>
+                </ul>
+                <h3>Fixes</h3>
+                <ul>
+                    <li>Fix blank title/artist/album for tracks with empty string metadata tags (<a href="https://github.com/kushalpandya/Petrichor/pull/284">#284</a>) (Thanks @hatute!)</li>
+                    <li>Prevent compilation albums from showing fragmented (<a href="https://github.com/kushalpandya/Petrichor/pull/287">#287</a>)</li>
+                    <li>Improve library refresh to be concurrency-safe to prevent crashes (<a href="https://github.com/kushalpandya/Petrichor/pull/297">#297</a>)</li>
+                    <li>Improve lyrics parsing for CRLF files and non-UTF-8 encodings (<a href="https://github.com/kushalpandya/Petrichor/pull/303">#303</a>)</li>
+                    <li>Fix app crash on macOS 14, other UI updates (<a href="https://github.com/kushalpandya/Petrichor/pull/308">#308</a>)</li>
+                    <li>Fix reordering of sidebar items not working reliably (<a href="https://github.com/kushalpandya/Petrichor/pull/311">#311</a>)</li>
+                    <li>Fix library categories not showing tracks for "Unknown" items (<a href="https://github.com/kushalpandya/Petrichor/pull/317">#317</a>)</li>
+                    <li>Improve playback controls legibility &amp; performance (<a href="https://github.com/kushalpandya/Petrichor/pull/319">#319</a>)</li>
+                    <li>Fix various issues across the app following the feature changes (<a href="https://github.com/kushalpandya/Petrichor/pull/316">#316</a>)</li>
+                    <li>A lot of small bug fixes and UI polish.</li>
+                </ul>
+                <h3>Others</h3>
+                <ul>
+                    <li>Update Dependencies (<a href="https://github.com/kushalpandya/Petrichor/pull/299">#299</a>)</li>
+                    <li>Remove dead code and clear all SwiftLint warnings (<a href="https://github.com/kushalpandya/Petrichor/pull/301">#301</a>)</li>
+                </ul>
+                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.5.2...v1.6.0">Full Changelog</a></p>
+            ]]></description>
+        </item>
+        <item>
             <title>Version 1.5.2</title>
             <pubDate>Sat, 09 May 2026 18:21:08 -0400</pubDate>
             <sparkle:version>152</sparkle:version>
