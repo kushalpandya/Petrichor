@@ -252,7 +252,7 @@ final class ProblemReportManager {
     /// the template chooser if URL assembly fails.
     func gitHubIssueURL(for draft: ProblemReportDraft) -> URL {
         let fallback = URL(string: About.reportIssue) ?? URL(fileURLWithPath: "/")
-        guard var components = URLComponents(string: "\(About.appWebsite)/issues/new") else {
+        guard var components = URLComponents(string: "\(About.appRepository)/issues/new") else {
             return fallback
         }
 

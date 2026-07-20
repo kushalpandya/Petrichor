@@ -31,7 +31,7 @@
 ### ✨ Features
 
 - Everything you'd expect from an offline music player!
-- Supports wide variety of audio file formats;
+- Supports over 20 audio file formats;
   - MP3, AAC/M4A, WAV, AIFF, AIF, ALAC
   - Ogg Vorbis, Speex, Opus, and FLAC
   - APE (Monkey's Audio)
@@ -41,15 +41,18 @@
   - DSF/DFF (Direct Stream Digital)
   - ... MOD, IT, S3M, XM, and AU
 - Map your music folders and browse your library in an organized view.
-- Show lyrics of a playing track when available, including ability to download missing lyrics.
+- Synced lyrics of a playing track when available, including ability to download missing lyrics.
 - Create, import or export playlists.
-- Manage the play queue interactively using drag and drop
+- Smart playlists with conditional rules.
+- Manage the play queue interactively using drag and drop.
 - Browse music using folder view when needed.
 - Pin _anything_ (almost!) to the sidebar for quick access to your favorite music.
 - Navigate easily: right-click a track to go to its album, artist, year, etc.
 - Native macOS integration with menubar and dock playback controls, plus dark mode support.
+- Miniplayer and immersive mode.
+- Last.fm scrobbling support.
+- Shortcuts and Automation API support along with Siri.
 - Works well with large libraries containing thousands of songs.
-- Last.fm scrobbling support
 
 💡 **Tip**: Petrichor relies heavily on tracks having good metadata for all its features to work well.
 
@@ -58,15 +61,18 @@
 - ~~Automatic in-app updates~~ (✅ [v1.0.0](https://github.com/kushalpandya/Petrichor/releases/tag/v1.0.0) )
 - ~~Better file format support (eg; Opus & OGG)~~ (✅ [v.1.2.0](https://github.com/kushalpandya/Petrichor/releases/tag/v1.2.0))
 - ~~Audio Equalizer~~ (✅ [v.1.2.0](https://github.com/kushalpandya/Petrichor/releases/tag/v1.2.0))
+- ~~Miniplayer and full-screen modes~~ (✅ [v.1.6.0](https://github.com/kushalpandya/Petrichor/releases/tag/v1.6.0))
+- ~~Smart playlists with user-configurable conditional filters~~ (✅ [v.1.6.0](https://github.com/kushalpandya/Petrichor/releases/tag/v1.6.0))
+- ~~Spatial Audio & Gapless playback~~ (✅ [v.1.6.0](https://github.com/kushalpandya/Petrichor/releases/tag/v1.6.0))
+- Crossfading support
 - AirPlay 2 casting support
-- Miniplayer and full-screen modes
-- Smart playlists with user-configurable conditional filters
-- Online album & artist information fetching
+- Internet Streaming Radio
+- Natural language search and smart playlists using Apple Intelligence
 - ... and much more!
 
 ###  Requirements
 
-- macOS 14 or later
+- macOS 14 or later (Apple Silicon or Intel)
 
 ### ⚙️ Installation
 
@@ -88,17 +94,7 @@ brew install --cask petrichor
 
 ### 📷 Screenshots
 
-**Note:** These may not be up-to-date.
-
-<div align="center">
-<img src=".github/assets/screenshot_1.png" width="392" alt="Screenshot"/>
-<img src=".github/assets/screenshot_2.png" width="392" alt="Screenshot"/>
-<img src=".github/assets/screenshot_3.png" width="392" alt="Screenshot"/>
-<img src=".github/assets/screenshot_4.png" width="392" alt="Screenshot"/>
-<img src=".github/assets/screenshot_5.png" width="392" alt="Screenshot"/>
-<img src=".github/assets/screenshot_6.png" width="392" alt="Screenshot"/>
-<img src=".github/assets/screenshot_7.png" width="392" alt="Screenshot"/>
-</div>
+Refer to [official website](https://petrichor.page/features)
 
 ### 🔒 Privacy & Data Access
 
@@ -114,6 +110,9 @@ brew install --cask petrichor
     - Last.fm scrobbling (disabled by default)
         - When enabled, app may ask to store your Last.fm session information in macOS Keychain, if you choose to allow it, macOS will ask for your user account password to store the information in Keychain.
         - App **does not** store your Last.fm username or password, you still have to provide it on Last.fm website that opens in browser during configuration, once done, app only receives a session key to scrobble track playbacks with your account.
+    - Reporting issues from within the app (user opt-in only)
+        - Users can report a problem from within the app by going to Menu > Help > Report a Problem..., this opens a form where user is asked to fill out a few details, including detailed app diagnostics, along with app's log file.
+        - This is optional feature and uses network only when user manually initiates this action and sends the information over the internet to app's backend server securely.
 - It doesn't (and never will) have any analytics on how you use the app.
 - It never changes your audio files or folder structure in any way.
 - Your library data remains offline always.
@@ -148,6 +147,7 @@ erDiagram
         DATETIME date_added "NOT NULL"
         DATETIME date_updated "NOT NULL"
         BLOB bookmark_data "Security-scoped bookmark"
+        TEXT shasum_hash "Folder content hash"
     }
 
     artists {
@@ -243,9 +243,9 @@ erDiagram
         INTEGER primary_track_id FK
         TEXT duplicate_group_id
         TEXT album_artist
-        INTEGER track_number "CHECK > 0"
+        INTEGER track_number
         INTEGER total_tracks
-        INTEGER disc_number "CHECK > 0"
+        INTEGER disc_number
         INTEGER total_discs
         INTEGER rating "CHECK 0-5"
         BOOLEAN compilation "DEFAULT false"
@@ -263,6 +263,7 @@ erDiagram
         TEXT sort_album
         TEXT sort_album_artist
         TEXT extended_metadata "JSON"
+        BOOLEAN lossless
     }
 
     playlists {
@@ -308,9 +309,29 @@ erDiagram
         TEXT playlist_id "For playlist items"
         TEXT display_name "NOT NULL"
         TEXT subtitle "For albums"
-        TEXT icon_name "NOT NULL"
         INTEGER sort_order "NOT NULL DEFAULT 0"
         DATETIME date_added "NOT NULL"
+    }
+
+    artist_aliases {
+        TEXT normalized_alias PK
+        TEXT display_name "NOT NULL"
+        INTEGER canonical_artist_id FK "NOT NULL"
+        DATETIME created_at "NOT NULL"
+    }
+
+    album_aliases {
+        TEXT normalized_key PK
+        TEXT display_title "NOT NULL"
+        INTEGER canonical_album_id FK "NOT NULL"
+        DATETIME created_at "NOT NULL"
+    }
+
+    background_migrations {
+        TEXT identifier PK
+        DATETIME completed_at
+        TEXT progress
+        BOOLEAN resumable "DEFAULT true"
     }
 
     tracks_fts {
@@ -330,12 +351,14 @@ erDiagram
     albums ||--o{ tracks : contains
     artists ||--o{ track_artists : "appears in"
     tracks ||--o{ track_artists : "has artists"
-    tracks ||--o| tracks : "duplicate of"
+    tracks ||--o{ tracks : "duplicate of"
     genres ||--o{ track_genres : "categorizes"
     tracks ||--o{ track_genres : "has genres"
     playlists ||--o{ playlist_tracks : contains
     tracks ||--o{ playlist_tracks : "appears in"
     tracks ||--|| tracks_fts : "searchable in"
+    artists ||--o{ artist_aliases : "merged into"
+    albums ||--o{ album_aliases : "merged into"
 ```
 
 </details>

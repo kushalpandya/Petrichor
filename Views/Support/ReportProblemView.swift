@@ -62,6 +62,8 @@ struct ReportProblemView: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
+                    faqNotice
+
                     VStack(alignment: .leading, spacing: 12) {
                         Text("What went wrong?")
                             .font(.headline)
@@ -151,6 +153,46 @@ struct ReportProblemView: View {
             Divider()
             footer
         }
+    }
+
+    /// Offers the FAQ up front, before the user invests in filling out the form:
+    /// a fair share of reports turn out to be answered there already.
+    private var faqNotice: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: Icons.questionmarkCircle)
+                .font(.title3)
+                .foregroundColor(.accentColor)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Button("Read FAQ before reporting?") {
+                    if let url = URL(string: About.appFAQ) {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+                .buttonStyle(.link)
+                .font(.subheadline.weight(.medium))
+                .help("Opens the FAQ at petrichor.page in your browser")
+                .onHover { hovering in
+                    if hovering {
+                        NSCursor.pointingHand.push()
+                    } else {
+                        NSCursor.pop()
+                    }
+                }
+
+                Text("The FAQ covers the questions that come up most often, including the behavior that's intentional.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 8)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.accentColor.opacity(0.08))
+        )
     }
 
     /// A field label above its content, left-aligned and full width.

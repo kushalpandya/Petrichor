@@ -3,6 +3,11 @@ description: Report a bug in Petrichor
 title: "Bug: "
 labels: ["bug"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        **Before you write this up:** a fair few reports turn out to be answered in the [FAQ](https://petrichor.page/faq/) - things like supported formats, large libraries, metadata and tags, and behaviour that's intentional. Worth a minute to check.
+
   - type: textarea
     id: description
     attributes:
@@ -84,6 +89,8 @@ body:
     attributes:
       label: Before submitting
       options:
+        - label: I checked the [FAQ](https://petrichor.page/faq/) and this isn't covered there
+          required: true
         - label: I searched existing issues to avoid duplicates
           required: true
         - label: I'm running macOS 14.0 or higher

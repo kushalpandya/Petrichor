@@ -1,7 +1,9 @@
 import Foundation
 
 enum AppInfo {
-    static let userAgent = "\(About.appTitle)/\(AppInfo.version) (\(About.appWebsite))"
+    // The contact URL stays the repository: it's where a service operator who
+    // takes issue with our requests would come to reach us.
+    static let userAgent = "\(About.appTitle)/\(AppInfo.version) (\(About.appRepository))"
 
     // MARK: - Version Information
 

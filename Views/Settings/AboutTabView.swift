@@ -2,7 +2,10 @@ import SwiftUI
 
 struct AboutTabView: View {
     @EnvironmentObject var libraryManager: LibraryManager
-    
+
+    @Environment(\.openWindow)
+    private var openWindow
+
     @State private var isAcknowledgementsExpanded = false
 
     var body: some View {
@@ -176,14 +179,14 @@ struct AboutTabView: View {
     private var footerSection: some View {
         HStack(spacing: 20) {
             FooterLink(
-                icon: "globe",
+                icon: Icons.globe,
                 title: "Website",
                 url: URL(string: About.appWebsite),
-                tooltip: "Visit project website"
+                tooltip: "Visit petrichor.page"
             )
-            
+
             FooterLink(
-                icon: "questionmark.circle",
+                icon: Icons.questionmarkCircle,
                 title: "Help",
                 url: URL(string: About.appWiki),
                 tooltip: "Visit Help Wiki"
@@ -192,7 +195,9 @@ struct AboutTabView: View {
             FooterLink(
                 icon: "doc.text",
                 title: "License",
-                url: URL(string: About.appAcknowledgements),
+                action: {
+                    openWindow(id: "acknowledgements")
+                },
                 tooltip: "View third-party licenses and acknowledgements"
             )
             

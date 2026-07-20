@@ -534,7 +534,7 @@ private struct CompactFolderRowView: View {
                 Text(folder.name)
                     .font(.system(size: 13, weight: .medium))
                     .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
+                    .help(folder.name)
 
                 Text("(\(folder.url.path))")
                     .font(.system(size: 12))
@@ -545,13 +545,11 @@ private struct CompactFolderRowView: View {
 
                 Spacer(minLength: 8)
 
-                Text("\(trackCount)")
+                Text("\(trackCount) tracks")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.secondary)
-                +
-                Text(" tracks")
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
             }
 
             // Individual actions (when not in select mode)
