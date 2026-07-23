@@ -103,8 +103,8 @@ enum About {
     static let appWiki = "https://github.com/kushalpandya/Petrichor/wiki"
     static let reportIssue = "https://github.com/kushalpandya/Petrichor/issues/new/choose"
     static let donate = "https://www.petrichor.page/donate/"
-    static let appVersion = "1.6.0"
-    static let appBuild = "160"
+    static let appVersion = "1.6.1"
+    static let appBuild = "161"
     static let knownArtistsSampleFile = "known_artists_YYYYMMDD.txt"
 }
 
