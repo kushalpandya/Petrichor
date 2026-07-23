@@ -23,7 +23,7 @@
                     <li>Fix in-app issue reporter not working</li>
                     <li>Fix some inconsistencies with Simplified Chinese (zh-Hans) localization (<a href="https://github.com/kushalpandya/Petrichor/pull/333">#333</a>) (Thanks @akkva)</li>
                 </ul>
-                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.6.0...v1.6.1">Full Changelog</a></p>
+                <p><a href="https://www.petrichor.page/changelog/">Full Changelog</a></p>
             ]]></description>
         </item>
         <item>
@@ -78,7 +78,7 @@
                     <li>Update Dependencies (<a href="https://github.com/kushalpandya/Petrichor/pull/299">#299</a>)</li>
                     <li>Remove dead code and clear all SwiftLint warnings (<a href="https://github.com/kushalpandya/Petrichor/pull/301">#301</a>)</li>
                 </ul>
-                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.5.2...v1.6.0">Full Changelog</a></p>
+                <p><a href="https://www.petrichor.page/changelog/">Full Changelog</a></p>
             ]]></description>
         </item>
         <item>
@@ -108,7 +108,7 @@
                     <li>Refactor EntityGridView for better performance &amp; memory usage (<a href="https://github.com/kushalpandya/Petrichor/pull/269">#269</a>)</li>
                     <li>Include hardware info in diagnostic snapshot &amp; restructure properties (<a href="https://github.com/kushalpandya/Petrichor/pull/270">#270</a>)</li>
                 </ul>
-                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.5.1...v1.5.2">Full Changelog</a></p>
+                <p><a href="https://www.petrichor.page/changelog/">Full Changelog</a></p>
             ]]></description>
         </item>
         <item>
@@ -133,7 +133,7 @@
                     <li>Prevent manual artist image download to exceed size limit (<a href="https://github.com/kushalpandya/Petrichor/pull/261">#261</a>)</li>
                     <li>Speed up folders list animation in Settings (<a href="https://github.com/kushalpandya/Petrichor/pull/262">#262</a>)</li>
                 </ul>
-                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.5.0...v1.5.1">Full Changelog</a></p>
+                <p><a href="https://www.petrichor.page/changelog/">Full Changelog</a></p>
             ]]></description>
         </item>
         <item>
@@ -181,7 +181,7 @@
                     <li>Update Dependencies (<a href="https://github.com/kushalpandya/Petrichor/pull/219">#219</a>)</li>
                     <li>Add app diagnosis snapshot to log file (<a href="https://github.com/kushalpandya/Petrichor/pull/238">#238</a>)</li>
                 </ul>
-                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.4.2...v1.5.0">Full Changelog</a></p>
+                <p><a href="https://www.petrichor.page/changelog/">Full Changelog</a></p>
             ]]></description>
         </item>
         <item>
@@ -204,7 +204,7 @@
                     <li>Fix playlist and its count not updating reliably (<a href="https://github.com/kushalpandya/Petrichor/pull/213">#213</a>)</li>
                     <li>Fix default tracks order in Artists and Playlists (<a href="https://github.com/kushalpandya/Petrichor/pull/214">#214</a>)</li>
                 </ul>
-                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.4.1...v1.4.2">Full Changelog</a></p>
+                <p><a href="https://www.petrichor.page/changelog/">Full Changelog</a></p>
             ]]></description>
         </item>
         <item>
@@ -227,7 +227,7 @@
                     <li>Fix importing of playlists with relative track paths (<a href="https://github.com/kushalpandya/Petrichor/pull/201">#201</a>)</li>
                     <li>Remember EQ enabled state across app relaunches (<a href="https://github.com/kushalpandya/Petrichor/pull/204">#204</a>)</li>
                 </ul>                
-                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.4.0...v1.4.1">Full Changelog</a></p>
+                <p><a href="https://www.petrichor.page/changelog/">Full Changelog</a></p>
             ]]></description>
         </item>
         <item>
@@ -261,7 +261,7 @@
                     <li>Fix context menu closing during playback (<a href="https://github.com/kushalpandya/Petrichor/pull/183">#183</a>, <a href="https://github.com/kushalpandya/Petrichor/pull/185">#185</a>) (Thanks @chaim-chv!)</li>
                     <li>Improve library folder removal UX (<a href="https://github.com/kushalpandya/Petrichor/pull/190">#190</a>)</li>
                 </ul>
-                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.3.1...v1.4.0">Full Changelog</a></p>
+                <p><a href="https://www.petrichor.page/changelog/">Full Changelog</a></p>
             ]]></description>
         </item>
         <item>
