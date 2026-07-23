@@ -102,7 +102,7 @@ extension DatabaseManager {
     func addFoldersAsync(_ urls: [URL], bookmarkDataMap: [URL: Data]) async throws -> [Folder] {
         await MainActor.run {
             self.isScanning = true
-            self.scanStatusMessage = "Adding folders..."
+            self.scanStatusMessage = String(localized: "Adding folders...")
         }
 
         let addedFolders = try await dbQueue.write { db -> [Folder] in
