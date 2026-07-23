@@ -89,6 +89,46 @@ check_requirements() {
     fi
 }
 
+# Fail early if any key declared in Secrets.xcconfig.template is missing or blank
+# in Secrets.xcconfig (an unset build setting becomes an empty Info.plist string,
+# silently disabling the integration). Value correctness isn't checked.
+check_secrets() {
+    local template="Configuration/Secrets.xcconfig.template"
+    local secrets="Configuration/Secrets.xcconfig"
+
+    if [ ! -f "$template" ]; then
+        warning "No $template found - skipping secrets validation"
+        return 0
+    fi
+    if [ ! -f "$secrets" ]; then
+        error "$secrets is missing! Copy it from the template and fill it in:"
+        error "  cp $template $secrets"
+        exit 1
+    fi
+
+    # Record keys with a non-empty value in secrets, then print any template key
+    # that wasn't recorded. `//` comment lines don't match /^[A-Za-z_]/; values
+    # may contain `=` (rejoined), so the escaped report URL survives.
+    local missing
+    missing=$(awk -F= '
+        function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+        trim($1) !~ /^[A-Za-z_]/ { next }
+        FNR == NR { v = $2; for (i = 3; i <= NF; i++) v = v "=" $i
+                    if (trim(v) != "") seen[trim($1)] = 1; next }
+        !(trim($1) in seen) { print "  - " trim($1) }
+    ' "$secrets" "$template")
+
+    if [ -n "$missing" ]; then
+        error "Secrets missing or blank in $secrets (declared in $template):"
+        echo "$missing" >&2
+        error "An unset build setting becomes an empty Info.plist string and"
+        error "silently disables the integration. Fill these in before building."
+        exit 1
+    fi
+
+    log "Secrets validated ($secrets)"
+}
+
 # Progress animation
 show_progress() {
     local pid=$1
@@ -440,6 +480,9 @@ fi
 
 # Check requirements
 check_requirements
+
+# Validate Secrets.xcconfig against the template (cwd is now the project root)
+check_secrets
 
 # Detect version if not specified
 if [ -z "$VERSION" ]; then
