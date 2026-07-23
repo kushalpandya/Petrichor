@@ -5,6 +5,28 @@
         <description>Updates for Petrichor</description>
         <language>en</language>
         <item>
+            <title>Version 1.6.1</title>
+            <pubDate>Thu, 23 Jul 2026 02:16:45 -0400</pubDate>
+            <sparkle:version>161</sparkle:version>
+            <sparkle:shortVersionString>1.6.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.6.1/Petrichor-1.6.1-Universal.dmg"
+                sparkle:edSignature="rBGRujXU1+WsmjEjDJqOAg7bTMt5oQUo/MDqLsyj2bQ2VgfngWreWVC2yqj553JIWVdGgwsEoXwkWyKSeauYBA=="
+                length="23849981"
+                type="application/octet-stream"
+            />
+            <description><![CDATA[
+                <h2>Fixes</h2>
+                <ul>
+                    <li>Fix TMDB artist image fetching</li>
+                    <li>Fix in-app issue reporter not working</li>
+                    <li>Fix some inconsistencies with Simplified Chinese (zh-Hans) localization (<a href="https://github.com/kushalpandya/Petrichor/pull/333">#333</a>) (Thanks @akkva)</li>
+                </ul>
+                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.6.0...v1.6.1">Full Changelog</a></p>
+            ]]></description>
+        </item>
+        <item>
             <title>Version 1.6.0</title>
             <pubDate>Mon, 20 Jul 2026 21:50:48 -0400</pubDate>
             <sparkle:version>160</sparkle:version>
