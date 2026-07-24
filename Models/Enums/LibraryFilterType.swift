@@ -159,9 +159,17 @@ enum LibraryFilterType: String, CaseIterable {
     }
 
     var usesMultiArtistParsing: Bool {
+        artistRole != nil
+    }
+
+    /// The `TrackArtist.Role` this category's tracks relate through, for categories whose value is
+    /// a multi-artist string. Also selects the name lookup `ArtistParser` parses against.
+    var artistRole: String? {
         switch self {
-        case .artists, .albumArtists, .composers: return true
-        default: return false
+        case .artists: return TrackArtist.Role.artist
+        case .albumArtists: return TrackArtist.Role.albumArtist
+        case .composers: return TrackArtist.Role.composer
+        default: return nil
         }
     }
 
@@ -192,7 +200,7 @@ enum LibraryFilterType: String, CaseIterable {
 
             for track in tracks {
                 let value = getValue(from: track)
-                let artists = ArtistParser.parse(value, unknownPlaceholder: unknownPlaceholder)
+                let artists = ArtistParser.parse(value, unknownPlaceholder: unknownPlaceholder, role: artistRole)
 
                 for artist in artists {
                     let normalizedName = ArtistParser.normalizeArtistName(artist)
@@ -261,7 +269,7 @@ enum LibraryFilterType: String, CaseIterable {
         if usesMultiArtistParsing && filterValue != unknownPlaceholder {
             // Multi-artist parsing with normalization
             let value = getValue(from: track)
-            let artists = ArtistParser.parse(value, unknownPlaceholder: unknownPlaceholder)
+            let artists = ArtistParser.parse(value, unknownPlaceholder: unknownPlaceholder, role: artistRole)
 
             // Check if any parsed artist matches the filter value
             return artists.contains { artist in

@@ -15,14 +15,27 @@ enum ArtistParser {
         ", ", " with ", " / ", "/", "／"
     ]
 
-    // Bare "/" is only safe with known-artist lookup (protects "AC/DC" etc.)
+    // Bare "/" is only safe with a name lookup to fall back on (protects "AC/DC" etc.)
     private static let unsafeSeparators: Set<String> = ["/"]
 
-    // All separators including unsafe ones (used when known artists are loaded)
+    // Ambiguous separators minus the unsafe ones
+    private static let safeAmbiguousSeparators = ambiguousSeparators.filter { !unsafeSeparators.contains($0) }
+
+    // All separators including unsafe ones (used when a name lookup is available)
     private static let allSeparators = highConfidenceSeparators + ambiguousSeparators
 
-    // Safe separators (used when no known artists data is available)
-    private static let safeSeparators = highConfidenceSeparators + ambiguousSeparators.filter { !unsafeSeparators.contains($0) }
+    // Safe separators (used when there's nothing to match names against)
+    private static let safeSeparators = highConfidenceSeparators + safeAmbiguousSeparators
+
+    /// Name data available to resolve ambiguous separators. Raw values double as cache-key parts.
+    private enum LookupSource: String {
+        /// Nothing to match against - ambiguous separators are split blindly.
+        case none = "plain"
+        /// Bundled known-artists file, resident only while scanning.
+        case bundled = "known"
+        /// Names the scanner already resolved into this library, for one role.
+        case library
+    }
 
     // MARK: - Caching
     private static let cacheQueue = DispatchQueue(label: "org.Petrichor.artistparser.cache", attributes: .concurrent)
@@ -48,6 +61,18 @@ enum ArtistParser {
     private static var knownArtists = Set<String>()
     private static var knownArtistsRetainCount = 0
 
+    /// Per-role map of normalized name (including merge aliases) to canonical artist name, standing
+    /// in for the bundled file once it's unloaded so runtime parsing matches the scan.
+    ///
+    /// Keyed by role because the roles disagree: an unparsed album-artist tag can leave a combined
+    /// `artists` row no `track_artists` relationship uses, which would be a destination with no
+    /// tracks. Only names a role can navigate to belong in its map.
+    private static var libraryArtists: [String: [String: String]] = [:]
+
+    /// Bumped on every lookup change; part of the cache key, so results computed against replaced
+    /// data become unreachable.
+    private static var lookupGeneration = 0
+
     /// Load known artists from the bundled text file into memory.
     ///
     /// Reference-counted: each call must be balanced by exactly one `unloadKnownArtists()`.
@@ -71,6 +96,7 @@ enum ArtistParser {
                     .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                     .filter { !$0.isEmpty && !$0.hasPrefix("#") }
             )
+            lookupGeneration += 1
             return (knownArtists.count, url.lastPathComponent, nil)
         }
 
@@ -90,6 +116,7 @@ enum ArtistParser {
 
             let count = knownArtists.count
             knownArtists.removeAll()
+            lookupGeneration += 1
             return count
         }
 
@@ -98,18 +125,82 @@ enum ArtistParser {
         Logger.info("Unloaded \(unloadedCount) known artists from memory")
     }
 
-    /// Whether known artists data is available for enhanced parsing.
-    private static var hasKnownArtists: Bool {
-        knownArtistsQueue.sync { !knownArtists.isEmpty }
+    /// Replace the library-artist lookup: role (`TrackArtist.Role`) to normalized name to canonical
+    /// artist name. Keys must already be in lookup form.
+    static func setLibraryArtists(_ namesByRole: [String: [String: String]]) {
+        // Swap and bump together, or a parse could pair the new data with the old generation and
+        // read a cached result the old data produced.
+        let changed = knownArtistsQueue.sync(flags: .barrier) { () -> Bool in
+            guard libraryArtists != namesByRole else { return false }
+            libraryArtists = namesByRole
+            lookupGeneration += 1
+            return true
+        }
+
+        guard changed else { return }
+        clearParseCache()
+        let total = namesByRole.values.reduce(0) { $0 + $1.count }
+        Logger.info("Artist lookup updated with \(total) library names across \(namesByRole.count) roles")
     }
 
-    /// Check if a name matches a known artist.
+    /// An immutable view of the lookup data, taken once per parse - a retain, not a copy, since the
+    /// collections are copy-on-write. Pins the parse to one `generation`.
+    private struct Lookup {
+        let source: LookupSource
+        let generation: Int
+        private let bundled: Set<String>
+        private let library: [String: String]
+
+        init(source: LookupSource, generation: Int, bundled: Set<String> = [], library: [String: String] = [:]) {
+            self.source = source
+            self.generation = generation
+            self.bundled = bundled
+            self.library = library
+        }
+
+        /// The name to use for a candidate if it's a known artist, else nil.
+        ///
+        /// The library map answers first, and with the canonical name, so a tag carrying a
+        /// pre-merge alias resolves to the artist it was merged into even mid-scan, where the
+        /// bundled file would recognise the old name and hand back the tag text.
+        func resolvedName(for candidate: String) -> String? {
+            guard source != .none else { return nil }
+
+            let normalized = normalizeArtistName(candidate)
+            guard !normalized.isEmpty else { return nil }
+
+            if let canonical = library[normalized] { return canonical }
+            return bundled.contains(normalized) ? candidate.trimmingCharacters(in: .whitespacesAndNewlines) : nil
+        }
+    }
+
+    /// Best available name data for a role. The bundled file adds recognition breadth while loaded;
+    /// the role's names ride along to canonicalize. With neither, `.none` rather than empty.
+    private static func currentLookup(for role: String?) -> Lookup {
+        knownArtistsQueue.sync {
+            let names = role.flatMap { libraryArtists[$0] } ?? [:]
+
+            if !knownArtists.isEmpty {
+                return Lookup(source: .bundled, generation: lookupGeneration, bundled: knownArtists, library: names)
+            }
+            if !names.isEmpty {
+                return Lookup(source: .library, generation: lookupGeneration, library: names)
+            }
+            return Lookup(source: .none, generation: lookupGeneration)
+        }
+    }
+
+    /// Check if a name matches a known artist in the currently available data.
     static func isKnownArtist(_ name: String) -> Bool {
         let normalized = normalizeArtistName(name)
         guard !normalized.isEmpty else { return false }
-        return knownArtistsQueue.sync { knownArtists.contains(normalized) }
+
+        return knownArtistsQueue.sync {
+            knownArtists.contains(normalized) || libraryArtists.values.contains { $0[normalized] != nil }
+        }
     }
 
+    /// Reclaims entries stranded by a generation bump; correctness comes from the generation.
     private static func clearParseCache() {
         cacheQueue.sync(flags: .barrier) {
             parseCache.removeAll()
@@ -178,12 +269,21 @@ enum ArtistParser {
     // MARK: - Parsing
 
     /// Parses a multi-artist string into individual artist names.
-    /// When known artists data is loaded, uses two-phase parsing with greedy matching
+    /// When artist name data is available, uses two-phase parsing with greedy matching
     /// to preserve artist names containing separators (e.g., "Mumford & Sons").
     /// Otherwise falls back to splitting on all safe separators.
-    static func parse(_ artistString: String, unknownPlaceholder: String = "Unknown Artist") -> [String] {
-        let usingKnownArtists = hasKnownArtists
-        let cacheKey = "\(artistString)|\(unknownPlaceholder)|\(usingKnownArtists ? "known" : "plain")"
+    ///
+    /// - Parameter role: the `TrackArtist.Role` the string was tagged in. No default, so a caller
+    ///   can't silently lose the library lookup: outside a scan it's the only lookup there is, and
+    ///   during one it's what resolves merged-away names. Pass nil only when there's genuinely no
+    ///   role, accepting that ambiguous separators are then split blindly.
+    static func parse(
+        _ artistString: String,
+        unknownPlaceholder: String = "Unknown Artist",
+        role: String?
+    ) -> [String] {
+        let lookup = currentLookup(for: role)
+        let cacheKey = "\(artistString)|\(unknownPlaceholder)|\(lookup.source.rawValue)|\(role ?? "")|\(lookup.generation)"
 
         if let cached = cacheQueue.sync(execute: { parseCache[cacheKey] }) {
             return cached
@@ -193,19 +293,21 @@ enum ArtistParser {
             return cacheAndReturn([unknownPlaceholder], forKey: cacheKey)
         }
 
-        let activeSeparators = usingKnownArtists ? allSeparators : safeSeparators
+        let activeSeparators = lookup.source == .none ? safeSeparators : allSeparators
 
-        // Fast path: no separators at all
+        // Fast path: no separators at all. Still resolved, so a merged-away tag ("P!nk") points at
+        // the artist that now holds its tracks ("Pink").
         if !containsAnySeparator(artistString, in: activeSeparators) {
             let trimmed = artistString.trimmingCharacters(in: .whitespacesAndNewlines)
-            return cacheAndReturn(trimmed.isEmpty ? [unknownPlaceholder] : [trimmed], forKey: cacheKey)
+            guard !trimmed.isEmpty else { return cacheAndReturn([unknownPlaceholder], forKey: cacheKey) }
+            return cacheAndReturn([lookup.resolvedName(for: trimmed) ?? trimmed], forKey: cacheKey)
         }
 
         let result: [String]
-        if usingKnownArtists {
-            result = parseWithKnownArtists(artistString)
-        } else {
+        if lookup.source == .none {
             result = splitBySeparators([artistString], separators: activeSeparators)
+        } else {
+            result = parseWithKnownArtists(artistString, lookup: lookup)
         }
 
         return cacheAndReturn(
@@ -218,10 +320,10 @@ enum ArtistParser {
 
     /// Two-phase parsing: split on high-confidence separators first,
     /// then resolve ambiguous separators using greedy known-artist matching.
-    private static func parseWithKnownArtists(_ artistString: String) -> [String] {
+    private static func parseWithKnownArtists(_ artistString: String, lookup: Lookup) -> [String] {
         // Fast path: entire string is a known artist
-        if isKnownArtist(artistString) {
-            return [artistString.trimmingCharacters(in: .whitespacesAndNewlines)]
+        if let resolved = lookup.resolvedName(for: artistString) {
+            return [resolved]
         }
 
         // Phase 1: Split on high-confidence separators
@@ -232,7 +334,7 @@ enum ArtistParser {
         for segment in segments {
             let trimmed = segment.trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmed.isEmpty { continue }
-            resolvedArtists.append(contentsOf: resolveAmbiguousSeparators(trimmed))
+            resolvedArtists.append(contentsOf: resolveAmbiguousSeparators(trimmed, lookup: lookup))
         }
 
         return resolvedArtists
@@ -243,7 +345,7 @@ enum ArtistParser {
     /// Resolves ambiguous separators in a segment using greedy known-artist matching.
     /// Tokenizes the segment at all ambiguous separator positions simultaneously,
     /// then tries joining atoms left-to-right (longest first) to find known artists.
-    private static func resolveAmbiguousSeparators(_ segment: String) -> [String] {
+    private static func resolveAmbiguousSeparators(_ segment: String, lookup: Lookup) -> [String] {
         let (atoms, separators) = tokenizeAmbiguousSeparators(segment)
 
         if atoms.count <= 1 {
@@ -259,8 +361,8 @@ enum ArtistParser {
 
             for j in stride(from: atoms.count - 1, through: i + 1, by: -1) {
                 let candidate = reconstructSegment(atoms: atoms, separators: separators, from: i, to: j)
-                if isKnownArtist(candidate) {
-                    result.append(candidate.trimmingCharacters(in: .whitespacesAndNewlines))
+                if let resolved = lookup.resolvedName(for: candidate) {
+                    result.append(resolved)
                     i = j + 1
                     matched = true
                     break
@@ -270,7 +372,7 @@ enum ArtistParser {
             if !matched {
                 let atom = atoms[i].trimmingCharacters(in: .whitespacesAndNewlines)
                 if !atom.isEmpty {
-                    result.append(atom)
+                    result.append(lookup.resolvedName(for: atom) ?? atom)
                 }
                 i += 1
             }

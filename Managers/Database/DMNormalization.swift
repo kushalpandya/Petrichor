@@ -106,7 +106,10 @@ extension DatabaseManager {
     }
 
     func processArtistsForField(_ field: String, trackId: Int64, role: String, in db: Database, cache: ScanLookupCache? = nil) throws {
-        let artistNames = ArtistParser.parse(field)
+        // Pass the role so a name the user merged away resolves to its canonical artist here too.
+        // `findOrCreateArtist` already does that for whole names, but only for names that survive
+        // parsing intact - without the lookup, a merged name with a separator is split first.
+        let artistNames = ArtistParser.parse(field, role: role)
 
         for (index, artistName) in artistNames.enumerated() {
             let artist = try findOrCreateArtist(artistName, in: db, cache: cache)
@@ -228,7 +231,7 @@ extension DatabaseManager {
             albumArtistName = "Various Artists"
         } else if !track.artist.isEmpty && track.artist != "Unknown Artist" {
             // Parse the artist field and use the first artist as the album artist
-            let artists = ArtistParser.parse(track.artist)
+            let artists = ArtistParser.parse(track.artist, role: TrackArtist.Role.artist)
             albumArtistName = artists.first
         } else {
             albumArtistName = nil
@@ -250,8 +253,8 @@ extension DatabaseManager {
 
     /// Process all artists for an album
     private func processAlbumArtists(_ albumId: Int64, artistString: String, in db: Database, cache: ScanLookupCache? = nil) throws {
-        // Parse all artists from the string
-        let artistNames = ArtistParser.parse(artistString)
+        // Parse all artists from the string; the string is the artist tag, so that's the lookup.
+        let artistNames = ArtistParser.parse(artistString, role: TrackArtist.Role.artist)
 
         // Get existing album artists
         let existingAlbumArtists = try AlbumArtist
@@ -618,7 +621,7 @@ extension DatabaseManager {
         var names: [String] = []
         var seen = Set<String>()
         for track in tracks where !track.artist.isEmpty && track.artist != "Unknown Artist" {
-            guard let primary = ArtistParser.parse(track.artist).first else { continue }
+            guard let primary = ArtistParser.parse(track.artist, role: TrackArtist.Role.artist).first else { continue }
             if seen.insert(ArtistParser.normalizeArtistName(primary)).inserted { names.append(primary) }
         }
 

@@ -385,6 +385,8 @@ class LibraryManager: ObservableObject {
             // Clear in-memory data
             folders.removeAll()
             tracks.removeAll()
+            // Static parser state outlives the database, so drop the deleted library's names
+            ArtistParser.setLibraryArtists([:])
 
             // Clear UserDefaults (remove the security bookmarks reference)
             UserDefaults.standard.removeObject(forKey: "LastScanDate")
