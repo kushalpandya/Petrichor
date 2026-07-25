@@ -208,7 +208,11 @@ enum TrackContextMenu {
         filterType: LibraryFilterType
     ) -> [ContextMenuItem] {
         let value = filterType.getValue(from: track)
-        let parsedValues = ArtistParser.parse(value, unknownPlaceholder: filterType.unknownPlaceholder)
+        let parsedValues = ArtistParser.parse(
+            value,
+            unknownPlaceholder: filterType.unknownPlaceholder,
+            role: filterType.artistRole
+        )
         
         if parsedValues.count > 1 {
             var subItems: [ContextMenuItem] = []

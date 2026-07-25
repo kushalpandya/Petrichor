@@ -478,6 +478,49 @@ extension DatabaseManager {
         }
     }
 
+    // MARK: - Artist Name Lookup
+
+    /// Artist names for `ArtistParser`'s runtime lookup: role to normalized name to canonical name.
+    ///
+    /// Built from `track_artists` rather than every `artists` row, since only those are reachable
+    /// by the "Go to" queries - an unparsed album-artist tag can leave a combined row that only
+    /// `album_artists` uses. Merge aliases fold in against their canonical artist.
+    ///
+    /// nil means the read failed, which callers must not treat as a library with no artists:
+    /// installing an empty lookup silently re-enables blind separator splitting.
+    func getArtistNamesByRole() -> [String: [String: String]]? {
+        // DISTINCT because the join is per track-artist link; without it a large library returns
+        // a row per track. The two halves can't collide: a merged-away name is deleted from
+        // `artists` as its alias is written, and `artists.normalized_name` is unique.
+        let sql = """
+            SELECT DISTINCT ta.role AS role, a.normalized_name AS lookup, a.name AS canonical
+            FROM artists a
+            JOIN track_artists ta ON ta.artist_id = a.id
+            UNION ALL
+            SELECT DISTINCT ta.role, al.normalized_alias, a.name
+            FROM artist_aliases al
+            JOIN artists a ON a.id = al.canonical_artist_id
+            JOIN track_artists ta ON ta.artist_id = a.id
+            """
+
+        do {
+            return try dbQueue.read { db in
+                var namesByRole: [String: [String: String]] = [:]
+
+                for row in try Row.fetchAll(db, sql: sql) {
+                    let role: String = row["role"]
+                    let lookup: String = row["lookup"]
+                    namesByRole[role, default: [:]][lookup] = row["canonical"]
+                }
+
+                return namesByRole
+            }
+        } catch {
+            Logger.error("Failed to get artist names by role: \(error)")
+            return nil
+        }
+    }
+
     // MARK: - Quick Count Methods
 
     func getArtistCount() -> Int {
