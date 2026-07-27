@@ -1,0 +1,130 @@
+{
+  "fill" : {
+    "linear-gradient" : [
+      "display-p3:0.90967,0.91748,0.90186,1.00000",
+      "display-p3:0.80762,0.81592,0.79590,1.00000"
+    ]
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "blend-mode" : "normal",
+          "fill-specializations" : [
+            {
+              "value" : "automatic"
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "linear-gradient" : [
+                  "display-p3:0.80762,0.81592,0.79590,1.00000",
+                  "display-p3:0.90967,0.91748,0.90186,1.00000"
+                ],
+                "orientation" : {
+                  "start" : {
+                    "x" : 0.5,
+                    "y" : 1
+                  },
+                  "stop" : {
+                    "x" : 0.5,
+                    "y" : 0.3
+                  }
+                }
+              }
+            },
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "solid" : "display-p3:0.90967,0.91748,0.90186,1.00000"
+              }
+            }
+          ],
+          "glass" : true,
+          "hidden-specializations" : [
+            {
+              "idiom" : "macOS",
+              "value" : false
+            }
+          ],
+          "image-name" : "custom.music.svg",
+          "name" : "Music Notes",
+          "position-specializations" : [
+            {
+              "value" : {
+                "scale" : 1,
+                "translation-in-points" : [
+                  -212.78125,
+                  -229.0078125
+                ]
+              }
+            },
+            {
+              "idiom" : "macOS",
+              "value" : {
+                "scale" : 28,
+                "translation-in-points" : [
+                  -14,
+                  0
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "blend-mode" : "normal",
+          "fill-specializations" : [
+            {
+              "value" : {
+                "solid" : "display-p3:1.00000,1.00000,1.00000,1.00000"
+              }
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "automatic-gradient" : "display-p3:1.00000,1.00000,1.00000,1.00000"
+              }
+            },
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "automatic-gradient" : "display-p3:1.00000,1.00000,1.00000,1.00000"
+              }
+            }
+          ],
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "play.fill.svg",
+          "name" : "Play",
+          "opacity" : 0.2,
+          "position-specializations" : [
+            {
+              "idiom" : "macOS",
+              "value" : {
+                "scale" : 40,
+                "translation-in-points" : [
+                  19.3836,
+                  0.19399999999995998
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "name" : "Symbols",
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "squares" : [
+      "macOS"
+    ]
+  }
+}

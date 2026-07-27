@@ -167,6 +167,8 @@ extension PetrichorApp {
                 Text("Check for Updates...")
             }
         }
+        // Dev builds don't run the updater, so leave the item visible but inert
+        .disabled(!AppInfo.isProductionBuild)
     }
     
     // MARK: - File Menu Commands

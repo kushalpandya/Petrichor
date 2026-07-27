@@ -150,11 +150,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             object: nil
         )
         
-        updaterController = SPUStandardUpdaterController(
-            startingUpdater: true,
-            updaterDelegate: nil,
-            userDriverDelegate: nil
-        )
+        // Dev builds run under their own bundle identifier, so the production
+        // appcast isn't an update path for them - installing a "newer" release
+        // would just leave a second app behind. Don't start the updater at all.
+        if AppInfo.isProductionBuild {
+            updaterController = SPUStandardUpdaterController(
+                startingUpdater: true,
+                updaterDelegate: nil,
+                userDriverDelegate: nil
+            )
+        } else {
+            Logger.info("Dev build (\(AppInfo.bundleIdentifier)) - skipping updater setup")
+        }
         
         Logger.info("App finished launching")
     }
