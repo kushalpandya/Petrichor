@@ -42,7 +42,7 @@ struct AboutTabView: View {
 
     private var appIcon: some View {
         Group {
-            if let appIcon = NSImage(named: "AppIcon") {
+            if let appIcon = NSApp.applicationIconImage {
                 Image(nsImage: appIcon)
                     .resizable()
                     .aspectRatio(contentMode: .fit)

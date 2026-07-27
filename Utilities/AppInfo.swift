@@ -81,4 +81,12 @@ enum AppInfo {
         false
         #endif
     }
+
+    /// Whether this is the real shipping app, as opposed to a dev build running
+    /// under `org.Petrichor.debug`. Unlike `isDebugBuild` this isn't compile-time:
+    /// `build-installer.sh --dev` produces an optimized Release build that still
+    /// uses the dev bundle identifier, and therefore its own library data.
+    static var isProductionBuild: Bool {
+        bundleIdentifier == About.bundleIdentifier
+    }
 }

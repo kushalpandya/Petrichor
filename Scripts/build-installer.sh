@@ -11,6 +11,11 @@ CONFIGURATION="Release"
 PROJECT="Petrichor.xcodeproj"
 NOTARY_PROFILE="Petrichor"
 
+# Dev distribution (--dev); must match the project's Dev configuration
+DEV_CONFIGURATION="Dev"
+DEV_BUNDLE_ID="org.Petrichor.debug"
+DEV_APP_NAME="Petrichor Dev"
+
 # Read from environment variables
 TEAM_ID="${PETRICHOR_TEAM_ID:-}"
 DEVELOPER_ID="${PETRICHOR_DEVELOPER_ID:-}"
@@ -227,9 +232,9 @@ create_installer() {
     
     log "Building $display_name version..."
     
-    local archive_path="$BUILD_DIR/$APP_NAME-$suffix.xcarchive"
+    local archive_path="$BUILD_DIR/$DMG_NAME-$suffix.xcarchive"
     local export_path="$BUILD_DIR/export-$suffix"
-    local dmg_path="$BUILD_DIR/${APP_NAME}-${VERSION}-$suffix.dmg"
+    local dmg_path="$BUILD_DIR/${DMG_NAME}-${DMG_VERSION}-$suffix.dmg"
     local error_log="$BUILD_DIR/build-$suffix.log"
     
     # Step 1: Archive
@@ -288,11 +293,11 @@ EOF
             -exportOptionsPlist "$BUILD_DIR/exportOptions.plist" &>/dev/null
     fi
     
-    [ -d "$export_path/$APP_NAME.app" ] || { error "Export failed"; return 1; }
-    
+    [ -d "$export_path/$APP_BUNDLE_NAME.app" ] || { error "Export failed"; return 1; }
+
     # Step 3: Notarize app (skip if bypassing)
     if [ "$BYPASS_NOTARY" = false ]; then
-        notarize "$export_path/$APP_NAME.app" "app" || return 1
+        notarize "$export_path/$APP_BUNDLE_NAME.app" "app" || return 1
     else
         warning "Skipping app notarization (signed but not notarized)"
     fi
@@ -302,20 +307,20 @@ EOF
     cd "$export_path"
     
     if command -v create-dmg >/dev/null 2>&1; then
-        local dmg_title="$APP_NAME $VERSION"
-        [ "$suffix" != "Universal" ] && dmg_title="$APP_NAME-$suffix"
-        create-dmg "$APP_NAME.app" --dmg-title="$dmg_title" || {
+        local dmg_title="$APP_BUNDLE_NAME $DMG_VERSION"
+        [ "$suffix" != "Universal" ] && dmg_title="$DMG_NAME-$suffix"
+        create-dmg "$APP_BUNDLE_NAME.app" --dmg-title="$dmg_title" || {
             error "create-dmg failed"; return 1
         }
-        mv *.dmg "../${APP_NAME}-${VERSION}-$suffix.dmg"
+        mv *.dmg "../${DMG_NAME}-${DMG_VERSION}-$suffix.dmg"
     else
         # Fallback to hdiutil
         cd ..
         DMG_DIR="$BUILD_DIR/dmg-$suffix"
         mkdir -p "$DMG_DIR"
-        cp -R "$export_path/$APP_NAME.app" "$DMG_DIR/"
+        cp -R "$export_path/$APP_BUNDLE_NAME.app" "$DMG_DIR/"
         ln -s /Applications "$DMG_DIR/Applications"
-        hdiutil create -volname "$APP_NAME $VERSION" \
+        hdiutil create -volname "$APP_BUNDLE_NAME $VERSION" \
             -srcfolder "$DMG_DIR" -ov -format UDZO "$dmg_path"
         rm -rf "$DMG_DIR"
     fi
@@ -358,6 +363,7 @@ print_usage() {
     echo "  --arm-only          Build Apple Silicon-only installer"
     echo "  --separate          Build separate Intel and Apple Silicon installers"
     echo "  --bypass-notary     Skip notarization (still signs with Developer ID)"
+    echo "  --dev               Build a dev installer ($DEV_BUNDLE_ID, separate library)"
     echo "  --help              Show this help message"
 }
 
@@ -409,10 +415,12 @@ BUILD_UNIVERSAL=true
 BUILD_INTEL=false
 BUILD_ARM=false
 BYPASS_NOTARY=false
+DEV_BUILD=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         --version) VERSION="$2"; shift 2 ;;
+        --dev) DEV_BUILD=true; shift ;;
         --verbose) VERBOSE=true; shift ;;
         --universal) BUILD_UNIVERSAL=true; BUILD_INTEL=false; BUILD_ARM=false; shift ;;
         --intel-only) BUILD_INTEL=true; BUILD_UNIVERSAL=false; BUILD_ARM=false; shift ;;
@@ -423,6 +431,16 @@ while [[ $# -gt 0 ]]; do
         *) error "Unknown option: $1"; exit 1 ;;
     esac
 done
+
+# APP_BUNDLE_NAME is the .app on disk; DMG_NAME is the file-safe output prefix
+if [ "$DEV_BUILD" = true ]; then
+    CONFIGURATION="$DEV_CONFIGURATION"
+    APP_BUNDLE_NAME="$DEV_APP_NAME"
+    DMG_NAME="Petrichor-Dev"
+else
+    APP_BUNDLE_NAME="$APP_NAME"
+    DMG_NAME="$APP_NAME"
+fi
 
 # Validate environment variables based on mode
 if [ "$BYPASS_NOTARY" = false ]; then
@@ -512,6 +530,10 @@ if [ -z "$VERSION" ]; then
     fi
 fi
 
+# Version used in output names only; "Petrichor-Dev" already says dev, so drop "dev-"
+DMG_VERSION="$VERSION"
+[ "$DEV_BUILD" = true ] && DMG_VERSION="${DMG_VERSION#dev-}"
+
 # Calculate production build number from version string
 get_production_build_number() {
     local version="$1"
@@ -554,7 +576,10 @@ fi
 BUILD_DIR="build"
 
 # Prepare build directory
-log "Building $APP_NAME version $VERSION (Build $BUILD_NUMBER)"
+log "Building $APP_BUNDLE_NAME version $VERSION (Build $BUILD_NUMBER)"
+if [ "$DEV_BUILD" = true ]; then
+    info "Dev installer: $CONFIGURATION configuration, $DEV_BUNDLE_ID, no auto-updates"
+fi
 rm -rf "$BUILD_DIR" && mkdir -p "$BUILD_DIR"
 
 # Build based on selected options
@@ -572,6 +597,7 @@ for dmg in "$BUILD_DIR"/*.dmg; do
     if [ -f "$dmg" ]; then
         echo -e "📦 $(basename "$dmg")"
         echo -e "   📱 Version: ${GREEN}$VERSION${NC} (Build ${GREEN}$BUILD_NUMBER${NC})"
+        [ "$DEV_BUILD" = true ] && echo -e "   🧪 ${YELLOW}Dev build${NC} - $DEV_BUNDLE_ID, separate library, no auto-updates"
         echo -e "   📏 Size: ${GREEN}$(du -h "$dmg" | cut -f1)${NC}"
         echo -e "   📋 SHA256: ${GREEN}$(cat "$dmg.sha256" | awk '{print $1}')${NC}"
         if [ "$BYPASS_NOTARY" = true ]; then
