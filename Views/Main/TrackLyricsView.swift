@@ -1,4 +1,83 @@
 import SwiftUI
+import AppKit
+
+struct RemoveScrollViewer: NSViewRepresentable {
+    
+    func makeNSView(context: Context) -> HelperView {
+        return HelperView()
+    }
+
+    func updateNSView(_ nsView: HelperView, context: Context) {
+        nsView.applySettings()
+    }
+
+    @MainActor
+    final class HelperView: NSView {
+        private var observations: [NSKeyValueObservation] = []
+       
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()            
+            guard window != nil else {
+                observations.removeAll()
+                return
+            }            
+            setupScrollObserver()
+        }
+        
+        private func setupScrollObserver() {
+            guard let scrollView = enclosingScrollView else { return }           
+            disableScrollers(on: scrollView)            
+            observations = [
+                scrollView.observe(\.hasVerticalScroller, options: [.new]) { [weak self] sv, _ in
+                    MainActor.assumeIsolated {
+                        self?.disableScrollers(on: sv)
+                    }
+                },
+                scrollView.observe(\.hasHorizontalScroller, options: [.new]) { [weak self] sv, _ in
+                    MainActor.assumeIsolated {
+                        self?.disableScrollers(on: sv)
+                    }
+                },
+                scrollView.observe(\.verticalScroller, options: [.new]) { [weak self] sv, _ in
+                    MainActor.assumeIsolated {
+                        self?.disableScrollers(on: sv)
+                    }
+                },
+                scrollView.observe(\.horizontalScroller, options: [.new]) { [weak self] sv, _ in
+                    MainActor.assumeIsolated {
+                        self?.disableScrollers(on: sv)
+                    }
+                },
+                scrollView.observe(\.scrollerStyle, options: [.new]) { [weak self] sv, _ in
+                    MainActor.assumeIsolated {
+                        self?.disableScrollers(on: sv)
+                    }
+                }
+            ]
+        }
+        
+        func applySettings() {
+            if let scrollView = enclosingScrollView {
+                disableScrollers(on: scrollView)
+            }
+        }
+
+        private func disableScrollers(on scrollView: NSScrollView) {
+            if scrollView.hasVerticalScroller {
+                scrollView.hasVerticalScroller = false
+            }
+            if scrollView.hasHorizontalScroller {
+                scrollView.hasHorizontalScroller = false
+            }
+            if scrollView.verticalScroller?.isHidden == false {
+                scrollView.verticalScroller?.isHidden = true
+            }
+            if scrollView.horizontalScroller?.isHidden == false {
+                scrollView.horizontalScroller?.isHidden = true
+            }
+        }
+    }
+}
 
 struct TrackLyricsView: View {
     let onClose: () -> Void
@@ -152,6 +231,7 @@ struct TrackLyricsContent: View {
                 .padding(20)
                 .frame(maxWidth: .infinity)
                 .textSelection(.enabled)
+                .background(RemoveScrollViewer())
             }
             .onChange(of: currentLineIndex) { _, newIndex in
                 // Auto-scroll only for timed lyrics
