@@ -303,16 +303,20 @@ struct TrackLyricsContent: View {
     /// Determine the current lyric line based on playback time.
     /// Only executed for timed lyrics; for untimed lyrics this does nothing.
     private func updateCurrentLine(for time: TimeInterval) {
-        guard hasTimedLyrics, !lyricLines.isEmpty else { return }
-
-        // Prefer precise judgment via endTime; fall back to startTime ≤ time when endTime is nil
-        let newIndex = lyricLines.lastIndex { line in
+        guard hasTimedLyrics, !lyricLines.isEmpty else { return }        
+        let matchedIndex = lyricLines.lastIndex { line in
             if let end = line.endTime {
                 return time >= line.startTime && time < end
-            } else {
-                return line.startTime <= time
             }
-        } ?? -1
+            return line.startTime <= time
+        }
+        let newIndex: Int
+        if let matchedIndex {
+            let currentStartTime = lyricLines[matchedIndex].startTime
+            newIndex = lyricLines.firstIndex { $0.startTime == currentStartTime } ?? matchedIndex
+        } else {
+            newIndex = -1
+        }
 
         if newIndex != currentLineIndex {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
