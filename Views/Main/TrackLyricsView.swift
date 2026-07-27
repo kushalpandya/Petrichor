@@ -2,9 +2,8 @@ import SwiftUI
 import AppKit
 
 struct RemoveScrollViewer: NSViewRepresentable {
-    
     func makeNSView(context: Context) -> HelperView {
-        return HelperView()
+        HelperView()
     }
 
     func updateNSView(_ nsView: HelperView, context: Context) {
@@ -16,17 +15,17 @@ struct RemoveScrollViewer: NSViewRepresentable {
         private var observations: [NSKeyValueObservation] = []
        
         override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()            
+            super.viewDidMoveToWindow()
             guard window != nil else {
                 observations.removeAll()
                 return
-            }            
+            }
             setupScrollObserver()
         }
         
         private func setupScrollObserver() {
-            guard let scrollView = enclosingScrollView else { return }           
-            disableScrollers(on: scrollView)            
+            guard let scrollView = enclosingScrollView else { return }
+            disableScrollers(on: scrollView)
             observations = [
                 scrollView.observe(\.hasVerticalScroller, options: [.new]) { [weak self] sv, _ in
                     MainActor.assumeIsolated {
@@ -303,7 +302,7 @@ struct TrackLyricsContent: View {
     /// Determine the current lyric line based on playback time.
     /// Only executed for timed lyrics; for untimed lyrics this does nothing.
     private func updateCurrentLine(for time: TimeInterval) {
-        guard hasTimedLyrics, !lyricLines.isEmpty else { return }        
+        guard hasTimedLyrics, !lyricLines.isEmpty else { return }
         let matchedIndex = lyricLines.lastIndex { line in
             if let end = line.endTime {
                 return time >= line.startTime && time < end
