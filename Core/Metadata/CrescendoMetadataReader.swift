@@ -12,6 +12,12 @@ import Crescendo
 import Foundation
 
 struct CrescendoMetadataReader: MetadataReader {
+    /// Every file extension this build's decoder backends can handle, lowercased and
+    /// without a leading dot.
+    static var supportedFileExtensions: [String] {
+        Crescendo.CrescendoMetadataReader.supportedFormats.map(\.fileExtension)
+    }
+
     func extractMetadata(
         from url: URL,
         externalArtwork: Data?,
@@ -74,13 +80,15 @@ struct CrescendoMetadataReader: MetadataReader {
         }
         if source.sampleRate > 0 { metadata.sampleRate = source.sampleRate }
         if source.channelCount > 0 { metadata.channels = source.channelCount }
-        // Crescendo reports bitrate in bits/sec; Petrichor stores and displays
-        // kbps (as SFB/TagLib does), so convert.
+        // Crescendo reports bitrate in bits/sec; Petrichor stores and displays kbps.
         if let bitrate = source.bitrate, bitrate > 0 { metadata.bitrate = (bitrate + 500) / 1000 }
         if let bitDepth = source.bitDepth, bitDepth > 0 { metadata.bitDepth = bitDepth }
         metadata.codec = source.codec
-        // Prefer Crescendo's typed flag; fall back only if TagLib could not classify it.
-        metadata.lossless = MetadataMapping.isTrackLossless(codec: source.codec, url: metadata.url, fallback: source.lossless)
+        metadata.lossless = MetadataMapping.isTrackLossless(
+            codec: source.codec,
+            fileExtension: metadata.url.pathExtension,
+            fallback: source.lossless
+        )
 
         // Dates and year
         if let releaseDate = source.releaseDate {

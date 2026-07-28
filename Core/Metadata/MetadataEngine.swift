@@ -94,13 +94,14 @@ enum MetadataEngine {
         )
     }
 
-    /// Builds the reader for the selected backend.
+    /// Every file extension the active backend can decode. `AudioFormat` builds the
+    /// scanner's import filter from this, so it cannot drift from what actually plays.
+    static var supportedFileExtensions: [String] {
+        CrescendoMetadataReader.supportedFileExtensions
+    }
+
+    /// Builds the reader for the active backend.
     private static func reader() -> MetadataReader {
-        switch MediaBackend.current {
-        case .sfb:
-            return SFBMetadataReader()
-        case .crescendo:
-            return CrescendoMetadataReader()
-        }
+        CrescendoMetadataReader()
     }
 }

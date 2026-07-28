@@ -10,42 +10,25 @@ Petrichor's own source code is licensed under the MIT License. The app also reli
 
 ### CrescendoKit
 
-Petrichor's modern playback engine and its scan-time metadata reader are provided by Crescendo, distributed as dynamically linked, embedded frameworks. Core Crescendo is proprietary software.
+Petrichor's playback engine and its scan-time metadata reader are provided by Crescendo, distributed as dynamically linked, embedded frameworks. Core Crescendo is proprietary software.
 
 - [CrescendoKit](https://github.com/kushalpandya/CrescendoKit) - Proprietary (binary distribution)
 - Copyright (c) Kushal Pandya
 
-CrescendoKit dynamically links two open source libraries. Because both are dynamically linked and replaceable, their terms do not extend to Petrichor's MIT-licensed source code.
+CrescendoKit ships two open source components. Neither extends to Petrichor's MIT-licensed source code, since Petrichor links both frameworks dynamically and compiles neither into its own binary.
 
-- [FFmpeg](https://ffmpeg.org/) (via CFFmpeg) - LGPL-2.1-or-later
-- [TagLib](https://taglib.org/) (via CTagLib) - MPL-1.1, used to read audio file metadata
+- [FFmpeg](https://ffmpeg.org/) (via CFFmpeg) - LGPL-2.1-or-later, its own dynamically linked framework, built LGPL-only and replaceable per LGPL section 6
+- [TagLib](https://taglib.org/) - MPL-1.1 (elected from dual MPL-1.1 / LGPL-2.1), used to read audio file metadata. Linked statically into `Crescendo.xcframework`, so that framework is a mixed-license artifact: the MPL's file-level copyleft covers TagLib's own unmodified sources, not the proprietary Crescendo code beside them. `COPYING.MPL` and `TagLib-NOTICE.txt` ship inside the framework.
 
 ### MIT-Licensed Dependencies
 
-SFBAudioEngine, GRDB.swift, and Sparkle are each licensed under the MIT License, reproduced once below:
+GRDB.swift and Sparkle are each licensed under the MIT License, reproduced once below:
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-#### SFBAudioEngine
-
-- [SFBAudioEngine](https://github.com/sbooth/SFBAudioEngine) - MIT
-- Copyright (c) 2006-2025 Stephen F. Booth
-
-The following audio codec libraries are dynamically linked at runtime through SFBAudioEngine and are not statically compiled into Petrichor. Because they are dynamically linked, their terms do not extend to Petrichor's MIT license.
-
-- [FLAC](https://xiph.org/flac/) - BSD-3-Clause
-- [Ogg Vorbis](https://xiph.org/vorbis/) - BSD-3-Clause
-- [Opus](https://opus-codec.org/) - BSD-3-Clause
-- [libsndfile](https://libsndfile.github.io/libsndfile/) - LGPL-2.1 / LGPL-3.0
-- [WavPack](https://www.wavpack.com/) - BSD-3-Clause
-- [Monkey's Audio](https://www.monkeysaudio.com/) - BSD-3-Clause
-- [Musepack](https://www.musepack.net/) - BSD-3-Clause
-- [True Audio](http://tausoft.org/) - GPL-2.0
-- [libopenmpt](https://lib.openmpt.org/) - BSD-3-Clause (MOD/S3M/XM/IT)
 
 #### GRDB.swift
 

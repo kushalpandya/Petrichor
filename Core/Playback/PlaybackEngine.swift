@@ -1,10 +1,9 @@
 //
 // PlaybackEngine
 //
-// The single app-facing playback object. It owns one concrete `PlaybackBackend`
-// (SFBAudioEngine or Crescendo) and is the only object that calls
-// `AudioPlayerDelegate`. Selecting or removing a backend is a change to this file
-// plus the backend files, and call sites stay untouched.
+// The single app-facing playback object. It owns the concrete `PlaybackBackend` and
+// is the only object that calls `AudioPlayerDelegate`, so swapping the backend never
+// touches call sites.
 //
 
 import Foundation
@@ -209,36 +208,14 @@ public class PlaybackEngine: NSObject {
 
     // MARK: - Private Properties
 
-    private var backend: PlaybackBackend
+    private let backend: PlaybackBackend
 
     // MARK: - Initialization
 
     override public init() {
-        self.backend = Self.makeBackend()
+        self.backend = CrescendoPlaybackBackend()
         super.init()
         self.backend.backendDelegate = self
-    }
-
-    /// Builds the backend for the selected engine.
-    private static func makeBackend() -> PlaybackBackend {
-        switch MediaBackend.current {
-        case .sfb:
-            return SFBPlaybackBackend()
-        case .crescendo:
-            return CrescendoPlaybackBackend()
-        }
-    }
-
-    /// Tears down the current backend and rebuilds it from the current
-    /// `MediaBackend` selection. The caller is responsible for first capturing
-    /// any playback state to resume and for re-applying volume/effects afterward,
-    /// since the new backend starts clean. The old backend's delegate is detached
-    /// before teardown so its stop callbacks are not delivered as real events.
-    public func reload() {
-        backend.backendDelegate = nil
-        backend.stop()
-        backend = Self.makeBackend()
-        backend.backendDelegate = self
     }
 
     /// Whether the active backend can pre-decode a queued next track for gapless.

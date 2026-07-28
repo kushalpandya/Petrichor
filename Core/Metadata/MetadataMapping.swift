@@ -1,9 +1,8 @@
 //
 // MetadataMapping
 //
-// Small engine-agnostic helpers shared by the metadata readers (SFB and
-// Crescendo) so year parsing, rating normalization, and artwork compression
-// behave identically no matter which backend produced the raw values.
+// Engine-agnostic helpers for the metadata reader: year parsing, rating
+// normalization, duration validation, and artwork compression.
 //
 
 import AVFoundation
@@ -83,29 +82,33 @@ enum MetadataMapping {
         return duration
     }
 
-    static func isTrackLossless(codec: String?, url: URL, fallback: Bool? = nil) -> Bool? {
+    /// Whether a track is losslessly encoded, or nil if undecidable. `fallback` is the
+    /// engine's stream-derived flag and wins: only it tells lossless WMA from lossy, or
+    /// WavPack's hybrid mode from its lossless one.
+    static func isTrackLossless(codec: String?, fileExtension: String, fallback: Bool? = nil) -> Bool? {
         if let fallback { return fallback }
 
-        if let codec {
+        // Legacy rows only - they stored free-form names, hence substring matching.
+        if let codec, !codec.isEmpty {
             let normalized = codec.lowercased()
-            let losslessCodecs = [
-                "flac", "alac", "apple lossless", "aiff", "wav", "wave", "pcm",
-                "ape", "wavpack", "tta", "dsf", "dsdiff"
+            let lossless = [
+                "flac", "alac", "apple lossless", "aiff", "wav", "wave",
+                "pcm", "ape", "wavpack", "tta", "dsf", "dsdiff"
             ]
-            if losslessCodecs.contains(where: { normalized.contains($0) }) {
-                return true
-            }
+            if lossless.contains(where: normalized.contains) { return true }
 
-            let lossyCodecs = ["mp3", "mpeg", "aac", "vorbis", "ogg", "opus", "musepack", "mpc", "wma"]
-            if lossyCodecs.contains(where: { normalized.contains($0) }) {
-                return false
-            }
+            let lossy = ["mp3", "mpeg", "aac", "vorbis", "ogg", "opus", "musepack", "mpc", "wma"]
+            if lossy.contains(where: normalized.contains) { return false }
         }
 
-        switch url.pathExtension.lowercased() {
-        case "flac", "ape", "wv", "tta", "wav", "wave", "aiff", "aif", "aifc", "alac", "dsf", "dff":
+        // Reached for files the reader cannot open at all - corrupt or truncated
+        // ones - which come back with neither codec nor flag.
+        switch fileExtension.lowercased() {
+        case "flac", "ape", "wv", "tta", "wav", "wave", "w64", "aiff", "aif", "aifc",
+             "alac", "dsf", "dff", "tak", "shn", "thd", "mlp", "au":
             return true
-        case "mp3", "aac", "m4a", "ogg", "oga", "opus", "mpc", "wma":
+        case "mp3", "aac", "m4a", "ogg", "oga", "opus", "spx", "mpc", "wma",
+             "ac3", "eac3", "ec3", "dts", "amr":
             return false
         default:
             return nil

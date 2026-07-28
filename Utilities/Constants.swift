@@ -111,33 +111,51 @@ enum About {
 // MARK: - Audio File Formats
 
 enum AudioFormat {
-    // The set of file extensions Petrichor imports and plays. This is the app's
-    // supported list and stays the same regardless of the active engine.
-    static let supportedExtensions = [
-        // Core Audio formats
-        "mp3", "m4a", "wav", "aac", "aiff", "aif", "alac",
-        // Extended formats
-        "flac", "ogg", "oga", "opus", "ape", "mpc", "wv",
-        "tta", "spx", "dsf", "dff", "mod", "it", "s3m", "xm",
-        // Common legacy/CoreAudio-compatible
-        "au"
-    ]
+    // The file extensions Petrichor imports and plays: the engine's real decode
+    // capability, so this cannot drift from what actually plays, minus the two
+    // exclusion lists below.
+    static let supportedExtensions: [String] = {
+        let excluded = Set(unsupportedExtensions).union(withheldExtensions)
+        let extensions = MetadataEngine.supportedFileExtensions
+            .filter { !excluded.contains($0) }
+            .sorted()
+        if extensions.isEmpty {
+            // A scan would silently import nothing, so make the cause obvious.
+            Logger.error("Playback engine reported no decodable formats; no audio files will be imported")
+        }
+        return extensions
+    }()
+
+    // Lookup form for `isSupported`, which a scan calls once per file.
+    private static let supportedExtensionSet = Set(supportedExtensions)
+
+    // Formats the engine cannot decode
     static let unsupportedExtensions = [
-        "wma", "m4b", "m4p", "ra", "ram", "amr", "ac3", "dts"
+        // DRM'd or container forms the engine deliberately declines
+        "m4b", "m4p", "aa", "aax",
+        // Tracker modules: not decodable by Crescendo
+        "mod", "it", "s3m", "xm",
+        // Never supported
+        "ra", "ram", "mid", "midi"
     ]
-    
+
+    // Decodable, but withheld because the engine reports no duration for them, so
+    // they would import as tracks that play yet show 0:00 and cannot be seeked.
+    static let withheldExtensions = ["thd", "mlp", "aifc"]
+
     static var supportedFormatsDisplay: String {
         let exts = supportedExtensions.map { $0.uppercased() }
         guard exts.count > 1 else { return exts.first ?? "" }
         return ListFormatter.localizedString(byJoining: exts)
     }
-    
+
     static func isSupported(_ fileExtension: String) -> Bool {
-        supportedExtensions.contains(fileExtension.lowercased())
+        supportedExtensionSet.contains(fileExtension.lowercased())
     }
     
     static func isNotSupported(_ fileExtension: String) -> Bool {
-        unsupportedExtensions.contains(fileExtension.lowercased())
+        let ext = fileExtension.lowercased()
+        return unsupportedExtensions.contains(ext) || withheldExtensions.contains(ext)
     }
 }
 

@@ -97,10 +97,9 @@ class PlaybackManager: NSObject, ObservableObject {
     
     private let libraryManager: LibraryManager
     private let playlistManager: PlaylistManager
-    // The single Petrichor-side Now Playing owner (info tile + remote commands)
-    // for both engines. For 1.6, Crescendo publishes neither (NowPlayingManager
-    // owns the tile so the restore-resume anchor stays correct); Crescendo takes
-    // over Now Playing in 1.7 when SFB is removed.
+    // The single Now Playing owner (info tile + remote commands). Crescendo publishes
+    // neither, so the restore-resume anchor stays correct; handing Now Playing over to
+    // it waits on that bug being fixed.
     private let nowPlayingManager: NowPlayingManager
     
     // MARK: - Initialization
@@ -338,40 +337,8 @@ class PlaybackManager: NSObject, ObservableObject {
         )
     }
 
-    /// Rebuilds the playback engine for the currently selected backend (used when
-    /// the user switches engines in Settings). Playback is halted, but the loaded
-    /// track, queue, and position are kept so the progress bar stays put and the
-    /// user can resume from the same spot on the new engine by pressing play.
-    func reloadPlaybackEngine() {
-        let resumePosition = currentTime
-
-        audioPlayer.reload()
-        isPlaying = false
-        pendingPlayOnRestore = false
-        // The freshly built backend has nothing primed; the next play re-primes.
-        pendingNext = nil
-        pendingNextWasSkipped = false
-        currentEntryId = nil
-        stopStateSaveTimer()
-
-        // The new backend starts clean, so re-apply volume and audio effects.
-        audioPlayer.volume = volume
-        restoreAudioEffectsSettings()
-
-        // Keep the current track loaded and the bar where it was; startPlayback
-        // reads restoredPosition to continue from here on the next play.
-        if currentTrack != nil {
-            restoredPosition = resumePosition
-            currentTime = resumePosition
-            updateNowPlayingInfo()
-        }
-
-        Logger.info("Playback engine reloaded for backend: \(MediaBackend.current)")
-    }
-
     /// Wires the system remote command center (lock screen / Control Center) to
-    /// this manager. PlaybackManager owns the single Petrichor-side Now Playing
-    /// path for both engines in 1.6.
+    /// this manager. PlaybackManager owns the single Petrichor-side Now Playing path.
     func connectRemoteCommandCenter() {
         nowPlayingManager.connectRemoteCommandCenter(
             audioPlayer: self,

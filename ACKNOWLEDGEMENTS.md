@@ -9,9 +9,7 @@ Petrichor's own source code is licensed under the [MIT License](./LICENSE). The 
 | **Petrichor** | MIT | The app's own source code |
 | **CrescendoKit** (Crescendo) | Proprietary | Playback engine + metadata reader (binary xcframeworks) |
 | &nbsp;&nbsp;↳ FFmpeg (via CFFmpeg) | LGPL-2.1-or-later | Dynamically linked through CrescendoKit |
-| &nbsp;&nbsp;↳ TagLib (via CTagLib) | MPL-1.1 | Dynamically linked through CrescendoKit |
-| **SFBAudioEngine** | MIT | Legacy playback engine (SPM dependency) |
-| &nbsp;&nbsp;↳ Audio codecs | BSD / LGPL / GPL | Dynamically linked through SFBAudioEngine |
+| &nbsp;&nbsp;↳ TagLib | MPL-1.1 | Statically embedded in `Crescendo.xcframework` |
 | **GRDB.swift** | MIT | SQLite database layer (SPM dependency) |
 | **Sparkle** | MIT | App update framework (SPM dependency) |
 | **Sluice** | MIT | Backend service powering the Report a Problem feature |
@@ -25,13 +23,13 @@ The app source itself is distributed under the MIT License; every other row abov
 
 ### CrescendoKit
 
-Petrichor's modern playback engine and its scan-time metadata reader are provided by Crescendo, distributed via the CrescendoKit package as dynamically linked, embedded xcframeworks. Core Crescendo is proprietary software.
+Petrichor's playback engine and its scan-time metadata reader are provided by Crescendo, distributed via the CrescendoKit package as dynamically linked, embedded xcframeworks. Core Crescendo is proprietary software.
 
 - **Source**: https://github.com/kushalpandya/CrescendoKit
 - **License**: Proprietary (binary distribution; see the CrescendoKit LICENSE)
 - **Copyright**: Copyright (c) Kushal Pandya
 
-CrescendoKit dynamically links two open source libraries. Because both are dynamically linked and replaceable - not statically compiled into Petrichor's binary - their terms do not extend to Petrichor's MIT-licensed source code.
+CrescendoKit ships two open source components, on different terms. Neither extends to Petrichor's MIT-licensed source code: Petrichor links both xcframeworks dynamically and compiles neither into its own binary.
 
 #### FFmpeg (via CFFmpeg)
 
@@ -39,17 +37,19 @@ CrescendoKit dynamically links two open source libraries. Because both are dynam
 - **License**: LGPL-2.1-or-later
 - **Copyright**: Copyright (c) The FFmpeg developers
 
-#### TagLib (via CTagLib)
+Shipped as its own xcframework, built LGPL-only (no GPL or non-free components) and dynamically linked, so it stays replaceable per LGPL section 6.
+
+#### TagLib
 
 - **Source**: https://taglib.org/
 - **License**: MPL-1.1 (elected; TagLib is dual-licensed MPL-1.1 / LGPL-2.1)
 - **Copyright**: Copyright (c) Scott Wheeler and contributors
 
-Used to read audio file metadata at scan time.
+Used to read audio file metadata at scan time. TagLib is linked **statically** into `Crescendo.xcframework`, making that a mixed-license artifact: the MPL's file-level copyleft covers TagLib's own sources, which are used unmodified and excluded from the Crescendo EULA, and not the proprietary Crescendo code in the same binary. `COPYING.MPL` and `TagLib-NOTICE.txt` are carried inside the framework's `Resources/`, and each CrescendoKit release attaches the verified TagLib source archive as the corresponding source.
 
 ### MIT-Licensed Dependencies
 
-SFBAudioEngine, GRDB.swift, and Sparkle are each licensed under the MIT License, reproduced once below:
+GRDB.swift and Sparkle are each licensed under the MIT License, reproduced once below:
 
 ```
 MIT License
@@ -72,28 +72,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
-
-#### SFBAudioEngine
-
-- **Source**: https://github.com/sbooth/SFBAudioEngine
-- **Copyright**: Copyright (c) 2006-2025 Stephen F. Booth
-
-##### Audio codecs
-
-The following audio codec libraries are dynamically linked at runtime through SFBAudioEngine and are not statically compiled into Petrichor's binary. Because they are dynamically linked, their BSD/LGPL/GPL terms do not extend to Petrichor's MIT license.
-
-- **FLAC** - BSD-3-Clause - https://xiph.org/flac/
-- **Ogg Vorbis** - BSD-3-Clause - https://xiph.org/vorbis/
-- **Opus** - BSD-3-Clause - https://opus-codec.org/
-- **libsndfile** - LGPL-2.1 / LGPL-3.0 - https://libsndfile.github.io/libsndfile/
-- **WavPack** - BSD-3-Clause - https://www.wavpack.com/
-- **Monkey's Audio (MAC)** - BSD-3-Clause - https://www.monkeysaudio.com/
-- **Musepack (MPC)** - BSD-3-Clause - https://www.musepack.net/
-- **True Audio (TTA)** - GPL-2.0 - http://tausoft.org/
-- **DSD (DSF/DFF) decoders** - mostly BSD-3-Clause - various implementations
-- **libopenmpt** (MOD/S3M/XM/IT) - BSD-3-Clause - https://lib.openmpt.org/
-
-SFBAudioEngine may utilize additional codec libraries depending on the audio format; all are dynamically linked at runtime and licensed under permissive or copyleft open source licenses.
 
 #### GRDB.swift
 

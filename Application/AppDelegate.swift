@@ -412,8 +412,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             "tintNowPlayingBackground": true,
             "playerBarBackgroundStyle": "Full width",
             "discoverUpdateInterval": "weekly",
-            "discoverTrackCount": 50,
-            MediaBackend.userDefaultsKey: true
+            "discoverTrackCount": 50
         ]
 
         UserDefaults.standard.register(defaults: defaults)
