@@ -227,7 +227,7 @@ struct TrackLyricsContent: View {
         guard hasTimedLyrics, !lyricLines.isEmpty else { return }
 
         // Prefer precise judgment via endTime; fall back to startTime ≤ time when endTime is nil
-        let newIndex = lyricLines.lastIndex { line in
+        let newIndex = lyricLines.firstIndex { line in
             if let end = line.endTime {
                 return time >= line.startTime && time < end
             } else {
