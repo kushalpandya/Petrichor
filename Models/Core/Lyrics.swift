@@ -81,14 +81,12 @@ extension LyricLine {
         var sorted = indexedLyrics.map { $0.line }
 
         // 2. Set endTime to the next DISTINCT timestamp rather than the next line's start time
-        if !sorted.isEmpty {
-            for i in 0..<sorted.count {
-                // Find the first subsequent line that has a strictly greater startTime
-                if let nextDistinctLine = sorted[(i + 1)...].first(where: { $0.startTime > sorted[i].startTime }) {
-                    sorted[i].endTime = nextDistinctLine.startTime
-                } else {
-                    sorted[i].endTime = nil // The last group of lines sharing the same final timestamp keep endTime == nil
-                }
+        if sorted.count > 1 {
+            sorted[sorted.count - 1].endTime = nil   // final line: no following timestamp
+            for i in stride(from: sorted.count - 2, through: 0, by: -1) {
+                sorted[i].endTime = sorted[i].startTime == sorted[i + 1].startTime
+                    ? sorted[i + 1].endTime      // same timestamp: inherit the group's window
+                    : sorted[i + 1].startTime    // different timestamp: it starts the next group
             }
         }
 
