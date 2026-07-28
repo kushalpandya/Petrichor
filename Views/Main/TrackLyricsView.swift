@@ -153,6 +153,7 @@ struct TrackLyricsContent: View {
                 .frame(maxWidth: .infinity)
                 .textSelection(.enabled)
             }
+            .scrollIndicators(.never)
             .onChange(of: currentLineIndex) { _, newIndex in
                 // Auto-scroll only for timed lyrics
                 guard hasTimedLyrics else { return }
