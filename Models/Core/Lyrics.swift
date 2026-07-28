@@ -70,13 +70,28 @@ extension LyricLine {
             }
         }
         
-        var sorted = lyrics.sorted { $0.startTime < $1.startTime }
-        // Each line ends where the next begins, giving a gapless highlight window
-        if sorted.count > 1 {
-            for i in 0..<sorted.count - 1 {
-                sorted[i].endTime = sorted[i + 1].startTime
+        // 1. Stable sort: break ties using original array index so authored line order is preserved
+        var indexedLyrics = lyrics.enumerated().map { (offset: $0.offset, line: $0.element) }
+        indexedLyrics.sort { lhs, rhs in
+            if lhs.line.startTime != rhs.line.startTime {
+                return lhs.line.startTime < rhs.line.startTime
+            }
+            return lhs.offset < rhs.offset
+        }
+        var sorted = indexedLyrics.map { $0.line }
+
+        // 2. Set endTime to the next DISTINCT timestamp rather than the next line's start time
+        if !sorted.isEmpty {
+            for i in 0..<sorted.count {
+                // Find the first subsequent line that has a strictly greater startTime
+                if let nextDistinctLine = sorted[(i + 1)...].first(where: { $0.startTime > sorted[i].startTime }) {
+                    sorted[i].endTime = nextDistinctLine.startTime
+                } else {
+                    sorted[i].endTime = nil // The last group of lines sharing the same final timestamp keep endTime == nil
+                }
             }
         }
+
         return sorted
     }
     
