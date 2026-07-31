@@ -70,10 +70,8 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
             let bridge = CrescendoDelegateBridge(owner: self)
             self.delegateBridge = bridge
             player.delegate = bridge
-            // For the 1.6 co-existence release, Petrichor's NowPlayingManager owns
-            // the system Now Playing tile and remote commands for BOTH engines, so
-            // Crescendo publishes neither. Crescendo takes over Now Playing in 1.7
-            // when SFB is removed (and its restore-resume tile-anchor bug is fixed).
+            // Petrichor's NowPlayingManager owns the tile and remote commands; handing
+            // them to Crescendo waits on its restore-resume tile-anchor bug.
             player.nowPlayingInfoEnabled = false
             player.remoteCommandsEnabled = false
             installLogBridge()
@@ -252,7 +250,8 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
 
     private static func mapState(_ state: CrescendoPlayerState) -> AudioPlayerState {
         switch state {
-        case .idle, .ready: return .ready
+        // `.buffering` is the stream-connect window; local files never enter it.
+        case .idle, .buffering, .ready: return .ready
         case .playing: return .playing
         case .paused: return .paused
         case .stopped: return .stopped

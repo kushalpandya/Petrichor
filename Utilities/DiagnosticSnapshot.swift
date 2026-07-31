@@ -80,8 +80,7 @@ enum DiagnosticSnapshot {
                 "closeToMenubar": defaults.boolOrNull("closeToMenubar"),
                 "startAtLogin": defaults.boolOrNull("startAtLogin"),
                 "hideDuplicateTracks": defaults.boolOrNull("hideDuplicateTracks"),
-                "automaticUpdatesEnabled": defaults.boolOrNull("automaticUpdatesEnabled"),
-                "useModernPlaybackEngine": defaults.boolOrNull(MediaBackend.userDefaultsKey)
+                "automaticUpdatesEnabled": defaults.boolOrNull("automaticUpdatesEnabled")
             ],
             "appearance": [
                 "showFoldersTab": defaults.boolOrNull("showFoldersTab"),

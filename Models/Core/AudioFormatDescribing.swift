@@ -14,11 +14,10 @@ protocol AudioFormatDescribing {
 }
 
 private enum AudioFormatTables {
-    // Canonical, properly-cased codec display names. Engines report codec casing
-    // differently (SFB upper-cases, Crescendo uses TagLib's lowercase short name),
-    // so we normalize for display. A blanket uppercase won't do - Opus/Vorbis/
-    // WavPack/Musepack aren't acronyms; unknown codecs fall back to uppercase
-    // since they're almost always acronyms.
+    // Display names keyed by the lowercased stored codec. Only codecs whose
+    // uppercased form is wrong need an entry; acronyms (DTS, MLP, TAK) fall
+    // through. Second group is the previous engine's free-form names, kept
+    // until those rows are rescanned.
     static let codecDisplayNames: [String: String] = [
         "flac": "FLAC",
         "alac": "ALAC",
@@ -26,17 +25,25 @@ private enum AudioFormatTables {
         "mp3": "MP3",
         "opus": "Opus",
         "vorbis": "Vorbis",
-        "ogg": "Ogg",
         "wav": "WAV",
         "aiff": "AIFF",
-        "aifc": "AIFF",
-        "wavpack": "WavPack",
         "ape": "APE",
-        "musepack": "Musepack",
+        "wavpack": "WavPack",
         "tta": "TTA",
-        "dsd": "DSD",
+        "musepack": "Musepack",
+        "dsf": "DSD",
+        "dsdiff": "DSD",
+        "wma": "WMA",
         "speex": "Speex",
-        "pcm": "PCM"
+        "pcm": "PCM",
+        "ac3": "AC-3",
+        "eac3": "E-AC-3",
+        "truehd": "TrueHD",
+        "shorten": "Shorten",
+
+        "ogg": "Ogg",
+        "aifc": "AIFF",
+        "dsd": "DSD"
     ]
 }
 
@@ -50,8 +57,8 @@ extension AudioFormatDescribing {
     }
 
     /// The bitrate formatted for display (e.g. "320 kbps"), or nil when absent.
-    /// Assumes the stored value is kbps - the metadata readers normalize to kbps
-    /// at scan time (SFB/TagLib already reports kbps; Crescendo reports bps).
+    /// Assumes the stored value is kbps - the reader converts at scan time, since
+    /// the engine reports bits/sec.
     var bitrateDisplay: String? {
         guard let bitrate = bitrate, bitrate > 0 else { return nil }
         return "\(bitrate) kbps"
@@ -84,39 +91,10 @@ extension AudioFormatDescribing {
 // MARK: - Quality
 
 extension AudioFormatDescribing {
-    /// Determines if the track is in a lossless format.
+    /// Whether the track is losslessly encoded. The stored flag is authoritative;
+    /// rows without one reuse the scanner's tables so both paths agree, and anything
+    /// still undecidable reads as lossy - the safe default for a badge.
     var isLossless: Bool {
-        // Check if we already have flag set in db during metadata extraction
-        if let lossless = lossless {
-            return lossless
-        }
-
-        // Fallback to manual computation
-        let formatLower = format.lowercased()
-        let codecLower = codec?.lowercased() ?? ""
-
-        let losslessCodecs: Set<String> = [
-            "flac", "apple lossless", "alac", "wavpack", "ape", "tta",
-            "dsd", "dsf", "dff"
-        ]
-
-        for losslessCodec in losslessCodecs where codecLower.contains(losslessCodec) {
-            return true
-        }
-
-        let losslessFormats: Set<String> = [
-            // Lossless PCM
-            "flac", "alac", "wav", "wave", "aiff", "aif", "aifc",
-            // Lossless compressed
-            "ape", "wv", "tta",
-            // DSD formats
-            "dsf", "dff",
-            // Legacy lossless
-            "au",
-            // Module/tracker formats
-            "mod", "it", "s3m", "xm"
-        ]
-
-        return losslessFormats.contains(formatLower)
+        MetadataMapping.isTrackLossless(codec: codec, fileExtension: format, fallback: lossless) ?? false
     }
 }

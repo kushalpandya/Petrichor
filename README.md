@@ -367,7 +367,6 @@ erDiagram
 
 Petrichor wouldn't be possible without following open source projects!
 
-- [SFBAudioEngine](https://github.com/sbooth/SFBAudioEngine)
 - [GRDB.swift](https://github.com/groue/GRDB.swift/)
 - [Sparkle](https://github.com/sparkle-project/Sparkle)
 
@@ -398,7 +397,7 @@ Thank you to all the sponsors for supporting Petrichor's development!
 ## 📝 License
 
 - Petrichor is licensed under [MIT](LICENSE)
-- Core dependencies (SFBAudioEngine, GRDB, Sparkle) are licensed under MIT
-- Audio codec libraries (FLAC, Vorbis, Opus, etc.) are dynamically linked and use various open source licenses including GPL and LGPL
+- Core dependencies (GRDB, Sparkle) are licensed under MIT
+- The playback engine and metadata reader come from [CrescendoKit](https://github.com/kushalpandya/CrescendoKit) (proprietary, binary distribution), which dynamically links FFmpeg (LGPL-2.1-or-later) and statically embeds TagLib (MPL-1.1)
 
 For complete third-party license information, see [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md)
