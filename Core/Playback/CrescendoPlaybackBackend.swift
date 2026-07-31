@@ -7,12 +7,10 @@
 //
 // Concurrency: `CrescendoPlayer` and `CrescendoPlayerDelegate` are `@MainActor`,
 // but `PlaybackBackend` is a synchronous, non-isolated protocol. To avoid pushing
-// `@MainActor` through the whole manager graph (and changing the SFB path), the
-// backend stays non-isolated and:
+// `@MainActor` through the whole manager graph, the backend stays non-isolated and:
 //   - routes every call into the player through `onMain`, and
 //   - receives delegate callbacks via a separate `@MainActor` bridge (the same
-//     shape SFB uses), which forwards to the backend's nonisolated `handle…`
-//     methods.
+//     shape), which forwards to the backend's nonisolated `handle*` methods.
 // All backend calls already happen on the main thread (UI, delegate hops, the
 // .main progress timer), so `onMain` is direct in practice; the off-main branch
 // is only a safety net (e.g. a teardown from `deinit`).
@@ -25,8 +23,6 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
     // MARK: - Backend Surface
 
     weak var backendDelegate: PlaybackBackendDelegate?
-
-    let supportsGaplessQueue = true
 
     var volume: Float {
         get { onMain { player.volume } }
@@ -45,13 +41,25 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
         onMain { player.duration }
     }
 
+    var queue: [AudioEntryId] {
+        onMain { player.queue.map { AudioEntryId(id: $0.id.id) } }
+    }
+
+    // Answered from the player's queue directly: building the mapped array just to
+    // find one index (or read a count) allocates the whole thing per call, and these
+    // run on every queue edit and every track boundary.
+    func queueIndex(of entryId: AudioEntryId) -> Int? {
+        onMain { player.queue.firstIndex { $0.id.id == entryId.id } }
+    }
+
+    var hasQueuedSuccessor: Bool {
+        onMain { player.currentIndex.map { $0 + 1 < player.queue.count } ?? false }
+    }
+
     // MARK: - Private Properties
 
     private let player: CrescendoPlayer
     private var delegateBridge: CrescendoDelegateBridge?
-
-    // The single pre-decoded next entry (the "+1" of the N+1 lookahead), or nil.
-    private var pendingNextEntryId: CrescendoEntryId?
 
     // Effects state. Crescendo applies all effects as property sets, so there is
     // no graph to build; we keep the user-facing state here and push it down.
@@ -73,8 +81,8 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
             // The engine owns the info tile: it anchors elapsed/duration/rate off the
             // real playback clock, which the app can only approximate.
             player.nowPlayingInfoEnabled = true
-            // Commands stay app-owned: Crescendo's next/previous walk ITS queue, which
-            // here holds only the current track plus the primed gapless next.
+            // Commands stay app-owned: Crescendo's next/previous walk its queue in raw
+            // order, ignoring Petrichor's repeat, shuffle and injected lookahead.
             player.remoteCommandsEnabled = false
             installLogBridge()
         }
@@ -82,35 +90,49 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
 
     // MARK: - Playback Control
 
-    func play(url: URL, entryId: AudioEntryId, startPaused: Bool) {
+    // MARK: - Queue
+
+    func setQueue(_ entries: [QueueEntry], startingAt index: Int, startPaused: Bool) {
+        let mapped = entries.map { CrescendoQueueEntry(url: $0.url, entryId: CrescendoEntryId(id: $0.entryId.id)) }
         onMain {
-            // play(url:) replaces Crescendo's queue, so any pending next is gone.
-            player.play(url: url, entryId: CrescendoEntryId(id: entryId.id), startPaused: startPaused)
-            pendingNextEntryId = nil
+            player.setQueue(mapped, startingAt: index, startPaused: startPaused)
         }
     }
 
-    func setNextTrack(url: URL, entryId: AudioEntryId) {
-        let nextId = CrescendoEntryId(id: entryId.id)
-        onMain {
-            // Surgically swap just the lookahead entry: drop the stale next (if
-            // any) and prime the new one right after the current track. The
-            // playing entry is never touched, so the timeline is uninterrupted.
-            if let stale = pendingNextEntryId {
-                _ = player.remove(entryId: stale)
-            }
-            player.insertNext(url: url, entryId: nextId)
-            pendingNextEntryId = nextId
-        }
+    func insert(_ entry: QueueEntry, at index: Int) {
+        onMain { player.insert(url: entry.url, entryId: CrescendoEntryId(id: entry.entryId.id), at: index) }
     }
 
-    func clearNextTrack() {
-        onMain {
-            if let stale = pendingNextEntryId {
-                _ = player.remove(entryId: stale)
-            }
-            pendingNextEntryId = nil
-        }
+    func append(_ entry: QueueEntry) {
+        onMain { player.append(url: entry.url, entryId: CrescendoEntryId(id: entry.entryId.id)) }
+    }
+
+    func insertNext(_ entry: QueueEntry) {
+        onMain { player.insertNext(url: entry.url, entryId: CrescendoEntryId(id: entry.entryId.id)) }
+    }
+
+    func move(from: Int, to: Int) {
+        onMain { player.move(from: from, to: to) }
+    }
+
+    func removeQueueEntry(at index: Int) {
+        onMain { _ = player.remove(at: index) }
+    }
+
+    func removeQueueEntry(id: AudioEntryId) {
+        onMain { _ = player.remove(entryId: CrescendoEntryId(id: id.id)) }
+    }
+
+    func clearQueue() {
+        onMain { player.clearQueue() }
+    }
+
+    func playQueueEntry(at index: Int, startPaused: Bool) {
+        onMain { player.play(at: index, startPaused: startPaused) }
+    }
+
+    func shuffleQueue() {
+        onMain { player.shuffle() }
     }
 
     // MARK: - Now Playing
@@ -227,11 +249,6 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
     // MARK: - Delegate event handling (called by the @MainActor bridge)
 
     func handleStartPlaying(entryId: CrescendoEntryId) {
-        // On a gapless advance the primed next becomes the active track, so it's
-        // no longer "pending" - clear it before the app primes the new next.
-        if entryId == pendingNextEntryId {
-            pendingNextEntryId = nil
-        }
         backendDelegate?.backendDidStartPlaying(with: AudioEntryId(id: entryId.id))
     }
 
@@ -258,9 +275,6 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
 
     func handleSkippedEntry(entryId: CrescendoEntryId, url: URL, reason: CrescendoError) {
         Logger.warning("Crescendo skipped \(url.lastPathComponent): \(reason.localizedDescription)")
-        if entryId == pendingNextEntryId {
-            pendingNextEntryId = nil
-        }
         backendDelegate?.backendDidSkipQueueEntry(entryId: AudioEntryId(id: entryId.id))
     }
 
@@ -311,7 +325,7 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
 
 /// Bridges `CrescendoPlayer`'s `@MainActor` delegate callbacks to the non-isolated
 /// backend. Kept separate so conforming to the `@MainActor` delegate protocol does
-/// not force `@MainActor` onto the whole backend (mirrors SFB's bridge).
+/// not force `@MainActor` onto the whole backend.
 @MainActor
 private final class CrescendoDelegateBridge: CrescendoPlayerDelegate {
     weak var owner: CrescendoPlaybackBackend?

@@ -12,35 +12,8 @@ extension PlaylistManager {
     // MARK: - Playback Control
 
     func playTrack(_ track: Track, fromTracks contextTracks: [Track]? = nil) {
-        var queueTracks: [Track] = []
-
-        if let contextTracks = contextTracks, !contextTracks.isEmpty {
-            if let trackIndex = contextTracks.firstIndex(where: { $0.id == track.id }) {
-                if isShuffleEnabled {
-                    var tracksToShuffle = contextTracks
-                    tracksToShuffle.remove(at: trackIndex)
-                    tracksToShuffle.shuffle()
-
-                    queueTracks = [track] + tracksToShuffle
-                    currentQueueIndex = 0
-                } else {
-                    queueTracks = contextTracks
-                    currentQueueIndex = trackIndex
-                }
-            } else {
-                queueTracks = [track]
-                currentQueueIndex = 0
-            }
-        } else {
-            queueTracks = [track]
-            currentQueueIndex = 0
-        }
-
-        currentQueue = queueTracks
         currentPlaylist = nil
-
-        audioPlayer?.playTrack(track)
-        Logger.info("Played track: \(track.url)")
+        beginPlayback(of: track, in: contextTracks ?? [track])
     }
 
     func playTrackFromPlaylist(_ playlist: Playlist, at index: Int) {
@@ -48,47 +21,39 @@ extension PlaylistManager {
 
         currentPlaylist = playlist
         currentQueueSource = .playlist
-
-        let track = playlist.tracks[index]
-
-        if isShuffleEnabled {
-            var tracksToShuffle = playlist.tracks
-            tracksToShuffle.remove(at: index)
-            tracksToShuffle.shuffle()
-
-            currentQueue = [track] + tracksToShuffle
-            currentQueueIndex = 0
-        } else {
-            currentQueue = Array(playlist.tracks[index...])
-            currentQueueIndex = 0
-        }
-
-        audioPlayer?.playTrack(track)
-        Logger.info("Played track: \(track.url)")
+        beginPlayback(of: playlist.tracks[index], in: playlist.tracks)
     }
 
     func playTrackFromFolder(_ track: Track, folderTracks: [Track]) {
         currentQueueSource = .folder
         currentPlaylist = nil
+        beginPlayback(of: track, in: folderTracks)
+    }
 
-        if let trackIndex = folderTracks.firstIndex(where: { $0.id == track.id }) {
-            if isShuffleEnabled {
-                var tracksToShuffle = folderTracks
-                tracksToShuffle.remove(at: trackIndex)
-                tracksToShuffle.shuffle()
-
-                currentQueue = [track] + tracksToShuffle
-                currentQueueIndex = 0
-            } else {
-                currentQueue = Array(folderTracks[trackIndex...])
-                currentQueueIndex = 0
-            }
-        } else {
+    /// Queues `contextTracks` and starts `track` within it. With shuffle off the whole
+    /// list is queued with the cursor on the chosen track, so Previous walks back up
+    /// the list the user is looking at; with shuffle on the chosen track leads and the
+    /// rest follow in random order.
+    private func beginPlayback(of track: Track, in contextTracks: [Track]) {
+        guard let index = contextTracks.firstIndex(where: { $0.id == track.id }) else {
             currentQueue = [track]
             currentQueueIndex = 0
+            audioPlayer?.startQueue(at: 0)
+            return
         }
 
-        audioPlayer?.playTrack(track)
+        if isShuffleEnabled {
+            var rest = contextTracks
+            rest.remove(at: index)
+            rest.shuffle()
+            currentQueue = [track] + rest
+            currentQueueIndex = 0
+        } else {
+            currentQueue = contextTracks
+            currentQueueIndex = index
+        }
+
+        audioPlayer?.startQueue(at: currentQueueIndex)
         Logger.info("Played track: \(track.url)")
     }
 
@@ -117,8 +82,7 @@ extension PlaylistManager {
             createLibraryQueue()
             if !currentQueue.isEmpty {
                 currentQueueIndex = 0
-                let track = currentQueue[0]
-                audioPlayer?.playTrack(track)
+                audioPlayer?.startQueue(at: 0)
             }
             return
         }
@@ -126,22 +90,19 @@ extension PlaylistManager {
         guard let nextIndex = nextQueueIndex() else { return }
 
         currentQueueIndex = nextIndex
-        let track = currentQueue[nextIndex]
-        audioPlayer?.playTrack(track)
-        Logger.info("Played track: \(track.url)")
+        audioPlayer?.jumpToQueueEntry(at: nextIndex)
+        Logger.info("Played track: \(currentQueue[nextIndex].url)")
     }
 
-    /// Computes the immediate next track per the current repeat mode WITHOUT
-    /// advancing or playing. Used to prime the engine's gapless lookahead.
+    /// The next track per the current repeat mode, without advancing or playing.
+    /// Feeds `primeRepeatLookahead`.
     func peekNextTrack() -> (track: Track, index: Int)? {
         guard let nextIndex = nextQueueIndex() else { return nil }
         return (currentQueue[nextIndex], nextIndex)
     }
 
-    /// Syncs the queue position after a gapless engine advanced into the
-    /// already-primed next track. The playback layer drove the advance, so this
-    /// only moves the authority's index - it does not trigger playback. Keeps
-    /// `PlaylistManager` the sole writer of `currentQueueIndex`.
+    /// Moves the cursor after the engine advanced by itself. Does not trigger
+    /// playback; keeps `PlaylistManager` the sole writer of `currentQueueIndex`.
     func advanceQueueIndex(to index: Int) {
         guard index >= 0, index < currentQueue.count else { return }
         currentQueueIndex = index
@@ -174,32 +135,8 @@ extension PlaylistManager {
         }
 
         currentQueueIndex = prevIndex
-        let track = currentQueue[prevIndex]
-        audioPlayer?.playTrack(track)
-        Logger.info("Played track: \(track.url)")
-    }
-
-    func handleTrackCompletion() {
-        switch repeatMode {
-        case .one:
-            guard let audioPlayer = audioPlayer else { return }
-            audioPlayer.seekTo(time: 0)
-            if currentQueueIndex >= 0 && currentQueueIndex < currentQueue.count {
-                Logger.info("Track completed, playing current track again (repeat: current track)")
-                audioPlayer.playTrack(currentQueue[currentQueueIndex])
-            }
-        case .all:
-            Logger.info("Track completed, playing next track from current queue (repeat: all)")
-            playNextTrack()
-        case .off:
-            let nextIndex = currentQueueIndex + 1
-            if nextIndex < currentQueue.count {
-                Logger.info("Track completed, playing next track")
-                playNextTrack()
-            } else {
-                Logger.info("Track completed, queue finished")
-            }
-        }
+        audioPlayer?.jumpToQueueEntry(at: prevIndex)
+        Logger.info("Played track: \(currentQueue[prevIndex].url)")
     }
 
     // MARK: - Repeat and Shuffle
