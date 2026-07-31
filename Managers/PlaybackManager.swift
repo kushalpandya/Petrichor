@@ -57,7 +57,6 @@ class PlaybackManager: NSObject, ObservableObject {
     private var fineSamplingConsumers = 0
     // Detects a pinned engine position (see watchProgressForFreeze).
     private let progressFreezeWatchdog = ProgressFreezeWatchdog()
-    private var stateSaveTimer: Timer?
     var restoredPosition: Double = 0
 
     /// Position to seek to and resume from once a restored track settles in
@@ -129,7 +128,6 @@ class PlaybackManager: NSObject, ObservableObject {
     deinit {
         stop()
         stopProgressUpdateTimer()
-        stopStateSaveTimer()
     }
     
     // MARK: - Player State Management
@@ -208,14 +206,12 @@ class PlaybackManager: NSObject, ObservableObject {
             pendingPlayOnRestore = false
             audioPlayer.pause()
             isPlaying = false
-            stopStateSaveTimer()
         } else if audioPlayer.state == .paused {
             // A loaded, paused session always just resumes. Checked first because the
             // full track is fetched asynchronously after every advance and jump, so it
             // is briefly nil for a track that is perfectly resumable.
             audioPlayer.resume()
             isPlaying = true
-            startStateSaveTimer()
         } else if let fullTrack = currentFullTrack, let track = currentTrack {
             startPlayback(of: fullTrack, lightweightTrack: track)
         } else if currentTrack != nil {
@@ -225,7 +221,6 @@ class PlaybackManager: NSObject, ObservableObject {
         } else {
             audioPlayer.resume()
             isPlaying = true
-            startStateSaveTimer()
         }
     }
     
@@ -242,7 +237,6 @@ class PlaybackManager: NSObject, ObservableObject {
         audioPlayer.stop()
         isPlaying = false
         pendingPlayOnRestore = false
-        stopStateSaveTimer()
         Logger.info("Playback stopped gracefully")
     }
 
@@ -258,7 +252,6 @@ class PlaybackManager: NSObject, ObservableObject {
         currentTime = 0
         isPlaying = false
         pendingPlayOnRestore = false
-        stopStateSaveTimer()
     }
     
     func seekTo(time: Double) {
@@ -444,24 +437,6 @@ class PlaybackManager: NSObject, ObservableObject {
     private func stopProgressUpdateTimer() {
         progressUpdateTimer?.cancel()
         progressUpdateTimer = nil
-    }
-    
-    func startStateSaveTimer() {
-        stateSaveTimer?.invalidate()
-        stateSaveTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            if self.isPlaying {
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("SavePlaybackState"),
-                    object: nil
-                )
-            }
-        }
-    }
-    
-    private func stopStateSaveTimer() {
-        stateSaveTimer?.invalidate()
-        stateSaveTimer = nil
     }
     
     /// Restore audio effects settings from UserDefaults
@@ -695,16 +670,10 @@ extension PlaybackManager: AudioPlayerDelegate {
                 if self.audioPlayer.state != .playing, !self.engineHasSuccessor, finishedEntryIsCurrent {
                     self.currentTime = 0
                     self.isPlaying = false
-                    self.stopStateSaveTimer()
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("SavePlaybackState"),
-                        object: nil
-                    )
                 }
 
             case .userAction:
                 self.currentTime = 0
-                self.stopStateSaveTimer()
 
             case .error:
                 self.currentTime = 0

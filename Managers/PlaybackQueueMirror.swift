@@ -145,7 +145,6 @@ extension PlaybackManager {
             playlistManager.advanceQueueIndex(to: position)
         }
 
-        startStateSaveTimer()
         scrobbleManager?.trackStarted(track)
         publishNowPlayingMetadata(for: track)
         loadFullTrack(for: track)
@@ -175,7 +174,6 @@ extension PlaybackManager {
         currentFullTrack = nil
         currentEntryId = entryId
         currentTime = position
-        startStateSaveTimer()
         scrobbleManager?.trackStarted(track)
         loadFullTrack(for: track)
     }
