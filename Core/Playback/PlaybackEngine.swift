@@ -60,6 +60,36 @@ public struct AudioEntryId: Hashable {
     }
 }
 
+// MARK: - Now Playing Metadata
+
+/// The descriptive half of the system Now Playing tile. The engine owns the
+/// dynamic half - duration, elapsed time, rate - and publishes the merged result.
+public struct NowPlayingMetadata {
+    public var title: String?
+    public var artist: String?
+    public var albumTitle: String?
+    public var albumArtist: String?
+    public var genre: String?
+    /// Encoded image bytes; the engine decodes and caches them.
+    public var artworkData: Data?
+
+    public init(
+        title: String? = nil,
+        artist: String? = nil,
+        albumTitle: String? = nil,
+        albumArtist: String? = nil,
+        genre: String? = nil,
+        artworkData: Data? = nil
+    ) {
+        self.title = title
+        self.artist = artist
+        self.albumTitle = albumTitle
+        self.albumArtist = albumArtist
+        self.genre = genre
+        self.artworkData = artworkData
+    }
+}
+
 // MARK: - Delegate Protocol
 
 /// Delegate protocol for receiving playback events from the active engine.
@@ -128,6 +158,10 @@ protocol PlaybackBackend: AnyObject {
     func setNextTrack(url: URL, entryId: AudioEntryId)
     /// Drops the pre-decoded next track (e.g. when it's no longer the successor).
     func clearNextTrack()
+
+    /// Metadata for the playing track; the backend publishes the system Now
+    /// Playing tile from it. `nil` clears it.
+    func setNowPlayingMetadata(_ metadata: NowPlayingMetadata?)
 
     func setStereoWidening(enabled: Bool)
     func isStereoWideningEnabled() -> Bool
@@ -237,6 +271,14 @@ public class PlaybackEngine: NSObject {
     /// Drops the pre-decoded next track.
     public func clearNextTrack() {
         backend.clearNextTrack()
+    }
+
+    // MARK: - Now Playing
+
+    /// Publishes the playing track's metadata to the system Now Playing surfaces.
+    /// Call on track change; the engine keeps elapsed, duration and rate current.
+    public func setNowPlayingMetadata(_ metadata: NowPlayingMetadata?) {
+        backend.setNowPlayingMetadata(metadata)
     }
 
     public func pause() {

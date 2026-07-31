@@ -40,7 +40,6 @@ extension PlaylistManager {
         currentPlaylist = nil
 
         audioPlayer?.playTrack(track)
-        audioPlayer?.updateNowPlayingInfo()
         Logger.info("Played track: \(track.url)")
     }
 
@@ -65,7 +64,6 @@ extension PlaylistManager {
         }
 
         audioPlayer?.playTrack(track)
-        audioPlayer?.updateNowPlayingInfo()
         Logger.info("Played track: \(track.url)")
     }
 
@@ -91,7 +89,6 @@ extension PlaylistManager {
         }
 
         audioPlayer?.playTrack(track)
-        audioPlayer?.updateNowPlayingInfo()
         Logger.info("Played track: \(track.url)")
     }
 
@@ -131,7 +128,6 @@ extension PlaylistManager {
         currentQueueIndex = nextIndex
         let track = currentQueue[nextIndex]
         audioPlayer?.playTrack(track)
-        audioPlayer?.updateNowPlayingInfo()
         Logger.info("Played track: \(track.url)")
     }
 
@@ -180,7 +176,6 @@ extension PlaylistManager {
         currentQueueIndex = prevIndex
         let track = currentQueue[prevIndex]
         audioPlayer?.playTrack(track)
-        audioPlayer?.updateNowPlayingInfo()
         Logger.info("Played track: \(track.url)")
     }
 

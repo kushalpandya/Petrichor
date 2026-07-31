@@ -70,9 +70,11 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
             let bridge = CrescendoDelegateBridge(owner: self)
             self.delegateBridge = bridge
             player.delegate = bridge
-            // Petrichor's NowPlayingManager owns the tile and remote commands; handing
-            // them to Crescendo waits on its restore-resume tile-anchor bug.
-            player.nowPlayingInfoEnabled = false
+            // The engine owns the info tile: it anchors elapsed/duration/rate off the
+            // real playback clock, which the app can only approximate.
+            player.nowPlayingInfoEnabled = true
+            // Commands stay app-owned: Crescendo's next/previous walk ITS queue, which
+            // here holds only the current track plus the primed gapless next.
             player.remoteCommandsEnabled = false
             installLogBridge()
         }
@@ -109,6 +111,22 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
             }
             pendingNextEntryId = nil
         }
+    }
+
+    // MARK: - Now Playing
+
+    func setNowPlayingMetadata(_ metadata: NowPlayingMetadata?) {
+        let mapped = metadata.map {
+            CrescendoNowPlayingMetadata(
+                title: $0.title,
+                artist: $0.artist,
+                albumTitle: $0.albumTitle,
+                albumArtist: $0.albumArtist,
+                genre: $0.genre,
+                artworkData: $0.artworkData
+            )
+        }
+        onMain { player.setNowPlayingMetadata(mapped) }
     }
 
     func pause() { onMain { player.pause() } }

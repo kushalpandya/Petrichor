@@ -3,7 +3,7 @@
 //
 // This class handles track playback coordination with PlaybackEngine,
 // including database updates, state persistence, and integration with
-// PlaylistManager and NowPlayingManager.
+// PlaylistManager and RemoteCommandManager.
 //
 
 import AVFoundation
@@ -55,7 +55,6 @@ class PlaybackManager: NSObject, ObservableObject {
     // Reference count of views requesting fine sampling (e.g. main-window and
     // mini-player lyrics can be visible at once); sampling stays fine while > 0.
     private var fineSamplingConsumers = 0
-    private var lastNowPlayingUpdate: TimeInterval = 0
     // Detects a pinned engine position (see watchProgressForFreeze).
     private let progressFreezeWatchdog = ProgressFreezeWatchdog()
     private var stateSaveTimer: Timer?
@@ -97,17 +96,15 @@ class PlaybackManager: NSObject, ObservableObject {
     
     private let libraryManager: LibraryManager
     private let playlistManager: PlaylistManager
-    // The single Now Playing owner (info tile + remote commands). Crescendo publishes
-    // neither, so the restore-resume anchor stays correct; handing Now Playing over to
-    // it waits on that bug being fixed.
-    private let nowPlayingManager: NowPlayingManager
-    
+    // Transport commands only; the engine publishes the Now Playing info tile.
+    private let remoteCommandManager: RemoteCommandManager
+
     // MARK: - Initialization
-    
+
     init(libraryManager: LibraryManager, playlistManager: PlaylistManager) {
         self.libraryManager = libraryManager
         self.playlistManager = playlistManager
-        self.nowPlayingManager = NowPlayingManager()
+        self.remoteCommandManager = RemoteCommandManager()
         self.audioPlayer = PlaybackEngine()
         
         super.init()
@@ -140,12 +137,8 @@ class PlaybackManager: NSObject, ObservableObject {
         currentTrack = tempTrack
         restoredPosition = uiState.playbackPosition
         volume = uiState.volume
-        
-        nowPlayingManager.updateNowPlayingInfo(
-            track: tempTrack,
-            currentTime: uiState.playbackPosition,
-            isPlaying: false
-        )
+
+        // No tile yet - the engine publishes it, and nothing is loaded until play.
     }
     
     func prepareTrackForRestoration(_ track: Track, at position: Double) {
@@ -173,11 +166,6 @@ class PlaybackManager: NSObject, ObservableObject {
                         self.startPlayback(of: fullTrack, lightweightTrack: track)
                     } else {
                         self.isPlaying = false
-                        self.nowPlayingManager.updateNowPlayingInfo(
-                            track: track,
-                            currentTime: position,
-                            isPlaying: false
-                        )
                     }
 
                     Logger.info("Prepared track for restoration at position: \(position)")
@@ -196,7 +184,6 @@ class PlaybackManager: NSObject, ObservableObject {
         guard pendingPlayOnRestore else { return }
         pendingPlayOnRestore = false
         isPlaying = false
-        updateNowPlayingInfo()
     }
     
     // MARK: - Playback Controls
@@ -266,8 +253,6 @@ class PlaybackManager: NSObject, ObservableObject {
                 startStateSaveTimer()
             }
         }
-
-        updateNowPlayingInfo()
     }
     
     func stop() {
@@ -317,30 +302,33 @@ class PlaybackManager: NSObject, ObservableObject {
             object: nil,
             userInfo: ["time": time]
         )
-        
-        if let track = currentTrack {
-            nowPlayingManager.updateNowPlayingInfo(
-                track: track, currentTime: time, isPlaying: isPlaying)
-        }
+
+        // The engine re-anchors the Now Playing tile on its own seek.
     }
-    
+
     func setVolume(_ newVolume: Float) {
         volume = max(0, min(1, newVolume))
     }
-    
-    func updateNowPlayingInfo() {
-        guard let track = currentTrack else { return }
-        nowPlayingManager.updateNowPlayingInfo(
-            track: track,
-            currentTime: currentTime,
-            isPlaying: isPlaying
+
+    /// Feeds the engine the metadata for its system Now Playing tile. Called only
+    /// when the engine adopts a new entry; it keeps elapsed and rate current itself.
+    private func publishNowPlayingMetadata(for track: Track) {
+        audioPlayer.setNowPlayingMetadata(
+            NowPlayingMetadata(
+                title: track.title,
+                artist: track.artist,
+                albumTitle: track.album,
+                albumArtist: track.albumArtist,
+                genre: track.genre,
+                artworkData: track.artworkData
+            )
         )
     }
 
     /// Wires the system remote command center (lock screen / Control Center) to
-    /// this manager. PlaybackManager owns the single Petrichor-side Now Playing path.
+    /// this manager, so the transport buttons drive Petrichor's own queue.
     func connectRemoteCommandCenter() {
-        nowPlayingManager.connectRemoteCommandCenter(
+        remoteCommandManager.connectRemoteCommandCenter(
             audioPlayer: self,
             playlistManager: playlistManager
         )
@@ -454,8 +442,10 @@ class PlaybackManager: NSObject, ObservableObject {
         }
 
         startStateSaveTimer()
-        updateNowPlayingInfo()
         scrobbleManager?.trackStarted(lightweightTrack)
+        // Now Playing metadata is published on adoption, not here: the engine keeps
+        // the outgoing track loaded while it opens this one, so publishing now would
+        // pair this title with the outgoing track's timeline.
         // The gapless next is primed from `audioPlayerDidStartPlaying`, once the
         // engine confirms this track is actually playing - priming here (before
         // the engine's async play starts) is too early: the successor can't be
@@ -541,7 +531,7 @@ class PlaybackManager: NSObject, ObservableObject {
         pendingNextWasSkipped = false
 
         scrobbleManager?.trackStarted(pending.track)
-        updateNowPlayingInfo()
+        publishNowPlayingMetadata(for: pending.track)
         Logger.info("Gapless advance to: \(pending.track.title)")
 
         // If the pre-fetch didn't finish in time, load it now for pause/resume + UI.
@@ -576,14 +566,7 @@ class PlaybackManager: NSObject, ObservableObject {
             let sampled = self.audioPlayer.currentPlaybackProgress
             self.currentTime = sampled
             self.watchProgressForFreeze(sampled)
-            // Refresh the system Now Playing tile at ~1s regardless of sampling
-            // rate - it extrapolates elapsed between updates from the rate anchor,
-            // so a higher rate is wasted work (and an artwork re-decode on SFB).
-            let now = Date().timeIntervalSinceReferenceDate
-            if now - self.lastNowPlayingUpdate >= 1.0 {
-                self.lastNowPlayingUpdate = now
-                self.updateNowPlayingInfo()
-            }
+            // No Now Playing work here - the engine anchors elapsed and rate itself.
         }
         
         timer.resume()
@@ -755,6 +738,11 @@ extension PlaybackManager: AudioPlayerDelegate {
                 self.handleGaplessAdvance(to: pending)
             } else {
                 self.isPlaying = true
+                // Adopted now, so the tile's timeline is this track's. Resolved by
+                // id so a superseded load can't publish the wrong track.
+                if let started = self.trackForEntry[entryId.id] {
+                    self.publishNowPlayingMetadata(for: started)
+                }
             }
             self.currentTime = self.audioPlayer.currentPlaybackProgress
             Logger.info("Track started playing: \(entryId.id)")
@@ -763,8 +751,6 @@ extension PlaybackManager: AudioPlayerDelegate {
     
     func audioPlayerStateChanged(player: PlaybackEngine, with newState: AudioPlayerState, previous: AudioPlayerState) {
         DispatchQueue.main.async {
-            let oldIsPlaying = self.isPlaying
-
             switch newState {
             case .playing:
                 self.isPlaying = true
@@ -775,10 +761,6 @@ extension PlaybackManager: AudioPlayerDelegate {
             case .ready:
                 break
             }
-            
-            if oldIsPlaying != self.isPlaying {
-                self.updateNowPlayingInfo()
-            }
 
             // Finish a deferred restore-resume: the startPaused load has now
             // settled in `.paused`, so the asset is open and the seek+resume is
@@ -787,6 +769,11 @@ extension PlaybackManager: AudioPlayerDelegate {
                let pending = self.pendingRestoreResume,
                pending.entryId == self.currentEntryId {
                 self.pendingRestoreResume = nil
+                // startPaused adopts without a start callback, so restored tiles
+                // publish here.
+                if let track = self.currentTrack {
+                    self.publishNowPlayingMetadata(for: track)
+                }
                 if self.audioPlayer.seek(to: pending.position) {
                     self.currentTime = pending.position
                     self.audioPlayer.resume()
