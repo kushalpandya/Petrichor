@@ -414,7 +414,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             "discoverUpdateInterval": "weekly",
             "discoverTrackCount": 50,
             "crossfadeEnabled": false,
-            "crossfadeDuration": 3.0
+            "crossfadeDuration": 3.0,
+            "replayGainEnabled": false,
+            "replayGainMode": "auto",
+            "replayGainPreamp": 0.0
         ]
 
         UserDefaults.standard.register(defaults: defaults)

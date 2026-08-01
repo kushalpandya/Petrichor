@@ -211,6 +211,16 @@ protocol PlaybackBackend: AnyObject {
     func setCrossfadeDuration(_ duration: TimeInterval)
     func getCrossfadeDuration() -> TimeInterval
     var crossfadeDurationRange: ClosedRange<TimeInterval> { get }
+
+    /// Applies the gain tagged in the file. The backend reads `REPLAYGAIN_*` tags
+    /// itself while opening the decoder, so there is nothing to supply here.
+    func setReplayGainMode(_ mode: ReplayGainMode)
+    func getReplayGainMode() -> ReplayGainMode
+    /// Offsets the tagged gain, for listeners who find normalized playback too
+    /// quiet. Inert while the mode is `off`.
+    func setReplayGainPreamp(_ decibels: Float)
+    func getReplayGainPreamp() -> Float
+    var replayGainPreampRange: ClosedRange<Float> { get }
 }
 
 /// Shared EQ headroom policy used by playback backends.
@@ -435,6 +445,26 @@ public class PlaybackEngine: NSObject {
 
     public var crossfadeDurationRange: ClosedRange<TimeInterval> {
         backend.crossfadeDurationRange
+    }
+
+    public func setReplayGainMode(_ mode: ReplayGainMode) {
+        backend.setReplayGainMode(mode)
+    }
+
+    public func getReplayGainMode() -> ReplayGainMode {
+        backend.getReplayGainMode()
+    }
+
+    public func setReplayGainPreamp(_ decibels: Float) {
+        backend.setReplayGainPreamp(decibels)
+    }
+
+    public func getReplayGainPreamp() -> Float {
+        backend.getReplayGainPreamp()
+    }
+
+    public var replayGainPreampRange: ClosedRange<Float> {
+        backend.replayGainPreampRange
     }
 }
 
