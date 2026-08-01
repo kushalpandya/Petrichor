@@ -7,9 +7,18 @@ struct GeneralTabView: View {
 
     @State private var crossfadeEnabled = false
     @State private var crossfadeDuration: TimeInterval = 3.0
+    @State private var replayGainEnabled = false
+    @State private var replayGainMode: ReplayGainMode = .auto
+    @State private var replayGainPreamp: Float = 0
 
     /// Leading inset used to nest the options that depend on the toggle above them.
     private let dependentIndent: CGFloat = 20
+
+    /// Fixed label and value columns so the crossfade and preamp sliders start and
+    /// end at the same place despite different labels and value formats. Sized off
+    /// the widest of each ("Gain preamp" at 77pt, "-20 dB" at 48pt).
+    private let sliderLabelWidth: CGFloat = 90
+    private let sliderValueWidth: CGFloat = 54
 
     @AppStorage("startAtLogin")
     private var startAtLogin = false
@@ -65,6 +74,20 @@ struct GeneralTabView: View {
                 crossfadeDurationRow
                     .disabled(!crossfadeEnabled)
                     .padding(.leading, dependentIndent)
+
+                Toggle("Normalize volume (ReplayGain)", isOn: $replayGainEnabled)
+                    .help("Evens out loudness differences using the gain tagged in each file")
+                    .onChange(of: replayGainEnabled) { _, newValue in
+                        playbackManager.setReplayGainEnabled(newValue)
+                    }
+
+                replayGainSourceRow
+                    .disabled(!replayGainEnabled)
+                    .padding(.leading, dependentIndent)
+
+                replayGainPreampRow
+                    .disabled(!replayGainEnabled)
+                    .padding(.leading, dependentIndent)
             }
         }
         .formStyle(.grouped)
@@ -78,12 +101,17 @@ struct GeneralTabView: View {
             if crossfadeDuration != storedDuration {
                 playbackManager.setCrossfadeDuration(crossfadeDuration)
             }
+
+            replayGainEnabled = playbackManager.isReplayGainEnabled()
+            replayGainMode = playbackManager.selectedReplayGainMode
+            replayGainPreamp = playbackManager.getReplayGainPreamp()
         }
     }
 
     private var crossfadeDurationRow: some View {
         HStack(spacing: 10) {
             Text("Duration")
+                .frame(width: sliderLabelWidth, alignment: .leading)
 
             Slider(
                 value: $crossfadeDuration,
@@ -96,7 +124,7 @@ struct GeneralTabView: View {
 
             Text(crossfadeDurationLabel)
                 .font(.system(.body, design: .monospaced))
-                .frame(minWidth: 30, alignment: .trailing)
+                .frame(width: sliderValueWidth, alignment: .trailing)
                 .foregroundColor(.secondary)
         }
         .help("Applies to the next track change")
@@ -104,6 +132,45 @@ struct GeneralTabView: View {
 
     private var crossfadeDurationLabel: String {
         String(format: "%.0fs", crossfadeDuration)
+    }
+
+    private var replayGainSourceRow: some View {
+        Picker("Gain source", selection: $replayGainMode) {
+            ForEach(ReplayGainMode.selectableCases, id: \.self) { mode in
+                Text(mode.displayName).tag(mode)
+            }
+        }
+        .pickerStyle(.menu)
+        .help("Automatic prefers album gain and falls back to track gain")
+        .onChange(of: replayGainMode) { _, newValue in
+            playbackManager.setReplayGainMode(newValue)
+        }
+    }
+
+    private var replayGainPreampRow: some View {
+        HStack(spacing: 10) {
+            Text("Gain preamp")
+                .frame(width: sliderLabelWidth, alignment: .leading)
+
+            Slider(
+                value: $replayGainPreamp,
+                in: playbackManager.replayGainPreampRange,
+                step: 1
+            )
+            .onChange(of: replayGainPreamp) { _, newValue in
+                playbackManager.setReplayGainPreamp(newValue)
+            }
+
+            Text(replayGainPreampLabel)
+                .font(.system(.body, design: .monospaced))
+                .frame(width: sliderValueWidth, alignment: .trailing)
+                .foregroundColor(.secondary)
+        }
+        .help("Raises normalized playback, which ReplayGain otherwise aims low by modern standards")
+    }
+
+    private var replayGainPreampLabel: String {
+        String(format: "%+.0f dB", replayGainPreamp)
     }
 
     /// Reads as off in dev builds, where the updater never runs, without writing to

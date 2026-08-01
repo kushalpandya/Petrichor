@@ -403,6 +403,67 @@ class PlaybackManager: NSObject, ObservableObject {
         audioPlayer.crossfadeDurationRange
     }
 
+    /// Turn loudness normalization on or off, leaving the chosen gain source
+    /// intact so switching back on restores it instead of resetting.
+    /// - Parameter enabled: true to apply tagged gain, false for no adjustment
+    func setReplayGainEnabled(_ enabled: Bool) {
+        UserDefaults.standard.set(enabled, forKey: "replayGainEnabled")
+        audioPlayer.setReplayGainMode(enabled ? selectedReplayGainMode : .off)
+        Logger.info("ReplayGain \(enabled ? "enabled (\(selectedReplayGainMode.rawValue))" : "disabled") via PlaybackManager")
+    }
+
+    /// Check if loudness normalization is currently applied
+    /// - Returns: true if the engine is applying a gain, false otherwise
+    func isReplayGainEnabled() -> Bool {
+        audioPlayer.getReplayGainMode() != .off
+    }
+
+    /// Choose which tagged gain to prefer. Stored even while normalization is
+    /// off, so the picker keeps showing the choice.
+    /// - Parameter mode: The gain source; `.off` belongs to `setReplayGainEnabled`
+    func setReplayGainMode(_ mode: ReplayGainMode) {
+        guard mode != .off else {
+            Logger.warning("Ignoring ReplayGain source .off; use setReplayGainEnabled(false) instead")
+            return
+        }
+
+        UserDefaults.standard.set(mode.rawValue, forKey: "replayGainMode")
+        if isReplayGainEnabled() {
+            audioPlayer.setReplayGainMode(mode)
+        }
+        Logger.info("ReplayGain source set to \(mode.rawValue) via PlaybackManager")
+    }
+
+    /// The gain source the picker shows: the last one chosen, regardless of
+    /// whether normalization is on. The engine only ever holds this or `.off`.
+    var selectedReplayGainMode: ReplayGainMode {
+        let stored = UserDefaults.standard.string(forKey: "replayGainMode") ?? ""
+        let mode = ReplayGainMode(rawValue: stored) ?? .auto
+        return mode == .off ? .auto : mode
+    }
+
+    /// Offset the tagged gain. ReplayGain targets a reference loudness that is
+    /// conservative by modern standards, so normalized playback often wants
+    /// lifting; this is the control for that, not the equalizer preamp.
+    /// - Parameter decibels: Offset in dB, clamped to `replayGainPreampRange`
+    func setReplayGainPreamp(_ decibels: Float) {
+        audioPlayer.setReplayGainPreamp(decibels)
+        let effective = audioPlayer.getReplayGainPreamp()
+        UserDefaults.standard.set(effective, forKey: "replayGainPreamp")
+        Logger.info("ReplayGain preamp set to \(effective) dB via PlaybackManager")
+    }
+
+    /// Get the current ReplayGain preamp offset
+    /// - Returns: Offset in dB
+    func getReplayGainPreamp() -> Float {
+        audioPlayer.getReplayGainPreamp()
+    }
+
+    /// The offsets the engine accepts, for the settings slider to bound itself to
+    var replayGainPreampRange: ClosedRange<Float> {
+        audioPlayer.replayGainPreampRange
+    }
+
     /// Get the current preamp gain
     /// - Returns: Current preamp gain in dB
     func getPreamp() -> Float {
@@ -527,6 +588,20 @@ class PlaybackManager: NSObject, ObservableObject {
         if UserDefaults.standard.bool(forKey: "crossfadeEnabled") {
             audioPlayer.setCrossfadeEnabled(true)
             Logger.info("Restored crossfade: enabled")
+        }
+
+        // Restore ReplayGain. Preamp first, for the same reason as crossfade:
+        // it feeds the same resolved gain the mode switches on.
+        if UserDefaults.standard.object(forKey: "replayGainPreamp") != nil {
+            let preamp = UserDefaults.standard.float(forKey: "replayGainPreamp")
+            audioPlayer.setReplayGainPreamp(preamp)
+            Logger.info("Restored ReplayGain preamp: \(preamp) dB")
+        }
+
+        // The engine starts at .off, so only an enabled state needs pushing.
+        if UserDefaults.standard.bool(forKey: "replayGainEnabled") {
+            audioPlayer.setReplayGainMode(selectedReplayGainMode)
+            Logger.info("Restored ReplayGain source: \(selectedReplayGainMode.rawValue)")
         }
     }
 }
