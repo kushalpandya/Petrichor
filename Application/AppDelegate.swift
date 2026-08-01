@@ -412,7 +412,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             "tintNowPlayingBackground": true,
             "playerBarBackgroundStyle": "Full width",
             "discoverUpdateInterval": "weekly",
-            "discoverTrackCount": 50
+            "discoverTrackCount": 50,
+            "crossfadeEnabled": false,
+            "crossfadeDuration": 3.0
         ]
 
         UserDefaults.standard.register(defaults: defaults)
