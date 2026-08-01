@@ -102,4 +102,5 @@ struct SettingsView: View {
             let manager = LibraryManager()
             return manager
         }())
+        .environmentObject(PlaybackManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
 }

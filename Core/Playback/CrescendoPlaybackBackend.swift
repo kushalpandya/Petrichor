@@ -84,6 +84,7 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
             // Commands stay app-owned: Crescendo's next/previous walk its queue in raw
             // order, ignoring Petrichor's repeat, shuffle and injected lookahead.
             player.remoteCommandsEnabled = false
+            player.crossfadeCurve = .linear
             installLogBridge()
         }
     }
@@ -213,6 +214,31 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
     }
 
     func getPreamp() -> Float { userPreampGain }
+
+    func setCrossfadeEnabled(_ enabled: Bool) {
+        onMain { player.crossfadeEnabled = enabled }
+    }
+
+    func isCrossfadeEnabled() -> Bool {
+        onMain { player.crossfadeEnabled }
+    }
+
+    func setCrossfadeDuration(_ duration: TimeInterval) {
+        onMain {
+            player.crossfadeDuration = min(
+                max(duration, CrescendoPlayer.crossfadeDurationMin),
+                CrescendoPlayer.crossfadeDurationMax
+            )
+        }
+    }
+
+    func getCrossfadeDuration() -> TimeInterval {
+        onMain { player.crossfadeDuration }
+    }
+
+    var crossfadeDurationRange: ClosedRange<TimeInterval> {
+        onMain { CrescendoPlayer.crossfadeDurationMin...CrescendoPlayer.crossfadeDurationMax }
+    }
 
     // Disabled EQ is expressed as flat (all-zero) gains rather than Crescendo's
     // `effectsEnabled`, which would bypass preamp and width too.

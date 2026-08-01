@@ -368,6 +368,41 @@ class PlaybackManager: NSObject, ObservableObject {
         Logger.info("Preamp set to \(gain) dB via PlaybackManager")
     }
 
+    /// Enable or disable crossfading between tracks
+    /// - Parameter enabled: true to fade between tracks, false for a plain gapless join
+    func setCrossfadeEnabled(_ enabled: Bool) {
+        audioPlayer.setCrossfadeEnabled(enabled)
+        UserDefaults.standard.set(enabled, forKey: "crossfadeEnabled")
+        Logger.info("Crossfade \(enabled ? "enabled" : "disabled") via PlaybackManager")
+    }
+
+    /// Check if crossfading is currently enabled
+    /// - Returns: true if enabled, false otherwise
+    func isCrossfadeEnabled() -> Bool {
+        audioPlayer.isCrossfadeEnabled()
+    }
+
+    /// Set how long the fade between tracks lasts. Takes effect on the next
+    /// transition; one already under way keeps the duration it started with.
+    /// - Parameter duration: Fade length in seconds, clamped to `crossfadeDurationRange`
+    func setCrossfadeDuration(_ duration: TimeInterval) {
+        audioPlayer.setCrossfadeDuration(duration)
+        let effective = audioPlayer.getCrossfadeDuration()
+        UserDefaults.standard.set(effective, forKey: "crossfadeDuration")
+        Logger.info("Crossfade duration set to \(effective)s via PlaybackManager")
+    }
+
+    /// Get the current crossfade duration
+    /// - Returns: Fade length in seconds
+    func getCrossfadeDuration() -> TimeInterval {
+        audioPlayer.getCrossfadeDuration()
+    }
+
+    /// The durations the engine accepts, for the settings slider to bound itself to
+    var crossfadeDurationRange: ClosedRange<TimeInterval> {
+        audioPlayer.crossfadeDurationRange
+    }
+
     /// Get the current preamp gain
     /// - Returns: Current preamp gain in dB
     func getPreamp() -> Float {
@@ -478,6 +513,20 @@ class PlaybackManager: NSObject, ObservableObject {
             let preampGain = UserDefaults.standard.float(forKey: "preampGain")
             audioPlayer.setPreamp(preampGain)
             Logger.info("Restored preamp: \(preampGain) dB")
+        }
+
+        // Restore crossfade. Duration first: a change only reaches the transition
+        // after it, so enabling before the length is in place would fade the very
+        // next boundary with a stale duration.
+        if UserDefaults.standard.object(forKey: "crossfadeDuration") != nil {
+            let duration = UserDefaults.standard.double(forKey: "crossfadeDuration")
+            audioPlayer.setCrossfadeDuration(duration)
+            Logger.info("Restored crossfade duration: \(duration)s")
+        }
+
+        if UserDefaults.standard.bool(forKey: "crossfadeEnabled") {
+            audioPlayer.setCrossfadeEnabled(true)
+            Logger.info("Restored crossfade: enabled")
         }
     }
 }
