@@ -1,73 +1,17 @@
 //
-// NowPlayingManager class
+// RemoteCommandManager class
 //
-// This class handles the track playback from NowPlaying UI.
+// Routes the system transport commands (Control Center, media keys, AirPlay
+// remote) to Petrichor's playback and queue managers. The Now Playing info tile
+// is published by the engine - see `PlaybackEngine.setNowPlayingMetadata`.
 //
 
 import Foundation
-import AppKit
 import MediaPlayer
 
-class NowPlayingManager {
+class RemoteCommandManager {
     init() {
         setupRemoteCommandCenter()
-    }
-
-    // MARK: - Now Playing Info
-
-    func updateNowPlayingInfo(track: Track, currentTime: Double, isPlaying: Bool) {
-        var nowPlayingInfo = [String: Any]()
-
-        // Set the title, artist, and album
-        nowPlayingInfo[MPMediaItemPropertyTitle] = track.title
-        nowPlayingInfo[MPMediaItemPropertyArtist] = track.artist
-        nowPlayingInfo[MPMediaItemPropertyAlbumTitle] = track.album
-        nowPlayingInfo[MPMediaItemPropertyGenre] = track.genre
-
-        // Set the artwork. updateNowPlayingInfo runs on every play/pause/seek and
-        // ~1/sec while playing, so cache the MPMediaItemArtwork per track and only
-        // decode the image when the track changes (decoding it each call is the
-        // expensive part and makes AirPlay receivers redraw).
-        if let artwork = artwork(for: track) {
-            nowPlayingInfo[MPMediaItemPropertyArtwork] = artwork
-        }
-
-        // Set the duration and current time
-        nowPlayingInfo[MPMediaItemPropertyPlaybackDuration] = track.duration
-        nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime
-
-        // Set the playback rate (0.0 = paused, 1.0 = playing)
-        nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? 1.0 : 0.0
-
-        // Update the now playing info
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
-
-        // Reflect transport state to the macOS Now Playing widget (it reads this
-        // in addition to the playback rate).
-        MPNowPlayingInfoCenter.default().playbackState = isPlaying ? .playing : .paused
-    }
-
-    private var cachedArtwork: MPMediaItemArtwork?
-    private var cachedArtworkURL: URL?
-
-    private func artwork(for track: Track) -> MPMediaItemArtwork? {
-        guard let artworkData = track.artworkData else {
-            cachedArtwork = nil
-            cachedArtworkURL = nil
-            return nil
-        }
-        if cachedArtworkURL == track.url, let cached = cachedArtwork {
-            return cached
-        }
-        guard let image = NSImage(data: artworkData) else {
-            cachedArtwork = nil
-            cachedArtworkURL = nil
-            return nil
-        }
-        let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
-        cachedArtwork = artwork
-        cachedArtworkURL = track.url
-        return artwork
     }
 
     /// The remote commands Petrichor handles. Single source of truth for remote

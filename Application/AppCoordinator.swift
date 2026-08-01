@@ -80,7 +80,7 @@ class AppCoordinator: ObservableObject {
         playbackManager.currentTrack = nil
     }
     
-    func savePlaybackState(for calledFromStateTimer: Bool = false) {
+    func savePlaybackState() {
         // Only save if we have a current track
         guard let currentTrack = playbackManager.currentTrack else {
             clearAllSavedState()
@@ -124,7 +124,7 @@ class AppCoordinator: ObservableObject {
             let encoder = JSONEncoder()
             let data = try encoder.encode(state)
             UserDefaults.standard.set(data, forKey: playbackStateKey)
-            Logger.info(calledFromStateTimer ? "Playback state saved during active playback" : "Playback state saved")
+            Logger.info("Playback state saved")
         } catch {
             Logger.warning("Failed to save playback state: \(error)")
         }
