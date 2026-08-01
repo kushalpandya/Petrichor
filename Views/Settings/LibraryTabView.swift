@@ -20,6 +20,7 @@ struct LibraryTabView: View {
     @State private var showRefreshInfo = false
     @State private var showOptimizeInfo = false
     @State private var showResetInfo = false
+    @State private var showFormatsInfo = false
     @State private var selectedFolderIDs: Set<Int64> = []
     @State private var isSelectMode: Bool = false
     @State private var foldersToRemove: [Folder] = []
@@ -210,6 +211,8 @@ struct LibraryTabView: View {
                         .tint(.red)
                     }
 
+                    supportedFormatsButton
+
                     Button(action: { libraryManager.addFolder() }, label: {
                         Label("Add Folder", systemImage: "plus")
                     })
@@ -293,19 +296,36 @@ struct LibraryTabView: View {
         }
     }
 
+    // Sits with the folder controls because that is where the answer matters:
+    // a folder only contributes the file types listed here.
+    private var supportedFormatsButton: some View {
+        infoButton(isPresented: $showFormatsInfo, arrowEdge: .bottom) {
+            SupportedFormatsPopover()
+        }
+        .help("See which audio formats Petrichor imports")
+    }
+
     private func infoButton(isPresented: Binding<Bool>, text: String) -> some View {
+        infoButton(isPresented: isPresented) {
+            Text(text)
+                .font(.system(size: 12))
+                .padding(10)
+                .frame(width: 240)
+        }
+    }
+
+    private func infoButton<Content: View>(
+        isPresented: Binding<Bool>,
+        arrowEdge: Edge = .trailing,
+        @ViewBuilder popover: @escaping () -> Content
+    ) -> some View {
         Button { isPresented.wrappedValue.toggle() } label: {
             Image(systemName: "questionmark.circle")
                 .font(.system(size: 12))
                 .foregroundColor(.secondary)
         }
         .buttonStyle(.plain)
-        .popover(isPresented: isPresented, arrowEdge: .trailing) {
-            Text(text)
-                .font(.system(size: 12))
-                .padding(10)
-                .frame(width: 240)
-        }
+        .popover(isPresented: isPresented, arrowEdge: arrowEdge, content: popover)
     }
 
     @ViewBuilder private var refreshOverlay: some View {

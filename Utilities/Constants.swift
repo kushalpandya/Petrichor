@@ -111,20 +111,26 @@ enum About {
 // MARK: - Audio File Formats
 
 enum AudioFormat {
-    // The file extensions Petrichor imports and plays: the engine's real decode
+    // The formats Petrichor imports and plays: the engine's real decode
     // capability, so this cannot drift from what actually plays, minus the two
     // exclusion lists below.
-    static let supportedExtensions: [String] = {
+    static let supportedFormats: [SupportedAudioFormat] = {
         let excluded = Set(unsupportedExtensions).union(withheldExtensions)
-        let extensions = MetadataEngine.supportedFileExtensions
-            .filter { !excluded.contains($0) }
-            .sorted()
-        if extensions.isEmpty {
+        let formats = MetadataEngine.supportedFormats
+            .filter { !excluded.contains($0.fileExtension) }
+            .sorted { $0.fileExtension < $1.fileExtension }
+        if formats.isEmpty {
             // A scan would silently import nothing, so make the cause obvious.
             Logger.error("Playback engine reported no decodable formats; no audio files will be imported")
         }
-        return extensions
+        return formats
     }()
+
+    // The scanner's import filter.
+    static let supportedExtensions: [String] = supportedFormats.map(\.fileExtension)
+
+    // The same formats collapsed into rows for the supported-formats popover.
+    static let supportedFormatGroups: [SupportedAudioFormatGroup] = supportedFormats.groupedForDisplay()
 
     // Lookup form for `isSupported`, which a scan calls once per file.
     private static let supportedExtensionSet = Set(supportedExtensions)
@@ -142,12 +148,6 @@ enum AudioFormat {
     // Decodable, but withheld because the engine reports no duration for them, so
     // they would import as tracks that play yet show 0:00 and cannot be seeked.
     static let withheldExtensions = ["thd", "mlp", "aifc"]
-
-    static var supportedFormatsDisplay: String {
-        let exts = supportedExtensions.map { $0.uppercased() }
-        guard exts.count > 1 else { return exts.first ?? "" }
-        return ListFormatter.localizedString(byJoining: exts)
-    }
 
     static func isSupported(_ fileExtension: String) -> Bool {
         supportedExtensionSet.contains(fileExtension.lowercased())
