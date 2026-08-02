@@ -101,6 +101,52 @@ struct EntityHeader<Content: View>: View {
     }
 }
 
+/// Back chevron for full-screen detail overlays (entity + playlist), so the two
+/// headers can't drift apart.
+struct DetailBackButton: View {
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        if #available(macOS 26.0, *) {
+            Button(action: action) {
+                Image(systemName: Icons.chevronLeft)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.glass)
+            .buttonBorderShape(.circle)
+            .controlSize(.small)
+            .help("Back")
+        } else {
+            Button(action: action) {
+                Image(systemName: Icons.chevronLeft)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.primary)
+                    .frame(width: 28, height: 28)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(isHovered ? Color(NSColor.controlAccentColor).opacity(0.15) : Color.clear)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .strokeBorder(
+                                isHovered ? Color(NSColor.controlAccentColor).opacity(0.3) : Color.clear,
+                                lineWidth: 1
+                            )
+                    )
+            }
+            .buttonStyle(.plain)
+            .onHover { hovering in
+                isHovered = hovering
+            }
+            .help("Back")
+        }
+    }
+}
+
 struct TrackListHeader<Trailing: View>: View {
     let title: String
     let subtitle: String?

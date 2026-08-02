@@ -141,6 +141,8 @@ extension LibraryManager {
                 artworkData: artworkData
             )
         }
+
+        updateDiscoverArtistArtwork(name: name, artworkData: artworkData)
     }
 
     func refreshEntities() {
@@ -167,6 +169,8 @@ extension LibraryManager {
                 self.updateSearchResults()
                 NotificationCenter.default.post(name: .libraryDataDidChange, object: nil)
             }
+            // Tile counts change, but the sticky Featured selection must not reshuffle.
+            await self.reresolveStickyDiscoverSections()
         }
     }
 

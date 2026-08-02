@@ -46,6 +46,20 @@ extension Entity {
     // Default: no localization. Concrete types that map to a LibraryFilterType
     // override this to translate the "Unknown X" sentinel.
     var displayName: String { name }
+
+    /// Identity for artwork caching and `.task(id:)` invalidation. The byte count is a fine
+    /// stamp for a stored snapshot; types whose artwork is lazily materialised override it.
+    var artworkIdentity: String { "\(id.uuidString)-\(artworkData?.count ?? 0)" }
+
+    /// Second line of a carousel tile, so a mixed row reads unambiguously.
+    var kindLabel: String {
+        if self is ArtistEntity { return String(localized: "Artist") }
+        if self is AlbumEntity { return String(localized: "Album") }
+        if let category = self as? CategoryEntity { return category.filterType.singularDisplayName }
+        if self is PlaylistEntity { return String(localized: "Playlist") }
+        if self is FolderEntity { return String(localized: "Folder") }
+        return ""
+    }
 }
 
 // MARK: - Shared Color Defaults
@@ -176,7 +190,55 @@ struct CategoryEntity: Entity {
         self.name = name
         self.trackCount = trackCount
         self.filterType = filterType
-        self.artworkData = ImageUtils.cachedCategoryArtwork(text: name, seed: "\(filterType.rawValue)-\(name)")
+        self.artworkData = ImageUtils.cachedCategoryArtwork(
+            text: name,
+            seed: Self.artworkSeed(name: name, filterType: filterType)
+        )
+    }
+
+    static func artworkSeed(name: String, filterType: LibraryFilterType) -> String {
+        "\(filterType.rawValue)-\(name)"
+    }
+
+    /// `init` otherwise does its CoreText render inline on the main actor. Calling this
+    /// off-main first turns that into a cache hit. Safe from any thread.
+    static func warmArtwork(name: String, filterType: LibraryFilterType) {
+        _ = ImageUtils.cachedCategoryArtwork(
+            text: name,
+            seed: artworkSeed(name: name, filterType: filterType)
+        )
+    }
+}
+
+// MARK: - Playlist Entity
+
+/// Adapter letting a `Playlist` appear in `Entity`-generic UI. Not a conformance on
+/// `Playlist`: its `artworkData` is a lazily-warmed lookup returning nil until
+/// `warmArtworkCacheIfNeeded()` runs, so the byte-count identity would be wrong.
+struct PlaylistEntity: Entity {
+    let id: UUID
+    let name: String
+    let trackCount: Int
+    let artworkData: Data?
+    private let signature: String
+
+    var subtitle: String? {
+        String(localized: "\(trackCount) songs")
+    }
+
+    /// Signature and byte count: a collage renders after the tile is on screen, filling
+    /// artwork in without changing membership, so the signature alone never re-fires.
+    var artworkIdentity: String { "\(id.uuidString)-\(signature)-\(artworkData?.count ?? 0)" }
+
+    /// `trackCount` overrides `playlist.trackCount`, which is stale (often zero) for a
+    /// cold smart playlist whose criteria haven't been evaluated this session.
+    init(playlist: Playlist, artworkData: Data?, trackCount: Int? = nil) {
+        // Safe: every other Entity id is a name-namespaced v5 UUID or the album form.
+        self.id = playlist.id
+        self.name = DefaultPlaylists.displayName(for: playlist)
+        self.trackCount = trackCount ?? playlist.trackCount
+        self.artworkData = artworkData
+        self.signature = playlist.artworkSignature
     }
 }
 

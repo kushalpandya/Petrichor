@@ -266,6 +266,12 @@ extension LibraryManager {
                         await self.pinArtistEntity(artist)
                     } else if let album = entity as? AlbumEntity {
                         await self.pinAlbumEntity(album)
+                    } else if let category = entity as? CategoryEntity {
+                        // Discover genre/decade tiles have no PinnedItem to route through.
+                        await self.pinLibraryItem(
+                            filterType: category.filterType,
+                            filterValue: category.name
+                        )
                     }
                 }
             }

@@ -507,7 +507,7 @@ struct TrackTableView: View {
 
 // MARK: - Track Artwork Cache
 
-private final class TrackArtworkCache: @unchecked Sendable {
+final class TrackArtworkCache: @unchecked Sendable {
     static let shared = TrackArtworkCache()
     private let cache = NSCache<NSString, NSImage>()
     private let loadQueue: OperationQueue = {

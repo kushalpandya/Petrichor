@@ -421,5 +421,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         ]
 
         UserDefaults.standard.register(defaults: defaults)
+
+        normalizeDiscoverUpdateInterval()
+    }
+
+    /// `DiscoverUpdateInterval` used to persist English display strings as its
+    /// rawValues, so a stored "Every week" no longer decodes. Rewrite it once to
+    /// the bare case name; without this, `@AppStorage` silently falls back to
+    /// `.weekly` and leaves the stale string in place forever.
+    private static func normalizeDiscoverUpdateInterval() {
+        let key = "discoverUpdateInterval"
+        guard let stored = UserDefaults.standard.string(forKey: key),
+              DiscoverUpdateInterval(rawValue: stored) == nil,
+              let migrated = DiscoverUpdateInterval(persistedValue: stored) else {
+            return
+        }
+
+        UserDefaults.standard.set(migrated.rawValue, forKey: key)
+        Logger.info("Migrated discoverUpdateInterval '\(stored)' to '\(migrated.rawValue)'")
     }
 }

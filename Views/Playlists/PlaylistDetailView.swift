@@ -2,6 +2,9 @@ import SwiftUI
 
 struct PlaylistDetailView: View {
     let playlistID: UUID
+    /// Set when this is presented as a full-screen overlay (e.g. a Discover
+    /// playlist tile); nil when it's the Playlists tab's own content.
+    let onBack: (() -> Void)?
 
     @EnvironmentObject var playlistManager: PlaylistManager
     @State private var selectedTrackID: UUID?
@@ -20,13 +23,15 @@ struct PlaylistDetailView: View {
     @State private var playlistSortOrder = [TrackSortField.dateAdded.getComparator(ascending: true)]
 
     // Convenience initializer for when you have a Playlist object
-    init(playlist: Playlist) {
+    init(playlist: Playlist, onBack: (() -> Void)? = nil) {
         self.playlistID = playlist.id
+        self.onBack = onBack
     }
 
     // Standard initializer with playlist ID
-    init(playlistID: UUID) {
+    init(playlistID: UUID, onBack: (() -> Void)? = nil) {
         self.playlistID = playlistID
+        self.onBack = onBack
     }
 
     // Get the current playlist from the manager
@@ -35,6 +40,13 @@ struct PlaylistDetailView: View {
     }
 
     var body: some View {
+        content
+            // Opaque, matching EntityDetailView. Required because Home presents this as a
+            // full-screen ZStack overlay; without it, whatever sits behind shows through.
+            .background(Color(NSColor.windowBackgroundColor))
+    }
+
+    @ViewBuilder private var content: some View {
         if let playlist = playlist {
             VStack(spacing: 0) {
                 playlistHeader
@@ -85,6 +97,10 @@ struct PlaylistDetailView: View {
         if playlist != nil {
             PlaylistHeader {
                 HStack(alignment: .top, spacing: 20) {
+                    if let onBack = onBack {
+                        DetailBackButton(action: onBack)
+                    }
+
                     playlistArtwork
 
                     VStack(alignment: .leading, spacing: 12) {

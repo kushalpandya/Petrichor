@@ -37,6 +37,7 @@ extension PlaylistManager {
 
     /// Create a new user smart playlist from editor criteria.
     @discardableResult
+    @MainActor
     func createSmartPlaylist(name: String, criteria: SmartPlaylistCriteria) -> Playlist {
         let newPlaylist = Playlist(name: name, criteria: criteria, isUserEditable: true)
 
@@ -47,21 +48,19 @@ extension PlaylistManager {
             regular: playlists.filter { $0.type == .regular }
         )
 
-        Task {
-            await persistSmartPlaylist(newPlaylist, criteria: criteria)
-            await MainActor.run {
-                NotificationCenter.default.post(
-                    name: .navigateToPlaylists,
-                    object: nil,
-                    userInfo: ["playlistID": newPlaylist.id]
-                )
-            }
+        enqueueSmartPersistence(newPlaylist, criteria: criteria) {
+            NotificationCenter.default.post(
+                name: .navigateToPlaylists,
+                object: nil,
+                userInfo: ["playlistID": newPlaylist.id]
+            )
         }
 
         return newPlaylist
     }
 
     /// Update an existing smart playlist's name and criteria, then re-evaluate.
+    @MainActor
     func updateSmartPlaylistCriteria(playlistID: UUID, name: String, criteria: SmartPlaylistCriteria) {
         guard let index = playlists.firstIndex(where: { $0.id == playlistID }),
               playlists[index].type == .smart else { return }
@@ -81,9 +80,33 @@ extension PlaylistManager {
         // Invalidate cached tracks so the detail view reloads against the new rules.
         playlists[index].tracks = []
 
-        let updated = playlists[index]
-        Task {
-            await persistSmartPlaylist(updated, criteria: criteria)
+        enqueueSmartPersistence(playlists[index], criteria: criteria)
+    }
+
+    /// Queue a persistence pass behind any already running for the same playlist, holding
+    /// the in-flight marker across the whole chain. Readers aggregating over
+    /// `playlist_tracks` then see one uninterrupted mid-rewrite window instead of a gap
+    /// between two edits, and the last edit made is the last one written.
+    @MainActor
+    private func enqueueSmartPersistence(
+        _ playlist: Playlist,
+        criteria: SmartPlaylistCriteria,
+        then completion: (@MainActor () -> Void)? = nil
+    ) {
+        beginSmartPersistence(playlist.id)
+        let previous = smartPersistenceTails[playlist.id]
+        let task = Task { @MainActor in
+            await previous?.value
+            await persistSmartPlaylist(playlist, criteria: criteria)
+            endSmartPersistence(playlist.id)
+            completion?()
+        }
+        smartPersistenceTails[playlist.id] = task
+        Task { @MainActor in
+            await task.value
+            if smartPersistenceTails[playlist.id] == task {
+                smartPersistenceTails.removeValue(forKey: playlist.id)
+            }
         }
     }
 
@@ -94,6 +117,15 @@ extension PlaylistManager {
     /// in `playlist_tracks` so it never re-runs on library changes.
     private func persistSmartPlaylist(_ playlist: Playlist, criteria: SmartPlaylistCriteria) async {
         guard let dbManager = libraryManager?.databaseManager else { return }
+        // Superseded while queued: the newer edit behind it rewrites the same record, so
+        // this pass would only spend an evaluation to be overwritten. A playlist that is
+        // gone counts as superseded too, or `savePlaylistAsync` resurrects a deletion made
+        // while an earlier edit was persisting.
+        let isSuperseded = await MainActor.run {
+            self.playlists.first { $0.id == playlist.id }
+                .map { $0.dateModified != playlist.dateModified } ?? true
+        }
+        guard !isSuperseded else { return }
         do {
             // Saves the record and clears any existing track associations (e.g. a stale
             // snapshot when switching a playlist from frozen back to auto-updating).

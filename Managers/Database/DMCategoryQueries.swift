@@ -373,16 +373,16 @@ extension DatabaseManager {
                         genre as name,
                         COUNT(*) as track_count
                     FROM tracks
-                    WHERE genre IS NOT NULL AND genre != '' AND genre != 'Unknown Genre' \(duplicateClause)
+                    WHERE \(CategorySQL.knownGenre()) \(duplicateClause)
                     GROUP BY genre
                     
                     UNION ALL
                     
                     SELECT
-                        'Unknown Genre' as name,
+                        '\(CategorySQL.sentinel(.genres))' as name,
                         COUNT(*) as track_count
                     FROM tracks
-                    WHERE (genre IS NULL OR genre = '' OR genre = 'Unknown Genre') \(duplicateClause)
+                    WHERE (\(CategorySQL.unknownGenre())) \(duplicateClause)
                     HAVING COUNT(*) > 0
                     
                     ORDER BY name COLLATE NOCASE
@@ -407,8 +407,8 @@ extension DatabaseManager {
                 let sql = """
                     SELECT
                         CASE
-                            WHEN year IS NULL OR year = '' OR year = 'Unknown Year' THEN 'Unknown Decade'
-                            ELSE SUBSTR(year, 1, 3) || '0s'
+                            WHEN \(CategorySQL.unknownYear()) THEN '\(CategorySQL.sentinel(.decades))'
+                            ELSE \(CategorySQL.decadeExpression())
                         END as decade,
                         COUNT(*) as track_count
                     FROM tracks
@@ -416,7 +416,7 @@ extension DatabaseManager {
                     GROUP BY decade
                     HAVING track_count > 0
                     ORDER BY
-                        CASE WHEN decade = 'Unknown Decade' THEN '9999' ELSE decade END DESC
+                        CASE WHEN decade = '\(CategorySQL.sentinel(.decades))' THEN '9999' ELSE decade END DESC
                 """
                 
                 let rows = try Row.fetchAll(db, sql: sql)
@@ -440,16 +440,16 @@ extension DatabaseManager {
                         year as name,
                         COUNT(*) as track_count
                     FROM tracks
-                    WHERE year IS NOT NULL AND year != '' AND year != 'Unknown Year' \(duplicateClause)
+                    WHERE \(CategorySQL.knownYear()) \(duplicateClause)
                     GROUP BY year
                     
                     UNION ALL
                     
                     SELECT
-                        'Unknown Year' as name,
+                        '\(CategorySQL.sentinel(.years))' as name,
                         COUNT(*) as track_count
                     FROM tracks
-                    WHERE (year IS NULL OR year = '' OR year = 'Unknown Year') \(duplicateClause)
+                    WHERE (\(CategorySQL.unknownYear())) \(duplicateClause)
                     HAVING COUNT(*) > 0
                     
                     ORDER BY name DESC

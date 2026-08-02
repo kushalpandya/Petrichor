@@ -88,13 +88,28 @@ struct SidebarItemRow<Item: SidebarItem>: View {
         displayContent
     }
 
-    private var displayContent: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            titleView
-            
-            if showCount, let subtitle = item.subtitle {
-                subtitleView(subtitle: subtitle)
+    @ViewBuilder private var displayContent: some View {
+        if showCount, item.subtitle == nil {
+            // Behind the title, not under it, so the row keeps its height and the title centers.
+            ZStack(alignment: .leading) {
+                twoLineHeightReserver.hidden()
+                titleView
             }
+        } else {
+            VStack(alignment: .leading, spacing: 1) {
+                titleView
+
+                if showCount, let subtitle = item.subtitle {
+                    subtitleView(subtitle: subtitle)
+                }
+            }
+        }
+    }
+
+    private var twoLineHeightReserver: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(verbatim: " ").font(.system(size: 13))
+            Text(verbatim: " ").font(.system(size: 11))
         }
     }
     

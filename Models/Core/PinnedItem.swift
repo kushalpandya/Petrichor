@@ -179,12 +179,12 @@ struct PinnedItem: Identifiable, FetchableRecord, PersistableRecord {
     /// Check if this pinned item matches a given entity
     func matches(entity: any Entity) -> Bool {
         guard itemType == .library else { return false }
-        
+
         // First try to match by entity ID if available
         if let entityId = entityId, entityId == entity.id {
             return true
         }
-        
+
         // Then try to match by name and type
         if let filterType = filterType {
             switch filterType {
@@ -200,11 +200,16 @@ struct PinnedItem: Identifiable, FetchableRecord, PersistableRecord {
                     return filterValue == entity.name
                 }
                 return false
+            case .genres, .decades, .years:
+                // Discover surfaces these as CategoryEntity with no PinnedItem behind
+                // them, so the pin state has to be resolved by type + raw value.
+                guard let category = entity as? CategoryEntity else { return false }
+                return category.filterType == filterType && filterValue == entity.name
             default:
                 return false
             }
         }
-        
+
         return false
     }
     

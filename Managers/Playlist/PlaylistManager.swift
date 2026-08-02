@@ -41,6 +41,39 @@ class PlaylistManager: ObservableObject {
     /// Mutated only on the main actor.
     internal var loadingSmartPlaylistIDs: Set<UUID> = []
 
+    /// Smart playlists mid-rewrite, and how many rewrites have finished. Counted rather
+    /// than a `Set` because two edits to one playlist overlap, and a set would let the
+    /// first completion report quiescence while the second is still writing.
+    private var inFlightSmartPersistence: [UUID: Int] = [:]
+    private var smartPersistenceCompletions = 0
+
+    /// Tail of each playlist's persistence chain, so its edits run in the order made.
+    /// Otherwise a slow earlier edit can write its snapshot last and become the result.
+    internal var smartPersistenceTails: [UUID: Task<Void, Never>] = [:]
+
+    @MainActor var smartPersistenceToken: SmartPlaylistPersistenceToken {
+        SmartPlaylistPersistenceToken(
+            completions: smartPersistenceCompletions,
+            isQuiescent: inFlightSmartPersistence.isEmpty
+        )
+    }
+
+    @MainActor
+    func beginSmartPersistence(_ id: UUID) {
+        inFlightSmartPersistence[id, default: 0] += 1
+    }
+
+    @MainActor
+    func endSmartPersistence(_ id: UUID) {
+        if let count = inFlightSmartPersistence[id], count > 1 {
+            inFlightSmartPersistence[id] = count - 1
+        } else {
+            inFlightSmartPersistence.removeValue(forKey: id)
+        }
+        smartPersistenceCompletions += 1
+        NotificationCenter.default.post(name: .smartPlaylistPersistenceDidFinish, object: nil)
+    }
+
     // MARK: - Dependencies
     internal weak var audioPlayer: PlaybackManager?
 

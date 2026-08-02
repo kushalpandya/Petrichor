@@ -23,6 +23,13 @@ class LibraryManager: ObservableObject {
     }
     @Published var searchResults: [Track] = []
     @Published var discoverTracks: [Track] = []
+    // Discover carousels. @Published can't live in an extension; the logic is in LMDiscover.
+    @Published var featuredSection: DiscoverSection = .loading
+    @Published var recentlyPlayedSection: DiscoverSection = .loading
+    @Published var mostLovedSection: DiscoverSection = .loading
+    /// Starts true: Discover is the default sidebar selection, so it loads from the moment
+    /// the window appears, and the track list would otherwise flash its empty state.
+    @Published var isLoadingDiscoverTracks: Bool = true
     @Published var pinnedItems: [PinnedItem] = []
     @Published var pendingMergeRequest: MergeRequest?
     @Published internal var cachedArtistEntities: [ArtistEntity] = []
@@ -61,6 +68,33 @@ class LibraryManager: ObservableObject {
 
     // MARK: - Private/Internal Properties
     private var fileWatcherTimer: Timer?
+    internal var discoverExpiryTimer: Timer?
+
+    /// A Discover load that stood down rather than publish against a mid-rewrite smart
+    /// playlist, replayed once that rewrite finishes.
+    internal var discoverPendingRequest: (forceFeatured: Bool, forceTracks: Bool)?
+    internal var discoverLoadTask: Task<Void, Never>?
+    /// Bumped by whichever Discover path writes the matching sections. Each captures its
+    /// token before awaiting and drops its result if another writer has since published:
+    /// detached work can't be cancelled, so a stale finisher would overwrite newer rows.
+    /// Split per section group, or a Recently Played refresh would invalidate an in-flight
+    /// full load and leave the other rows on skeletons.
+    internal var discoverStickyGeneration: Int = 0
+    internal var discoverRecentGeneration: Int = 0
+    internal var discoverTracksGeneration: Int = 0
+    /// Warming runs from both the full load and Recently Played reloads, so it needs a
+    /// token neither owns; otherwise a slow pass overwrites a newer collage.
+    internal var discoverArtworkGeneration: Int = 0
+    /// Bumped on reset. Queued work captures it and refuses to run against a library that
+    /// was replaced while it waited its turn.
+    internal var discoverResetEpoch: Int = 0
+    /// Signature of the last collage attempt per playlist, successful or not. Keyed by
+    /// signature rather than id so an edit re-renders the cover, while a playlist with no
+    /// usable artwork still isn't re-hydrated every load.
+    internal var discoverWarmedPlaylistSignatures: [UUID: String] = [:]
+    /// Collages rendered this session. A cold smart playlist recomputes `artworkData` from
+    /// an empty track list, so the tile would fall back to a placeholder on every reload.
+    internal var discoverPlaylistArtwork: [UUID: Data] = [:]
     private var hasPerformedInitialScan = false
     private var lastThresholdCheckTime: Date = .distantPast
     private let thresholdCheckInterval: TimeInterval = 1.0
@@ -113,6 +147,7 @@ class LibraryManager: ObservableObject {
             
             await MainActor.run {
                 startFileWatcher()
+                startDiscoverExpiryTimer()
             }
         }
 
@@ -168,10 +203,34 @@ class LibraryManager: ObservableObject {
             name: .foldersAddedToDatabase,
             object: nil
         )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSmartPlaylistPersistenceDidFinish),
+            name: .smartPlaylistPersistenceDidFinish,
+            object: nil
+        )
+
+        // Most Loved & Played is driven by these two rather than by the Discover interval.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleDiscoverLovedSignalChanged),
+            name: .trackFavoriteStatusChanged,
+            object: nil
+        )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleDiscoverLovedSignalChanged),
+            name: .trackPlayCountUpdated,
+            object: nil
+        )
     }
 
     deinit {
         fileWatcherTimer?.invalidate()
+        stopDiscoverExpiryTimer()
+        discoverLoadTask?.cancel()
         // Stop accessing all security scoped resources
         for folder in folders where folder.bookmarkData != nil {
             folder.url.stopAccessingSecurityScopedResource()
@@ -390,6 +449,10 @@ class LibraryManager: ObservableObject {
 
             // Clear UserDefaults (remove the security bookmarks reference)
             UserDefaults.standard.removeObject(forKey: "LastScanDate")
+
+            // Discover's caches hold entity references and raw track IDs from the deleted
+            // database; against a new one they resolve to unrelated rows.
+            clearDiscoverCaches()
         }
     }
 

@@ -45,16 +45,16 @@ struct LibraryTabView: View {
                 .help("Automatically scan for new music in the library on selected interval")
                 .pickerStyle(.menu)
 
-                Picker("Refresh Discover tracks", selection: $discoverUpdateInterval) {
+                Picker("Refresh Discover", selection: $discoverUpdateInterval) {
                     ForEach(DiscoverUpdateInterval.allCases, id: \.self) { interval in
                         Text(interval.displayName).tag(interval)
                     }
                 }
-                .help("How often to refresh the Discover tracks list")
+                .help("How often Featured picks and Fresh Music are regenerated")
                 .pickerStyle(.menu)
 
                 HStack {
-                    Text("Number of Discover tracks")
+                    Text("Number of Fresh Music tracks")
                     Spacer()
                     HStack(spacing: 4) {
                         Text("\(discoverTrackCount)")
@@ -65,7 +65,7 @@ struct LibraryTabView: View {
                             .labelsHidden()
                             .controlSize(.mini)
                     }
-                    .help("Number of tracks to show in Discover (1-200)")
+                    .help("Number of tracks to show in Discover's Fresh Music section (1-200)")
                 }
             }
 
@@ -104,6 +104,11 @@ struct LibraryTabView: View {
         }
         .onChange(of: libraryManager.isScanning) { _, newValue in
             updateStableScanningState(newValue)
+        }
+        .onChange(of: discoverUpdateInterval) {
+            // Re-arm the expiry timer so a shortened interval takes effect immediately
+            // instead of waiting out the old one.
+            libraryManager.discoverUpdateIntervalDidChange()
         }
         .alert(
             foldersToRemove.count == 1 ? String(localized: "Remove Folder") : String(localized: "Remove Folders"),

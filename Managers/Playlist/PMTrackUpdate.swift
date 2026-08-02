@@ -100,7 +100,16 @@ extension PlaylistManager {
                 )
 
                 Logger.info("Incremented play count for track: \(track.title) (now: \(newPlayCount))")
-                
+
+                // Lets listening-history-derived views know their contents are stale.
+                await MainActor.run {
+                    NotificationCenter.default.post(
+                        name: .trackPlayCountUpdated,
+                        object: nil,
+                        userInfo: ["trackId": trackId]
+                    )
+                }
+
                 updateSmartPlaylistCounts()
                 
                 // Refresh smart playlists affected by play count/last played changes

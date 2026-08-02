@@ -295,7 +295,13 @@ struct ContentView: View {
 
     private var sectionContent: some View {
         ZStack {
-            HomeView(selectedSidebarItem: $selectedHomeSidebarItem, isShowingEntities: .constant(false))
+            // HomeView is always in the hierarchy and merely opacity-gated, so it gets no
+            // appear/disappear callbacks on tab switches.
+            HomeView(
+                selectedSidebarItem: $selectedHomeSidebarItem,
+                isShowingEntities: .constant(false),
+                isActiveTab: selectedTab == .home
+            )
                 .opacity(selectedTab == .home ? 1 : 0)
                 .allowsHitTesting(selectedTab == .home)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -82,7 +82,12 @@ struct HomeSidebarItem: SidebarItem {
 
         // Set subtitle based on type
         switch type {
-        case .discover, .tracks:
+        // No subtitle: a track count would describe only the Fresh Music section, and any
+        // other wording reads as noise beside three plain counts. `SidebarItemRow` still
+        // reserves the line so this row matches its siblings' height.
+        case .discover:
+            self.subtitle = nil
+        case .tracks:
             self.subtitle = String(localized: "\(trackCount ?? 0) songs")
         case .artists:
             self.subtitle = String(localized: "\(artistCount ?? 0) artists")

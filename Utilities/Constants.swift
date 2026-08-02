@@ -29,6 +29,7 @@ enum Icons {
     static let volumeDecrease = "speaker.minus.fill"
     
     // Navigation
+    static let chevronLeft = "chevron.left"
     static let chevronRight = "chevron.right"
     static let chevronDown = "chevron.down"
     static let xmarkCircleFill = "xmark.circle.fill"
@@ -185,6 +186,10 @@ enum AlbumArtFormat {
 enum ViewDefaults {
     static let listArtworkSize: CGFloat = 40
     static let gridArtworkSize: CGFloat = 160
+    /// Artwork size for a horizontal entity carousel tile. Capped at `gridArtworkSize`:
+    /// `EntityArtworkCache` rasterizes once at 2x (320px) and carousel tiles reuse that
+    /// bitmap, so anything larger upscales unless the cache's render size is keyed.
+    static let carouselArtworkSize: CGFloat = 160
 }
 
 // MARK: - Window Identifiers
@@ -287,6 +292,7 @@ extension Notification.Name {
     static let foldersAddedToDatabase = Notification.Name("foldersAddedToDatabase")
 
     static let libraryDataDidChange = Notification.Name("LibraryDataDidChange")
+    static let smartPlaylistPersistenceDidFinish = Notification.Name("SmartPlaylistPersistenceDidFinish")
     static let goToLibraryFilter = Notification.Name("GoToLibraryFilter")
 
     static let selectPlaylist = Notification.Name("SelectPlaylist")
@@ -300,6 +306,9 @@ extension Notification.Name {
     static let trackTableSortChanged = Notification.Name("trackTableSortChanged")
     static let trackTableRowSizeChanged = Notification.Name("trackTableRowSizeChanged")
     static let trackFavoriteStatusChanged = Notification.Name("trackFavoriteStatusChanged")
+    /// Posted once a play has been recorded for a track (play_count incremented and
+    /// last_played_date written), so listening-history-derived views can invalidate.
+    static let trackPlayCountUpdated = Notification.Name("trackPlayCountUpdated")
     static let createPlaylistFromSelection = Notification.Name("createPlaylistFromSelection")
     
     static let focusSearchField = Notification.Name("FocusSearchField")
@@ -330,6 +339,10 @@ extension Icons {
             return Icons.personFill
         } else if entity is AlbumEntity {
             return Icons.opticalDiscFill
+        } else if entity is PlaylistEntity {
+            return Icons.musicNoteList
+        } else if let category = entity as? CategoryEntity, category.filterType == .decades {
+            return Icons.calendarBadgeClock
         }
         return Icons.musicNote
     }
