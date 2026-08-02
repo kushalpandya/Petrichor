@@ -240,6 +240,26 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
         onMain { CrescendoPlayer.crossfadeDurationMin...CrescendoPlayer.crossfadeDurationMax }
     }
 
+    func setReplayGainMode(_ mode: ReplayGainMode) {
+        onMain { player.replayGainMode = Self.mapReplayGainMode(mode) }
+    }
+
+    func getReplayGainMode() -> ReplayGainMode {
+        onMain { Self.mapReplayGainMode(player.replayGainMode) }
+    }
+
+    func setReplayGainPreamp(_ decibels: Float) {
+        onMain { player.replayGainPreampDB = decibels }
+    }
+
+    func getReplayGainPreamp() -> Float {
+        onMain { player.replayGainPreampDB }
+    }
+
+    var replayGainPreampRange: ClosedRange<Float> {
+        onMain { CrescendoPlayer.replayGainPreampRange }
+    }
+
     // Disabled EQ is expressed as flat (all-zero) gains rather than Crescendo's
     // `effectsEnabled`, which would bypass preamp and width too.
     private func pushEQGains() {
@@ -314,6 +334,29 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
         case .paused: return .paused
         case .stopped: return .stopped
         @unknown default: return .ready
+        }
+    }
+
+    private static func mapReplayGainMode(_ mode: ReplayGainMode) -> CrescendoReplayGainMode {
+        switch mode {
+        case .off: return .off
+        case .track: return .track
+        case .album: return .album
+        case .auto: return .auto
+        }
+    }
+
+    private static func mapReplayGainMode(_ mode: CrescendoReplayGainMode) -> ReplayGainMode {
+        switch mode {
+        case .off: return .off
+        case .track: return .track
+        case .album: return .album
+        case .auto: return .auto
+        // Reading an unrecognised mode as off is the inert answer: it makes the
+        // settings toggle read as off rather than claiming a mode we can't name.
+        @unknown default:
+            Logger.warning("Unrecognised ReplayGain mode reported by the engine; treating as off")
+            return .off
         }
     }
 
