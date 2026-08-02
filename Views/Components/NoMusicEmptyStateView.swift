@@ -182,22 +182,7 @@ struct NoMusicEmptyStateView: View {
             }
             .buttonStyle(.plain)
             .popover(isPresented: $showFormatsPopover, arrowEdge: .bottom) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Supported Formats")
-                        .font(.headline)
-
-                    Divider()
-
-                    ScrollView {
-                        Text(AudioFormat.supportedFormatsDisplay)
-                            .font(.system(size: 12, design: .monospaced))
-                            .textSelection(.enabled)
-                            .padding(.vertical, 4)
-                    }
-                    .frame(maxWidth: 320, maxHeight: 160)
-                }
-                .padding(12)
-                .frame(width: 340)
+                SupportedFormatsPopover()
             }
             .padding(.top, 8)
         }

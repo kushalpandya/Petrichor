@@ -94,10 +94,12 @@ enum MetadataEngine {
         )
     }
 
-    /// Every file extension the active backend can decode. `AudioFormat` builds the
-    /// scanner's import filter from this, so it cannot drift from what actually plays.
-    static var supportedFileExtensions: [String] {
-        CrescendoMetadataReader.supportedFileExtensions
+    /// Every format the active backend can decode, with the extension and the
+    /// engine's name for it. `AudioFormat` builds both the scanner's import filter
+    /// and the user-facing format list from this, so neither can drift from what
+    /// actually plays.
+    static var supportedFormats: [SupportedAudioFormat] {
+        CrescendoMetadataReader.supportedFormats
     }
 
     /// Builds the reader for the active backend.
