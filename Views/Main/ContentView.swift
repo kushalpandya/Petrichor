@@ -176,6 +176,7 @@ struct ContentView: View {
         .sheet(isPresented: $showingSettings) {
             SettingsView()
                 .environmentObject(libraryManager)
+                .environmentObject(playbackManager)
         }
         .sheet(isPresented: $playlistManager.showingCreatePlaylistModal) {
             CreatePlaylistSheet(

@@ -3,6 +3,13 @@ import Sparkle
 
 struct GeneralTabView: View {
     @EnvironmentObject var libraryManager: LibraryManager
+    @EnvironmentObject var playbackManager: PlaybackManager
+
+    @State private var crossfadeEnabled = false
+    @State private var crossfadeDuration: TimeInterval = 3.0
+
+    /// Leading inset used to nest the options that depend on the toggle above them.
+    private let dependentIndent: CGFloat = 20
 
     @AppStorage("startAtLogin")
     private var startAtLogin = false
@@ -47,10 +54,56 @@ struct GeneralTabView: View {
                         }
                     }
             }
+
+            Section("Playback") {
+                Toggle("Crossfade tracks", isOn: $crossfadeEnabled)
+                    .help("Fades one track out as the next fades in")
+                    .onChange(of: crossfadeEnabled) { _, newValue in
+                        playbackManager.setCrossfadeEnabled(newValue)
+                    }
+
+                crossfadeDurationRow
+                    .disabled(!crossfadeEnabled)
+                    .padding(.leading, dependentIndent)
+            }
         }
         .formStyle(.grouped)
         .scrollDisabled(true)
         .padding(5)
+        .onAppear {
+            crossfadeEnabled = playbackManager.isCrossfadeEnabled()
+
+            let storedDuration = playbackManager.getCrossfadeDuration()
+            crossfadeDuration = storedDuration.rounded()
+            if crossfadeDuration != storedDuration {
+                playbackManager.setCrossfadeDuration(crossfadeDuration)
+            }
+        }
+    }
+
+    private var crossfadeDurationRow: some View {
+        HStack(spacing: 10) {
+            Text("Duration")
+
+            Slider(
+                value: $crossfadeDuration,
+                in: playbackManager.crossfadeDurationRange,
+                step: 1
+            )
+            .onChange(of: crossfadeDuration) { _, newValue in
+                playbackManager.setCrossfadeDuration(newValue)
+            }
+
+            Text(crossfadeDurationLabel)
+                .font(.system(.body, design: .monospaced))
+                .frame(minWidth: 30, alignment: .trailing)
+                .foregroundColor(.secondary)
+        }
+        .help("Applies to the next track change")
+    }
+
+    private var crossfadeDurationLabel: String {
+        String(format: "%.0fs", crossfadeDuration)
     }
 
     /// Reads as off in dev builds, where the updater never runs, without writing to
@@ -64,4 +117,5 @@ struct GeneralTabView: View {
     GeneralTabView()
         .frame(width: 600, height: 500)
         .environmentObject(LibraryManager())
+        .environmentObject(PlaybackManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
 }

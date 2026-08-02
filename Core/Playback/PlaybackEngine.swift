@@ -206,6 +206,11 @@ protocol PlaybackBackend: AnyObject {
     func applyEQCustom(gains: [Float])
     func setPreamp(_ gain: Float)
     func getPreamp() -> Float
+    func setCrossfadeEnabled(_ enabled: Bool)
+    func isCrossfadeEnabled() -> Bool
+    func setCrossfadeDuration(_ duration: TimeInterval)
+    func getCrossfadeDuration() -> TimeInterval
+    var crossfadeDurationRange: ClosedRange<TimeInterval> { get }
 }
 
 /// Shared EQ headroom policy used by playback backends.
@@ -410,6 +415,26 @@ public class PlaybackEngine: NSObject {
 
     public func getPreamp() -> Float {
         backend.getPreamp()
+    }
+
+    public func setCrossfadeEnabled(_ enabled: Bool) {
+        backend.setCrossfadeEnabled(enabled)
+    }
+
+    public func isCrossfadeEnabled() -> Bool {
+        backend.isCrossfadeEnabled()
+    }
+
+    public func setCrossfadeDuration(_ duration: TimeInterval) {
+        backend.setCrossfadeDuration(duration)
+    }
+
+    public func getCrossfadeDuration() -> TimeInterval {
+        backend.getCrossfadeDuration()
+    }
+
+    public var crossfadeDurationRange: ClosedRange<TimeInterval> {
+        backend.crossfadeDurationRange
     }
 }
 
