@@ -45,7 +45,7 @@ struct EntityGridView<T: Entity>: View {
 
 // MARK: - Image Cache
 
-private final class EntityArtworkCache: @unchecked Sendable {
+final class EntityArtworkCache: @unchecked Sendable {
     static let shared = EntityArtworkCache()
     private let cache = NSCache<NSString, NSImage>()
     private let loadQueue: OperationQueue = {
@@ -64,8 +64,9 @@ private final class EntityArtworkCache: @unchecked Sendable {
     }
 
     private func cacheKey(for entity: any Entity) -> NSString {
-        let artworkSize = entity.artworkData?.count ?? 0
-        return "\(entity.id.uuidString)-\(artworkSize)-rendered" as NSString
+        // `artworkIdentity` defaults to "<id>-<artwork byte count>"; types with
+        // lazily-rendered artwork override it.
+        "\(entity.artworkIdentity)-rendered" as NSString
     }
 
     func getCachedImage(for entity: any Entity) -> NSImage? {
@@ -241,9 +242,7 @@ private struct EntityGridItem<T: Entity>: View {
         .onHover(perform: onHover)
     }
     
-    private var artworkTaskID: String {
-        "\(entity.id.uuidString)-\(entity.artworkData?.count ?? 0)"
-    }
+    private var artworkTaskID: String { entity.artworkIdentity }
 
     private func loadArtwork() async {
         // Serve cache hits synchronously to avoid placeholder flicker on scroll recycle

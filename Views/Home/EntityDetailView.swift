@@ -10,7 +10,6 @@ struct EntityDetailView: View {
     @State private var tracks: [Track] = []
     @State private var selectedTrackID: UUID?
     @State private var isLoading = true
-    @State private var isBackButtonHovered = false
     @State private var isArtworkHovered = false
     @State private var showingImagePicker = false
     @State private var overrideArtworkData: Data?
@@ -92,41 +91,7 @@ struct EntityDetailView: View {
             HStack(alignment: .top, spacing: 20) {
                 // Back button
                 if let onBack = onBack {
-                    if #available(macOS 26.0, *) {
-                        Button(action: onBack) {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(.secondary)
-                                .frame(width: 28, height: 28)
-                        }
-                        .buttonStyle(.glass)
-                        .buttonBorderShape(.circle)
-                        .controlSize(.small)
-                        .help("Back")
-                    } else {
-                        Button(action: onBack) {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(.primary)
-                                .frame(width: 28, height: 28)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .fill(isBackButtonHovered ? Color(NSColor.controlAccentColor).opacity(0.15) : Color.clear)
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .strokeBorder(
-                                            isBackButtonHovered ? Color(NSColor.controlAccentColor).opacity(0.3) : Color.clear,
-                                            lineWidth: 1
-                                        )
-                                )
-                        }
-                        .buttonStyle(.plain)
-                        .onHover { hovering in
-                            isBackButtonHovered = hovering
-                        }
-                        .help("Back")
-                    }
+                    DetailBackButton(action: onBack)
                 }
 
                 // Artwork
@@ -502,7 +467,17 @@ extension EntityDetailView {
             fetchedTracks = libraryManager.databaseManager.getTracksForArtistEntity(entity.name)
         } else if let albumEntity = entity as? AlbumEntity {
             fetchedTracks = libraryManager.databaseManager.getTracksForAlbumEntity(albumEntity)
+        } else if let categoryEntity = entity as? CategoryEntity {
+            // Reached when a Discover genre/decade tile is opened, where no PinnedItem
+            // exists. Genres resolve via the denormalized `tracks.genre` column and
+            // decades via a year range; see DMQueries.getTracksByFilterType.
+            fetchedTracks = libraryManager.databaseManager.getTracksByFilterType(
+                categoryEntity.filterType,
+                value: categoryEntity.name
+            )
         } else {
+            // FolderEntity only ever arrives through the pinned path above, which
+            // has its own loader; there is no path-based lookup here by design.
             fetchedTracks = []
         }
 

@@ -76,22 +76,32 @@ struct SmartPlaylistCriteria: Codable, Equatable {
 }
 
 // Cache manager for playlist artwork
-private class PlaylistArtworkCache {
+private final class PlaylistArtworkCache: @unchecked Sendable {
     static let shared = PlaylistArtworkCache()
     // Keyed on the cover-feeding tracks' stable database IDs (order-independent), so the
     // cache survives reloads (which mint new per-instance `Track.id`s) and reorders.
     private var cache: [UUID: (artwork: Data, trackIDs: [Int64])] = [:]
+    // `warmArtworkCacheIfNeeded` is nonisolated async, so it reads and writes here off the
+    // main actor while `artworkData` and `clearCache` run on it. Unsynchronized Dictionary
+    // access across those threads corrupts storage on rehash.
+    private let lock = NSLock()
 
     func getCachedArtwork(for playlistID: UUID, currentTrackIDs: [Int64]) -> Data? {
+        lock.lock()
+        defer { lock.unlock() }
         guard let cached = cache[playlistID] else { return nil }
         return cached.trackIDs == currentTrackIDs ? cached.artwork : nil
     }
 
     func setCachedArtwork(_ artwork: Data, for playlistID: UUID, trackIDs: [Int64]) {
+        lock.lock()
+        defer { lock.unlock() }
         cache[playlistID] = (artwork, trackIDs)
     }
-    
+
     func clearCache(for playlistID: UUID) {
+        lock.lock()
+        defer { lock.unlock() }
         cache.removeValue(forKey: playlistID)
     }
 }
@@ -323,20 +333,42 @@ struct Playlist: Identifiable, FetchableRecord, PersistableRecord {
         return collage
     }
 
+    /// Order-independent digest of a track-id set. Session-stable only, which is all the
+    /// in-memory artwork caches need.
+    static func membershipDigest(of trackIds: [Int64]) -> Int {
+        var hasher = Hasher()
+        for trackId in trackIds.sorted() { hasher.combine(trackId) }
+        return hasher.finalize()
+    }
+
+    /// Excludes the three built-ins: library-wide derived views, two of them computed from
+    /// the very signals the carousels rank by, so surfacing them would be circular.
+    var isDiscoverEligible: Bool {
+        isUserEditable
+    }
+
+    /// Smart playlists re-evaluated on demand, which therefore have no `playlist_tracks`
+    /// rows for SQL to aggregate. Frozen ones persist a snapshot and are covered by SQL.
+    var needsInMemorySmartEvaluation: Bool {
+        type == .smart && (smartCriteria?.autoUpdate ?? true)
+    }
+
     /// Stable, order-independent signature of the playlist's track membership. Used as the
-    /// view's artwork task id so the collage work only re-fires when the *set* of tracks
-    /// changes, not when the playlist is merely reordered. Kept cheap (no sort/allocation)
-    /// since it's evaluated on every `body` pass; the cache check inside
-    /// `warmArtworkCacheIfNeeded` still skips the actual render when the cover is unchanged.
+    /// artwork task id, so collage work re-fires only when the set of tracks changes and
+    /// not on a reorder. Sorted-id hashing costs a sort, but a plain sum collides on any
+    /// swap preserving it ({1,4} vs {2,3}).
+    ///
+    /// `trackCount` and `dateModified` are included because `tracks` is empty for a cold
+    /// playlist whatever its real membership. Between them they cover an edit that leaves
+    /// the count unchanged, and an auto-updating playlist drifting with the library.
     var artworkSignature: String {
-        if coverArtworkData != nil {
-            return "\(id)-custom"
+        if let coverArtworkData {
+            // Byte count and mtime, not just "custom", or every custom cover shares one
+            // signature and replacing an image looks unchanged.
+            return "\(id)-custom-\(coverArtworkData.count)-\(dateModified.timeIntervalSince1970)"
         }
-        var digest: Int64 = 0
-        for track in tracks {
-            if let trackId = track.trackId { digest = digest &+ trackId }
-        }
-        return "\(id)-\(tracks.count)-\(digest)"
+        let digest = Playlist.membershipDigest(of: tracks.compactMap(\.trackId))
+        return "\(id)-\(tracks.count)-\(digest)-\(trackCount)-\(dateModified.timeIntervalSince1970)"
     }
 
     // Get the effective track limit for display

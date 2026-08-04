@@ -437,6 +437,19 @@ extension DatabaseManager {
         )
         try db.createIndexIfNotExists(name: "idx_tracks_duplicate_composer", table: "tracks", columns: ["is_duplicate", "composer"])
         try db.createIndexIfNotExists(name: "idx_tracks_duplicate_genre", table: "tracks", columns: ["is_duplicate", "genre"])
+
+        // Playback-history indices backing the Discover queries
+        try db.createIndexIfNotExists(name: "idx_tracks_last_played_date", table: "tracks", columns: ["last_played_date"])
+        try db.createIndexIfNotExists(
+            name: "idx_tracks_duplicate_last_played",
+            table: "tracks",
+            columns: ["is_duplicate", "last_played_date"]
+        )
+        try db.createIndexIfNotExists(
+            name: "idx_tracks_duplicate_play_count",
+            table: "tracks",
+            columns: ["is_duplicate", "play_count"]
+        )
         try db.createIndexIfNotExists(name: "idx_tracks_duplicate_year", table: "tracks", columns: ["is_duplicate", "year"])
         try db.createIndexIfNotExists(
             name: "idx_tracks_album_id_duplicate",
@@ -476,6 +489,8 @@ extension DatabaseManager {
 
         // Playlist tracks index
         try db.createIndexIfNotExists(name: "idx_playlist_tracks_playlist_id", table: "playlist_tracks", columns: ["playlist_id"])
+        // Reverse direction, for deriving playlists from a pool of track ids (Discover)
+        try db.createIndexIfNotExists(name: "idx_playlist_tracks_track_id", table: "playlist_tracks", columns: ["track_id"])
 
         // Junction table indices
         try db.createIndexIfNotExists(name: "idx_track_artists_artist_id", table: "track_artists", columns: ["artist_id"])

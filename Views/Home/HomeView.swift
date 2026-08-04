@@ -7,6 +7,29 @@ enum AlbumSortOption: String, Codable {
     case dateAdded
 }
 
+/// What the Home detail overlay is showing: any entity, or a playlist.
+enum HomeDetailTarget: Identifiable, Equatable {
+    case entity(any Entity)
+    case playlist(UUID)
+
+    var id: UUID {
+        switch self {
+        case .entity(let entity): return entity.id
+        case .playlist(let playlistID): return playlistID
+        }
+    }
+
+    // `any Entity` isn't Equatable; identity is (case, id), which suffices because
+    // entity ids are deterministic and namespaced.
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        switch (lhs, rhs) {
+        case let (.entity(left), .entity(right)): return left.id == right.id
+        case let (.playlist(left), .playlist(right)): return left == right
+        default: return false
+        }
+    }
+}
+
 struct HomeView: View {
     @EnvironmentObject var libraryManager: LibraryManager
     @EnvironmentObject var playlistManager: PlaylistManager
@@ -26,11 +49,12 @@ struct HomeView: View {
     @State private var pinnedEntity: (any Entity)?
     @State private var sortedArtistEntities: [ArtistEntity] = []
     @State private var sortedAlbumEntities: [AlbumEntity] = []
-    @State private var selectedArtistEntity: ArtistEntity?
-    @State private var selectedAlbumEntity: AlbumEntity?
-    @State private var isShowingEntityDetail = false
+    @State private var homeDetail: HomeDetailTarget?
     @State private var trackTableSortOrder = [KeyPathComparator(\Track.title)]
     @Binding var isShowingEntities: Bool
+    /// True while Home is the selected tab. HomeView is never torn down on tab switches,
+    /// so this is the only signal its children have that they became visible again.
+    var isActiveTab: Bool = true
     
     var body: some View {
         if !libraryManager.shouldShowMainUI {
@@ -63,38 +87,24 @@ struct HomeView: View {
                 .navigationTitle(selectedSidebarItem?.title ?? String(localized: "Home"))
                 .navigationSubtitle("")
 
-                // Entity detail overlay
-                if isShowingEntityDetail {
-                    if let artist = selectedArtistEntity {
-                        EntityDetailView(
-                            entity: artist,
-                        ) {
-                            isShowingEntityDetail = false
-                            selectedArtistEntity = nil
-                        }
+                // Detail overlay: any entity, or a playlist tile from Discover.
+                if let detail = homeDetail {
+                    detailOverlay(for: detail)
+                        // Fresh view per target: EntityDetailView reloads on
+                        // `.onChange(of: entity.id)` but never resets its artwork-override,
+                        // bio or selection state.
+                        .id(detail.id)
                         .zIndex(1)
-                    } else if let album = selectedAlbumEntity {
-                        EntityDetailView(
-                            entity: album,
-                        ) {
-                            isShowingEntityDetail = false
-                            selectedAlbumEntity = nil
-                        }
-                        .zIndex(1)
-                    }
                 }
             }
             .onChange(of: selectedSidebarItem) { _, newItem in
-                isShowingEntityDetail = false
-                selectedArtistEntity = nil
-                selectedAlbumEntity = nil
+                homeDetail = nil
                 pinnedEntity = nil
 
                 if let item = newItem {
                     switch item.source {
                     case .fixed(let type):
-                        // Handle fixed items
-                        isShowingEntities = (type == .artists || type == .albums) && !isShowingEntityDetail
+                        isShowingEntities = (type == .artists || type == .albums)
 
                         // Load appropriate data
                         switch type {
@@ -115,9 +125,9 @@ struct HomeView: View {
                     isShowingEntities = false
                 }
             }
-            .onChange(of: isShowingEntityDetail) {
+            .onChange(of: homeDetail) {
                 // When showing entity detail (tracks), we're not showing entities anymore
-                if isShowingEntityDetail {
+                if homeDetail != nil {
                     isShowingEntities = false
                 } else if let item = selectedSidebarItem {
                     // When going back to entity list, check if we should show entities
@@ -134,67 +144,22 @@ struct HomeView: View {
     // MARK: - Discover View
 
     private var discoverView: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            TrackListHeader(
-                title: String(localized: "Discover"),
-                sortOrder: $trackTableSortOrder,
-                tableRowSize: $trackTableRowSize
-            ) {
-                Button(action: {
-                    libraryManager.refreshDiscoverTracks()
-                }, label: {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
-                })
-                .buttonStyle(.borderless)
-                .hoverEffect(scale: 1.1)
-                .help("Refresh Discover tracks")
-            }
-            
-            Divider()
-
-            if libraryManager.discoverTracks.isEmpty {
-                VStack(spacing: 16) {
-                    Image(systemName: Icons.sparkles)
-                        .font(.system(size: 48))
-                        .foregroundColor(.gray)
-                    
-                    Text("No undiscovered tracks")
-                        .font(.headline)
-                    
-                    Text("You've played all tracks in your library!")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding()
-            } else {
-                TrackView(
-                    tracks: libraryManager.discoverTracks,
-                    selectedTrackID: $selectedTrackID,
-                    playlistID: nil,
-                    entityID: nil,
-                    sortOrder: $trackTableSortOrder,
-                    onPlayTrack: { track in
-                        playlistManager.playTrack(track, fromTracks: libraryManager.discoverTracks)
-                        playlistManager.currentQueueSource = .library
-                    },
-                    contextMenuItems: { track, _ in
-                        TrackContextMenu.createMenuItems(
-                            for: track,
-                            playlistManager: playlistManager,
-                            currentContext: .library
-                        )
-                    }
-                )
-                .id(libraryManager.discoverLastUpdated)
-            }
+        // Only built when Discover is the selected sidebar item, so visibility reduces
+        // to whether Home is the active tab.
+        DiscoverView(isVisible: isActiveTab) { target in
+            homeDetail = target
         }
-        .onAppear {
-            if libraryManager.discoverTracks.isEmpty {
-                libraryManager.loadDiscoverTracks()
-            }
+    }
+
+    // MARK: - Detail Overlay
+
+    @ViewBuilder
+    private func detailOverlay(for detail: HomeDetailTarget) -> some View {
+        switch detail {
+        case .entity(let entity):
+            EntityDetailView(entity: entity) { homeDetail = nil }
+        case .playlist(let playlistID):
+            PlaylistDetailView(playlistID: playlistID) { homeDetail = nil }
         }
     }
     
@@ -280,9 +245,7 @@ struct HomeView: View {
                 EntityView(
                     entities: sortedArtistEntities,
                     onSelectEntity: { artist in
-                        selectedArtistEntity = artist
-                        selectedAlbumEntity = nil
-                        isShowingEntityDetail = true
+                        homeDetail = .entity(artist)
                     },
                     contextMenuItems: { artist in
                         libraryManager.contextMenuItems(for: artist)
@@ -385,9 +348,7 @@ struct HomeView: View {
                 EntityView(
                     entities: sortedAlbumEntities,
                     onSelectEntity: { album in
-                        selectedAlbumEntity = album
-                        selectedArtistEntity = nil
-                        isShowingEntityDetail = true
+                        homeDetail = .entity(album)
                     },
                     contextMenuItems: { album in
                         libraryManager.contextMenuItems(for: album)

@@ -224,8 +224,44 @@ enum DatabaseMigrator {
             Logger.info("v12_backfill_album_artists: flagged for background album-artist backfill")
         }
 
+        migrator.registerMigration("v13_add_discover_indices") { db in
+            // Discover's Recently Played row scans tracks ordered by last_played_date.
+            // The composite serves the common case (hideDuplicateTracks defaults to
+            // true) as a range scan; the plain index covers the setting being off,
+            // where the leading is_duplicate column can't be constrained.
+            try db.createIndexIfNotExists(
+                name: "idx_tracks_last_played_date",
+                table: "tracks",
+                columns: ["last_played_date"]
+            )
+            try db.createIndexIfNotExists(
+                name: "idx_tracks_duplicate_last_played",
+                table: "tracks",
+                columns: ["is_duplicate", "last_played_date"]
+            )
+
+            // Fresh Music selects play_count = 0 at random; without this it scans
+            // the whole tracks table.
+            try db.createIndexIfNotExists(
+                name: "idx_tracks_duplicate_play_count",
+                table: "tracks",
+                columns: ["is_duplicate", "play_count"]
+            )
+
+            // Recently Played derives playlists from a pool of track ids;
+            // playlist_tracks was only indexed by playlist_id, forcing a full scan
+            // in that direction.
+            try db.createIndexIfNotExists(
+                name: "idx_playlist_tracks_track_id",
+                table: "playlist_tracks",
+                columns: ["track_id"]
+            )
+
+            Logger.info("v13_add_discover_indices migration completed")
+        }
+
         // MARK: - Future Migrations
-        // Add new migrations here as: migrator.registerMigration("v13_description") { db in ... }
+        // Add new migrations here as: migrator.registerMigration("v14_description") { db in ... }
 
         return migrator
     }

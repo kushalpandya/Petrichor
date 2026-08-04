@@ -76,10 +76,6 @@ struct HomeSidebarView: View {
             updateAllItems()
             updateSelectedItem()
         }
-        .onChange(of: libraryManager.discoverTracks.count) {
-            updateAllItems()
-            updateSelectedItem()
-        }
         .onChange(of: libraryManager.pinnedItems) {
             updateAllItems()
             // Update selection if a pinned item was removed
@@ -121,7 +117,7 @@ struct HomeSidebarView: View {
         let albumCount = libraryManager.albumCount
 
         var items: [HomeSidebarItem] = [
-            HomeSidebarItem(type: .discover, trackCount: libraryManager.discoverTracks.count),
+            HomeSidebarItem(type: .discover),
             HomeSidebarItem(type: .tracks, trackCount: libraryManager.totalTrackCount),
             HomeSidebarItem(type: .artists, artistCount: artistCount),
             HomeSidebarItem(type: .albums, albumCount: albumCount)

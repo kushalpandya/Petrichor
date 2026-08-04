@@ -46,53 +46,6 @@ extension DatabaseManager {
         }
     }
     
-    /// Get tracks for the Discover feature
-    func getDiscoverTracks(limit: Int = 50, excludeTrackIds: Set<Int64> = []) -> [Track] {
-        do {
-            return try dbQueue.read { db in
-                var query = Track.all()
-                    .filter(Track.Columns.isDuplicate == false)  // Always exclude duplicates
-                    .filter(Track.Columns.playCount == 0)
-                
-                if !excludeTrackIds.isEmpty {
-                    query = query.filter(!excludeTrackIds.contains(Track.Columns.trackId))
-                }
-                
-                // Order randomly
-                query = query.order(sql: "RANDOM()")
-                    .limit(limit)
-                
-                var tracks = try query.fetchAll(db)
-                
-                // If we don't have enough unplayed tracks, fill with least recently played
-                if tracks.count < limit {
-                    let remaining = limit - tracks.count
-                    let existingIds = Set(tracks.compactMap { $0.trackId })
-                        .union(excludeTrackIds)
-                    
-                    let additionalTracks = try Track.all()
-                        .filter(Track.Columns.isDuplicate == false)
-                        .filter(!existingIds.contains(Track.Columns.trackId))
-                        .order(
-                            Track.Columns.lastPlayedDate.asc,
-                            Track.Columns.playCount.asc
-                        )
-                        .limit(remaining)
-                        .fetchAll(db)
-                    
-                    tracks.append(contentsOf: additionalTracks)
-                }
-                
-                try populateAlbumArtworkForTracks(&tracks, db: db)
-                
-                return tracks
-            }
-        } catch {
-            Logger.error("Failed to get discover tracks: \(error)")
-            return []
-        }
-    }
-
     /// Get tracks by IDs (for loading saved discover tracks)
     func getTracks(byIds trackIds: [Int64]) -> [Track] {
         do {
