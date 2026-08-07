@@ -182,6 +182,9 @@ extension PetrichorApp {
             Menu {
                 newPlaylistMenuItem()
                 newPlaylistFromSelectionMenuItem()
+
+                Divider()
+                newRadioStationMenuItem()
             } label: {
                 if #available(macOS 26.0, *) {
                     Label("New", systemImage: "plus.square")
@@ -264,6 +267,19 @@ extension PetrichorApp {
             }
         }
         .keyboardShortcut("n", modifiers: .command)
+    }
+
+    private func newRadioStationMenuItem() -> some View {
+        Button {
+            InternetRadioManager.shared.showAddStation()
+        } label: {
+            if #available(macOS 26.0, *) {
+                Label("Radio Station", systemImage: Icons.radioFill)
+            } else {
+                Text("Radio Station")
+            }
+        }
+        .keyboardShortcut("n", modifiers: [.command, .option])
     }
 
     private func newPlaylistFromSelectionMenuItem() -> some View {
@@ -361,7 +377,7 @@ extension PetrichorApp {
     
     private func playPauseMenuItem() -> some View {
         Button {
-            if appCoordinator.playbackManager.currentTrack != nil {
+            if appCoordinator.playbackManager.hasPlayableContent {
                 appCoordinator.playbackManager.togglePlayPause()
             }
         } label: {
@@ -375,7 +391,7 @@ extension PetrichorApp {
             }
         }
         .keyboardShortcut(" ", modifiers: [])
-        .disabled(appCoordinator.playbackManager.currentTrack == nil)
+        .disabled(!appCoordinator.playbackManager.hasPlayableContent)
     }
     
     private func favoriteMenuItem() -> some View {
@@ -597,7 +613,7 @@ extension PetrichorApp {
                 }
             }
             .keyboardShortcut("m", modifiers: [.command, .option])
-            .disabled(appCoordinator.playbackManager.currentTrack == nil)
+            .disabled(!appCoordinator.playbackManager.hasPlayableContent)
 
             Button {
                 NotificationCenter.default.post(name: .toggleImmersivePlayer, object: nil)
@@ -612,7 +628,7 @@ extension PetrichorApp {
                 }
             }
             .keyboardShortcut("f", modifiers: [.command, .option])
-            .disabled(appCoordinator.playbackManager.currentTrack == nil)
+            .disabled(!appCoordinator.playbackManager.hasPlayableContent)
 
             Divider()
         }

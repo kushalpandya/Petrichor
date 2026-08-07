@@ -8,7 +8,8 @@ struct ExportPlaylistsSheet: View {
     @State private var selectAll: Bool = false
     
     private var exportablePlaylists: [Playlist] {
-        playlistManager.playlists
+        // M3U carries file paths, which station collections have none of.
+        playlistManager.playlists.filter { $0.type != .stations }
     }
     
     private var selectedCount: Int {

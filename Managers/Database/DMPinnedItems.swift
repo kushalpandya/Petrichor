@@ -9,6 +9,13 @@ import GRDB
 
 extension DatabaseManager {
     // MARK: - Pinned Items Management
+
+    static func updatePinnedPlaylistName(playlistID: String, name: String, in db: Database) throws {
+        try PinnedItem
+            .filter(PinnedItem.Columns.itemType == PinnedItem.ItemType.playlist.rawValue)
+            .filter(PinnedItem.Columns.playlistId == playlistID)
+            .updateAll(db, PinnedItem.Columns.displayName.set(to: name))
+    }
     
     /// Save a pinned item to the database
     func savePinnedItem(_ item: PinnedItem) async throws {
@@ -177,6 +184,9 @@ extension DatabaseManager {
                     if playlist.type == .smart {
                         // For smart playlists, return empty - let the caller handle it
                         return []
+                    } else if playlist.type == .stations {
+                        // Station collections hold no tracks.
+                        return []
                     } else {
                         // For regular playlists, fetch tracks using GRDB
                         let playlistTracks = try PlaylistTrack
@@ -233,7 +243,11 @@ extension DatabaseManager {
                     // a persisted snapshot, so count its rows. Only live smart playlists are
                     // re-evaluated against the current library below.
                     let isFrozenSmart = playlist.type == .smart && playlist.smartCriteria?.autoUpdate == false
-                    if playlist.type == .regular || isFrozenSmart {
+                    if playlist.type == .stations {
+                        counts[itemId] = try PlaylistStation
+                            .filter(PlaylistStation.Columns.playlistId == playlistId.uuidString)
+                            .fetchCount(db)
+                    } else if playlist.type == .regular || isFrozenSmart {
                         counts[itemId] = try PlaylistTrack
                             .filter(PlaylistTrack.Columns.playlistId == playlistId.uuidString)
                             .fetchCount(db)

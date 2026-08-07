@@ -1,21 +1,20 @@
-//
-// NowPlayingProgressBar
-//
-// A compact, artwork-tinted seek bar shared by the mini player and immersive mode.
-// The seek logic mirrors PlayerProgressBar's; the two keep deliberately different
-// metrics, so only the stream pieces are shared.
-//
-
 import SwiftUI
 
-struct NowPlayingProgressBar: View {
-    /// Fill color for the progress track / handle: the host's resolved, legible
-    /// control color (or accent when tinting is disabled).
+/// Carries the `playbackProgressState` subscription alone, so the ~10Hz progress ticks
+/// don't re-render the whole player bar.
+struct PlayerProgressBar: View {
     let accent: Color
-    /// Base color for the time labels (white on the mini player's dark scrim;
-    /// adaptive in immersive mode).
-    var neutral: Color = .white
-    var scale: CGFloat = 1
+
+    static let trackWidth: CGFloat = 400
+
+    /// Widest an elapsed/duration label gets: the `H:MM:SS` form used past an hour.
+    private static let maxTimeLabelWidth: CGFloat = 56
+
+    /// One constant width for both side slots, wide enough for `H:MM:SS` or CONNECTING.
+    /// Anything narrower moves or resizes the bar when either label changes.
+    static let sideSlotWidth: CGFloat = max(maxTimeLabelWidth, LiveIndicator.connectingSlotWidth)
+
+    static let preferredWidth: CGFloat = trackWidth + 2 * (sideSlotWidth + 8)
 
     @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var playbackProgressState: PlaybackProgressState
@@ -27,12 +26,12 @@ struct NowPlayingProgressBar: View {
     private var isStream: Bool { playbackManager.hasStation }
 
     var body: some View {
-        HStack(spacing: 8 * scale) {
+        HStack(spacing: 8) {
             Text(HelperUtils.formattedDuration(isDraggingProgress ? tempProgressValue : playbackProgressState.currentTime))
-                .font(.system(size: 10 * scale, weight: .medium))
-                .foregroundColor(neutral.opacity(0.8))
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.secondary)
                 .monospacedDigit()
-                .frame(width: sideSlotWidth, alignment: .trailing)
+                .frame(width: Self.sideSlotWidth, alignment: .trailing)
 
             if isStream {
                 StreamProgressTrack(
@@ -41,7 +40,8 @@ struct NowPlayingProgressBar: View {
                     isPlaying: playbackManager.isPlaying
                 )
                 .equatable()
-                .frame(height: 10 * scale)
+                .frame(height: 10)
+                .frame(maxWidth: Self.trackWidth)
             } else {
                 progressSlider
             }
@@ -52,34 +52,36 @@ struct NowPlayingProgressBar: View {
                 isPlaying: playbackManager.isPlaying,
                 isBuffering: playbackManager.isBuffering,
                 duration: playbackManager.currentTrack?.duration ?? 0,
-                slotWidth: sideSlotWidth,
-                font: .system(size: 10 * scale, weight: .medium),
-                textColor: neutral.opacity(0.8),
-                compactBadge: true
+                slotWidth: Self.sideSlotWidth,
+                font: .system(size: 11, weight: .medium)
             )
+        }
+        .onChange(of: playbackManager.currentTrack?.id) {
+            isDraggingProgress = false
+            tempProgressValue = 0
         }
     }
 
     private var progressSlider: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
-                // Background track
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.secondary.opacity(0.3))
-                    .frame(height: 4 * scale)
+                    .fill(Color.secondary.opacity(0.2))
+                    .frame(height: 4)
 
-                // Progress track
                 RoundedRectangle(cornerRadius: 2)
                     .fill(accent)
-                    .frame(width: geometry.size.width * progressPercentage, height: 4 * scale)
+                    .frame(
+                        width: geometry.size.width * progressPercentage,
+                        height: 4
+                    )
                     .animation(isDraggingProgress ? .none : .easeInOut(duration: 0.2), value: progressPercentage)
 
-                // Drag handle
                 Circle()
                     .fill(accent)
-                    .frame(width: 10 * scale, height: 10 * scale)
+                    .frame(width: 12, height: 12)
                     .opacity(isDraggingProgress || hoveredOverProgress ? 1.0 : 0.0)
-                    .offset(x: (geometry.size.width * progressPercentage) - (5 * scale))
+                    .offset(x: (geometry.size.width * progressPercentage) - 6)
                     .animation(isDraggingProgress ? .none : .easeInOut(duration: 0.2), value: progressPercentage)
                     .animation(.easeInOut(duration: 0.15), value: hoveredOverProgress)
             }
@@ -92,15 +94,9 @@ struct NowPlayingProgressBar: View {
                 hoveredOverProgress = hovering
             }
         }
-        .frame(height: 10 * scale)
-        .disabled(playbackManager.currentTrack == nil)
+        .frame(height: 10)
+        .frame(maxWidth: Self.trackWidth)
     }
-
-    // MARK: - Helpers
-
-    /// Constant on both sides, sized for `H:MM:SS`. Narrower than the main player's, so
-    /// the badge goes `compact` to fit the slot rather than the slot widening.
-    private var sideSlotWidth: CGFloat { 50 * scale }
 
     private var progressPercentage: Double {
         guard let duration = playbackManager.currentTrack?.duration, duration > 0 else { return 0 }
@@ -134,8 +130,7 @@ struct NowPlayingProgressBar: View {
     }
 
     private func handleProgressTap(at x: CGFloat, in width: CGFloat) {
-        guard playbackManager.currentTrack != nil else { return }
-        let percentage = max(0, min(1, x / width))
+        let percentage = x / width
         let duration = HelperUtils.sanitizedDuration(playbackManager.currentTrack?.duration ?? 0)
         let newTime = percentage * duration
         playbackManager.seekTo(time: newTime)

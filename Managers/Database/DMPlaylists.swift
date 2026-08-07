@@ -106,10 +106,11 @@ extension DatabaseManager {
         _ = try await dbQueue.write { db in
             try playlist.update(db, columns: [Playlist.Columns.name, Playlist.Columns.dateModified])
 
-            try PinnedItem
-                .filter(PinnedItem.Columns.itemType == PinnedItem.ItemType.playlist.rawValue)
-                .filter(PinnedItem.Columns.playlistId == playlist.id.uuidString)
-                .updateAll(db, PinnedItem.Columns.displayName.set(to: playlist.name))
+            try Self.updatePinnedPlaylistName(
+                playlistID: playlist.id.uuidString,
+                name: playlist.name,
+                in: db
+            )
         }
     }
 
@@ -259,16 +260,32 @@ extension DatabaseManager {
                 """
                 
                 let playlistCounts = try PlaylistCount.fetchAll(db, sql: sql)
-                
+
                 // Create a dictionary for quick lookup
                 var countsByPlaylistId: [String: Int] = [:]
                 for item in playlistCounts {
                     countsByPlaylistId[item.playlistId] = item.trackCount
                 }
-                
+
+                // Station collections count their own membership table
+                let stationCounts = try PlaylistStation
+                    .select(
+                        PlaylistStation.Columns.playlistId,
+                        count(PlaylistStation.Columns.stationId).forKey("track_count")
+                    )
+                    .group(PlaylistStation.Columns.playlistId)
+                    .asRequest(of: PlaylistCount.self)
+                    .fetchAll(db)
+                var stationCountsByPlaylistId: [String: Int] = [:]
+                for item in stationCounts {
+                    stationCountsByPlaylistId[item.playlistId] = item.trackCount
+                }
+
                 // Update playlists with counts
                 for index in playlists.indices {
-                    if playlists[index].type == .regular {
+                    if playlists[index].type == .stations {
+                        playlists[index].trackCount = stationCountsByPlaylistId[playlists[index].id.uuidString] ?? 0
+                    } else if playlists[index].type == .regular {
                         // Set track count from database
                         playlists[index].trackCount = countsByPlaylistId[playlists[index].id.uuidString] ?? 0
                         // Keep tracks array empty for lazy loading
@@ -293,10 +310,12 @@ extension DatabaseManager {
     /// Update the sort order of playlists
     func updatePlaylistsOrder(_ playlists: [Playlist]) async throws {
         try await dbQueue.write { db in
+            // Only `sort_order`: writing whole records would carry this snapshot's name,
+            // cover and criteria back over anything committed since it was taken.
             for (index, playlist) in playlists.enumerated() {
-                var updated = playlist
-                updated.sortOrder = index
-                try updated.update(db)
+                try Playlist
+                    .filter(Playlist.Columns.id == playlist.id.uuidString)
+                    .updateAll(db, Playlist.Columns.sortOrder.set(to: index))
             }
         }
     }

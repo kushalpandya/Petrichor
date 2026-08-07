@@ -260,10 +260,20 @@ extension PlaybackManager {
     private func beginEngineSession(
         _ entries: [QueueEntry], startingAt index: Int, entryId: AudioEntryId, resumeAt: Double
     ) {
+        // Every library-playback path funnels through here, so this is where a playing stream gets dropped.
+        let wasStreaming = currentStation != nil
+        clearStation()
+        // Every source adoption, not just a station's: a restore fetch still in flight must
+        // not install its track over the one starting here.
+        beginSourceGeneration()
         pendingRestoreResume = resumeAt > 0 ? (entryId, resumeAt) : nil
+        // A stream is stopped rather than replaced in place: the engine commits a file
+        // replacement only once its async open succeeds, so an unopenable track would
+        // leave the stream audible with no station left in the UI to stop it.
+        //
         // Replacing a *paused* session in place hands the incoming track the outgoing
         // one's transport position; while playing, in-place keeps the switch seamless.
-        if resumeAt == 0, audioPlayer.state == .paused {
+        if wasStreaming || (resumeAt == 0 && audioPlayer.state == .paused) {
             audioPlayer.stop()
         }
         audioPlayer.setQueue(entries, startingAt: index, startPaused: resumeAt > 0)

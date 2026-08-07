@@ -78,6 +78,7 @@ struct ContentView: View {
     @State private var librarySelectedSidebarItem: LibrarySidebarItem?
     
     @ObservedObject private var notificationManager = NotificationManager.shared
+    @ObservedObject private var radioManager = InternetRadioManager.shared
 
     init() {
         let raw = UserDefaults.standard.string(forKey: mainWindowPanelStateKey)
@@ -99,7 +100,7 @@ struct ContentView: View {
                 return .ignored
             }
             
-            if playbackManager.currentTrack != nil {
+            if playbackManager.currentTrack != nil || playbackManager.currentStation != nil {
                 DispatchQueue.main.async {
                     playbackManager.togglePlayPause()
                 }
@@ -113,13 +114,13 @@ struct ContentView: View {
             if isImmersiveActive {
                 ImmersiveView(
                     isPresented: $isImmersiveActive,
-                    artwork: NowPlayingArtwork.image(for: playbackManager.currentTrack),
+                    artwork: NowPlayingArtwork.image(for: playbackManager.nowPlayingSource),
                     gradient: NowPlayingArtwork.gradient(
-                        for: playbackManager.currentTrack,
+                        for: playbackManager.nowPlayingSource,
                         isDark: colorScheme == .dark,
                         enabled: useArtworkColors && tintNowPlayingBackground
                     ),
-                    trackID: playbackManager.currentTrack?.id,
+                    trackID: playbackManager.nowPlayingSource?.id,
                     isDarkMode: colorScheme == .dark
                 )
                 .transition(.move(edge: .bottom))
@@ -179,14 +180,30 @@ struct ContentView: View {
                 .environmentObject(playbackManager)
         }
         .sheet(isPresented: $playlistManager.showingCreatePlaylistModal) {
-            CreatePlaylistSheet(
+            NamePromptSheet(
+                title: "New Playlist",
+                prompt: "Playlist Name",
+                detail: playlistManager.tracksToAddToNewPlaylist.isEmpty
+                    ? nil
+                    : Text("Will add: \(playlistManager.tracksToAddToNewPlaylist.count) tracks"),
                 isPresented: $playlistManager.showingCreatePlaylistModal,
-                playlistName: $playlistManager.newPlaylistName,
-                tracksToAdd: playlistManager.tracksToAddToNewPlaylist
+                name: $playlistManager.newPlaylistName
             ) {
                 playlistManager.createPlaylistFromModal()
             }
-            .environmentObject(playlistManager)
+        }
+        .sheet(isPresented: $playlistManager.showingCreateStationCollectionModal) {
+            NamePromptSheet(
+                title: "New Collection",
+                prompt: "Collection Name",
+                detail: playlistManager.stationsToAddToNewCollection.isEmpty
+                    ? nil
+                    : Text("Will add: \(playlistManager.stationsToAddToNewCollection.count) stations"),
+                isPresented: $playlistManager.showingCreateStationCollectionModal,
+                name: $playlistManager.newStationCollectionName
+            ) {
+                playlistManager.createStationCollectionFromModal()
+            }
         }
         .sheet(isPresented: $playlistManager.showingSmartPlaylistEditor) {
             SmartPlaylistEditorSheet(
@@ -201,6 +218,19 @@ struct ContentView: View {
                 editingPlaylist: playlistManager.regularPlaylistToEdit
             )
             .environmentObject(libraryManager)
+            .environmentObject(playlistManager)
+        }
+        .sheet(isPresented: $radioManager.showingStationEditor) {
+            // Presented here, not from the Internet Radio section, so the File menu can open it from any tab.
+            StationEditorSheet(station: radioManager.stationToEdit) {
+                radioManager.showingStationEditor = false
+            }
+        }
+        .sheet(isPresented: $playlistManager.showingStationCollectionEditor) {
+            StationCollectionEditorSheet(
+                isPresented: $playlistManager.showingStationCollectionEditor,
+                editingCollection: playlistManager.stationCollectionToEdit
+            )
             .environmentObject(playlistManager)
         }
         .sheet(isPresented: $showingExportPlaylistSheet) {
@@ -218,7 +248,7 @@ struct ContentView: View {
             showingExportPlaylistSheet = true
         }
         .onReceive(NotificationCenter.default.publisher(for: .toggleImmersivePlayer)) { _ in
-            guard playbackManager.currentTrack != nil || isImmersiveActive else { return }
+            guard playbackManager.hasPlayableContent || isImmersiveActive else { return }
             if isImmersiveActive {
                 withAnimation(.easeInOut(duration: AnimationDuration.immersiveTransition)) {
                     isImmersiveActive = false
@@ -594,38 +624,38 @@ extension View {
     }
 }
 
-// MARK: - Create Playlist Sheet
+// MARK: - Name Prompt Sheet
 
-struct CreatePlaylistSheet: View {
-    @EnvironmentObject var playlistManager: PlaylistManager
+/// The name-only creation dialog, shared by "New Playlist..." and "New Collection...".
+struct NamePromptSheet: View {
+    let title: LocalizedStringKey
+    let prompt: LocalizedStringKey
+    var detail: Text?
     @Binding var isPresented: Bool
-    @Binding var playlistName: String
-    let tracksToAdd: [Track]
+    @Binding var name: String
     let onCreate: () -> Void
-    
+
     var body: some View {
         VStack(spacing: 20) {
-            Text("New Playlist")
+            Text(title)
                 .font(.headline)
 
-            TextField("Playlist Name", text: $playlistName)
+            TextField(prompt, text: $name)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 250)
                 .onSubmit {
-                    if !playlistName.isEmpty {
+                    if !name.isEmpty {
                         onCreate()
                     }
                 }
 
-            if !tracksToAdd.isEmpty {
-                Text("Will add: \(tracksToAdd.count) tracks")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
+            detail?
+                .font(.caption)
+                .foregroundColor(.secondary)
 
             HStack(spacing: 12) {
                 Button("Cancel") {
-                    playlistName = ""
+                    name = ""
                     isPresented = false
                 }
                 .keyboardShortcut(.escape)
@@ -634,7 +664,7 @@ struct CreatePlaylistSheet: View {
                     onCreate()
                 }
                 .keyboardShortcut(.return)
-                .disabled(playlistName.isEmpty)
+                .disabled(name.isEmpty)
             }
         }
         .padding(30)

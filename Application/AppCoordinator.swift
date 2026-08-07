@@ -18,6 +18,11 @@ class AppCoordinator: ObservableObject {
     private var hadFoldersAtStartup: Bool = false
     private let playbackStateKey = "SavedPlaybackState"
     private let playbackUIStateKey = "SavedPlaybackUIState"
+    private let savedStationKey = "SavedRadioStationId"
+
+    /// The source identity launch restoration was scheduled under; see
+    /// `prepareTrackForRestoration(_:at:expecting:)`.
+    private var restorationGeneration: UInt64 = 0
     
     // Track restoration state to prevent race conditions
     private var isRestoringPlayback = false
@@ -47,9 +52,13 @@ class AppCoordinator: ObservableObject {
         scrobbleManager = ScrobbleManager()
         
         hadFoldersAtStartup = !libraryManager.folders.isEmpty
-        
+
         Self.shared = self
-        
+
+        // Set after `shared`: the manager reads the database through it.
+        InternetRadioManager.shared.loadStations()
+        restoreStationIfNeeded()
+
         // Check if library is empty at startup - if so, clear any saved state
         if !hadFoldersAtStartup {
             clearAllSavedState()
@@ -57,6 +66,10 @@ class AppCoordinator: ObservableObject {
             // Only restore if we have folders
             restoreUIStateImmediately()
             
+            // Claimed before the delay, so anything the user starts in the meantime
+            // supersedes the restore rather than being overwritten by it.
+            restorationGeneration = playbackManager.sourceGeneration
+
             // Schedule restoration after a minimal delay to ensure UI is ready
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
                 self?.restorePlaybackState()
@@ -79,19 +92,50 @@ class AppCoordinator: ObservableObject {
         playbackManager.restoredUITrack = nil
         playbackManager.currentTrack = nil
     }
+
+    // MARK: - Internet Radio Restoration
+
+    private func saveCurrentStation() {
+        if let stationId = playbackManager.currentStation?.id {
+            UserDefaults.standard.set(stationId, forKey: savedStationKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: savedStationKey)
+        }
+    }
+
+    /// Restored stopped: no network reach-out on launch. Reads its one row directly
+    /// rather than waiting on the published list, which loads asynchronously, so
+    /// `restoreUIStateImmediately` sees the station.
+    private func restoreStationIfNeeded() {
+        guard UserDefaults.standard.object(forKey: savedStationKey) != nil else { return }
+
+        let stationId = Int64(UserDefaults.standard.integer(forKey: savedStationKey))
+        guard let station = libraryManager.databaseManager.loadStation(id: stationId) else {
+            // Station was deleted since the last run.
+            UserDefaults.standard.removeObject(forKey: savedStationKey)
+            return
+        }
+
+        playbackManager.restoreStation(station)
+        Logger.info("Restored radio station in player: \(station.name)")
+    }
     
     func savePlaybackState() {
-        // Only save if we have a current track
-        guard let currentTrack = playbackManager.currentTrack else {
+        // Own key, so the library-emptiness checks can't clear it.
+        saveCurrentStation()
+
+        let currentTrack = playbackManager.currentTrack
+
+        guard currentTrack != nil || playbackManager.currentStation != nil else {
             clearAllSavedState()
             return
         }
-        
+
         // Determine source identifier
         var sourceIdentifier: String?
         switch playlistManager.currentQueueSource {
         case .folder:
-            if let folderId = currentTrack.folderId,
+            if let folderId = currentTrack?.folderId,
                let folder = libraryManager.folders.first(where: { $0.id == folderId }) {
                 sourceIdentifier = folder.url.path
             }
@@ -100,10 +144,10 @@ class AppCoordinator: ObservableObject {
         default:
             break
         }
-        
+
         let state = PlaybackState(
             currentTrack: currentTrack,
-            playbackPosition: playbackManager.actualCurrentTime,
+            playbackPosition: currentTrack != nil ? playbackManager.actualCurrentTime : 0,
             queue: playlistManager.currentQueue,
             currentQueueIndex: playlistManager.currentQueueIndex,
             queueSource: playlistManager.currentQueueSource,
@@ -113,13 +157,15 @@ class AppCoordinator: ObservableObject {
             shuffleEnabled: playlistManager.isShuffleEnabled,
             repeatMode: playlistManager.repeatMode
         )
-        
-        if let uiState = state.createUIState(from: currentTrack) {
-            if let uiData = try? JSONEncoder().encode(uiState) {
-                UserDefaults.standard.set(uiData, forKey: playbackUIStateKey)
-            }
+
+        if let currentTrack, let uiState = state.createUIState(from: currentTrack),
+           let uiData = try? JSONEncoder().encode(uiState) {
+            UserDefaults.standard.set(uiData, forKey: playbackUIStateKey)
+        } else {
+            // Radio is showing: drop the stale track tile.
+            UserDefaults.standard.removeObject(forKey: playbackUIStateKey)
         }
-        
+
         do {
             let encoder = JSONEncoder()
             let data = try encoder.encode(state)
@@ -131,6 +177,9 @@ class AppCoordinator: ObservableObject {
     }
     
     func restoreUIStateImmediately() {
+        // A restored station already owns the player bar.
+        guard playbackManager.currentStation == nil else { return }
+
         // Try to restore UI state immediately
         guard let uiData = UserDefaults.standard.data(forKey: playbackUIStateKey),
               let uiState = try? JSONDecoder().decode(PlaybackUIState.self, from: uiData) else {
@@ -223,6 +272,14 @@ class AppCoordinator: ObservableObject {
     }
     
     private func performStateRestoration(_ state: PlaybackState) {
+        // Before anything is written, not just before the track is installed: this also
+        // replaces the queue, cursor and source, which a later track-only rejection leaves
+        // behind describing the saved session.
+        guard restorationGeneration == playbackManager.sourceGeneration else {
+            Logger.info("Skipped playback restoration: a source was selected before it ran")
+            return
+        }
+
         // Load only the tracks we need for restoration
         let trackIdsNeeded = Set(state.queueTrackIds + [state.currentTrackId].compactMap { $0 })
         var relevantTracks = libraryManager.databaseManager.getTracks(byIds: Array(trackIdsNeeded))
@@ -243,6 +300,12 @@ class AppCoordinator: ObservableObject {
             }
         ) { first, _ in first }
         
+        // Ahead of the queue guards below: a radio-only session saves no queue entries, and
+        // bailing out early would leave volume, shuffle and repeat at their defaults.
+        playlistManager.isShuffleEnabled = state.shuffleEnabled
+        playlistManager.repeatMode = state.repeatModeEnum
+        playbackManager.setVolume(state.isMuted ? 0 : state.volume)
+
         // Restore the play queue
         var restoredQueue: [Track] = []
         restoredQueue.reserveCapacity(state.queueTrackIds.count)
@@ -271,11 +334,6 @@ class AppCoordinator: ObservableObject {
             clearAllSavedState()
             return
         }
-        
-        // Restore playback settings first
-        playlistManager.isShuffleEnabled = state.shuffleEnabled
-        playlistManager.repeatMode = state.repeatModeEnum
-        playbackManager.setVolume(state.isMuted ? 0 : state.volume)
         
         // Set the queue
         playlistManager.currentQueue = restoredQueue
@@ -312,7 +370,11 @@ class AppCoordinator: ObservableObject {
             
             // Clear the temporary UI track before setting the real one
             playbackManager.restoredUITrack = nil
-            playbackManager.prepareTrackForRestoration(currentTrack, at: state.playbackPosition)
+            playbackManager.prepareTrackForRestoration(
+                currentTrack,
+                at: state.playbackPosition,
+                expecting: restorationGeneration
+            )
             Logger.info("Playback state restored")
         }
     }

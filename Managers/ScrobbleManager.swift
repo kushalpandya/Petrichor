@@ -175,7 +175,7 @@ class ScrobbleManager: ObservableObject {
         }
         
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
+            let (data, _) = try await AppInfo.urlSession.data(from: url)
             
             if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                let session = json["session"] as? [String: Any],
@@ -218,7 +218,7 @@ class ScrobbleManager: ObservableObject {
         guard let url = components.url else { return }
         
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
+            let (data, _) = try await AppInfo.urlSession.data(from: url)
             
             if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                let user = json["user"] as? [String: Any],
@@ -228,7 +228,7 @@ class ScrobbleManager: ObservableObject {
                    let urlString = largeImage["#text"] as? String,
                    !urlString.isEmpty,
                    let avatarURL = URL(string: urlString) {
-                    let (imageData, _) = try await URLSession.shared.data(from: avatarURL)
+                    let (imageData, _) = try await AppInfo.urlSession.data(from: avatarURL)
                     await MainActor.run {
                         UserDefaults.standard.set(imageData, forKey: "lastfmAvatarData")
                     }
@@ -391,7 +391,7 @@ class ScrobbleManager: ObservableObject {
         let bodyString = components.percentEncodedQuery ?? ""
         request.httpBody = bodyString.data(using: .utf8)
         
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, _) = try await AppInfo.urlSession.data(for: request)
         
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw URLError(.cannotParseResponse)

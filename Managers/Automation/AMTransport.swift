@@ -25,11 +25,15 @@ extension AutomationManager {
         playback.togglePlayPause()
     }
 
+    // Refused while a station is selected, matching the remote commands and the visible
+    // transport: a stream is not a queue member, so there is nothing to skip to.
     func nextTrack() {
+        guard playback?.currentStation == nil else { return }
         playlist?.playNextTrack()
     }
 
     func previousTrack() {
+        guard playback?.currentStation == nil else { return }
         playlist?.playPreviousTrack()
     }
 

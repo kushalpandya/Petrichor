@@ -80,3 +80,16 @@ extension View {
         ))
     }
 }
+
+extension View {
+    /// Chrome for a borderless sort/display menu in a list header.
+    func sortMenuChrome(help: String) -> some View {
+        self
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize(horizontal: true, vertical: false)
+            .frame(height: 14)
+            .hoverEffect(activeBackgroundColor: Color(NSColor.controlColor))
+            .help(help)
+    }
+}

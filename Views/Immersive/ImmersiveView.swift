@@ -90,6 +90,14 @@ struct ImmersiveView: View {
         playbackManager.currentTrack != nil
     }
 
+    private var hasStation: Bool { playbackManager.hasStation }
+
+    /// A station has no lyrics, so that panel is suppressed without touching the stored
+    /// preference. The queue stays available; radio doesn't disturb it.
+    private var effectivePanel: ImmersivePanel {
+        hasStation && panel == .lyrics ? .none : panel
+    }
+
     private var controlsUseArtworkTint: Bool {
         useArtworkColors && tintPlaybackControls
     }
@@ -99,7 +107,7 @@ struct ImmersiveView: View {
     }
 
     private var artworkTint: Color {
-        NowPlayingArtwork.tint(for: playbackManager.currentTrack, useArtworkTint: controlsUseArtworkTint)
+        NowPlayingArtwork.tint(for: playbackManager.nowPlayingSource, useArtworkTint: controlsUseArtworkTint)
     }
 
     /// Whether the immersive background reads as dark: the gradient (under its scrim)
@@ -113,7 +121,7 @@ struct ImmersiveView: View {
     /// deepened to match the actual background rather than always assuming dark.
     private var controlColor: Color {
         NowPlayingArtwork.controlColor(
-            for: playbackManager.currentTrack,
+            for: playbackManager.nowPlayingSource,
             useArtworkTint: controlsUseArtworkTint,
             isDarkBackground: backgroundIsDark
         )
@@ -158,7 +166,7 @@ struct ImmersiveView: View {
             // changes crossfade while the initial gradient slid in untouched.
             DispatchQueue.main.async { didAppear = true }
         }
-        .onChange(of: playbackManager.currentTrack?.id) {
+        .onChange(of: playbackManager.nowPlayingSource?.id) {
             refreshArtwork()
             updateGradientColors()
         }
@@ -203,7 +211,7 @@ struct ImmersiveView: View {
         return HStack(alignment: .center, spacing: layout.spacing) {
             nowPlayingColumn(layout: layout)
 
-            if panel != .none {
+            if effectivePanel != .none {
                 panelBox(layout: layout)
                     .frame(width: layout.blockWidth, height: layout.blockHeight)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
@@ -211,7 +219,7 @@ struct ImmersiveView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(layout.padding)
-        .animation(.easeInOut(duration: AnimationDuration.standardDuration), value: panel)
+        .animation(.easeInOut(duration: AnimationDuration.standardDuration), value: effectivePanel)
     }
 
     private func makeLayout(for size: CGSize) -> ImmersiveLayout {
@@ -240,12 +248,12 @@ struct ImmersiveView: View {
             artworkView(side: layout.artSide, cornerRadius: layout.cornerRadius)
 
             VStack(spacing: layout.titleSpacing) {
-                Text(playbackManager.currentTrack?.title ?? String(localized: "Not Playing"))
+                Text(playbackManager.nowPlayingSource?.title ?? String(localized: "Not Playing"))
                     .font(.system(size: layout.titleFontSize, weight: .semibold))
                     .foregroundColor(adaptiveText)
                     .lineLimit(1)
                     .truncationMode(.tail)
-                Text(playbackManager.currentTrack?.displayArtist ?? "")
+                Text(playbackManager.nowPlayingSource?.subtitle ?? "")
                     .font(.system(size: layout.artistFontSize))
                     .foregroundColor(adaptiveText.opacity(0.75))
                     .lineLimit(1)
@@ -295,7 +303,7 @@ struct ImmersiveView: View {
     private func panelBox(layout: ImmersiveLayout) -> some View {
         VStack(spacing: 0) {
             // Lyrics don't need a header; the queue keeps its count / clear action.
-            if panel == .queue {
+            if effectivePanel == .queue {
                 panelHeader(layout: layout)
                 Divider()
                     .background(adaptiveText)
@@ -313,7 +321,7 @@ struct ImmersiveView: View {
 
     @ViewBuilder
     private func panelContent(layout: ImmersiveLayout) -> some View {
-        switch panel {
+        switch effectivePanel {
         case .queue:
             PlayQueueContent(
                 accentColor: artworkTint,
@@ -366,7 +374,7 @@ struct ImmersiveView: View {
     private var floatingToolbar: some View {
         HStack(spacing: 4) {
             PanelToolbarButton(
-                isActive: panel == .queue,
+                isActive: effectivePanel == .queue,
                 isEnabled: true,
                 activeTint: artworkTint,
                 activeHelp: String(localized: "Hide Queue"),
@@ -379,8 +387,8 @@ struct ImmersiveView: View {
             )
 
             PanelToolbarButton(
-                isActive: panel == .lyrics,
-                isEnabled: hasCurrentTrack,
+                isActive: effectivePanel == .lyrics,
+                isEnabled: hasCurrentTrack && !hasStation,
                 activeTint: artworkTint,
                 activeHelp: String(localized: "Hide Lyrics"),
                 inactiveHelp: String(localized: "Show Lyrics"),
@@ -443,16 +451,16 @@ struct ImmersiveView: View {
     // MARK: - Helpers
 
     private func refreshArtwork() {
-        let track = playbackManager.currentTrack
-        guard track?.id != currentTrackId || cachedArtwork == nil else { return }
+        let source = playbackManager.nowPlayingSource
+        guard source?.id != currentTrackId || cachedArtwork == nil else { return }
 
-        currentTrackId = track?.id
-        cachedArtwork = NowPlayingArtwork.image(for: track)
+        currentTrackId = source?.id
+        cachedArtwork = NowPlayingArtwork.image(for: source)
     }
 
     private func updateGradientColors() {
         gradientColors = NowPlayingArtwork.gradient(
-            for: playbackManager.currentTrack,
+            for: playbackManager.nowPlayingSource,
             isDark: colorScheme == .dark,
             enabled: backgroundUsesArtwork
         )

@@ -63,3 +63,38 @@ struct PlaylistEditorFooter: View {
         .padding()
     }
 }
+
+/// The search field shared by the playlist and station-collection editors.
+struct EditorSearchField: View {
+    @Binding var text: String
+    let placeholder: LocalizedStringKey
+    var onChange: () -> Void = {}
+
+    static let controlHeight: CGFloat = 28
+
+    var body: some View {
+        HStack {
+            Image(systemName: Icons.magnifyingGlass)
+                .foregroundColor(.secondary)
+
+            TextField(placeholder, text: $text)
+                .textFieldStyle(.plain)
+                .onSubmit { onChange() }
+                .onChange(of: text) { onChange() }
+
+            if !text.isEmpty {
+                Button {
+                    text = ""
+                } label: {
+                    Image(systemName: Icons.xmarkCircleFill)
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 8)
+        .frame(height: Self.controlHeight)
+        .background(RoundedRectangle(cornerRadius: 6).fill(Color(NSColor.textBackgroundColor)))
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.3), lineWidth: 1))
+    }
+}

@@ -260,8 +260,16 @@ enum DatabaseMigrator {
             Logger.info("v13_add_discover_indices migration completed")
         }
 
+        migrator.registerMigration("v14_add_internet_radio") { db in
+            try DatabaseManager.createInternetRadioTable(in: db)
+            try DatabaseManager.createPlaylistStationsTable(in: db)
+            try DatabaseManager.createInternetRadioIndices(in: db)
+
+            Logger.info("v14_add_internet_radio migration completed")
+        }
+
         // MARK: - Future Migrations
-        // Add new migrations here as: migrator.registerMigration("v14_description") { db in ... }
+        // Add new migrations here as: migrator.registerMigration("v15_description") { db in ... }
 
         return migrator
     }

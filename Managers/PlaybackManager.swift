@@ -39,6 +39,56 @@ class PlaybackManager: NSObject, ObservableObject {
     }
     @Published var restoredUITrack: Track?
 
+    // MARK: - Internet Radio
+
+    /// Mutually exclusive with `currentTrack`: starting either clears the other.
+    @Published var currentStation: RadioStation?
+
+    /// Bumped whenever the player's source changes. A restore fetch or a stream callback
+    /// that was already in flight carries the generation it started under, so work for a
+    /// source the user has since moved on from can be recognised and dropped.
+    private let sourceGenerationLock = NSLock()
+    private var storedSourceGeneration: UInt64 = 0
+
+    /// True when `entryId` is what the engine is actually rendering. The engine stamps this
+    /// before notifying, so an event from a superseded stream never matches.
+    ///
+    /// Metadata and state-change callbacks carry no entry id and still fall back to
+    /// `sourceGeneration` (Crescendo #21).
+    func isCurrentEngineSession(_ entryId: AudioEntryId) -> Bool {
+        audioPlayer.currentEntryId == entryId
+    }
+
+    var sourceGeneration: UInt64 {
+        sourceGenerationLock.lock()
+        defer { sourceGenerationLock.unlock() }
+        return storedSourceGeneration
+    }
+
+    /// Read off the main thread by the engine's delegate callbacks, hence the lock.
+    @discardableResult
+    func beginSourceGeneration() -> UInt64 {
+        sourceGenerationLock.lock()
+        defer { sourceGenerationLock.unlock() }
+        storedSourceGeneration += 1
+        return storedSourceGeneration
+    }
+    /// Station headers plus the live `StreamTitle`.
+    @Published var streamMetadata: [String: String] = [:]
+    /// Connect window only; streams never re-buffer mid-playback.
+    @Published var isBuffering = false
+    /// Cached, not read on demand: the player bar's equality checks run every render.
+    @Published var streamFormat: StreamFormat?
+
+    static let stationPlayThreshold: TimeInterval = 180
+    /// The engine reports no error for a host that connects but never sends audio, so without this CONNECTING animates forever.
+    static let streamConnectTimeout: TimeInterval = 20
+
+    var stationListenSeconds: TimeInterval = 0
+    var stationPlayCredited = false
+    var streamConnectWatchdog: DispatchWorkItem?
+    var radioObservers: Set<AnyCancellable> = []
+
     // MARK: - Computed Properties
     
     /// Alias for currentTime for backwards compatibility
@@ -123,6 +173,7 @@ class PlaybackManager: NSObject, ObservableObject {
         startProgressUpdateTimer()
         restoreAudioEffectsSettings()
         observeRepeatModeForLookahead()
+        observeStationEdits()
     }
 
     deinit {
@@ -146,7 +197,14 @@ class PlaybackManager: NSObject, ObservableObject {
         volume = uiState.volume
     }
     
-    func prepareTrackForRestoration(_ track: Track, at position: Double) {
+    /// `generation` is the source identity restoration was *scheduled* under. Capturing it
+    /// here instead would be too late: the coordinator defers this past a delay and a
+    /// library load, by which time the user may already have chosen a source.
+    func prepareTrackForRestoration(_ track: Track, at position: Double, expecting generation: UInt64) {
+        guard generation == sourceGeneration else {
+            Logger.info("Skipped track restoration: a source was selected before it began")
+            return
+        }
         restoredUITrack = nil
 
         Task {
@@ -160,6 +218,11 @@ class PlaybackManager: NSObject, ObservableObject {
                 }
 
                 await MainActor.run {
+                    guard self.sourceGeneration == generation else {
+                        Logger.info("Abandoned track restoration: another source was selected")
+                        return
+                    }
+
                     self.currentTrack = track
                     self.currentFullTrack = fullTrack
                     self.restoredPosition = position
@@ -200,7 +263,12 @@ class PlaybackManager: NSObject, ObservableObject {
             }
             return
         }
-        
+
+        if currentStation != nil {
+            toggleStationPlayback()
+            return
+        }
+
         if isPlaying {
             // Pausing while a restored track is still loading cancels the latched play.
             pendingPlayOnRestore = false
@@ -242,7 +310,11 @@ class PlaybackManager: NSObject, ObservableObject {
 
     /// The shared teardown behind both stop flavors.
     private func haltPlayback() {
+        // Clearing the source counts as changing it: a restore fetch still in flight must
+        // not reinstall its track over a queue the user has just emptied.
+        beginSourceGeneration()
         audioPlayer.stop()
+        clearStation()
         currentTrack = nil
         currentFullTrack = nil
         currentEntryId = nil
@@ -255,6 +327,9 @@ class PlaybackManager: NSObject, ObservableObject {
     }
     
     func seekTo(time: Double) {
+        // A live stream has no position to seek to (its duration is infinite).
+        guard currentStation == nil else { return }
+
         // Clamp seek position to the engine's actual duration to prevent seek
         // errors when the DB-stored duration differs from the actual track
         // duration, this happens in edge-cases for MP3, although it is fixed
@@ -498,13 +573,20 @@ class PlaybackManager: NSObject, ObservableObject {
         let interval: DispatchTimeInterval = fineProgressSampling ? .milliseconds(500) : .seconds(1)
         timer.schedule(deadline: .now(), repeating: interval, leeway: .milliseconds(50))
 
+        let tickSeconds: TimeInterval = fineProgressSampling ? 0.5 : 1
         timer.setEventHandler { [weak self] in
             // Gate on the engine's live state, not the cached isPlaying flag, which
             // can be briefly stale and freeze the bar at 0.
             guard let self = self, self.audioPlayer.state == .playing else { return }
             let sampled = self.audioPlayer.currentPlaybackProgress
             self.currentTime = sampled
-            self.watchProgressForFreeze(sampled)
+
+            // A stream has no stored duration to reload against, so the freeze watchdog can't apply.
+            if self.currentStation != nil {
+                self.accumulateStationListen(tickSeconds)
+            } else {
+                self.watchProgressForFreeze(sampled)
+            }
             // No Now Playing work here - the engine anchors elapsed and rate itself.
         }
         
@@ -681,6 +763,25 @@ private extension PlaybackManager {
 extension PlaybackManager: AudioPlayerDelegate {
     func audioPlayerDidStartPlaying(player: PlaybackEngine, with entryId: AudioEntryId) {
         DispatchQueue.main.async {
+            // Correlated against the engine's own session, not app state: a start from a
+            // superseded stream is rejected however late it arrives.
+            if let station = self.currentStation {
+                // A stream entry is never in the mirror, so falling through would reach the
+                // unnamed-entry branch below and mark a stopped or replaced source playing.
+                guard self.isCurrentEngineSession(entryId) else {
+                    Logger.info("Ignored a start from a superseded stream: \(entryId.id)")
+                    return
+                }
+
+                self.cancelConnectWatchdog()
+                self.isPlaying = true
+                self.isBuffering = false
+                self.currentTime = self.audioPlayer.currentPlaybackProgress
+                self.refreshStreamFormat()
+                Logger.info("Radio stream connected: \(station.name)")
+                return
+            }
+
             if let injected = self.injectedNext, injected.entryId == entryId {
                 // A repeat lookahead started; fold it into the mirror, then treat it
                 // like any other engine-driven advance.
@@ -705,6 +806,10 @@ extension PlaybackManager: AudioPlayerDelegate {
     
     func audioPlayerStateChanged(player: PlaybackEngine, with newState: AudioPlayerState, previous: AudioPlayerState) {
         DispatchQueue.main.async {
+            // `@Published` republishes even on an unchanged assignment, hence the guard.
+            let buffering = newState == .buffering
+            if self.isBuffering != buffering { self.isBuffering = buffering }
+
             switch newState {
             case .playing:
                 self.isPlaying = true
@@ -712,6 +817,9 @@ extension PlaybackManager: AudioPlayerDelegate {
                 self.isPlaying = false
             case .stopped:
                 self.isPlaying = false
+            case .buffering:
+                // Connecting: the station is committed to, so the transport stays "playing".
+                self.isPlaying = true
             case .ready:
                 break
             }
@@ -758,6 +866,19 @@ extension PlaybackManager: AudioPlayerDelegate {
         duration: Double
     ) {
         DispatchQueue.main.async {
+            // A stream finish is either our own stop or a dropped connection: no queue to advance.
+            if let station = self.currentStation, self.isCurrentEngineSession(entryId) {
+                self.isPlaying = false
+                self.isBuffering = false
+                if stopReason != .userAction {
+                    Logger.warning("Radio stream ended unexpectedly: \(station.name)")
+                    NotificationManager.shared.addMessage(
+                        .warning, String(localized: "'\(station.name)' stopped streaming")
+                    )
+                }
+                return
+            }
+
             // Credit the track that actually finished, resolved by entry id: on a
             // gapless advance currentTrack may already be the next track.
             // Resolve before forgetting, and only forget entries the mirror does not
@@ -812,6 +933,28 @@ extension PlaybackManager: AudioPlayerDelegate {
         DispatchQueue.main.async {
             Logger.error("Audio player error: \(error.localizedDescription)")
             NotificationManager.shared.addMessage(.error, String(localized: "Playback error: \(error.localizedDescription)"))
+        }
+    }
+
+    func audioPlayerDidReadStreamMetadata(player: PlaybackEngine, metadata: [String: String]) {
+        let generation = sourceGeneration
+        DispatchQueue.main.async {
+            // Fires on every StreamTitle update; a redundant publish re-renders the bar.
+            guard self.currentStation != nil,
+                  self.sourceGeneration == generation,
+                  self.streamMetadata != metadata else { return }
+            self.streamMetadata = metadata
+            // The ICY headers carry the advertised bitrate, so the badges can firm up here.
+            self.refreshStreamFormat()
+        }
+    }
+
+    func audioPlayerDidFinishBuffering(player: PlaybackEngine, with entryId: AudioEntryId) {
+        DispatchQueue.main.async {
+            guard self.currentStation != nil, self.isCurrentEngineSession(entryId) else { return }
+            self.cancelConnectWatchdog()
+            if self.isBuffering { self.isBuffering = false }
+            self.refreshStreamFormat()
         }
     }
 
