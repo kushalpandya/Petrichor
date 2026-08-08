@@ -10,6 +10,7 @@ struct HomeSidebarView: View {
     @State private var pinnedItemTrackCounts: [Int64: Int] = [:]
     @State private var playlistToDelete: Playlist?
     @State private var showingDeleteConfirmation = false
+    @ObservedObject private var radioManager = InternetRadioManager.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -86,6 +87,9 @@ struct HomeSidebarView: View {
                 }
             }
         }
+        .onChange(of: radioManager.stations.count) {
+            updateAllItems()
+        }
         .onChange(of: pinnedPlaylistCountSignature) {
             // Only rebuild when a *pinned* playlist's count changes. Count changes on
             // non-pinned playlists don't affect anything shown in the Home sidebar.
@@ -120,9 +124,9 @@ struct HomeSidebarView: View {
             HomeSidebarItem(type: .discover),
             HomeSidebarItem(type: .tracks, trackCount: libraryManager.totalTrackCount),
             HomeSidebarItem(type: .artists, artistCount: artistCount),
-            HomeSidebarItem(type: .albums, albumCount: albumCount)
+            HomeSidebarItem(type: .albums, albumCount: albumCount),
+            HomeSidebarItem(type: .internetRadio, stationCount: radioManager.stations.count)
         ]
-
         // O(1) playlist lookups instead of a linear scan per pinned item.
         let playlistsById = Dictionary(playlistManager.playlists.map { ($0.id, $0) }) { first, _ in first }
         let pinnedSidebarItems = libraryManager.pinnedItems.map { pinnedItem in
@@ -231,8 +235,7 @@ struct HomeSidebarView: View {
     // MARK: - Reorder Pinned Items
 
     private func handlePinnedItemsReorder(_ reorderedItems: [HomeSidebarItem]) {
-        let fixedCount = HomeSidebarItem.HomeItemType.allCases.count
-        let reorderedPinned = reorderedItems.dropFirst(fixedCount).compactMap { item -> PinnedItem? in
+        let reorderedPinned = reorderedItems.dropFirst(HomeSidebarItem.HomeItemType.allCases.count).compactMap { item -> PinnedItem? in
             if case .pinned(let pinnedItem) = item.source {
                 return pinnedItem
             }

@@ -26,6 +26,13 @@ class PlaylistManager: ObservableObject {
     // (toEdit == nil) and editing an existing playlist.
     @Published var showingRegularPlaylistEditor = false
     @Published var regularPlaylistToEdit: Playlist?
+    @Published var showingStationCollectionEditor = false
+    @Published var stationCollectionToEdit: Playlist?
+    @Published var showingCreateStationCollectionModal = false
+    @Published var stationsToAddToNewCollection: [RadioStation] = []
+    @Published var newStationCollectionName = ""
+    /// Single-flight guard for the name-only creation dialog.
+    var isCreatingStationCollection = false
 
     enum QueueSource {
         case library
@@ -152,13 +159,8 @@ class PlaylistManager: ObservableObject {
             return
         }
         
-        let savedPlaylists = dbManager.loadAllPlaylists()
-        
-        let savedSmartPlaylists = savedPlaylists.filter { $0.type == .smart }
-        let savedRegularPlaylists = savedPlaylists.filter { $0.type == .regular }
-        
-        playlists = sortPlaylists(smart: savedSmartPlaylists, regular: savedRegularPlaylists)
-        
+        playlists = sortPlaylists(dbManager.loadAllPlaylists())
+
         updateSmartPlaylistCounts()
     }
     
@@ -202,24 +204,44 @@ class PlaylistManager: ObservableObject {
         return playlist.tracks
     }
     
-    /// Sort playlists: smart playlists first (by dateCreated), then regular playlists (by sortOrder, dateCreated as tiebreaker)
-    func sortPlaylists(smart: [Playlist], regular: [Playlist]) -> [Playlist] {
-        let sortedSmart = smart.sorted { $0.dateCreated < $1.dateCreated }
-        let sortedRegular = regular.sorted {
+    /// Sort playlists: smart playlists first (by dateCreated), then regular playlists and
+    /// station collections (by sortOrder, dateCreated as tiebreaker).
+    ///
+    /// Partitions internally rather than taking pre-filtered groups, which silently dropped
+    /// any type a caller forgot to pass.
+    func sortPlaylists(_ playlists: [Playlist]) -> [Playlist] {
+        let byOrder: (Playlist, Playlist) -> Bool = {
             $0.sortOrder == $1.sortOrder ? $0.dateCreated < $1.dateCreated : $0.sortOrder < $1.sortOrder
         }
-        return sortedSmart + sortedRegular
+
+        let smart = playlists.filter { $0.type == .smart }.sorted { $0.dateCreated < $1.dateCreated }
+        // Regular playlists and station collections share one `sortOrder` sequence because
+        // the sidebar reorders them as one list; sorting them apart would drop interleaving.
+        let userOrdered = playlists.filter { $0.type == .regular || $0.type == .stations }.sorted(by: byOrder)
+
+        return smart + userOrdered
+    }
+
+    /// Appends after everything the user has already arranged, across both types.
+    func nextUserPlaylistSortOrder() -> Int {
+        (playlists.filter { $0.type == .regular || $0.type == .stations }.map(\.sortOrder).max() ?? -1) + 1
     }
 
     /// Reorder user playlists and persist the new order
     func reorderPlaylists(_ reorderedPlaylists: [Playlist]) {
         guard let dbManager = libraryManager?.databaseManager else { return }
 
-        playlists = reorderedPlaylists
+        // Stamped with the same indices the write will persist: a playlist created straight
+        // afterwards reads `sortOrder` to append, and stale values would place it wrongly.
+        var stamped = reorderedPlaylists
+        for index in stamped.indices {
+            stamped[index].sortOrder = index
+        }
+        playlists = stamped
 
         Task {
             do {
-                try await dbManager.updatePlaylistsOrder(reorderedPlaylists)
+                try await dbManager.updatePlaylistsOrder(stamped)
             } catch {
                 Logger.error("Failed to reorder playlists: \(error)")
             }

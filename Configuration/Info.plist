@@ -48,7 +48,20 @@
     <true/>
     <key>NSSupportsAutomaticGraphicsSwitching</key>
     <true/>
-    
+
+    <!--
+      Internet radio plays over HTTP or HTTPS URLs, and about a third of public
+      stations are http-only with no TLS endpoint at all. The engine streams over
+      URLSession, so ATS applies; no narrower key helps (NSAllowsArbitraryLoadsForMedia
+      covers AVFoundation, and the hosts aren't known ahead of time). Petrichor's own
+      services are https and stay that way.
+    -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
+    </dict>
+
     <!-- Sparkle Configuration -->
     <key>SUPublicEDKey</key>
     <string>YPobXg0pi8vxrnsOk3ApMu2QF46GSFW68vwXjzuNEz4=</string>
@@ -74,5 +87,9 @@
     <string>$(REPORT_ENDPOINT_URL)</string>
     <key>REPORT_APP_KEY</key>
     <string>$(REPORT_APP_KEY)</string>
+
+    <!--  Internet Radio station directory  -->
+    <key>RADIO_BROWSER_ENDPOINT_URL</key>
+    <string>$(RADIO_BROWSER_ENDPOINT_URL)</string>
 </dict>
 </plist>

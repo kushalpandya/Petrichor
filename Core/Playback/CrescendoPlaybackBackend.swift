@@ -41,6 +41,27 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
         onMain { player.duration }
     }
 
+    var currentStreamFormat: StreamFormat? {
+        onMain {
+            player.currentFormat.map {
+                StreamFormat(
+                    sampleRate: $0.sampleRate,
+                    channelCount: $0.channelCount,
+                    codec: $0.codec,
+                    bitrate: $0.bitrate
+                )
+            }
+        }
+    }
+
+    var currentEntryId: AudioEntryId? {
+        onMain { player.currentEntryId.map { AudioEntryId(id: $0.id) } }
+    }
+
+    func playStream(url: URL) {
+        onMain { player.play(streamURL: url) }
+    }
+
     var queue: [AudioEntryId] {
         onMain { player.queue.map { AudioEntryId(id: $0.id.id) } }
     }
@@ -319,6 +340,10 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
         backendDelegate?.backendDidFinishBuffering(with: AudioEntryId(id: entryId.id))
     }
 
+    func handleStreamMetadata(_ metadata: [String: String]) {
+        backendDelegate?.backendDidReadStreamMetadata(metadata)
+    }
+
     func handleSkippedEntry(entryId: CrescendoEntryId, url: URL, reason: CrescendoError) {
         Logger.warning("Crescendo skipped \(url.lastPathComponent): \(reason.localizedDescription)")
         backendDelegate?.backendDidSkipQueueEntry(entryId: AudioEntryId(id: entryId.id))
@@ -328,8 +353,9 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
 
     private static func mapState(_ state: CrescendoPlayerState) -> AudioPlayerState {
         switch state {
-        // `.buffering` is the stream-connect window; local files never enter it.
-        case .idle, .buffering, .ready: return .ready
+        case .idle, .ready: return .ready
+        // The stream-connect window; local files never enter it.
+        case .buffering: return .buffering
         case .playing: return .playing
         case .paused: return .paused
         case .stopped: return .stopped
@@ -440,6 +466,10 @@ private final class CrescendoDelegateBridge: CrescendoPlayerDelegate {
         reason: CrescendoError
     ) {
         owner?.handleSkippedEntry(entryId: entryId, url: url, reason: reason)
+    }
+
+    func playerDidReadMetadata(_ player: CrescendoPlayer, metadata: [String: String]) {
+        owner?.handleStreamMetadata(metadata)
     }
 }
 

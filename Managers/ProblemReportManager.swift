@@ -95,7 +95,13 @@ final class ProblemReportManager {
               !string.isEmpty else {
             return nil
         }
-        return URL(string: string)
+        guard let url = URL(string: string), url.scheme?.lowercased() == "https" else {
+            // Enforced here rather than left to ATS, which the radio feature turns off
+            // process-wide: a mistyped http endpoint would carry the key and report in clear.
+            Logger.error("REPORT_ENDPOINT_URL must be an https URL; reporting is disabled")
+            return nil
+        }
+        return url
     }
 
     /// Embedded app key sent with each report (light anti-spam).
@@ -178,7 +184,12 @@ final class ProblemReportManager {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await AppInfo.urlSession.data(for: request)
+            // No redirects at all: staying on TLS isn't enough when a 307/308 to another
+            // origin would replay the body and the key header to it.
+            (data, response) = try await AppInfo.urlSession.data(
+                for: request,
+                delegate: AppInfo.RedirectPolicy.none
+            )
         } catch {
             throw ProblemReportError.transportFailed(error.localizedDescription)
         }

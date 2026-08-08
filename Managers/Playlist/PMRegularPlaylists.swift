@@ -60,14 +60,21 @@ extension PlaylistManager {
 
     /// Create a new basic playlist
     func createPlaylist(name: String, tracks: [Track] = []) -> Playlist {
-        let newPlaylist = Playlist(name: name, tracks: [])
+        var newPlaylist = Playlist(name: name, tracks: [])
+        newPlaylist.sortOrder = nextUserPlaylistSortOrder()
         playlists.append(newPlaylist)
 
-        // Save to database and add tracks
+        // Save to database and add tracks. The append `sortOrder` is re-read at write time
+        // rather than reused from above: a sidebar reorder between the two would otherwise
+        // be undone by this save.
         Task {
             do {
                 if let dbManager = libraryManager?.databaseManager {
-                    try await dbManager.savePlaylistAsync(newPlaylist)
+                    var persisted = newPlaylist
+                    persisted.sortOrder = await MainActor.run {
+                        self.playlists.first { $0.id == newPlaylist.id }?.sortOrder ?? newPlaylist.sortOrder
+                    }
+                    try await dbManager.savePlaylistAsync(persisted)
                 }
             } catch {
                 Logger.error("Failed to save new playlist: \(error)")

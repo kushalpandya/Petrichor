@@ -58,7 +58,12 @@ struct HomeView: View {
     
     var body: some View {
         if !libraryManager.shouldShowMainUI {
-            NoMusicEmptyStateView(context: .mainWindow)
+            // Radio needs no library, so it stays reachable behind the add-folders empty state.
+            if case .fixed(.internetRadio) = selectedSidebarItem?.source {
+                InternetRadioView()
+            } else {
+                NoMusicEmptyStateView(context: .mainWindow)
+            }
         } else {
             ZStack {
                 // Base content (always rendered)
@@ -75,6 +80,8 @@ struct HomeView: View {
                                 artistsView
                             case .albums:
                                 albumsView
+                            case .internetRadio:
+                                InternetRadioView()
                             }
                         case .pinned:
                             pinnedItemTracksView
@@ -108,7 +115,7 @@ struct HomeView: View {
 
                         // Load appropriate data
                         switch type {
-                        case .discover, .tracks:
+                        case .discover, .tracks, .internetRadio:
                             isShowingEntities = false
                         case .artists:
                             sortArtistEntities()
@@ -328,7 +335,7 @@ struct HomeView: View {
                         ))
                     }
                 } label: {
-                    Image(systemName: "line.3.horizontal.decrease")
+                    Image(systemName: Icons.sortMenu)
                         .font(.system(size: 14))
                         .foregroundColor(.secondary)
                 }

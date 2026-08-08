@@ -73,6 +73,10 @@ struct PlaylistSidebarView: View {
                 Button("New Smart Playlist") {
                     playlistManager.showCreateSmartPlaylistModal()
                 }
+
+                Button("New Station Collection") {
+                    playlistManager.showCreateStationCollectionEditor()
+                }
             } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 14))
