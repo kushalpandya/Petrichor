@@ -65,12 +65,47 @@ enum AppInfo {
     
     // MARK: - Networking
 
+    /// Refuses https->http redirects for everything sent through it. ATS used to guarantee
+    /// that until the radio feature turned it off process-wide, and credential-bearing
+    /// requests (Last.fm session key, TMDB bearer) go this way. A per-task delegate
+    /// overrides it where a caller needs something stricter or different.
     static let urlSession: URLSession = {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 15
         config.timeoutIntervalForResource = 30
-        return URLSession(configuration: config)
+        return URLSession(configuration: config, delegate: RedirectPolicy.httpsOnly, delegateQueue: nil)
     }()
+
+    /// Applies a destination test to each redirect hop. A per-task delegate, so the shared
+    /// session keeps its behaviour for every request that doesn't ask for this.
+    final class RedirectPolicy: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+        /// Refuses any hop that would leave TLS.
+        static let httpsOnly = RedirectPolicy { $0.scheme?.lowercased() == "https" }
+
+        /// Refuses every redirect. For a request whose body is private, staying on TLS is
+        /// not enough: a 307/308 to another https origin would replay it, headers included.
+        static let none = RedirectPolicy { _ in false }
+
+        private let allows: @Sendable (URL) -> Bool
+
+        init(allows: @escaping @Sendable (URL) -> Bool) {
+            self.allows = allows
+        }
+
+        func urlSession(
+            _ session: URLSession,
+            task: URLSessionTask,
+            willPerformHTTPRedirection response: HTTPURLResponse,
+            newRequest request: URLRequest,
+            completionHandler: @escaping (URLRequest?) -> Void
+        ) {
+            guard let url = request.url, allows(url) else {
+                completionHandler(nil)
+                return
+            }
+            completionHandler(request)
+        }
+    }
 
     // MARK: - Build Information
     

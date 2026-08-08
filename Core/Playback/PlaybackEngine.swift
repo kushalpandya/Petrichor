@@ -12,6 +12,8 @@ import Foundation
 
 public enum AudioPlayerState {
     case ready
+    /// The connect window for a network stream; it never recurs mid-playback.
+    case buffering
     case playing
     case paused
     case stopped
@@ -85,6 +87,18 @@ public struct QueueEntry {
     }
 }
 
+// MARK: - Stream Format
+
+/// Populated for files and streams alike, but only read for streams, which have no
+/// stored library metadata.
+public struct StreamFormat: Equatable {
+    public let sampleRate: Double
+    public let channelCount: Int
+    public let codec: String?
+    /// Bits per second, as the engine reports it - divide by 1000 to display kbps.
+    public let bitrate: Int?
+}
+
 // MARK: - Now Playing Metadata
 
 /// The descriptive half of the system Now Playing tile. The engine owns the
@@ -134,6 +148,8 @@ public protocol AudioPlayerDelegate: AnyObject {
     // Optional methods with default implementations
     func audioPlayerDidFinishBuffering(player: PlaybackEngine, with entryId: AudioEntryId)
     func audioPlayerDidSkipQueueEntry(player: PlaybackEngine, entryId: AudioEntryId)
+    /// Keyed by ICY header name plus the live `StreamTitle`. Network streams only.
+    func audioPlayerDidReadStreamMetadata(player: PlaybackEngine, metadata: [String: String])
 }
 
 // MARK: - Default Implementations
@@ -141,6 +157,7 @@ public protocol AudioPlayerDelegate: AnyObject {
 public extension AudioPlayerDelegate {
     func audioPlayerDidFinishBuffering(player: PlaybackEngine, with entryId: AudioEntryId) {}
     func audioPlayerDidSkipQueueEntry(player: PlaybackEngine, entryId: AudioEntryId) {}
+    func audioPlayerDidReadStreamMetadata(player: PlaybackEngine, metadata: [String: String]) {}
 }
 
 // MARK: - Backend Abstraction
@@ -156,6 +173,12 @@ protocol PlaybackBackend: AnyObject {
     var state: AudioPlayerState { get }
     var currentPlaybackProgress: Double { get }
     var duration: Double { get }
+    var currentStreamFormat: StreamFormat? { get }
+
+    /// Clears the queue and detaches the cursor; the caller rebuilds it for file playback.
+    func playStream(url: URL)
+    /// Identity of the source the engine is actually rendering, for correlating callbacks.
+    var currentEntryId: AudioEntryId? { get }
 
     /// The backend's queue, in order: played, current, then upcoming.
     var queue: [AudioEntryId] { get }
@@ -255,6 +278,7 @@ protocol PlaybackBackendDelegate: AnyObject {
     func backendUnexpectedError(error: AudioPlayerError)
     func backendDidFinishBuffering(with entryId: AudioEntryId)
     func backendDidSkipQueueEntry(entryId: AudioEntryId)
+    func backendDidReadStreamMetadata(_ metadata: [String: String])
 }
 
 // MARK: - PlaybackEngine Facade
@@ -281,6 +305,19 @@ public class PlaybackEngine: NSObject {
     /// Total duration of current file in seconds
     public var duration: Double {
         backend.duration
+    }
+
+    public var currentStreamFormat: StreamFormat? {
+        backend.currentStreamFormat
+    }
+
+    /// Clears the engine queue; `setQueue` rebuilds it for library playback.
+    public var currentEntryId: AudioEntryId? {
+        backend.currentEntryId
+    }
+
+    public func playStream(url: URL) {
+        backend.playStream(url: url)
     }
 
     // MARK: - Private Properties
@@ -504,5 +541,9 @@ extension PlaybackEngine: PlaybackBackendDelegate {
 
     func backendDidSkipQueueEntry(entryId: AudioEntryId) {
         delegate?.audioPlayerDidSkipQueueEntry(player: self, entryId: entryId)
+    }
+
+    func backendDidReadStreamMetadata(_ metadata: [String: String]) {
+        delegate?.audioPlayerDidReadStreamMetadata(player: self, metadata: metadata)
     }
 }

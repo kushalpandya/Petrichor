@@ -23,15 +23,30 @@ extension PlaylistManager {
         currentQueue.removeAll()
         currentQueueIndex = -1
         currentPlaylist = nil
-        audioPlayer?.stop()
+        // A stream isn't a queue member, so emptying the queue must not disconnect it.
+        // The engine's own queue is already empty while streaming, so the rest is a no-op.
+        if audioPlayer?.currentStation == nil {
+            audioPlayer?.stop()
+            audioPlayer?.currentTrack = nil
+        }
         audioPlayer?.queueDidClear()
-        audioPlayer?.currentTrack = nil
         Logger.info("Cleared playback queue")
     }
 
     func playNext(_ track: Track) {
-        if currentQueue.isEmpty || currentQueueIndex < 0 {
+        // A standby queue (entries but no cursor, as radio and Clear Queue leave it) takes
+        // an insertion at the front; only a genuinely empty one is initialised.
+        if !currentQueue.isEmpty, currentQueueIndex < 0 {
+            stageInStandbyQueue(track, atFront: true)
+            return
+        }
+
+        if currentQueue.isEmpty {
             currentQueue = [track]
+            guard audioPlayer?.currentStation == nil else {
+                currentQueueIndex = -1
+                return
+            }
             currentQueueIndex = 0
             audioPlayer?.startQueue(at: 0)
             return
@@ -58,9 +73,27 @@ extension PlaylistManager {
         Logger.info("Added track to playback queue to play up next")
     }
 
+    /// Appends or moves `track` within a queue that has no active cursor. The engine holds
+    /// no mirror for a standby queue, so this is a pure app-side edit.
+    private func stageInStandbyQueue(_ track: Track, atFront: Bool) {
+        if let existing = currentQueue.firstIndex(where: { $0.id == track.id }) {
+            currentQueue.remove(at: existing)
+        }
+        currentQueue.insert(track, at: atFront ? 0 : currentQueue.count)
+    }
+
     func addToQueue(_ track: Track) {
+        if !currentQueue.isEmpty, currentQueueIndex < 0 {
+            stageInStandbyQueue(track, atFront: false)
+            return
+        }
+
         if currentQueue.isEmpty {
             currentQueue = [track]
+            guard audioPlayer?.currentStation == nil else {
+                currentQueueIndex = -1
+                return
+            }
             currentQueueIndex = 0
             audioPlayer?.startQueue(at: 0)
             return
@@ -137,7 +170,11 @@ extension PlaylistManager {
         guard let audioPlayer, audioPlayer.hasMirroredQueue else {
             // No engine queue to disagree with; reorder the whole thing app-side.
             currentQueue.shuffle()
-            currentQueueIndex = 0
+            // A standby queue has no active row, and inventing one would present the first
+            // track as playing while radio actually owns the player.
+            if currentQueueIndex >= 0 {
+                currentQueueIndex = 0
+            }
             Logger.info("Shuffled the playback queue")
             return
         }

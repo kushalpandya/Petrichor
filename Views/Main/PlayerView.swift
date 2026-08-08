@@ -44,132 +44,6 @@ private struct PlayerBarBackground: View, Equatable {
     }
 }
 
-/// The player bar's seek bar (time labels + slider), extracted so it alone carries the
-/// `playbackProgressState` subscription. That keeps the ~10Hz progress ticks from
-/// re-rendering the whole player bar during playback, matching NowPlayingProgressBar.
-private struct PlayerProgressBar: View {
-    /// Fill color for the progress track / handle (the resolved control color).
-    let accent: Color
-
-    @EnvironmentObject var playbackManager: PlaybackManager
-    @EnvironmentObject var playbackProgressState: PlaybackProgressState
-
-    @State private var isDraggingProgress = false
-    @State private var tempProgressValue: Double = 0
-    @State private var hoveredOverProgress = false
-
-    var body: some View {
-        HStack(spacing: 8) {
-            // Current time
-            Text(HelperUtils.formattedDuration(isDraggingProgress ? tempProgressValue : playbackProgressState.currentTime))
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.secondary)
-                .monospacedDigit()
-                .frame(width: timeLabelWidth, alignment: .trailing)
-
-            // Progress slider
-            progressSlider
-
-            // Total duration
-            Text(HelperUtils.formattedDuration(playbackManager.currentTrack?.duration ?? 0))
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.secondary)
-                .monospacedDigit()
-                .frame(width: timeLabelWidth, alignment: .leading)
-        }
-        .onChange(of: playbackManager.currentTrack?.id) {
-            isDraggingProgress = false
-            tempProgressValue = 0
-        }
-    }
-
-    /// Widens the time labels when the current track is an hour or longer so the
-    /// `H:MM:SS` form isn't clipped; otherwise keeps the compact `M:SS` width.
-    private var timeLabelWidth: CGFloat {
-        (playbackManager.currentTrack?.duration ?? 0) >= 3600 ? 56 : 40
-    }
-
-    private var progressSlider: some View {
-        ZStack {
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    // Background track
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.secondary.opacity(0.2))
-                        .frame(height: 4)
-
-                    // Progress track
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(accent)
-                        .frame(
-                            width: geometry.size.width * progressPercentage,
-                            height: 4
-                        )
-                        .animation(isDraggingProgress ? .none : .easeInOut(duration: 0.2), value: progressPercentage)
-
-                    // Drag handle
-                    Circle()
-                        .fill(accent)
-                        .frame(width: 12, height: 12)
-                        .opacity(isDraggingProgress || hoveredOverProgress ? 1.0 : 0.0)
-                        .offset(x: (geometry.size.width * progressPercentage) - 6)
-                        .animation(isDraggingProgress ? .none : .easeInOut(duration: 0.2), value: progressPercentage)
-                        .animation(.easeInOut(duration: 0.15), value: hoveredOverProgress)
-                }
-                .contentShape(Rectangle())
-                .gesture(progressDragGesture(in: geometry))
-                .onTapGesture { value in
-                    handleProgressTap(at: value.x, in: geometry.size.width)
-                }
-                .onHover { hovering in
-                    hoveredOverProgress = hovering
-                }
-            }
-        }
-        .frame(height: 10)
-        .frame(maxWidth: 400)
-    }
-
-    private var progressPercentage: Double {
-        guard let duration = playbackManager.currentTrack?.duration, duration > 0 else { return 0 }
-
-        if isDraggingProgress {
-            return min(1, max(0, tempProgressValue / duration))
-        } else {
-            return min(1, max(0, playbackProgressState.currentTime / duration))
-        }
-    }
-
-    private func progressDragGesture(in geometry: GeometryProxy) -> some Gesture {
-        DragGesture(minimumDistance: 4)
-            .onChanged { value in
-                if !isDraggingProgress {
-                    isDraggingProgress = true
-                }
-                let percentage = max(0, min(1, value.location.x / geometry.size.width))
-                let duration = HelperUtils.sanitizedDuration(playbackManager.currentTrack?.duration ?? 0)
-                tempProgressValue = percentage * duration
-            }
-            .onEnded { value in
-                let percentage = max(0, min(1, value.location.x / geometry.size.width))
-                let duration = HelperUtils.sanitizedDuration(playbackManager.currentTrack?.duration ?? 0)
-                let newTime = percentage * duration
-                playbackManager.seekTo(time: newTime)
-                // Reset dragging state after seek completes
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    isDraggingProgress = false
-                }
-            }
-    }
-
-    private func handleProgressTap(at x: CGFloat, in width: CGFloat) {
-        let percentage = x / width
-        let duration = HelperUtils.sanitizedDuration(playbackManager.currentTrack?.duration ?? 0)
-        let newTime = percentage * duration
-        playbackManager.seekTo(time: newTime)
-    }
-}
-
 struct PlayerView: View {
     @EnvironmentObject var playbackManager: PlaybackManager
     @EnvironmentObject var playlistManager: PlaylistManager
@@ -193,8 +67,6 @@ struct PlayerView: View {
     private var playerBarBackgroundStyle: PlayerBarBackgroundStyle = .fullWidth
 
     @State private var gradientColors: [Color] = []
-    @State private var currentTrackId: UUID?
-    @State private var cachedArtworkImage: NSImage?
     @State private var playButtonPressed = false
     @State private var isMuted = false
     @State private var previousVolume: Float = 0.7
@@ -233,6 +105,9 @@ struct PlayerView: View {
         .onChange(of: playbackManager.currentTrack?.id) {
             updateGradientColors()
         }
+        .onChange(of: playbackManager.currentStation?.artworkCacheID) {
+            updateGradientColors()
+        }
         .onChange(of: colorScheme) {
             updateGradientColors()
         }
@@ -251,12 +126,14 @@ struct PlayerView: View {
         .frame(width: 320, alignment: .leading)
     }
 
+    /// Sized so the progress bar keeps its full width; narrower windows still compress
+    /// it, but never state-by-state. See `PlayerProgressBar.preferredWidth`.
     private var centerSection: some View {
         VStack(spacing: 8) {
             playbackControls
             PlayerProgressBar(accent: controlAccent)
         }
-        .frame(maxWidth: 500)
+        .frame(maxWidth: PlayerProgressBar.preferredWidth)
     }
 
     private var rightSection: some View {
@@ -272,34 +149,50 @@ struct PlayerView: View {
 
     // MARK: - Left Section Components
 
-    private var albumArtwork: some View {
-        let trackArtworkInfo = playbackManager.currentTrack.map { track in
-            TrackArtworkInfo(id: track.id, artworkData: track.artworkData)
-        }
-
-        return PlayerAlbumArtView(
-            trackInfo: trackArtworkInfo,
-            contextMenuItems: currentTrackContextMenuItems
-        ) {
-            if let currentTrack = playbackManager.currentTrack {
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("ShowTrackInfo"),
-                    object: nil,
-                    userInfo: ["track": currentTrack]
-                )
+    @ViewBuilder private var albumArtwork: some View {
+        if let station = playbackManager.currentStation {
+            PlayerStationArtView(artworkID: station.artworkCacheID, artworkData: station.artworkData)
+                .equatable()
+        } else {
+            let trackArtworkInfo = playbackManager.currentTrack.map { track in
+                TrackArtworkInfo(id: track.id, artworkData: track.artworkData)
             }
+
+            PlayerAlbumArtView(
+                trackInfo: trackArtworkInfo,
+                contextMenuItems: currentTrackContextMenuItems
+            ) {
+                if let currentTrack = playbackManager.currentTrack {
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("ShowTrackInfo"),
+                        object: nil,
+                        userInfo: ["track": currentTrack]
+                    )
+                }
+            }
+            .equatable()
         }
-        .equatable()
     }
 
-    private var trackDetails: some View {
-        PlayerTrackDetailsView(
-            track: playbackManager.currentTrack,
-            contextMenuItems: currentTrackContextMenuItems,
-            playlistManager: playlistManager,
-            showTechnicalInfo: showTrackTechnicalInfo
-        )
-        .equatable()
+    @ViewBuilder private var trackDetails: some View {
+        if let station = playbackManager.currentStation {
+            PlayerStationDetailsView(
+                stationName: station.name,
+                nowPlaying: playbackManager.streamNowPlayingTitle,
+                description: station.description,
+                format: playbackManager.streamFormat,
+                showTechnicalInfo: showTrackTechnicalInfo
+            )
+            .equatable()
+        } else {
+            PlayerTrackDetailsView(
+                track: playbackManager.currentTrack,
+                contextMenuItems: currentTrackContextMenuItems,
+                playlistManager: playlistManager,
+                showTechnicalInfo: showTrackTechnicalInfo
+            )
+            .equatable()
+        }
     }
 
     // MARK: - Center Section Components
@@ -326,8 +219,13 @@ struct PlayerView: View {
         })
         .buttonStyle(ControlButtonStyle())
         .hoverEffect(scale: 1.1)
-        .disabled(playbackManager.currentTrack == nil)
+        .opacity(transportDisabled ? ViewDefaults.disabledControlOpacity : 1)
+        .disabled(transportDisabled)
         .help(playlistManager.isShuffleEnabled ? String(localized: "Disable Shuffle") : String(localized: "Enable Shuffle"))
+    }
+
+    private var transportDisabled: Bool {
+        playbackManager.isTransportDisabled
     }
 
     private var previousButton: some View {
@@ -342,7 +240,8 @@ struct PlayerView: View {
         .buttonStyle(ControlButtonStyle())
         .tint(controlsTinted ? controlAccent : .primary)
         .hoverEffect(scale: 1.1)
-        .disabled(playbackManager.currentTrack == nil)
+        .opacity(transportDisabled ? ViewDefaults.disabledControlOpacity : 1)
+        .disabled(transportDisabled)
         .help("Previous")
     }
 
@@ -350,7 +249,10 @@ struct PlayerView: View {
         Button(action: {
             playbackManager.togglePlayPause()
         }, label: {
-            PlayPauseIcon(isPlaying: playbackManager.isPlaying)
+            PlayPauseIcon(
+                isPlaying: playbackManager.isPlaying,
+                stopInsteadOfPause: playbackManager.hasStation
+            )
                 .frame(width: 42, height: 42)
                 .background(
                     Circle()
@@ -370,8 +272,8 @@ struct PlayerView: View {
             },
             perform: {}
         )
-        .disabled(playbackManager.currentTrack == nil)
-        .help(playbackManager.isPlaying ? String(localized: "Pause") : String(localized: "Play"))
+        .disabled(playbackManager.currentTrack == nil && playbackManager.currentStation == nil)
+        .help(playbackManager.playPauseActionTitle)
         .id("playPause")
     }
 
@@ -388,7 +290,8 @@ struct PlayerView: View {
         .tint(controlsTinted ? controlAccent : .primary)
         .hoverEffect(scale: 1.1)
         .help("Next")
-        .disabled(playbackManager.currentTrack == nil)
+        .opacity(transportDisabled ? ViewDefaults.disabledControlOpacity : 1)
+        .disabled(transportDisabled)
     }
 
     private var repeatButton: some View {
@@ -404,7 +307,8 @@ struct PlayerView: View {
         .buttonStyle(ControlButtonStyle())
         .hoverEffect(scale: 1.1)
         .help(playlistManager.repeatMode.tooltip)
-        .disabled(playbackManager.currentTrack == nil)
+        .opacity(transportDisabled ? ViewDefaults.disabledControlOpacity : 1)
+        .disabled(transportDisabled)
     }
 
     // MARK: - Right Section Components
@@ -507,9 +411,9 @@ struct PlayerView: View {
                 )
         })
         .buttonStyle(PlainButtonStyle())
-        .disabled(!hasCurrentTrack)
-        .opacity(hasCurrentTrack ? 1.0 : 0.5)
-        .hoverEffect(scale: hasCurrentTrack ? 1.1 : 1.0)
+        .disabled(!playbackManager.hasPlayableContent)
+        .opacity(playbackManager.hasPlayableContent ? 1.0 : 0.5)
+        .hoverEffect(scale: playbackManager.hasPlayableContent ? 1.1 : 1.0)
         .help("Open Immersive Mode")
     }
 
@@ -527,9 +431,9 @@ struct PlayerView: View {
                 )
         })
         .buttonStyle(PlainButtonStyle())
-        .disabled(!hasCurrentTrack)
-        .opacity(hasCurrentTrack ? 1.0 : 0.5)
-        .hoverEffect(scale: hasCurrentTrack ? 1.1 : 1.0)
+        .disabled(!playbackManager.hasPlayableContent)
+        .opacity(playbackManager.hasPlayableContent ? 1.0 : 0.5)
+        .hoverEffect(scale: playbackManager.hasPlayableContent ? 1.1 : 1.0)
         .help("Open Mini Player")
     }
 
@@ -558,6 +462,7 @@ struct PlayerView: View {
         playbackManager.currentTrack != nil
     }
 
+    /// `currentTrack` is nil for radio, so these key off "is anything loaded".
     private var controlsTinted: Bool {
         useArtworkColors && tintPlaybackControls
     }
@@ -566,14 +471,18 @@ struct PlayerView: View {
     /// player and immersive mode via `NowPlayingArtwork`), or the accent color when
     /// tinting is disabled.
     private var controlTint: Color {
-        NowPlayingArtwork.tint(for: playbackManager.currentTrack, useArtworkTint: controlsTinted)
+        NowPlayingArtwork.tint(for: playbackManager.nowPlayingSource, useArtworkTint: controlsTinted)
     }
 
     /// Legible, mode-adjusted dominant color for the secondary controls (shuffle/
     /// repeat active, prev/next, progress, and volume), or the accent color when
     /// tinting is disabled.
     private var controlAccent: Color {
-        NowPlayingArtwork.controlColor(for: playbackManager.currentTrack, useArtworkTint: controlsTinted, isDarkBackground: colorScheme == .dark)
+        NowPlayingArtwork.controlColor(
+            for: playbackManager.nowPlayingSource,
+            useArtworkTint: controlsTinted,
+            isDarkBackground: colorScheme == .dark
+        )
     }
 
     private var volumeIcon: String {
@@ -600,13 +509,6 @@ struct PlayerView: View {
     // MARK: - Helper Methods
 
     private func setupInitialState() {
-        // Initialize the cached album art
-        if let artworkData = playbackManager.currentTrack?.artworkData,
-           let image = NSImage(data: artworkData) {
-            cachedArtworkImage = image
-            currentTrackId = playbackManager.currentTrack?.id
-        }
-
         if playbackManager.volume < 0.01 {
             isMuted = true
             previousVolume = 0.7
@@ -618,14 +520,11 @@ struct PlayerView: View {
     }
 
     private func updateGradientColors() {
-        guard useArtworkColors,
-              let track = playbackManager.currentTrack,
-              !track.dominantColors.isEmpty else {
-            gradientColors = []
-            return
-        }
-
-        gradientColors = track.backgroundGradientColors(isDark: colorScheme == .dark)
+        gradientColors = NowPlayingArtwork.gradient(
+            for: playbackManager.nowPlayingSource,
+            isDark: colorScheme == .dark,
+            enabled: useArtworkColors
+        )
     }
 
     private func toggleMute() {
@@ -748,7 +647,7 @@ struct PlayerTrackDetailsView: View, Equatable {
 
 // MARK: - Format Badge
 
-private struct FormatBadge: View {
+struct FormatBadge: View {
     let text: String
 
     var body: some View {
@@ -809,7 +708,7 @@ struct PlayerAlbumArtView: View, Equatable {
     }
 
     var body: some View {
-        AlbumArtworkImage(trackInfo: trackInfo)
+        AlbumArtworkImage(artworkData: trackInfo?.artworkData)
             .onTapGesture {
                 onTap?()
             }
@@ -819,36 +718,44 @@ struct PlayerAlbumArtView: View, Equatable {
     }
 }
 
-private struct AlbumArtworkImage: View {
-    let trackInfo: TrackArtworkInfo?
+struct AlbumArtworkImage: View {
+    let artworkData: Data?
+    var placeholderIcon: String = Icons.musicNote
+    /// No detail view behind a station, so no hover or click.
+    var interactive: Bool = true
+
     @State private var isHovered = false
+
+    private var hovering: Bool { interactive && isHovered }
 
     var body: some View {
         ZStack {
             // Static image content
-            AlbumArtworkContent(trackInfo: trackInfo)
+            AlbumArtworkContent(artworkData: artworkData, placeholderIcon: placeholderIcon)
         }
         .frame(width: 76, height: 76)
         .shadow(
-            color: .black.opacity(isHovered ? 0.4 : 0.2),
-            radius: isHovered ? 6 : 2,
+            color: .black.opacity(hovering ? 0.4 : 0.2),
+            radius: hovering ? 6 : 2,
             x: 0,
-            y: isHovered ? 3 : 1
+            y: hovering ? 3 : 1
         )
-        .scaleEffect(isHovered ? 1.05 : 1.0)
-        .animation(.easeInOut(duration: 0.2), value: isHovered)
+        .scaleEffect(hovering ? 1.05 : 1.0)
+        .animation(.easeInOut(duration: 0.2), value: hovering)
         .contentShape(Rectangle())
-        .onHover { hovering in
-            isHovered = hovering
+        .onHover { newValue in
+            guard interactive else { return }
+            isHovered = newValue
         }
     }
 }
 
-private struct AlbumArtworkContent: View {
-    let trackInfo: TrackArtworkInfo?
+struct AlbumArtworkContent: View {
+    let artworkData: Data?
+    let placeholderIcon: String
 
     var body: some View {
-        if let artworkData = trackInfo?.artworkData,
+        if let artworkData,
            let nsImage = NSImage(data: artworkData) {
             Image(nsImage: nsImage)
                 .resizable()
@@ -859,7 +766,7 @@ private struct AlbumArtworkContent: View {
             RoundedRectangle(cornerRadius: 5)
                 .fill(Color.secondary.opacity(0.15))
                 .overlay(
-                    Image(systemName: Icons.musicNote)
+                    Image(systemName: placeholderIcon)
                         .font(.system(size: 22, weight: .light))
                         .foregroundColor(.secondary)
                 )

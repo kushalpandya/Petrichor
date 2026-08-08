@@ -303,38 +303,8 @@ struct RegularPlaylistEditorSheet: View {
     }
 
     private func searchBox(text: Binding<String>, placeholder: LocalizedStringKey, onChange: @escaping () -> Void) -> some View {
-        HStack {
-            Image(systemName: Icons.magnifyingGlass)
-                .foregroundColor(.secondary)
-
-            TextField(placeholder, text: text)
-                .textFieldStyle(.plain)
-                .onSubmit { onChange() }
-                .onChange(of: text.wrappedValue) { onChange() }
-
-            if !text.wrappedValue.isEmpty {
-                Button(action: {
-                    text.wrappedValue = ""
-                    onChange()
-                }, label: {
-                    Image(systemName: Icons.xmarkCircleFill)
-                        .foregroundColor(.secondary)
-                })
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 8)
-        .frame(height: Self.controlHeight)
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(Color(NSColor.textBackgroundColor))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
-        )
+        EditorSearchField(text: text, placeholder: placeholder, onChange: onChange)
     }
-
 
     // MARK: - Search State Views
 

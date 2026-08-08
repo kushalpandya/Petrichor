@@ -292,7 +292,9 @@ enum ImageUtils {
         id: UUID,
         imageData: Data
     ) -> [NSColor] {
-        let cacheKey = "\(id.uuidString)-dominantColors" as NSString
+        // Byte count here too: the id alone is stable across an artwork change, so the
+        // gradient cache could miss while this one still returned the old image's colours.
+        let cacheKey = "\(id.uuidString)-\(imageData.count)-dominantColors" as NSString
         if let cached = colorCache.object(forKey: cacheKey) {
             return cached.colors
         }
@@ -309,7 +311,9 @@ enum ImageUtils {
         isDark: Bool
     ) -> [Color] {
         let suffix = isDark ? "dark" : "light"
-        let cacheKey = "\(id.uuidString)-gradient-\(suffix)" as NSString
+        // Byte count is in the key because the id is stable across an artwork change,
+        // so the entry would otherwise keep serving the old image's colours.
+        let cacheKey = "\(id.uuidString)-\(imageData.count)-gradient-\(suffix)" as NSString
         if let cached = colorCache.object(forKey: cacheKey) {
             return cached.colors.map { Color(nsColor: $0) }
         }
@@ -464,6 +468,63 @@ enum ImageUtils {
         ctx.restoreGState()
 
         guard let cgImage = ctx.makeImage() else { return nil }
+        return NSBitmapImageRep(cgImage: cgImage).representation(using: .jpeg, properties: [.compressionFactor: 0.85])
+    }
+
+    /// One place, so a pasted image and a downloaded favicon end up the same size.
+    static func compressStationArtwork(from imageData: Data) -> Data? {
+        compressImage(from: imageData, maxDimension: 480)
+    }
+
+    /// Baked in rather than overlaid by the view, so rows and the player bar get it too.
+    static func generateStationArtwork(name: String) -> Data? {
+        let size = 240
+        guard let backgroundData = generateCategoryArtwork(text: "", seed: "station-\(name)"),
+              let backgroundSource = CGImageSourceCreateWithData(backgroundData as CFData, nil),
+              let background = CGImageSourceCreateImageAtIndex(backgroundSource, 0, nil) else { return nil }
+
+        guard let ctx = CGContext(
+            data: nil,
+            width: size,
+            height: size,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+        ) else { return nil }
+
+        let full = CGRect(x: 0, y: 0, width: size, height: size)
+        ctx.draw(background, in: full)
+
+        // Near-black rather than gray: the generated gradients sit at high brightness,
+        // so a mid-gray glyph washes out against them.
+        let symbolConfig = NSImage.SymbolConfiguration(pointSize: 128, weight: .semibold)
+            .applying(NSImage.SymbolConfiguration(paletteColors: [NSColor(white: 0.11, alpha: 1)]))
+        guard let symbol = NSImage(systemSymbolName: Icons.antennaRadiowaves, accessibilityDescription: nil)?
+            .withSymbolConfiguration(symbolConfig),
+            let symbolImage = symbol.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            // Without the glyph the gradient alone is still usable artwork.
+            return backgroundData
+        }
+
+        let glyphHeight = CGFloat(size) * 0.52
+        let glyphWidth = glyphHeight * CGFloat(symbolImage.width) / CGFloat(symbolImage.height)
+        let glyphRect = CGRect(
+            x: (CGFloat(size) - glyphWidth) / 2,
+            y: (CGFloat(size) - glyphHeight) / 2,
+            width: glyphWidth,
+            height: glyphHeight
+        )
+
+        // No flip: `CGContext.draw` already lands the image upright in a bottom-left
+        // origin context. Getting this wrong renders it upside down.
+        ctx.saveGState()
+        // A light halo, not a dark shadow: it separates a dark glyph from dark gradient.
+        ctx.setShadow(offset: .zero, blur: 12, color: NSColor.white.withAlphaComponent(0.65).cgColor)
+        ctx.draw(symbolImage, in: glyphRect)
+        ctx.restoreGState()
+
+        guard let cgImage = ctx.makeImage() else { return backgroundData }
         return NSBitmapImageRep(cgImage: cgImage).representation(using: .jpeg, properties: [.compressionFactor: 0.85])
     }
 

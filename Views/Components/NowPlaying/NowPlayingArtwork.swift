@@ -1,8 +1,27 @@
 import SwiftUI
 import AppKit
 
+/// A track or a station, so the now-playing surfaces don't each branch on which.
+struct NowPlayingSource {
+    /// Identity for the artwork colour caches; a track's UUID or a station's derived one.
+    let id: UUID
+    let title: String
+    let subtitle: String
+    let artworkData: Data?
+
+    var dominantColors: [NSColor] {
+        guard let artworkData else { return [] }
+        return ImageUtils.cachedDominantColors(id: id, imageData: artworkData)
+    }
+
+    func backgroundGradientColors(isDark: Bool) -> [Color] {
+        guard let artworkData else { return [] }
+        return ImageUtils.cachedBackgroundGradientColors(id: id, imageData: artworkData, isDark: isDark)
+    }
+}
+
 /// Shared now-playing artwork helpers used by the surfaces that render the current
-/// track's art and artwork-derived colors (the main player bar, mini player, and
+/// source's art and artwork-derived colors (the main player bar, mini player, and
 /// immersive mode). Centralizes the tint / image-decode / gradient logic so the
 /// hosts don't each carry their own copy.
 ///
@@ -12,8 +31,8 @@ import AppKit
 enum NowPlayingArtwork {
     /// Primary artwork color, used to tint controls / highlights. Falls back to the
     /// accent color when tinting is disabled or artwork colors are unavailable.
-    static func tint(for track: Track?, useArtworkTint: Bool) -> Color {
-        guard useArtworkTint, let dominant = track?.dominantColors.first else {
+    static func tint(for source: NowPlayingSource?, useArtworkTint: Bool) -> Color {
+        guard useArtworkTint, let dominant = source?.dominantColors.first else {
             // Use the system accent (the empty AccentColor asset means Color.accentColor won't track it).
             return Color(nsColor: .controlAccentColor)
         }
@@ -29,12 +48,12 @@ enum NowPlayingArtwork {
     ///   on dark surfaces (the mini player / immersive scrim, or the player bar in
     ///   dark mode); when `false` it is deepened for light surfaces (the player bar
     ///   in light mode).
-    static func controlColor(for track: Track?, useArtworkTint: Bool, isDarkBackground: Bool) -> Color {
+    static func controlColor(for source: NowPlayingSource?, useArtworkTint: Bool, isDarkBackground: Bool) -> Color {
         // Tinting off: use the system accent (the empty AccentColor asset means Color.accentColor won't track it).
         guard useArtworkTint else { return Color(nsColor: .controlAccentColor) }
         // Tinting on but nothing playing: no artwork to derive from, so read as the
         // primary label color (black/white) rather than the accent color.
-        guard let dominant = track?.dominantColors.first else { return .primary }
+        guard let dominant = source?.dominantColors.first else { return .primary }
 
         let srgb = dominant.usingColorSpace(.sRGB) ?? dominant
         var hue: CGFloat = 0, saturation: CGFloat = 0, brightness: CGFloat = 0, alpha: CGFloat = 0
@@ -59,18 +78,17 @@ enum NowPlayingArtwork {
         return 0.299 * ns.redComponent + 0.587 * ns.greenComponent + 0.114 * ns.blueComponent
     }
 
-    /// Decodes the track's embedded artwork into an image (nil when absent).
-    static func image(for track: Track?) -> NSImage? {
-        guard let data = track?.artworkData else { return nil }
+    static func image(for source: NowPlayingSource?) -> NSImage? {
+        guard let data = source?.artworkData else { return nil }
         return NSImage(data: data)
     }
 
-    /// Artwork-derived background gradient (cached per track), or empty when disabled
+    /// Artwork-derived background gradient (cached per source), or empty when disabled
     /// or artwork colors are unavailable.
-    static func gradient(for track: Track?, isDark: Bool, enabled: Bool) -> [Color] {
-        guard enabled, let track, !track.dominantColors.isEmpty else {
+    static func gradient(for source: NowPlayingSource?, isDark: Bool, enabled: Bool) -> [Color] {
+        guard enabled, let source, !source.dominantColors.isEmpty else {
             return []
         }
-        return track.backgroundGradientColors(isDark: isDark)
+        return source.backgroundGradientColors(isDark: isDark)
     }
 }

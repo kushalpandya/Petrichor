@@ -25,6 +25,8 @@ extension DatabaseManager {
         try createPinnedItemsTable(in: db)
         try createArtistAliasesTable(in: db)
         try createAlbumAliasesTable(in: db)
+        try createInternetRadioTable(in: db)
+        try createPlaylistStationsTable(in: db)
         // Create all indices
         try createIndices(in: db)
         
@@ -312,6 +314,45 @@ extension DatabaseManager {
         Logger.info("Created `album_aliases` table")
     }
 
+    // MARK: - Internet Radio Table
+    static func createInternetRadioTable(in db: Database) throws {
+        try db.createTableIfNotExists("internet_radio") { t in
+            t.autoIncrementedPrimaryKey("id")
+            t.column("name", .text).notNull()
+            t.column("stream_url", .text).notNull()
+            t.column("description", .text)
+            t.column("artwork_data", .blob)
+            // radio-browser's stable station identity, used to avoid re-adding a station
+            t.column("station_uuid", .text)
+            t.column("favicon_url", .text)
+            t.column("homepage_url", .text)
+            t.column("tags", .text)
+            t.column("country", .text)
+            t.column("country_code", .text)
+            t.column("language", .text)
+            t.column("codec", .text)
+            t.column("bitrate", .integer)
+            t.column("votes", .integer)
+            t.column("play_count", .integer).notNull().defaults(to: 0)
+            t.column("last_played", .datetime)
+            t.column("date_added", .datetime).notNull()
+            t.column("date_modified", .datetime).notNull()
+        }
+        Logger.info("Created `internet_radio` table")
+    }
+
+    // MARK: - Playlist Stations Table
+    static func createPlaylistStationsTable(in db: Database) throws {
+        try db.createTableIfNotExists("playlist_stations") { t in
+            t.column("playlist_id", .text).notNull().references("playlists", column: "id", onDelete: .cascade)
+            t.column("station_id", .integer).notNull().references("internet_radio", column: "id", onDelete: .cascade)
+            t.column("position", .integer).notNull()
+            t.column("date_added", .datetime).notNull()
+            t.primaryKey(["playlist_id", "station_id"])
+        }
+        Logger.info("Created `playlist_stations` table")
+    }
+
     // MARK: - FTS5 Search Table
     static func createFTSTable(in db: Database) throws {
         // Create FTS5 virtual table for tracks
@@ -509,11 +550,37 @@ extension DatabaseManager {
         try db.createIndexIfNotExists(name: "idx_pinned_items_sort_order", table: "pinned_items", columns: ["sort_order"])
         try db.createIndexIfNotExists(name: "idx_pinned_items_item_type", table: "pinned_items", columns: ["item_type"])
 
+        try createInternetRadioIndices(in: db)
+
         // Merge alias indices for re-pointing aliases when a canonical entity is merged
         try db.createIndexIfNotExists(name: "idx_artist_aliases_canonical", table: "artist_aliases", columns: ["canonical_artist_id"])
         try db.createIndexIfNotExists(name: "idx_album_aliases_canonical", table: "album_aliases", columns: ["canonical_album_id"])
 
         Logger.info("Created column indices")
+    }
+
+    static func createInternetRadioIndices(in db: Database) throws {
+        try db.createIndexIfNotExists(name: "idx_internet_radio_name", table: "internet_radio", columns: ["name"])
+        try db.createIndexIfNotExists(
+            name: "idx_internet_radio_station_uuid",
+            table: "internet_radio",
+            columns: ["station_uuid"]
+        )
+        try db.createIndexIfNotExists(
+            name: "idx_internet_radio_last_played",
+            table: "internet_radio",
+            columns: ["last_played"]
+        )
+        try db.createIndexIfNotExists(
+            name: "idx_playlist_stations_playlist_id",
+            table: "playlist_stations",
+            columns: ["playlist_id"]
+        )
+        try db.createIndexIfNotExists(
+            name: "idx_playlist_stations_station_id",
+            table: "playlist_stations",
+            columns: ["station_id"]
+        )
     }
     
     // MARK: - Seed Default Playlists

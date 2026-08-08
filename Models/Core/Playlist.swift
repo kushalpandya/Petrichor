@@ -5,6 +5,8 @@ import GRDB
 enum PlaylistType: String, Codable {
     case regular
     case smart
+    /// Shares the `playlists` table, but its members live in `playlist_stations`.
+    case stations
 }
 
 // Smart playlist criteria
@@ -150,6 +152,20 @@ struct Playlist: Identifiable, FetchableRecord, PersistableRecord {
         self.smartCriteria = criteria
     }
     
+    // Station collection initializer
+    init(stationCollectionNamed name: String) {
+        self.id = UUID()
+        self.name = name
+        self.tracks = []
+        self.dateCreated = Date()
+        self.dateModified = Date()
+        self.coverArtworkData = nil
+        self.type = .stations
+        self.isUserEditable = true
+        self.isContentEditable = true
+        self.smartCriteria = nil
+    }
+
     // Database restoration initializer
     init(
         id: UUID,
@@ -402,7 +418,13 @@ struct Playlist: Identifiable, FetchableRecord, PersistableRecord {
     }
 
     fileprivate static func renderCollageArtwork(from collageTracks: [Track]) -> Data? {
-        guard !collageTracks.isEmpty else { return nil }
+        renderCollageArtwork(fromArtwork: collageTracks.map(\.artworkData))
+    }
+
+    /// Over raw artwork bytes, so station collections can share it: they have artwork
+    /// but no tracks.
+    static func renderCollageArtwork(fromArtwork artwork: [Data?]) -> Data? {
+        guard !artwork.isEmpty else { return nil }
 
         let pixelSize = 256
         let size = CGFloat(pixelSize)
@@ -423,10 +445,10 @@ struct Playlist: Identifiable, FetchableRecord, PersistableRecord {
         context.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 1))
         context.fill(CGRect(x: 0, y: 0, width: size, height: size))
 
-        let count = collageTracks.count
+        let count = artwork.count
 
         if count == 1 {
-            if let data = collageTracks[0].artworkData,
+            if let data = artwork[0],
                let source = CGImageSourceCreateWithData(data as CFData, nil),
                let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) {
                 context.draw(cgImage, in: CGRect(x: 0, y: 0, width: size, height: size))
@@ -434,9 +456,9 @@ struct Playlist: Identifiable, FetchableRecord, PersistableRecord {
         } else {
             let positions = [(0, 0), (1, 0), (0, 1), (1, 1)]
             for (index, (col, row)) in positions.enumerated() {
-                let trackIndex = count == 2 ? (index == 0 || index == 3 ? 0 : 1) : index % count
+                let sourceIndex = count == 2 ? (index == 0 || index == 3 ? 0 : 1) : index % count
 
-                guard let data = collageTracks[trackIndex].artworkData,
+                guard let data = artwork[sourceIndex],
                       let source = CGImageSourceCreateWithData(data as CFData, nil),
                       let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else { continue }
 

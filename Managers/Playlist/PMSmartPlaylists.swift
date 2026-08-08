@@ -43,10 +43,7 @@ extension PlaylistManager {
 
         // Insert and keep the sidebar grouping (smart first, then regular) consistent.
         playlists.append(newPlaylist)
-        playlists = sortPlaylists(
-            smart: playlists.filter { $0.type == .smart },
-            regular: playlists.filter { $0.type == .regular }
-        )
+        playlists = sortPlaylists(playlists)
 
         enqueueSmartPersistence(newPlaylist, criteria: criteria) {
             NotificationCenter.default.post(

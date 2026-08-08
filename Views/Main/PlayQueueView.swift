@@ -75,7 +75,7 @@ extension View {
             Button("Cancel", role: .cancel) { }
             Button("Clear", role: .destructive, action: onClear)
         } message: {
-            Text("Are you sure you want to clear the entire queue? This will stop playback.")
+            Text("Are you sure you want to remove every track from the queue?")
         }
     }
 }

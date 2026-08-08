@@ -200,16 +200,11 @@ struct TrackTableOptionsDropdown: View {
                 }
             }
         } label: {
-            Image(systemName: "line.3.horizontal.decrease")
+            Image(systemName: Icons.sortMenu)
                 .font(.system(size: 14))
                 .foregroundColor(.secondary)
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize(horizontal: true, vertical: false)
-        .frame(height: 14)
-        .hoverEffect(activeBackgroundColor: Color(NSColor.controlColor))
-        .help("Sort and display options")
+        .sortMenuChrome(help: String(localized: "Sort and display options"))
         .onAppear {
             syncCustomSortState()
         }

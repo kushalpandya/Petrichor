@@ -69,17 +69,21 @@ class RemoteCommandManager {
             return .success
         }
 
-        // Add handler for next track command
-        commandCenter.nextTrackCommand.addTarget { [weak playlistManager] _ in
-            guard let playlistManager = playlistManager else { return .commandFailed }
+        // Add handler for next track command, refused while streaming: a stream is not a queue member.
+        commandCenter.nextTrackCommand.addTarget { [weak playlistManager, weak audioPlayer] _ in
+            guard let playlistManager = playlistManager, audioPlayer?.currentStation == nil else {
+                return .commandFailed
+            }
 
             playlistManager.playNextTrack()
             return .success
         }
 
         // Add handler for previous track command
-        commandCenter.previousTrackCommand.addTarget { [weak playlistManager] _ in
-            guard let playlistManager = playlistManager else { return .commandFailed }
+        commandCenter.previousTrackCommand.addTarget { [weak playlistManager, weak audioPlayer] _ in
+            guard let playlistManager = playlistManager, audioPlayer?.currentStation == nil else {
+                return .commandFailed
+            }
 
             playlistManager.playPreviousTrack()
             return .success

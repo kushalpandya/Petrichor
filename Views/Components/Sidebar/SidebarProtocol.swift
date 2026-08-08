@@ -32,6 +32,7 @@ struct HomeSidebarItem: SidebarItem {
         case tracks
         case artists
         case albums
+        case internetRadio
 
         var stableID: UUID {
             switch self {
@@ -43,6 +44,8 @@ struct HomeSidebarItem: SidebarItem {
                 return makeStableID("00000000-0000-0000-0000-000000000002")
             case .albums:
                 return makeStableID("00000000-0000-0000-0000-000000000003")
+            case .internetRadio:
+                return makeStableID("00000000-0000-0000-0000-000000000004")
             }
         }
 
@@ -59,6 +62,7 @@ struct HomeSidebarItem: SidebarItem {
             case .tracks: return String(localized: "Tracks")
             case .artists: return String(localized: "Artists")
             case .albums: return String(localized: "Albums")
+            case .internetRadio: return String(localized: "Internet Radio")
             }
         }
 
@@ -68,12 +72,19 @@ struct HomeSidebarItem: SidebarItem {
             case .tracks: return Icons.musicNote
             case .artists: return Icons.person2Fill
             case .albums: return Icons.opticalDiscFill
+            case .internetRadio: return Icons.radioFill
             }
         }
     }
 
     // Init for fixed items
-    init(type: HomeItemType, trackCount: Int? = nil, artistCount: Int? = nil, albumCount: Int? = nil) {
+    init(
+        type: HomeItemType,
+        trackCount: Int? = nil,
+        artistCount: Int? = nil,
+        albumCount: Int? = nil,
+        stationCount: Int? = nil
+    ) {
         self.id = type.stableID
         self.type = type
         self.source = .fixed(type)
@@ -93,16 +104,22 @@ struct HomeSidebarItem: SidebarItem {
             self.subtitle = String(localized: "\(artistCount ?? 0) artists")
         case .albums:
             self.subtitle = String(localized: "\(albumCount ?? 0) albums")
+        case .internetRadio:
+            self.subtitle = String(localized: "\(stationCount ?? 0) stations")
         }
     }
     
     // Init for pinned items
     init(pinnedItem: PinnedItem, trackCount: Int = 0, playlist: Playlist? = nil) {
-        self.id = UUID(uuidString: "pinned-\(pinnedItem.id ?? 0)") ?? UUID()
+        // Must stay stable across rebuilds: the sidebar restores selection by id, and a
+        // non-UUID string parses to nil, minting a random id that drops the highlight.
+        self.id = UUID(uuidString: String(format: "00000000-0000-0000-0002-%012d", pinnedItem.id ?? 0)) ?? UUID()
         self.type = nil
         self.source = .pinned(pinnedItem)
         self.title = playlist.map(DefaultPlaylists.displayName) ?? pinnedItem.displayName
-        self.subtitle = String(localized: "\(trackCount) songs")
+        self.subtitle = playlist?.type == .stations
+            ? String(localized: "\(trackCount) stations")
+            : String(localized: "\(trackCount) songs")
         self.icon = HomeSidebarItem.deriveIcon(for: pinnedItem, playlist: playlist)
     }
 
@@ -125,7 +142,13 @@ extension HomeSidebarItem: Equatable {
         if lhs.id != rhs.id {
             return false
         }
-        
+
+        // SwiftUI skips re-rendering a sidebar whose items all compare equal, so anything
+        // the row displays has to be compared too, or its subtitle goes stale.
+        if lhs.title != rhs.title || lhs.subtitle != rhs.subtitle || lhs.count != rhs.count {
+            return false
+        }
+
         // Then compare by source
         switch (lhs.source, rhs.source) {
         case let (.fixed(lhsType), .fixed(rhsType)):
@@ -195,7 +218,10 @@ struct PlaylistSidebarItem: SidebarItem {
         self.playlist = playlist
 
         // Set subtitle and count based on playlist type
-        if playlist.type == .smart {
+        if playlist.type == .stations {
+            self.subtitle = String(localized: "\(playlist.trackCount) stations")
+            self.count = nil
+        } else if playlist.type == .smart {
             let trackCount = playlist.trackCount
             if let limit = playlist.trackLimit {
                 self.subtitle = String(localized: "\(trackCount) / \(limit) songs")

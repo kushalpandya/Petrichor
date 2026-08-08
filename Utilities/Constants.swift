@@ -22,6 +22,7 @@ enum Icons {
     static let previousFIll = "backward.end.alt.fill"
     static let forwardFill = "forward.fill"
     static let nextFill = "forward.end.alt.fill"
+    static let stopFill = "stop.fill"
     static let shuffleFill = "shuffle"
     static let repeatFill = "repeat"
     static let repeat1Fill = "repeat.1"
@@ -52,6 +53,7 @@ enum Icons {
     static let infoCircle = "info.circle"
     static let questionmarkCircle = "questionmark.circle"
     static let plusCircle = "plus.circle"
+    static let arrowDownCircleFill = "arrow.down.circle.fill"
     static let checkForUpdates = "square.and.arrow.down"
     static let chartUptrendFill = "chart.line.uptrend.xyaxis.circle.fill"
     static let infoCircleFill = "info.circle.fill"
@@ -71,6 +73,9 @@ enum Icons {
     static let opticalDiscFill = "opticaldisc.fill"
     static let calendarBadgeClock = "calendar.badge.clock"
     static let calendarCircleFill = "calendar.circle.fill"
+    static let radioFill = "radio.fill"
+    static let antennaRadiowaves = "antenna.radiowaves.left.and.right"
+    static let stationCollection = "dot.radiowaves.left.and.right"
     
     // Smart Playlist Icons
     static let starFill = "star.fill"
@@ -79,6 +84,7 @@ enum Icons {
     // Sort Icons
     static let sortAscending = "sort.ascending"
     static let sortDescending = "sort.descending"
+    static let sortMenu = "line.3.horizontal.decrease"
 
     // Mini/Immersive Player
     static let miniPlayer = "pip.enter"
@@ -185,6 +191,9 @@ enum AlbumArtFormat {
 
 enum ViewDefaults {
     static let listArtworkSize: CGFloat = 40
+    /// `.disabled` alone doesn't dim the transport buttons: their labels set an explicit
+    /// foreground color, which overrides SwiftUI's disabled styling.
+    static let disabledControlOpacity: Double = 0.35
     static let gridArtworkSize: CGFloat = 160
     /// Artwork size for a horizontal entity carousel tile. Capped at `gridArtworkSize`:
     /// `EntityArtworkCache` rasterizes once at 2x (320px) and carousel tiles reuse that
@@ -348,6 +357,9 @@ extension Icons {
     }
     
     static func defaultPlaylistIcon(for playlist: Playlist) -> String {
+        if playlist.type == .stations {
+            return Icons.stationCollection
+        }
         if playlist.type == .smart {
             if !playlist.isUserEditable {
                 switch playlist.name {

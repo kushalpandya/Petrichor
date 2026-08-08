@@ -77,6 +77,13 @@ extension AutomationManager {
         // play-next loop would leave the last track playing). Start the whole set in
         // natural order instead.
         guard !playlist.currentQueue.isEmpty else {
+            // A station owns the player: stage the whole set on standby instead of taking
+            // playback from it, matching the single-track queue operations.
+            if playback?.currentStation != nil {
+                playlist.currentQueue = tracks
+                playlist.currentQueueIndex = -1
+                return
+            }
             playlist.playTrack(first, fromTracks: tracks)
             return
         }
