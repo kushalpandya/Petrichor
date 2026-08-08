@@ -1,5 +1,91 @@
 import SwiftUI
 
+private struct HorizontalScrollOffsetObserver: NSViewRepresentable {
+    let onScroll: (CGFloat) -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async { context.coordinator.connect(from: view) }
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        context.coordinator.onScroll = onScroll
+        DispatchQueue.main.async { context.coordinator.connect(from: view) }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onScroll: onScroll)
+    }
+
+    static func dismantleNSView(_ view: NSView, coordinator: Coordinator) {
+        coordinator.invalidate()
+    }
+
+    final class Coordinator {
+        var onScroll: (CGFloat) -> Void
+        private weak var scrollView: NSScrollView?
+        private var observers: [NSObjectProtocol] = []
+        private var pendingUpdate: DispatchWorkItem?
+        private var previouslyPostedBoundsNotifications = false
+        private var isActive = true
+
+        init(onScroll: @escaping (CGFloat) -> Void) {
+            self.onScroll = onScroll
+        }
+
+        deinit {
+            disconnect()
+        }
+
+        func connect(from view: NSView) {
+            guard isActive, let scrollView = view.enclosingScrollView, scrollView !== self.scrollView else { return }
+            disconnect()
+            self.scrollView = scrollView
+            previouslyPostedBoundsNotifications = scrollView.contentView.postsBoundsChangedNotifications
+            scrollView.contentView.postsBoundsChangedNotifications = true
+
+            let center = NotificationCenter.default
+            observers = [
+                center.addObserver(
+                    forName: NSView.boundsDidChangeNotification,
+                    object: scrollView.contentView,
+                    queue: .main
+                ) { [weak self] _ in self?.scheduleUpdate() }
+            ]
+            publishOffset()
+        }
+
+        func disconnect() {
+            pendingUpdate?.cancel()
+            pendingUpdate = nil
+            observers.forEach(NotificationCenter.default.removeObserver)
+            observers.removeAll()
+            if let scrollView {
+                scrollView.contentView.postsBoundsChangedNotifications = previouslyPostedBoundsNotifications
+            }
+            scrollView = nil
+        }
+
+        func invalidate() {
+            isActive = false
+            disconnect()
+        }
+
+        private func scheduleUpdate() {
+            pendingUpdate?.cancel()
+            let update = DispatchWorkItem { [weak self] in self?.publishOffset() }
+            pendingUpdate = update
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: update)
+        }
+
+        private func publishOffset() {
+            guard let scrollView else { return }
+            onScroll(max(0, scrollView.contentView.bounds.minX))
+        }
+    }
+}
+
 // MARK: - State
 
 enum EntityListState {
@@ -12,7 +98,7 @@ enum EntityListState {
 
 /// Every dimension is a constant so `totalHeight` is exact, which is what lets a parent
 /// size a row without a GeometryReader feedback loop.
-struct EntityListMetrics {
+struct EntityListMetrics: Equatable {
     let artworkSize: CGFloat
     let tilePadding: CGFloat
     let artworkLabelSpacing: CGFloat
@@ -139,14 +225,12 @@ struct EntityListRow: View {
         self.metrics = metrics
         self.onSelectEntity = onSelectEntity
         self.contextMenuItems = contextMenuItems
-        // Built once: as a computed property this reallocated on each of the five accesses
-        // per body pass.
         self.items = entities.map { Item(id: $0.id, entity: $0) }
     }
 
     @State private var isHoveringRow = false
     @State private var rowWidth: CGFloat = 0
-    @State private var scrollAnchorID: UUID?
+    @State private var scrollOffset: CGFloat = 0
 
     /// `ForEach` over `[any Entity]` with `id: \.id` needs a key path rooted in an
     /// existential. Wrapping sidesteps that and gives stable identity across refreshes.
@@ -196,15 +280,16 @@ struct EntityListRow: View {
                     }
                 }
                 .padding(.horizontal, 14)  // matches EntityGridView's gutter
-                .scrollTargetLayout()
+                .background {
+                    HorizontalScrollOffsetObserver { scrollOffset = $0 }
+                }
             }
             .scrollIndicators(.hidden)
-            .scrollPosition(id: $scrollAnchorID, anchor: .leading)
             .background {
                 GeometryReader { geometry in
                     Color.clear
-                        .onAppear { rowWidth = geometry.size.width }
-                        .onChange(of: geometry.size.width) { _, newWidth in rowWidth = newWidth }
+                        .onAppear { updateRowWidth(geometry.size.width) }
+                        .onChange(of: geometry.size.width) { _, newWidth in updateRowWidth(newWidth) }
                 }
             }
             .focusable()
@@ -224,8 +309,7 @@ struct EntityListRow: View {
     }
 
     // No `.scrollTargetBehavior(.viewAligned)`: on AppKit it rubber-bands trackpad flicks
-    // and jumps a whole tile per wheel detent. `.scrollTargetLayout()` is still required,
-    // since `.scrollPosition(id:)` reads it. No `.scrollClipDisabled()` either, or tile
+    // and jumps a whole tile per wheel detent. No `.scrollClipDisabled()` either, or tile
     // shadows bleed over the header.
 
     private func edgeButton(isLeading: Bool, proxy: ScrollViewProxy) -> some View {
@@ -253,9 +337,9 @@ struct EntityListRow: View {
     private var tileStride: CGFloat { metrics.tileWidth + metrics.itemSpacing }
 
     private var currentIndex: Int {
-        guard let scrollAnchorID,
-              let index = items.firstIndex(where: { $0.id == scrollAnchorID }) else { return 0 }
-        return index
+        guard tileStride > 0 else { return 0 }
+        let tileOffset = max(0, scrollOffset - 14)
+        return min(Int(tileOffset / tileStride), max(0, items.count - 1))
     }
 
     /// Arithmetic rather than measured: a preference key reads 0 until the first layout
@@ -269,17 +353,9 @@ struct EntityListRow: View {
 
     private var maxOffset: CGFloat { max(0, contentWidth - rowWidth) }
 
-    private var isAtStart: Bool { currentIndex <= 0 }
+    private var isAtStart: Bool { scrollOffset <= 0.5 }
 
-    /// The index the anchor reports once the row is scrolled as far as it goes. NOT
-    /// `count - visibleTileCount`: at maximum scroll the leading edge lands partway through
-    /// a tile and `.scrollPosition(id:)` reports the tile containing it, one index lower.
-    private var lastLeadingIndex: Int {
-        guard tileStride > 0 else { return 0 }
-        return max(0, Int(maxOffset / tileStride))
-    }
-
-    private var isAtEnd: Bool { currentIndex >= lastLeadingIndex }
+    private var isAtEnd: Bool { scrollOffset >= maxOffset - 0.5 }
 
     private var visibleTileCount: Int {
         guard rowWidth > 0 else { return 1 }
@@ -287,10 +363,17 @@ struct EntityListRow: View {
         return max(1, Int(usable / tileStride))
     }
 
+    private func updateRowWidth(_ width: CGFloat) {
+        guard abs(width - rowWidth) >= 0.5 else { return }
+        rowWidth = width
+    }
+
     private func page(by direction: Int, using proxy: ScrollViewProxy) {
         guard !items.isEmpty else { return }
         let step = max(1, visibleTileCount)
         let target = min(max(0, currentIndex + direction * step), items.count - 1)
+        let targetOffset = target == 0 ? 0 : 14 + CGFloat(target) * tileStride
+        scrollOffset = min(maxOffset, targetOffset)
         withAnimation(.easeInOut(duration: AnimationDuration.standardDuration)) {
             proxy.scrollTo(items[target].id, anchor: .leading)
         }

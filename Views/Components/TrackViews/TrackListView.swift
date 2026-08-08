@@ -1,5 +1,16 @@
 import SwiftUI
 
+enum TrackListIdentity: Hashable {
+    case database(Int64)
+    case path(String)
+}
+
+private extension Track {
+    var listIdentity: TrackListIdentity {
+        trackId.map(TrackListIdentity.database) ?? .path(url.path)
+    }
+}
+
 /// A headerless, row-based track list: a favorite toggle, artwork, title over a
 /// middot-joined artist/album/year line, and duration on the trailing edge.
 ///
@@ -11,11 +22,12 @@ import SwiftUI
 /// same `trackTableSortOrder` the table uses, synced through `.trackTableSortChanged`.
 struct TrackListView: View {
     let tracks: [Track]
-    @Binding var selectedTrackID: UUID?
+    @Binding var selectedTrackID: TrackListIdentity?
     let playlistID: UUID?
     let entityID: UUID?
     @Binding var sortOrder: [KeyPathComparator<Track>]
     let onPlayTrack: (Track) -> Void
+    let onToggleFavorite: (Track, Bool) -> Void
     let contextMenuItems: ([Track], PlaybackManager) -> [ContextMenuItem]
 
     @EnvironmentObject var playbackManager: PlaybackManager
@@ -26,23 +38,24 @@ struct TrackListView: View {
     @State private var sortedTracks: [Track] = []
     @State private var trackFavorites: [Int64: Bool] = [:]
     @State private var isCustomSort = false
+    @State private var sortGeneration = 0
 
     var body: some View {
         LazyVStack(spacing: 0) {
-            ForEach(sortedTracks) { track in
+            ForEach(sortedTracks, id: \.listIdentity) { track in
+                let identity = track.listIdentity
                 TrackListRow(
                     track: track,
                     rowSize: rowSize,
                     isCurrentTrack: isCurrentTrack(track),
                     isPlaying: isPlaying(track),
-                    isSelected: selectedTrackID == track.id,
+                    isSelected: selectedTrackID == identity,
                     isFavorite: isFavorite(track),
-                    onSelect: { selectedTrackID = track.id },
-                    onPlay: { handleDoubleTap(on: track) }
+                    onSelect: { selectedTrackID = identity },
+                    onPlay: { handleDoubleTap(on: track) },
+                    onToggleFavorite: { onToggleFavorite(track, isFavorite(track)) }
                 )
                 .contextMenu {
-                    // Wrapped so the item tree is built only when the menu is presented;
-                    // inline it would run for every visible row on every body pass.
                     TrackRowContextMenu(track: track, itemsProvider: contextMenuItems)
                 }
             }
@@ -50,6 +63,7 @@ struct TrackListView: View {
         .onAppear(perform: initializeSortedTracks)
         .onChange(of: tracks) { _, newTracks in
             guard !newTracks.isEmpty else {
+                sortGeneration += 1
                 sortedTracks = []
                 return
             }
@@ -143,14 +157,18 @@ struct TrackListView: View {
 
     private func performBackgroundSort(with newSortOrder: [KeyPathComparator<Track>]) {
         if isCustomSort {
+            sortGeneration += 1
             sortedTracks = tracks
             return
         }
 
+        sortGeneration += 1
+        let generation = sortGeneration
         let initialTracks = tracks
         Task.detached(priority: .userInitiated) {
             let sorted = initialTracks.sorted(using: newSortOrder)
             await MainActor.run {
+                guard generation == self.sortGeneration else { return }
                 self.sortedTracks = sorted
             }
         }
@@ -160,6 +178,7 @@ struct TrackListView: View {
         if let customSort = notification.userInfo?["isCustomSort"] as? Bool {
             isCustomSort = customSort
             if customSort {
+                sortGeneration += 1
                 sortedTracks = tracks
                 return
             }
@@ -284,13 +303,12 @@ private struct TrackListRow: View {
     let isFavorite: Bool
     let onSelect: () -> Void
     let onPlay: () -> Void
+    let onToggleFavorite: () -> Void
 
     /// `Table` selection is emphasized only while the window is key; matching it means
     /// tracking the same signal.
     @Environment(\.controlActiveState)
     private var controlActiveState
-
-    @EnvironmentObject var playlistManager: PlaylistManager
 
     @State private var artworkImage: NSImage?
     @State private var isHovering = false
@@ -345,9 +363,7 @@ private struct TrackListRow: View {
     /// permanently, an unfavorited one only on hover, which keeps a mostly unfavorited list
     /// quiet while leaving the toggle one click away.
     private var favoriteButton: some View {
-        Button {
-            playlistManager.toggleFavorite(for: track, currentState: isFavorite)
-        } label: {
+        Button(action: onToggleFavorite) {
             Image(systemName: isFavorite ? Icons.starFill : Icons.star)
                 .font(.system(size: 11))
                 .foregroundStyle(isFavorite ? Color.yellow : secondaryTextColor)

@@ -153,7 +153,11 @@ struct HomeView: View {
     private var discoverView: some View {
         // Only built when Discover is the selected sidebar item, so visibility reduces
         // to whether Home is the active tab.
-        DiscoverView(isVisible: isActiveTab) { target in
+        DiscoverView(
+            libraryManager: libraryManager,
+            playlistManager: playlistManager,
+            isVisible: isActiveTab
+        ) { target in
             homeDetail = target
         }
     }

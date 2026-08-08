@@ -62,7 +62,8 @@ extension PlaylistManager {
     func createPlaylist(name: String, tracks: [Track] = []) -> Playlist {
         var newPlaylist = Playlist(name: name, tracks: [])
         newPlaylist.sortOrder = nextUserPlaylistSortOrder()
-        playlists.append(newPlaylist)
+        let createdPlaylist = newPlaylist
+        playlists.append(createdPlaylist)
 
         // Save to database and add tracks. The append `sortOrder` is re-read at write time
         // rather than reused from above: a sidebar reorder between the two would otherwise
@@ -70,9 +71,10 @@ extension PlaylistManager {
         Task {
             do {
                 if let dbManager = libraryManager?.databaseManager {
-                    var persisted = newPlaylist
+                    var persisted = createdPlaylist
                     persisted.sortOrder = await MainActor.run {
-                        self.playlists.first { $0.id == newPlaylist.id }?.sortOrder ?? newPlaylist.sortOrder
+                        self.playlists.first { $0.id == createdPlaylist.id }?.sortOrder
+                            ?? createdPlaylist.sortOrder
                     }
                     try await dbManager.savePlaylistAsync(persisted)
                 }
@@ -81,11 +83,11 @@ extension PlaylistManager {
             }
 
             if !tracks.isEmpty {
-                await addTracksToPlaylist(tracks: tracks, playlistID: newPlaylist.id)
+                await addTracksToPlaylist(tracks: tracks, playlistID: createdPlaylist.id)
             }
         }
 
-        return newPlaylist
+        return createdPlaylist
     }
     
     /// Delete a playlist

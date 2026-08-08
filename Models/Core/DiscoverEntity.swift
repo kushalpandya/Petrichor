@@ -6,6 +6,11 @@
 
 import Foundation
 
+enum DiscoverConfiguration {
+    static let carouselItemCount = 25
+    static let freshMusicTrackCount = 25
+}
+
 // MARK: - Discover Entity Types
 
 enum DiscoverEntityKind: String, Codable, Hashable {
@@ -159,17 +164,32 @@ enum DiscoverSection {
     }
 }
 
-// MARK: - Sticky Cache
+// MARK: - Cache
 
-/// One JSON blob rather than parallel plist arrays, which would desynchronize given the
-/// heterogeneous ref shape.
-struct DiscoverFeaturedCache: Codable {
-    /// Bump to make every install regenerate after a selection or ref-shape change, with no
-    /// database migration. v2 added `DiscoverEntityRef.artistId`.
-    static let currentVersion = 2
+struct DiscoverCache: Codable {
+    static let currentVersion = 1
 
     let version: Int
-    let refs: [DiscoverEntityRef]
+    let carouselItemCount: Int
+    var featuredRefs: [DiscoverEntityRef]
+    var mostLovedRefs: [DiscoverEntityRef]
+    var freshMusicTrackIds: [Int64]
+    var lastScheduledUpdate: Date?
+    var lovedSignalGeneration: Int
+    var lovedSelectionGeneration: Int
+
+    static var empty: Self {
+        DiscoverCache(
+            version: currentVersion,
+            carouselItemCount: DiscoverConfiguration.carouselItemCount,
+            featuredRefs: [],
+            mostLovedRefs: [],
+            freshMusicTrackIds: [],
+            lastScheduledUpdate: nil,
+            lovedSignalGeneration: 0,
+            lovedSelectionGeneration: -1
+        )
+    }
 }
 
 // MARK: - Detached Task Payload
@@ -185,6 +205,7 @@ struct DiscoverPayload {
     let smart: DiscoverSmartSnapshot
     let didRegenerateFeatured: Bool
     let didRegenerateLoved: Bool
+    let lovedSignalGeneration: Int
     let didRegenerateTracks: Bool
     let didRunScheduled: Bool
 }

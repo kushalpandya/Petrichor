@@ -16,15 +16,11 @@ import Foundation
 
 extension LibraryManager {
     // MARK: - Constants
-    private static let discoverTrackIdsKey = "discoverTrackIds"
+    private static let discoverCacheKey = "discoverCache"
     /// `discoverUpdateInterval` governs Featured and Fresh Music together. The per-section
     /// refresh buttons don't touch it.
-    private static let discoverLastUpdatedKey = "discoverLastUpdated"
     private static let discoverUpdateIntervalKey = "discoverUpdateInterval"
     private static let discoverTrackCountKey = "discoverTrackCount"
-    private static let discoverFeaturedCacheKey = "discoverFeaturedCache"
-    private static let discoverMostLovedCacheKey = "discoverMostLovedCache"
-    private static let discoverLovedNeedsRefreshKey = "discoverLovedNeedsRefresh"
 
     private static let recentTrackPoolSize = 200
     /// The interval is measured in days, so hourly is plenty.
@@ -37,34 +33,21 @@ extension LibraryManager {
 
     private var discoverTrackCount: Int {
         let count = userDefaults.integer(forKey: Self.discoverTrackCountKey)
-        return count > 0 ? count : 50
+        return count > 0 ? count : DiscoverConfiguration.freshMusicTrackCount
     }
 
     private var discoverLastUpdated: Date? {
-        userDefaults.object(forKey: Self.discoverLastUpdatedKey) as? Date
+        loadDiscoverCache()?.lastScheduledUpdate
     }
 
-    /// Whether a favorite or play has landed since Most Loved & Played was last selected.
-    /// Persisted, because the signal usually arrives while the user is elsewhere in the app
-    /// and easily outlives the session. An absent key means the row has never been selected
-    /// on this signal at all (fresh install, or a cache inherited from when it rode the
-    /// interval), which counts as needing a refresh.
     var discoverLovedNeedsRefresh: Bool {
-        get {
-            guard userDefaults.object(forKey: Self.discoverLovedNeedsRefreshKey) != nil else {
-                return true
-            }
-            return userDefaults.bool(forKey: Self.discoverLovedNeedsRefreshKey)
-        }
-        set { userDefaults.set(newValue, forKey: Self.discoverLovedNeedsRefreshKey) }
+        guard let cache = loadDiscoverCache() else { return true }
+        return cache.lovedSignalGeneration != cache.lovedSelectionGeneration
     }
 
-    /// Written only on a real transition: this fires on every play, and each write wakes
-    /// every `UserDefaults.didChangeNotification` observer in the app.
     @objc
     func handleDiscoverLovedSignalChanged() {
-        guard !discoverLovedNeedsRefresh else { return }
-        discoverLovedNeedsRefresh = true
+        updateDiscoverCache { $0.lovedSignalGeneration += 1 }
     }
 
     private func hasElapsed(since date: Date?) -> Bool {
@@ -134,8 +117,9 @@ extension LibraryManager {
 
     @MainActor
     private func performStickyReresolve(attempt: Int = 0) async {
-        let cachedRefs = loadFeaturedCache()?.refs ?? []
-        let cachedLovedRefs = loadFeaturedCache(key: Self.discoverMostLovedCacheKey)?.refs ?? []
+        let cache = loadDiscoverCache()
+        let cachedRefs = cache?.featuredRefs ?? []
+        let cachedLovedRefs = cache?.mostLovedRefs ?? []
         guard !cachedRefs.isEmpty || !cachedLovedRefs.isEmpty else { return }
 
         let manager = databaseManager
@@ -208,7 +192,7 @@ extension LibraryManager {
         let eligiblePlaylists = discoverEligiblePlaylists()
         let smartPlaylists = eligiblePlaylists.filter(\.needsInMemorySmartEvaluation)
         let eligiblePlaylistIds = Set(eligiblePlaylists.map(\.id))
-        let featuredRefs = Set(loadFeaturedCache()?.refs ?? [])
+        let featuredRefs = Set(loadDiscoverCache()?.featuredRefs ?? [])
         discoverRecentGeneration += 1
         // Claimed here, not in the warmer: a warmer from the previous snapshot has to be
         // invalidated the moment this load starts evaluating.
@@ -220,19 +204,20 @@ extension LibraryManager {
 
         let result = await Task.detached(priority: .utility) { () -> ([DiscoverEntityRow], [UUID: [Track]]) in
             let smartTracks = manager.discoverSmartPlaylistTracks(for: smartPlaylists)
+            let recentTrackIds = manager.discoverRecentTrackIds(limit: LibraryManager.recentTrackPoolSize)
             let candidates = LibraryManager.mergingPlaylistCandidates(
-                manager.getDiscoverRecentlyPlayedCandidates(trackPoolSize: LibraryManager.recentTrackPoolSize),
+                manager.getDiscoverRecentlyPlayedCandidates(trackIds: recentTrackIds),
                 smart: manager.getDiscoverRecentSmartPlaylistCandidates(
                     for: smartPlaylists,
                     tracksByPlaylist: smartTracks,
-                    recentTrackIds: manager.discoverRecentTrackIds(limit: LibraryManager.recentTrackPoolSize)
+                    recentTrackIds: Set(recentTrackIds)
                 ),
                 eligibleIds: eligiblePlaylistIds,
                 ranking: .recency
             )
             let rows = LibraryManager.selectRoundRobin(
                 candidates,
-                target: LibraryManager.recentlyPlayedSlotCount,
+                target: DiscoverConfiguration.carouselItemCount,
                 excluding: featuredRefs
             )
             LibraryManager.warmCategoryArtwork(for: rows)
@@ -278,7 +263,6 @@ extension LibraryManager {
     /// rowids, so a restored-by-ID list can resolve to unrelated, already played tracks.
     func clearDiscoverCaches() {
         discoverPendingRequest = nil
-        userDefaults.removeObject(forKey: Self.discoverLovedNeedsRefreshKey)
         // A load already detached can't be cancelled outright, so invalidate its tokens
         // too; otherwise it finishes afterwards and republishes pre-reset IDs.
         discoverLoadTask?.cancel()
@@ -289,14 +273,7 @@ extension LibraryManager {
         discoverArtworkGeneration += 1
         discoverResetEpoch += 1
 
-        for key in [
-            Self.discoverTrackIdsKey,
-            Self.discoverLastUpdatedKey,
-            Self.discoverFeaturedCacheKey,
-            Self.discoverMostLovedCacheKey
-        ] {
-            userDefaults.removeObject(forKey: key)
-        }
+        userDefaults.removeObject(forKey: Self.discoverCacheKey)
 
         discoverPlaylistArtwork.removeAll()
         discoverWarmedPlaylistSignatures.removeAll()
@@ -369,20 +346,11 @@ extension LibraryManager {
     // MARK: - Core Load
 
     @MainActor
-    private func performDiscoverLoad(
+    private func prepareDiscoverLoad(
         forceFeatured: Bool,
         forceTracks: Bool,
-        attempt: Int = 0,
-        prior: DiscoverPriorContent? = nil
-    ) async {
-        // Nothing runs mid-scan: dbQueue is serialized, so every read here interleaves with
-        // the scanner's writes. Returning before touching state also avoids blanking Fresh
-        // Music and republishing it from a first-run empty cache.
-        guard !isScanning else { return }
-
-        // A manual refresh blanks its section to a skeleton rather than leave stale content
-        // on screen, so hold what was there for an abandoned attempt to restore. Threaded
-        // through retries: by attempt two the screen holds attempt one's skeleton.
+        prior: DiscoverPriorContent?
+    ) -> DiscoverPriorContent {
         let prior = prior ?? DiscoverPriorContent(
             featured: featuredSection,
             recent: recentlyPlayedSection,
@@ -398,23 +366,32 @@ extension LibraryManager {
             discoverTracks = []
             isLoadingDiscoverTracks = true
         }
+        return prior
+    }
 
-        let featuredCache = loadFeaturedCache()
-        let lovedCache = loadFeaturedCache(key: Self.discoverMostLovedCacheKey)
-        let cachedRefs = featuredCache?.refs ?? []
-        let cachedLovedRefs = lovedCache?.refs ?? []
-        let cachedTrackIds = userDefaults.array(forKey: Self.discoverTrackIdsKey) as? [Int64] ?? []
-        // Presence of the entry, not whether it holds anything: a library with everything
-        // played legitimately persists an empty track list, and treating that as "never
-        // generated" would make every visit a scheduled regeneration.
-        let hasGenerated = discoverLastUpdated != nil && featuredCache != nil
-        // The interval regenerates both; the refresh buttons regenerate only their own and
-        // leave the schedule alone, so one can't silently postpone the other.
-        let scheduled = hasElapsed(since: discoverLastUpdated) || !hasGenerated
+    @MainActor
+    private func performDiscoverLoad(
+        forceFeatured: Bool,
+        forceTracks: Bool,
+        attempt: Int = 0,
+        prior: DiscoverPriorContent? = nil
+    ) async {
+        // Nothing runs mid-scan: dbQueue is serialized, so every read here interleaves with
+        // the scanner's writes. Returning before touching state also avoids blanking Fresh
+        // Music and republishing it from a first-run empty cache.
+        guard !isScanning else { return }
+
+        let prior = prepareDiscoverLoad(forceFeatured: forceFeatured, forceTracks: forceTracks, prior: prior)
+
+        let cache = loadDiscoverCache()
+        let cachedRefs = cache?.featuredRefs ?? []
+        let cachedLovedRefs = cache?.mostLovedRefs ?? []
+        let cachedTrackIds = cache?.freshMusicTrackIds ?? []
+        let hasGenerated = cache?.lastScheduledUpdate != nil
+        let scheduled = hasElapsed(since: cache?.lastScheduledUpdate) || !hasGenerated
         let regenerateFeatured = scheduled || forceFeatured
-        // Off the interval entirely: this row answers "what do you love and play most", so
-        // it reselects when that changes. Nothing played or favorited, nothing to reshuffle.
-        let regenerateLoved = discoverLovedNeedsRefresh || lovedCache == nil
+        let lovedSignalGeneration = cache?.lovedSignalGeneration ?? 0
+        let regenerateLoved = cache.map { $0.lovedSignalGeneration != $0.lovedSelectionGeneration } ?? true
         let regenerateTracks = scheduled || forceTracks
         let trackLimit = discoverTrackCount
         let manager = databaseManager
@@ -479,7 +456,7 @@ extension LibraryManager {
                     eligibleIds: eligiblePlaylistIds,
                     ranking: .loved
                 )
-                lovedRows = LibraryManager.selectRoundRobin(loved, target: LibraryManager.mostLovedSlotCount)
+                lovedRows = LibraryManager.selectRoundRobin(loved, target: DiscoverConfiguration.carouselItemCount)
                 lovedRefs = lovedRows.map(\.ref)
             } else {
                 let resolved = manager.resolveDiscoverEntities(
@@ -490,19 +467,20 @@ extension LibraryManager {
             }
 
             // Recently Played: always fresh, minus anything already in Featured.
+            let recentTrackIds = manager.discoverRecentTrackIds(limit: LibraryManager.recentTrackPoolSize)
             let recentCandidates = LibraryManager.mergingPlaylistCandidates(
-                manager.getDiscoverRecentlyPlayedCandidates(trackPoolSize: LibraryManager.recentTrackPoolSize),
+                manager.getDiscoverRecentlyPlayedCandidates(trackIds: recentTrackIds),
                 smart: manager.getDiscoverRecentSmartPlaylistCandidates(
                     for: smartPlaylists,
                     tracksByPlaylist: smartTracks,
-                    recentTrackIds: manager.discoverRecentTrackIds(limit: LibraryManager.recentTrackPoolSize)
+                    recentTrackIds: Set(recentTrackIds)
                 ),
                 eligibleIds: eligiblePlaylistIds,
                 ranking: .recency
             )
             let recentRows = LibraryManager.selectRoundRobin(
                 recentCandidates,
-                target: LibraryManager.recentlyPlayedSlotCount,
+                target: DiscoverConfiguration.carouselItemCount,
                 excluding: Set(featuredRefs)
             )
 
@@ -524,6 +502,7 @@ extension LibraryManager {
                 smart: smart,
                 didRegenerateFeatured: regenerateFeatured,
                 didRegenerateLoved: regenerateLoved,
+                lovedSignalGeneration: lovedSignalGeneration,
                 didRegenerateTracks: regenerateTracks,
                 didRunScheduled: scheduled
             )
@@ -641,23 +620,28 @@ extension LibraryManager {
         let stickyIsCurrent = stickyGeneration == discoverStickyGeneration
         let recentIsCurrent = recentGeneration == discoverRecentGeneration
         let tracksAreCurrent = tracksGeneration == discoverTracksGeneration
+        var cache = loadDiscoverCache() ?? .empty
+        var cacheChanged = false
 
         if stickyIsCurrent {
             featuredSection = .loaded(makeEntities(from: payload.featuredRows))
             mostLovedSection = .loaded(makeEntities(from: payload.lovedRows))
             if payload.didRegenerateFeatured {
-                saveFeaturedCache(refs: payload.featuredRefs)
+                cache.featuredRefs = payload.featuredRefs
+                cacheChanged = true
             }
             if payload.didRegenerateLoved {
-                saveFeaturedCache(refs: payload.lovedRefs, key: Self.discoverMostLovedCacheKey)
-                discoverLovedNeedsRefresh = false
+                cache.mostLovedRefs = payload.lovedRefs
+                cache.lovedSelectionGeneration = payload.lovedSignalGeneration
+                cacheChanged = true
             }
         }
         if tracksAreCurrent {
             discoverTracks = payload.tracks
             isLoadingDiscoverTracks = false
             if payload.didRegenerateTracks {
-                userDefaults.set(payload.tracks.compactMap { $0.trackId }, forKey: Self.discoverTrackIdsKey)
+                cache.freshMusicTrackIds = payload.tracks.compactMap { $0.trackId }
+                cacheChanged = true
             }
         }
         if recentIsCurrent {
@@ -666,7 +650,11 @@ extension LibraryManager {
 
         // The shared clock only advances when a scheduled regeneration actually landed.
         if payload.didRunScheduled, stickyIsCurrent, tracksAreCurrent {
-            userDefaults.set(Date(), forKey: Self.discoverLastUpdatedKey)
+            cache.lastScheduledUpdate = Date()
+            cacheChanged = true
+        }
+        if cacheChanged {
+            saveDiscoverCache(cache)
         }
     }
 
@@ -719,21 +707,26 @@ extension LibraryManager {
     /// `ArtistEntity` copies, so updating `cachedArtistEntities` leaves them stale until
     /// something rebuilds them.
     func updateDiscoverArtistArtwork(name: String, artworkData: Data?) {
-        func applying(_ entities: [any Entity]) -> [any Entity] {
-            entities.map { entity in
+        func applying(_ entities: [any Entity]) -> [any Entity]? {
+            guard entities.contains(where: {
+                guard let artist = $0 as? ArtistEntity else { return false }
+                return artist.name == name && artist.artworkData != artworkData
+            }) else { return nil }
+
+            return entities.map { entity in
                 guard let artist = entity as? ArtistEntity, artist.name == name else { return entity }
                 return ArtistEntity(name: artist.name, trackCount: artist.trackCount, artworkData: artworkData)
             }
         }
 
-        if case .loaded(let entities) = featuredSection {
-            featuredSection = .loaded(applying(entities))
+        if case .loaded(let entities) = featuredSection, let updated = applying(entities) {
+            featuredSection = .loaded(updated)
         }
-        if case .loaded(let entities) = mostLovedSection {
-            mostLovedSection = .loaded(applying(entities))
+        if case .loaded(let entities) = mostLovedSection, let updated = applying(entities) {
+            mostLovedSection = .loaded(updated)
         }
-        if case .loaded(let entities) = recentlyPlayedSection {
-            recentlyPlayedSection = .loaded(applying(entities))
+        if case .loaded(let entities) = recentlyPlayedSection, let updated = applying(entities) {
+            recentlyPlayedSection = .loaded(updated)
         }
     }
 
@@ -816,26 +809,39 @@ extension LibraryManager {
             playlists.sort { $0.lovedScore > $1.lovedScore }
         }
 
+        let limit = ranking == .recency
+            ? DiscoverConfiguration.carouselItemCount * 2
+            : DiscoverConfiguration.carouselItemCount
+        if playlists.count > limit {
+            playlists.removeSubrange(limit...)
+        }
+
         return others + playlists
     }
 
     // MARK: - Cache
 
-    private func loadFeaturedCache(key: String? = nil) -> DiscoverFeaturedCache? {
-        guard let data = userDefaults.data(forKey: key ?? Self.discoverFeaturedCacheKey),
-              let cache = try? JSONDecoder().decode(DiscoverFeaturedCache.self, from: data),
-              cache.version == DiscoverFeaturedCache.currentVersion else {
+    private func loadDiscoverCache() -> DiscoverCache? {
+        guard let data = userDefaults.data(forKey: Self.discoverCacheKey),
+              let cache = try? JSONDecoder().decode(DiscoverCache.self, from: data),
+              cache.version == DiscoverCache.currentVersion,
+              cache.carouselItemCount == DiscoverConfiguration.carouselItemCount else {
             return nil
         }
         return cache
     }
 
-    private func saveFeaturedCache(refs: [DiscoverEntityRef], key: String? = nil) {
-        let cache = DiscoverFeaturedCache(version: DiscoverFeaturedCache.currentVersion, refs: refs)
+    private func saveDiscoverCache(_ cache: DiscoverCache) {
         guard let data = try? JSONEncoder().encode(cache) else {
-            Logger.error("Failed to encode Discover featured cache")
+            Logger.error("Failed to encode Discover cache")
             return
         }
-        userDefaults.set(data, forKey: key ?? Self.discoverFeaturedCacheKey)
+        userDefaults.set(data, forKey: Self.discoverCacheKey)
+    }
+
+    private func updateDiscoverCache(_ update: (inout DiscoverCache) -> Void) {
+        var cache = loadDiscoverCache() ?? .empty
+        update(&cache)
+        saveDiscoverCache(cache)
     }
 }

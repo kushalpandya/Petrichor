@@ -80,17 +80,18 @@ extension PlaylistManager {
         }
 
         collection.trackCount = stationIds.count
+        let createdCollection = collection
 
         await MainActor.run {
-            self.playlists.append(collection)
+            self.playlists.append(createdCollection)
             NotificationCenter.default.post(
                 name: .navigateToPlaylists,
                 object: nil,
-                userInfo: ["playlistID": collection.id]
+                userInfo: ["playlistID": createdCollection.id]
             )
         }
 
-        return collection
+        return createdCollection
     }
 
     /// Metadata and membership commit together, and in-memory state follows only on

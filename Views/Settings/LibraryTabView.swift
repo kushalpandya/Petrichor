@@ -12,7 +12,7 @@ struct LibraryTabView: View {
     private var discoverUpdateInterval: DiscoverUpdateInterval = .weekly
 
     @AppStorage("discoverTrackCount")
-    private var discoverTrackCount: Int = 50
+    private var discoverTrackCount: Int = DiscoverConfiguration.freshMusicTrackCount
 
     @State private var isFoldersListExpanded: Bool = false
 
@@ -45,7 +45,7 @@ struct LibraryTabView: View {
                 .help("Automatically scan for new music in the library on selected interval")
                 .pickerStyle(.menu)
 
-                Picker("Refresh Discover", selection: $discoverUpdateInterval) {
+                Picker("Refresh Featured & Fresh Music", selection: $discoverUpdateInterval) {
                     ForEach(DiscoverUpdateInterval.allCases, id: \.self) { interval in
                         Text(interval.displayName).tag(interval)
                     }

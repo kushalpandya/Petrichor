@@ -20,7 +20,10 @@ extension DatabaseManager {
 
     /// Candidate entities for the Featured carousel, for one signal, across all five kinds.
     /// Each kind is ranked independently; `LMDiscover` does the mixing.
-    func getDiscoverFeaturedCandidates(signal: DiscoverSignal, limitPerKind: Int = 12) -> [DiscoverEntityRow] {
+    func getDiscoverFeaturedCandidates(
+        signal: DiscoverSignal,
+        limitPerKind: Int = DiscoverConfiguration.carouselItemCount
+    ) -> [DiscoverEntityRow] {
         let isImageFetchEnabled = ArtistBioManager.shared.isArtistInfoFetchEnabled
         let hideDuplicates = UserDefaults.standard.bool(forKey: "hideDuplicateTracks")
 
@@ -50,7 +53,7 @@ extension DatabaseManager {
 
     /// The most recently played track IDs. Every Recently Played candidate is derived from
     /// this pool, including the smart playlists evaluated in Swift.
-    func discoverRecentTrackIds(limit: Int = 200) -> Set<Int64> {
+    func discoverRecentTrackIds(limit: Int = 200) -> [Int64] {
         let hideDuplicates = UserDefaults.standard.bool(forKey: "hideDuplicateTracks")
         do {
             return try dbQueue.read { db in
@@ -61,7 +64,7 @@ extension DatabaseManager {
                     ORDER BY t.last_played_date DESC
                     LIMIT ?
                 """
-                return Set(try Int64.fetchAll(db, sql: sql, arguments: [limit]))
+                return try Int64.fetchAll(db, sql: sql, arguments: [limit])
             }
         } catch {
             Logger.error("Failed to get discover recent track ids: \(error)")
@@ -70,21 +73,15 @@ extension DatabaseManager {
     }
 
     /// Candidate entities derived from the most recently played tracks, across all five kinds.
-    func getDiscoverRecentlyPlayedCandidates(trackPoolSize: Int = 200, limitPerKind: Int = 6) -> [DiscoverEntityRow] {
+    func getDiscoverRecentlyPlayedCandidates(
+        trackIds: [Int64],
+        limitPerKind: Int = DiscoverConfiguration.carouselItemCount * 2
+    ) -> [DiscoverEntityRow] {
         let isImageFetchEnabled = ArtistBioManager.shared.isArtistInfoFetchEnabled
         let hideDuplicates = UserDefaults.standard.bool(forKey: "hideDuplicateTracks")
 
         do {
             return try dbQueue.read { db in
-                let duplicateClause = Self.duplicateClause(hideDuplicates, alias: "t")
-                let poolSQL = """
-                    SELECT t.id AS trackId
-                    FROM tracks t
-                    WHERE t.last_played_date IS NOT NULL \(duplicateClause)
-                    ORDER BY t.last_played_date DESC
-                    LIMIT ?
-                """
-                let trackIds = try Int64.fetchAll(db, sql: poolSQL, arguments: [trackPoolSize])
                 guard !trackIds.isEmpty else { return [] }
 
                 var rows: [DiscoverEntityRow] = []

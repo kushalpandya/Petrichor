@@ -8,42 +8,36 @@
 import Foundation
 
 extension LibraryManager {
-    // MARK: - Slot Counts
-
-    static let featuredSlotCount = 10
-    static let mostLovedSlotCount = 10
-    static let recentlyPlayedSlotCount = 10
-
     // MARK: - Selection
 
-    /// 5 in-rotation + 5 neglected, interleaved starting with in-rotation so the leftmost
-    /// visible tiles always mix both signals. This order is what gets persisted.
+    /// Interleaves in-rotation and neglected picks, giving the odd slot to in-rotation.
     static func selectFeatured(
         rotation: [DiscoverEntityRow],
         neglected: [DiscoverEntityRow]
     ) -> [DiscoverEntityRow] {
-        let half = featuredSlotCount / 2
-        var hot = selectRoundRobin(rotation, target: half)
-        var cold = selectRoundRobin(neglected, target: half, excluding: Set(hot.map(\.ref)))
+        let target = DiscoverConfiguration.carouselItemCount
+        let rotationTarget = (target + 1) / 2
+        let neglectedTarget = target / 2
+        var hot = selectRoundRobin(rotation, target: rotationTarget)
+        var cold = selectRoundRobin(neglected, target: neglectedTarget, excluding: Set(hot.map(\.ref)))
 
-        // One half short: let the other backfill rather than ship a stub row.
-        if hot.count < half {
+        if hot.count < rotationTarget {
             let taken = Set(hot.map(\.ref)).union(cold.map(\.ref))
-            cold += selectRoundRobin(neglected, target: featuredSlotCount - hot.count - cold.count, excluding: taken)
-        } else if cold.count < half {
+            cold += selectRoundRobin(neglected, target: target - hot.count - cold.count, excluding: taken)
+        } else if cold.count < neglectedTarget {
             let taken = Set(hot.map(\.ref)).union(cold.map(\.ref))
-            hot += selectRoundRobin(rotation, target: featuredSlotCount - hot.count - cold.count, excluding: taken)
+            hot += selectRoundRobin(rotation, target: target - hot.count - cold.count, excluding: taken)
         }
 
         var result: [DiscoverEntityRow] = []
         var hotIndex = 0
         var coldIndex = 0
-        while result.count < featuredSlotCount && (hotIndex < hot.count || coldIndex < cold.count) {
+        while result.count < target && (hotIndex < hot.count || coldIndex < cold.count) {
             if hotIndex < hot.count {
                 result.append(hot[hotIndex])
                 hotIndex += 1
             }
-            if result.count < featuredSlotCount, coldIndex < cold.count {
+            if result.count < target, coldIndex < cold.count {
                 result.append(cold[coldIndex])
                 coldIndex += 1
             }

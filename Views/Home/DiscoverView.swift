@@ -1,13 +1,36 @@
+import Combine
 import SwiftUI
 
-/// The Discover screen: two horizontally scrolling entity rows above the Fresh Music
+private final class DiscoverViewModel: ObservableObject {
+    @Published private(set) var featuredSection: DiscoverSection
+    @Published private(set) var recentlyPlayedSection: DiscoverSection
+    @Published private(set) var mostLovedSection: DiscoverSection
+    @Published private(set) var tracks: [Track]
+    @Published private(set) var isLoadingTracks: Bool
+
+    init(libraryManager: LibraryManager) {
+        featuredSection = libraryManager.featuredSection
+        recentlyPlayedSection = libraryManager.recentlyPlayedSection
+        mostLovedSection = libraryManager.mostLovedSection
+        tracks = libraryManager.discoverTracks
+        isLoadingTracks = libraryManager.isLoadingDiscoverTracks
+
+        libraryManager.$featuredSection.assign(to: &$featuredSection)
+        libraryManager.$recentlyPlayedSection.assign(to: &$recentlyPlayedSection)
+        libraryManager.$mostLovedSection.assign(to: &$mostLovedSection)
+        libraryManager.$discoverTracks.assign(to: &$tracks)
+        libraryManager.$isLoadingDiscoverTracks.assign(to: &$isLoadingTracks)
+    }
+}
+
+/// The Discover screen: three horizontally scrolling entity rows above the Fresh Music
 /// track list, composed as one vertically scrolling page with pinned section headers.
 ///
 /// Fresh Music uses `TrackListView` rather than `TrackTableView`; see its doc for why a
 /// `Table` can't participate in this layout.
 struct DiscoverView: View {
-    @EnvironmentObject var libraryManager: LibraryManager
-    @EnvironmentObject var playlistManager: PlaylistManager
+    private let libraryManager: LibraryManager
+    private let playlistManager: PlaylistManager
 
     /// Whether Discover is on screen; `HomeView` is never torn down on tab switches.
     let isVisible: Bool
@@ -15,13 +38,28 @@ struct DiscoverView: View {
     /// Raised to `HomeView`, which owns the detail overlay.
     let onSelectDetail: (HomeDetailTarget) -> Void
 
+    @StateObject private var viewModel: DiscoverViewModel
+
     @AppStorage("trackTableRowSize")
     private var trackTableRowSize: TableRowSize = .expanded
 
-    @State private var selectedTrackID: UUID?
+    @State private var selectedTrackID: TrackListIdentity?
     @State private var trackTableSortOrder = [KeyPathComparator(\Track.title)]
     @State private var metrics: EntityListMetrics = .regular
     @State private var recentlyPlayedIsStale = false
+
+    init(
+        libraryManager: LibraryManager,
+        playlistManager: PlaylistManager,
+        isVisible: Bool,
+        onSelectDetail: @escaping (HomeDetailTarget) -> Void
+    ) {
+        self.libraryManager = libraryManager
+        self.playlistManager = playlistManager
+        self.isVisible = isVisible
+        self.onSelectDetail = onSelectDetail
+        _viewModel = StateObject(wrappedValue: DiscoverViewModel(libraryManager: libraryManager))
+    }
 
     // MARK: - Layout
 
@@ -43,13 +81,9 @@ struct DiscoverView: View {
     var body: some View {
         ScrollView(.vertical) {
             LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
-                // Each section's header pins in turn, so scrolling hands off
-                // Featured -> Recently Played -> Fresh Music.
                 Section {
                     featuredRow
                 } header: {
-                    // No refresh control: it recomputes on every visit, so a manual one
-                    // would be a no-op dressed as an action.
                     EntityListHeader(title: String(localized: "Featured"), metrics: metrics) {
                         refreshButton(help: String(localized: "Refresh featured picks")) {
                             Task { await libraryManager.refreshFeatured() }
@@ -81,9 +115,9 @@ struct DiscoverView: View {
             // so this measures the resolved height without creating a layout cycle.
             GeometryReader { geometry in
                 Color.clear
-                    .onAppear { metrics = Layout.metrics(forAvailableHeight: geometry.size.height) }
+                    .onAppear { updateMetrics(forAvailableHeight: geometry.size.height) }
                     .onChange(of: geometry.size.height) { _, newHeight in
-                        metrics = Layout.metrics(forAvailableHeight: newHeight)
+                        updateMetrics(forAvailableHeight: newHeight)
                     }
             }
         }
@@ -97,7 +131,7 @@ struct DiscoverView: View {
             recentlyPlayedIsStale = true
         }
         // Generation is skipped while a scan is running, so pick it up once the scan ends.
-        .onChange(of: libraryManager.isScanning) { _, scanning in
+        .onReceive(libraryManager.$isScanning.removeDuplicates().dropFirst()) { scanning in
             guard !scanning else { return }
             Task { await libraryManager.loadDiscover() }
         }
@@ -118,9 +152,9 @@ struct DiscoverView: View {
 
     private var featuredRow: some View {
         EntityListRow(
-            entities: libraryManager.featuredSection.entities,
+            entities: viewModel.featuredSection.entities,
             state: listState(
-                for: libraryManager.featuredSection,
+                for: viewModel.featuredSection,
                 emptyMessage: String(localized: "Add more music to see featured picks")
             ),
             metrics: metrics,
@@ -131,9 +165,9 @@ struct DiscoverView: View {
 
     private var recentlyPlayedRow: some View {
         EntityListRow(
-            entities: libraryManager.recentlyPlayedSection.entities,
+            entities: viewModel.recentlyPlayedSection.entities,
             state: listState(
-                for: libraryManager.recentlyPlayedSection,
+                for: viewModel.recentlyPlayedSection,
                 emptyMessage: String(localized: "Play something to see it here")
             ),
             metrics: metrics,
@@ -144,9 +178,9 @@ struct DiscoverView: View {
 
     private var mostLovedRow: some View {
         EntityListRow(
-            entities: libraryManager.mostLovedSection.entities,
+            entities: viewModel.mostLovedSection.entities,
             state: listState(
-                for: libraryManager.mostLovedSection,
+                for: viewModel.mostLovedSection,
                 emptyMessage: String(localized: "Play or favourite some music to see it here")
             ),
             metrics: metrics,
@@ -158,6 +192,12 @@ struct DiscoverView: View {
     private func listState(for section: DiscoverSection, emptyMessage: String) -> EntityListState {
         if section.isLoading { return .loading }
         return section.entities.isEmpty ? .empty(message: emptyMessage) : .loaded
+    }
+
+    private func updateMetrics(forAvailableHeight height: CGFloat) {
+        let newMetrics = Layout.metrics(forAvailableHeight: height)
+        guard newMetrics != metrics else { return }
+        metrics = newMetrics
     }
 
     // MARK: - Fresh Music
@@ -177,20 +217,23 @@ struct DiscoverView: View {
     }
 
     @ViewBuilder private var freshMusicContent: some View {
-        if libraryManager.isLoadingDiscoverTracks {
+        if viewModel.isLoadingTracks {
             TrackListSkeleton()
-        } else if libraryManager.discoverTracks.isEmpty {
+        } else if viewModel.tracks.isEmpty {
             freshMusicEmptyState
         } else {
             TrackListView(
-                tracks: libraryManager.discoverTracks,
+                tracks: viewModel.tracks,
                 selectedTrackID: $selectedTrackID,
                 playlistID: nil,
                 entityID: nil,
                 sortOrder: $trackTableSortOrder,
                 onPlayTrack: { track in
-                    playlistManager.playTrack(track, fromTracks: libraryManager.discoverTracks)
+                    playlistManager.playTrack(track, fromTracks: viewModel.tracks)
                     playlistManager.currentQueueSource = .library
+                },
+                onToggleFavorite: { track, currentState in
+                    playlistManager.toggleFavorite(for: track, currentState: currentState)
                 },
                 contextMenuItems: { tracks, _ in
                     guard let track = tracks.first else { return [] }

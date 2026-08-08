@@ -425,7 +425,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             "tintNowPlayingBackground": true,
             "playerBarBackgroundStyle": "Full width",
             "discoverUpdateInterval": "weekly",
-            "discoverTrackCount": 50,
+            "discoverTrackCount": DiscoverConfiguration.freshMusicTrackCount,
             "crossfadeEnabled": false,
             "crossfadeDuration": 3.0,
             "replayGainEnabled": false,

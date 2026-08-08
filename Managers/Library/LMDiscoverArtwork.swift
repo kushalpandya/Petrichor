@@ -28,18 +28,28 @@ extension LibraryManager {
         // `PlaylistArtworkCache` can't shortcut this alone: a cold playlist's `artworkData`
         // keys off an empty track list, so it never matches the entry stored under the
         // hydrated key, and a playlist whose tracks carry no art caches nothing at all.
-        let pending = (featuredSection.entities + mostLovedSection.entities + recentlyPlayedSection.entities)
-            .compactMap { $0 as? PlaylistEntity }
-            .compactMap { playlistsById[$0.id] }
-            .filter {
-                discoverWarmedPlaylistSignatures[$0.id]
-                    != Self.collageSignature(for: $0, smartTracks: smartTracks, smartVersions: smartVersions)
+        let carouselPlaylists = featuredSection.entities
+            + mostLovedSection.entities
+            + recentlyPlayedSection.entities
+        let pending = Dictionary(
+            carouselPlaylists.compactMap { entity -> (UUID, Playlist)? in
+                guard let playlistEntity = entity as? PlaylistEntity,
+                      let playlist = playlistsById[playlistEntity.id],
+                      discoverWarmedPlaylistSignatures[playlist.id]
+                        != Self.collageSignature(
+                            for: playlist,
+                            smartTracks: smartTracks,
+                            smartVersions: smartVersions
+                        ) else { return nil }
+                return (playlist.id, playlist)
             }
+        ) { first, _ in first }.values
 
         guard !pending.isEmpty else { return }
 
         let manager = databaseManager
-        var didChange = false
+        var updates: [UUID: (signature: String, artwork: Data?)] = [:]
+        var invalidatedPlaylistIds: Set<UUID> = []
 
         for playlist in pending {
             let signature = Self.collageSignature(
@@ -71,38 +81,55 @@ extension LibraryManager {
             // what this catches, and the captured dictionary compared against itself can't.
             guard let live = currentPlaylistsById()[playlist.id] else { continue }
             if let evaluatedAt = smartVersions[playlist.id], live.dateModified != evaluatedAt {
-                // The render describes superseded criteria. Drop any previous collage and
-                // leave the signature unrecorded so the next pass retries.
-                discoverPlaylistArtwork.removeValue(forKey: playlist.id)
-                discoverWarmedPlaylistSignatures.removeValue(forKey: playlist.id)
-                didChange = true
+                invalidatedPlaylistIds.insert(playlist.id)
                 continue
             }
             guard Self.collageSignature(
                 for: live, smartTracks: smartTracks, smartVersions: smartVersions
-            ) == signature else { continue }
-
-            // Recorded even when nothing rendered, so a playlist with no usable artwork
-            // isn't re-hydrated on every load.
-            discoverWarmedPlaylistSignatures[playlist.id] = signature
-            if let artwork {
-                discoverPlaylistArtwork[playlist.id] = artwork
-            } else {
-                // Authoritative absence: keeping the old entry would strand a stale collage
-                // behind a matching signature that stops any retry.
-                discoverPlaylistArtwork.removeValue(forKey: playlist.id)
+            ) == signature else {
+                invalidatedPlaylistIds.insert(playlist.id)
+                continue
             }
-            didChange = true
+
+            updates[playlist.id] = (signature, artwork)
         }
 
-        guard didChange, generation == discoverArtworkGeneration else { return }
+        guard generation == discoverArtworkGeneration else { return }
+
+        for playlistId in invalidatedPlaylistIds {
+            discoverPlaylistArtwork.removeValue(forKey: playlistId)
+            discoverWarmedPlaylistSignatures.removeValue(forKey: playlistId)
+        }
+        for (playlistId, update) in updates {
+            discoverWarmedPlaylistSignatures[playlistId] = update.signature
+            discoverPlaylistArtwork[playlistId] = update.artwork
+        }
+
+        let changedPlaylistIds = invalidatedPlaylistIds.union(updates.keys)
+        guard !changedPlaylistIds.isEmpty else { return }
 
         let current = currentPlaylistsById()
-        featuredSection = .loaded(applyingPlaylistArtwork(to: featuredSection.entities, playlists: current))
-        mostLovedSection = .loaded(applyingPlaylistArtwork(to: mostLovedSection.entities, playlists: current))
-        recentlyPlayedSection = .loaded(
-            applyingPlaylistArtwork(to: recentlyPlayedSection.entities, playlists: current)
-        )
+        if let updated = applyingPlaylistArtwork(
+            to: featuredSection.entities,
+            playlists: current,
+            changedPlaylistIds: changedPlaylistIds
+        ) {
+            featuredSection = .loaded(updated)
+        }
+        if let updated = applyingPlaylistArtwork(
+            to: mostLovedSection.entities,
+            playlists: current,
+            changedPlaylistIds: changedPlaylistIds
+        ) {
+            mostLovedSection = .loaded(updated)
+        }
+        if let updated = applyingPlaylistArtwork(
+            to: recentlyPlayedSection.entities,
+            playlists: current,
+            changedPlaylistIds: changedPlaylistIds
+        ) {
+            recentlyPlayedSection = .loaded(updated)
+        }
     }
 
     func currentPlaylistsById() -> [UUID: Playlist] {
@@ -113,15 +140,19 @@ extension LibraryManager {
 
     private func applyingPlaylistArtwork(
         to entities: [any Entity],
-        playlists: [UUID: Playlist]
-    ) -> [any Entity] {
-        entities.map { entity in
+        playlists: [UUID: Playlist],
+        changedPlaylistIds: Set<UUID>
+    ) -> [any Entity]? {
+        guard entities.contains(where: { changedPlaylistIds.contains($0.id) }) else { return nil }
+
+        return entities.map { entity in
             guard let playlistEntity = entity as? PlaylistEntity,
+                  changedPlaylistIds.contains(playlistEntity.id),
                   let playlist = playlists[playlistEntity.id] else { return entity }
 
             return PlaylistEntity(
                 playlist: playlist,
-                artworkData: discoverPlaylistArtwork[playlistEntity.id],
+                artworkData: discoverPlaylistArtwork[playlistEntity.id] ?? playlist.artworkData,
                 trackCount: playlistEntity.trackCount
             )
         }
