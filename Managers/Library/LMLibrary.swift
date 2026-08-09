@@ -10,6 +10,7 @@ import Foundation
 extension LibraryManager {
     func loadMusicLibrary() {
         Logger.info("Loading music library from database...")
+        invalidatePendingEntityLoad()
 
         // Clear caches
         folderTrackCounts.removeAll()
@@ -108,10 +109,14 @@ extension LibraryManager {
         // Notify playlist manager to update smart playlists
         if let coordinator = AppCoordinator.shared {
             coordinator.playlistManager.updateSmartPlaylists()
-            coordinator.handleLibraryChanged()
         }
 
-        refreshEntities()
+        if entitiesLoaded {
+            Task { await refreshEntitiesAsync(updateCounts: false) }
+        } else {
+            refreshArtistNameLookup()
+        }
+
         // Post notification that library is loaded
         NotificationCenter.default.post(name: NSNotification.Name("LibraryDidLoad"), object: nil)
     }
@@ -145,14 +150,26 @@ extension LibraryManager {
         updateDiscoverArtistArtwork(name: name, artworkData: artworkData)
     }
 
-    func refreshEntities() {
+    func refreshEntities(updateCounts: Bool = true) {
+        invalidatePendingEntityLoad()
         entitiesLoaded = false
         cachedArtistEntities = databaseManager.getArtistEntities()
         cachedAlbumEntities = databaseManager.getAlbumEntities()
         entitiesLoaded = true
         refreshArtistNameLookup()
-        updateTotalCounts()
+        if updateCounts {
+            updateTotalCounts()
+        }
         Logger.info("Refreshed entities: \(cachedArtistEntities.count) artists and \(cachedAlbumEntities.count) albums")
+        objectWillChange.send()
+    }
+
+    @MainActor
+    func refreshEntitiesAsync(updateCounts: Bool = true) async {
+        invalidatePendingEntityLoad()
+        entitiesLoaded = false
+        await loadEntitiesAsync()
+        if updateCounts { updateTotalCounts() }
         objectWillChange.send()
     }
 
@@ -160,8 +177,12 @@ extension LibraryManager {
     /// totals, the All Tracks cache), then notify views to re-fetch. The cached lists are
     /// load-once, so they must be invalidated rather than re-requested.
     func reloadForDuplicateVisibilityChange() {
+        invalidatePendingEntityLoad()
         refreshLibraryCategories()
         updateTotalCounts()
+        if entitiesLoaded {
+            Task { await refreshEntitiesAsync(updateCounts: false) }
+        }
         Task {
             let loaded = await Task.detached { self.databaseManager.getAllTracks() }.value
             await MainActor.run {
@@ -419,15 +440,52 @@ extension LibraryManager {
         return foldersToRefresh
     }
 
-    internal func loadEntities() {
-        guard !entitiesLoaded else { return }
+    @MainActor
+    internal func loadEntitiesAsync() async {
+        while !entitiesLoaded {
+            guard !Task.isCancelled else { return }
+            if let entityLoadTask {
+                await entityLoadTask.value
+                if !entitiesLoaded, entityLoadTaskGeneration != entityLoadGeneration {
+                    self.entityLoadTask = nil
+                }
+                continue
+            }
 
-        cachedArtistEntities = databaseManager.getArtistEntities()
-        cachedAlbumEntities = databaseManager.getAlbumEntities()
+            entityLoadGeneration += 1
+            let generation = entityLoadGeneration
+            let databaseManager = databaseManager
+            let task = Task {
+                let loaded = await Task.detached(priority: .userInitiated) {
+                    (
+                        databaseManager.getArtistEntities(),
+                        databaseManager.getAlbumEntities(),
+                        databaseManager.getArtistNamesByRole()
+                    )
+                }.value
 
-        entitiesLoaded = true
-        refreshArtistNameLookup()
-        Logger.info("Loaded \(cachedArtistEntities.count) artists and \(cachedAlbumEntities.count) albums")
+                guard !Task.isCancelled, generation == self.entityLoadGeneration else { return }
+                self.cachedArtistEntities = loaded.0
+                self.cachedAlbumEntities = loaded.1
+                self.entitiesLoaded = true
+                if let namesByRole = loaded.2 {
+                    ArtistParser.setLibraryArtists(namesByRole)
+                }
+                Logger.info("Loaded \(loaded.0.count) artists and \(loaded.1.count) albums")
+            }
+            entityLoadTaskGeneration = generation
+            entityLoadTask = task
+            await task.value
+            guard !Task.isCancelled else { return }
+            if generation == entityLoadGeneration {
+                entityLoadTask = nil
+            }
+        }
+    }
+
+    internal func invalidatePendingEntityLoad() {
+        entityLoadGeneration += 1
+        entityLoadTask?.cancel()
     }
 
     /// Hand `ArtistParser` the names this library already resolved, so views parsing a raw artist

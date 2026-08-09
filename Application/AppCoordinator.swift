@@ -1,408 +1,352 @@
-//
-// AppCoordinator class
-//
-// This class handles playback initialization & state saving and restoration based on library updates.
-//
-
 import SwiftUI
 
 class AppCoordinator: ObservableObject {
     // MARK: - Managers
+
     private(set) static var shared: AppCoordinator?
+
     let libraryManager: LibraryManager
     let playlistManager: PlaylistManager
     let playbackManager: PlaybackManager
     let menuBarManager: MenuBarManager
     let scrobbleManager: ScrobbleManager
-    
-    private var hadFoldersAtStartup: Bool = false
-    private let playbackStateKey = "SavedPlaybackState"
-    private let playbackUIStateKey = "SavedPlaybackUIState"
-    private let savedStationKey = "SavedRadioStationId"
 
-    /// The source identity launch restoration was scheduled under; see
-    /// `prepareTrackForRestoration(_:at:expecting:)`.
+    private let sessionStore: PlaybackSessionStore
     private var restorationGeneration: UInt64 = 0
-    
-    // Track restoration state to prevent race conditions
-    private var isRestoringPlayback = false
-    private var libraryObserver: NSObjectProtocol?
-    
+    private var restorationTask: Task<Void, Never>?
+
     // MARK: - Initialization
-    
+
     init() {
-        // Initialize managers
+        sessionStore = PlaybackSessionStore()
         libraryManager = LibraryManager()
         playlistManager = PlaylistManager()
-        
-        // Create audio player with dependencies
         playbackManager = PlaybackManager(libraryManager: libraryManager, playlistManager: playlistManager)
-        
-        // Connect managers
+
         playlistManager.setAudioPlayer(playbackManager)
         playlistManager.setLibraryManager(libraryManager)
-        
-        // Setup now playing - PlaybackManager owns the single Now Playing path
         playbackManager.connectRemoteCommandCenter()
-        
-        // Setup menubar
         menuBarManager = MenuBarManager(playbackManager: playbackManager, playlistManager: playlistManager)
-        
-        // Setup Scrobbling
         scrobbleManager = ScrobbleManager()
-        
-        hadFoldersAtStartup = !libraryManager.folders.isEmpty
 
         Self.shared = self
 
-        // Set after `shared`: the manager reads the database through it.
         InternetRadioManager.shared.prepareForLaunch(
             stations: libraryManager.databaseManager.loadStationSummaries()
         )
         InternetRadioManager.shared.loadStations()
-        restoreStationIfNeeded()
 
-        // Check if library is empty at startup - if so, clear any saved state
-        if !hadFoldersAtStartup {
-            clearAllSavedState()
-        } else {
-            // Only restore if we have folders
-            restoreUIStateImmediately()
-            
-            // Claimed before the delay, so anything the user starts in the meantime
-            // supersedes the restore rather than being overwritten by it.
+        if let session = sessionStore.load() {
+            restorePresentation(from: session)
             restorationGeneration = playbackManager.sourceGeneration
-
-            // Schedule restoration after a minimal delay to ensure UI is ready
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
-                self?.restorePlaybackState()
-            }
+            restorationTask = Task { await restore(session, expecting: restorationGeneration) }
         }
     }
-    
+
     deinit {
-        // Clean up any remaining observers
-        if let observer = libraryObserver {
-            NotificationCenter.default.removeObserver(observer)
-        }
-    }
-    
-    // MARK: - Playback State Persistence
-    
-    private func clearAllSavedState() {
-        UserDefaults.standard.removeObject(forKey: playbackStateKey)
-        UserDefaults.standard.removeObject(forKey: playbackUIStateKey)
-        playbackManager.restoredUITrack = nil
-        playbackManager.currentTrack = nil
+        restorationTask?.cancel()
     }
 
-    // MARK: - Internet Radio Restoration
+    // MARK: - Persistence
 
-    private func saveCurrentStation() {
-        if let stationId = playbackManager.currentStation?.id {
-            UserDefaults.standard.set(stationId, forKey: savedStationKey)
-        } else {
-            UserDefaults.standard.removeObject(forKey: savedStationKey)
-        }
-    }
-
-    /// Restored stopped: no network reach-out on launch. Reads its one row directly
-    /// rather than waiting on the published list, which loads asynchronously, so
-    /// `restoreUIStateImmediately` sees the station.
-    private func restoreStationIfNeeded() {
-        guard UserDefaults.standard.object(forKey: savedStationKey) != nil else { return }
-
-        let stationId = Int64(UserDefaults.standard.integer(forKey: savedStationKey))
-        guard let station = libraryManager.databaseManager.loadStation(id: stationId) else {
-            // Station was deleted since the last run.
-            UserDefaults.standard.removeObject(forKey: savedStationKey)
-            return
-        }
-
-        playbackManager.restoreStation(station)
-        Logger.info("Restored radio station in player: \(station.name)")
-    }
-    
     func savePlaybackState() {
-        // Own key, so the library-emptiness checks can't clear it.
-        saveCurrentStation()
+        savePlaybackState(synchronous: true)
+    }
 
-        let currentTrack = playbackManager.currentTrack
-
-        guard currentTrack != nil || playbackManager.currentStation != nil else {
-            clearAllSavedState()
+    func savePlaybackState(synchronous: Bool) {
+        guard playbackManager.restoredUITrack == nil else { return }
+        guard let session = makeSession() else {
+            sessionStore.clear()
             return
         }
-
-        // Determine source identifier
-        var sourceIdentifier: String?
-        switch playlistManager.currentQueueSource {
-        case .folder:
-            if let folderId = currentTrack?.folderId,
-               let folder = libraryManager.folders.first(where: { $0.id == folderId }) {
-                sourceIdentifier = folder.url.path
-            }
-        case .playlist:
-            sourceIdentifier = playlistManager.currentPlaylist?.id.uuidString
-        default:
-            break
-        }
-
-        let state = PlaybackState(
-            currentTrack: currentTrack,
-            playbackPosition: currentTrack != nil ? playbackManager.actualCurrentTime : 0,
-            queue: playlistManager.currentQueue,
-            currentQueueIndex: playlistManager.currentQueueIndex,
-            queueSource: playlistManager.currentQueueSource,
-            sourceIdentifier: sourceIdentifier,
-            volume: playbackManager.volume,
-            isMuted: playbackManager.volume < 0.01,
-            shuffleEnabled: playlistManager.isShuffleEnabled,
-            repeatMode: playlistManager.repeatMode
-        )
-
-        if let currentTrack, let uiState = state.createUIState(from: currentTrack),
-           let uiData = try? JSONEncoder().encode(uiState) {
-            UserDefaults.standard.set(uiData, forKey: playbackUIStateKey)
+        if synchronous {
+            sessionStore.flush(session)
         } else {
-            // Radio is showing: drop the stale track tile.
-            UserDefaults.standard.removeObject(forKey: playbackUIStateKey)
+            sessionStore.save(session)
+        }
+        Logger.info("Playback session saved")
+    }
+
+    func clearSavedPlaybackSession() {
+        restorationTask?.cancel()
+        restorationTask = nil
+        sessionStore.clear()
+        playbackManager.restoredUITrack = nil
+    }
+
+    func cancelPlaybackRestoration() {
+        guard restorationTask != nil else { return }
+        restorationTask?.cancel()
+        restorationTask = nil
+        playbackManager.beginSourceGeneration()
+        playbackManager.abandonSessionRestoration()
+    }
+
+    // MARK: - Session Snapshot
+
+    private func makeSession() -> PlaybackSession? {
+        let foreground: PlaybackSession.Foreground
+        if let station = playbackManager.currentStation, let stationID = station.id {
+            foreground = .radio(PlaybackSession.RadioForeground(
+                stationID: stationID,
+                artworkID: station.artworkCacheID,
+                presentation: presentation(
+                    title: station.name,
+                    artist: playbackManager.streamNowPlayingTitle ?? station.description ?? "",
+                    album: nil,
+                    duration: nil,
+                    artworkData: station.artworkData
+                )
+            ))
+        } else if let track = playbackManager.currentTrack, track.trackId != nil {
+            let occurrenceID = playlistManager.currentQueue.indices.contains(playlistManager.currentQueueIndex)
+                ? queueOccurrenceID(at: playlistManager.currentQueueIndex)
+                : nil
+            foreground = .local(PlaybackSession.LocalForeground(
+                track: PlaybackSession.TrackReference(track),
+                queueOccurrenceID: occurrenceID,
+                position: playbackManager.actualCurrentTime,
+                presentation: presentation(
+                    title: track.title,
+                    artist: track.artist,
+                    album: track.album,
+                    duration: track.duration,
+                    artworkData: track.artworkData
+                )
+            ))
+        } else if playlistManager.currentQueue.isEmpty {
+            return nil
+        } else {
+            foreground = .none
         }
 
-        do {
-            let encoder = JSONEncoder()
-            let data = try encoder.encode(state)
-            UserDefaults.standard.set(data, forKey: playbackStateKey)
-            Logger.info("Playback state saved")
-        } catch {
-            Logger.warning("Failed to save playback state: \(error)")
-        }
-    }
-    
-    func restoreUIStateImmediately() {
-        // A restored station already owns the player bar.
-        guard playbackManager.currentStation == nil else { return }
-
-        // Try to restore UI state immediately
-        guard let uiData = UserDefaults.standard.data(forKey: playbackUIStateKey),
-              let uiState = try? JSONDecoder().decode(PlaybackUIState.self, from: uiData) else {
-            return
-        }
-        
-        // Restore UI immediately
-        playbackManager.restoreUIState(uiState)
-    }
-    
-    func restorePlaybackState() {
-        // Prevent concurrent restorations
-        guard !isRestoringPlayback else {
-            return
-        }
-        
-        isRestoringPlayback = true
-        
-        // Don't restore immediately, wait for library to be fully loaded
-        if libraryManager.totalTrackCount == 0 {
-            if libraryManager.folders.isEmpty {
-                clearAllSavedState()
-                isRestoringPlayback = false
-                return
-            }
-            
-            // Use a stored observer reference to ensure proper cleanup
-            libraryObserver = NotificationCenter.default.addObserver(
-                forName: NSNotification.Name("LibraryDidLoad"),
-                object: nil,
-                queue: .main
-            ) { [weak self] _ in
-                self?.libraryDidLoad()
-            }
-            return
-        }
-        
-        // Proceed with restoration
-        performActualRestoration()
-    }
-    
-    @objc
-    private func libraryDidLoad() {
-        if let observer = libraryObserver {
-            NotificationCenter.default.removeObserver(observer)
-            libraryObserver = nil
-        }
-        
-        // Don't restore if we didn't have folders at startup
-        if !hadFoldersAtStartup {
-            isRestoringPlayback = false
-            return
-        }
-        
-        // Check if library is loaded with content
-        if libraryManager.folders.isEmpty || libraryManager.totalTrackCount == 0 {
-            clearAllSavedState()
-            isRestoringPlayback = false
-            return
-        }
-        
-        // Now perform restoration
-        performActualRestoration()
-    }
-    
-    private func performActualRestoration() {
-        defer { isRestoringPlayback = false }
-        
-        guard let data = UserDefaults.standard.data(forKey: playbackStateKey) else {
-            return
-        }
-        
-        do {
-            let decoder = JSONDecoder()
-            let state = try decoder.decode(PlaybackState.self, from: data)
-            let stateAge = Date().timeIntervalSince(state.savedDate)
-            
-            // Clear saved state if older than 7 days
-            if stateAge > 7 * 24 * 60 * 60 {
-                clearAllSavedState()
-                return
-            }
-            
-            // Perform state restoration
-            performStateRestoration(state)
-        } catch {
-            Logger.warning("Failed to restore playback state: \(error)")
-            clearAllSavedState()
-        }
-    }
-    
-    private func performStateRestoration(_ state: PlaybackState) {
-        // Before anything is written, not just before the track is installed: this also
-        // replaces the queue, cursor and source, which a later track-only rejection leaves
-        // behind describing the saved session.
-        guard restorationGeneration == playbackManager.sourceGeneration else {
-            Logger.info("Skipped playback restoration: a source was selected before it ran")
-            return
-        }
-
-        // Load only the tracks we need for restoration
-        let trackIdsNeeded = Set(state.queueTrackIds + [state.currentTrackId].compactMap { $0 })
-        var relevantTracks = libraryManager.databaseManager.getTracks(byIds: Array(trackIdsNeeded))
-        libraryManager.databaseManager.populateAlbumArtworkForTracks(&relevantTracks)
-
-        // Create a track ID to track map for efficient lookup
-        let trackIdMap: [Int64: Track] = Dictionary(
-            relevantTracks.compactMap { track in
-                guard let trackId = track.trackId else { return nil }
-                return (trackId, track)
-            }
-        ) { first, _ in first }
-        
-        // Create a path to track map as fallback
-        let trackPathMap: [String: Track] = Dictionary(
-            relevantTracks.map { track in
-                (track.url.path, track)
-            }
-        ) { first, _ in first }
-        
-        // Ahead of the queue guards below: a radio-only session saves no queue entries, and
-        // bailing out early would leave volume, shuffle and repeat at their defaults.
-        playlistManager.isShuffleEnabled = state.shuffleEnabled
-        playlistManager.repeatMode = state.repeatModeEnum
-        playbackManager.setVolume(state.isMuted ? 0 : state.volume)
-
-        // Restore the play queue
-        var restoredQueue: [Track] = []
-        restoredQueue.reserveCapacity(state.queueTrackIds.count)
-        
-        for (index, trackId) in state.queueTrackIds.enumerated() {
-            if let track = trackIdMap[trackId] {
-                restoredQueue.append(track)
-            } else if index < state.queueTrackPaths.count {
-                // Fallback to path matching
-                let path = state.queueTrackPaths[index]
-                if let track = trackPathMap[path] {
-                    restoredQueue.append(track)
-                }
-            }
-        }
-        
-        // Check if we restored at least 50% queue (songs may have been removed)
-        let restorationRatio = Double(restoredQueue.count) / Double(state.queueTrackPaths.count)
-        if restorationRatio < 0.5 {
-            clearAllSavedState()
-            return
-        }
-        
-        // Only proceed if we found at least some tracks
-        guard !restoredQueue.isEmpty else {
-            clearAllSavedState()
-            return
-        }
-        
-        // Set the queue
-        playlistManager.currentQueue = restoredQueue
-        playlistManager.currentQueueIndex = min(state.currentQueueIndex, restoredQueue.count - 1)
-        playlistManager.currentQueueSource = state.queueSourceEnum
-        
-        // Try to restore the source context
-        switch state.queueSourceEnum {
-        case .playlist:
-            if let playlistId = state.sourceIdentifier,
-               let uuid = UUID(uuidString: playlistId),
-               let playlist = playlistManager.playlists.first(where: { $0.id == uuid }) {
-                playlistManager.currentPlaylist = playlist
-            }
-        default:
-            break
-        }
-        
-        // Find and prepare the current track
-        if let currentTrackId = state.currentTrackId,
-           let currentTrack = restoredQueue.first(where: { $0.trackId == currentTrackId }) {
-            // Verify the file exists and is accessible
-            let fileManager = FileManager.default
-            guard fileManager.fileExists(atPath: currentTrack.url.path) else {
-                clearAllSavedState()
-                return
-            }
-            
-            // Try to access the file
-            guard fileManager.isReadableFile(atPath: currentTrack.url.path) else {
-                clearAllSavedState()
-                return
-            }
-            
-            // Clear the temporary UI track before setting the real one
-            playbackManager.restoredUITrack = nil
-            playbackManager.prepareTrackForRestoration(
-                currentTrack,
-                at: state.playbackPosition,
-                expecting: restorationGeneration
+        let entries = playlistManager.currentQueue.enumerated().map { index, track in
+            PlaybackSession.QueueEntry(
+                occurrenceID: queueOccurrenceID(at: index),
+                track: PlaybackSession.TrackReference(track)
             )
-            Logger.info("Playback state restored")
+        }
+        let cursorID = playlistManager.currentQueue.indices.contains(playlistManager.currentQueueIndex)
+            ? entries[playlistManager.currentQueueIndex].occurrenceID
+            : nil
+
+        return PlaybackSession(
+            formatVersion: PlaybackSession.formatVersion,
+            appVersion: AppInfo.version,
+            appBuild: AppInfo.build,
+            foreground: foreground,
+            queue: PlaybackSession.SavedQueue(
+                entries: entries,
+                cursorOccurrenceID: cursorID,
+                context: savedQueueContext()
+            ),
+            transport: PlaybackSession.Transport(
+                volume: playbackManager.volume,
+                shuffleEnabled: playlistManager.isShuffleEnabled,
+                repeatMode: playlistManager.repeatMode
+            )
+        )
+    }
+
+    private func queueOccurrenceID(at index: Int) -> UUID {
+        // Stable for a single captured session and distinct for duplicate queue entries.
+        let upper = UInt32(truncatingIfNeeded: index)
+        let lower = UInt64(bitPattern: Int64(index + 1))
+        let raw = String(
+            format: "%08X-0000-0000-%04X-%012llX",
+            upper,
+            UInt16(truncatingIfNeeded: index),
+            lower
+        )
+        return UUID(uuidString: raw) ?? UUID()
+    }
+
+    private func savedQueueContext() -> PlaybackSession.QueueContext {
+        switch playlistManager.currentQueueSource {
+        case .library:
+            return .library
+        case .folder:
+            let path = playlistManager.currentQueue
+                .first?.folderId
+                .flatMap { id in
+                    libraryManager.folders.first { $0.id == id }?.url.path
+                }
+            return .folder(path: path)
+        case .playlist:
+            return playlistManager.currentPlaylist.map { .playlist(id: $0.id) } ?? .detached
         }
     }
-    
-    func handleLibraryChanged() {
-        // If the library was significantly changed (e.g., folders removed),
-        // the saved state might no longer be valid
-        if let savedStateData = UserDefaults.standard.data(forKey: playbackStateKey),
-           let state = try? JSONDecoder().decode(PlaybackState.self, from: savedStateData) {
-            // Check if the current track still exists
-            if let trackId = state.currentTrackId {
-                let trackExists = libraryManager.databaseManager.trackExists(withId: trackId)
-                if !trackExists {
-                    UserDefaults.standard.removeObject(forKey: playbackStateKey)
-                }
-            }
-            
-            // Also check UI state validity
-            if let uiData = UserDefaults.standard.data(forKey: playbackUIStateKey),
-               (try? JSONDecoder().decode(PlaybackUIState.self, from: uiData)) != nil {
-                // If the main state is invalid, clear UI state too
-                if UserDefaults.standard.data(forKey: playbackStateKey) == nil {
-                    UserDefaults.standard.removeObject(forKey: playbackUIStateKey)
-                }
+
+    private func presentation(
+        title: String,
+        artist: String,
+        album: String?,
+        duration: Double?,
+        artworkData: Data?
+    ) -> PlaybackSession.Presentation {
+        let colors = UserDefaults.standard.bool(forKey: "useArtworkColors")
+            ? ArtworkColorSnapshot(colors: playbackManager.nowPlayingSource?.dominantColors ?? [])
+            : nil
+        return PlaybackSession.Presentation(
+            title: title,
+            artist: artist,
+            album: album,
+            duration: duration,
+            artworkData: artworkData,
+            artworkColors: colors
+        )
+    }
+
+    // MARK: - Restoration
+
+    private func restorePresentation(from session: PlaybackSession) {
+        playbackManager.setVolume(session.transport.volume)
+        playlistManager.isShuffleEnabled = session.transport.shuffleEnabled
+        playlistManager.repeatMode = session.transport.repeatMode
+
+        switch session.foreground {
+        case .none:
+            break
+        case .local(let local):
+            playbackManager.restoreUIState(local.presentation, position: local.position)
+        case .radio(let radio):
+            guard let station = libraryManager.databaseManager.loadStation(id: radio.stationID) else { return }
+            let colors = radio.artworkID == station.artworkCacheID ? radio.presentation.artworkColors : nil
+            playbackManager.restoreStation(station, colorSnapshot: colors)
+        }
+    }
+
+    @MainActor
+    private func restore(_ session: PlaybackSession, expecting generation: UInt64) async {
+        let references = session.queue.entries.map(\.track) + foregroundReferences(session.foreground)
+        let databaseManager = libraryManager.databaseManager
+        let resolved: [PlaybackSession.TrackReference: Track]
+        do {
+            resolved = try await Task.detached(priority: .userInitiated) {
+                try databaseManager.resolveTrackReferences(references)
+            }.value
+        } catch {
+            Logger.error("Failed to restore playback session tracks: \(error)")
+            playbackManager.abandonSessionRestoration()
+            restorationTask = nil
+            return
+        }
+
+        guard !Task.isCancelled, playbackManager.sourceGeneration == generation else { return }
+
+        let surviving = session.queue.entries.enumerated().compactMap { oldIndex, entry -> RestoredEntry? in
+            resolved[entry.track].map {
+                RestoredEntry(oldIndex: oldIndex, occurrenceID: entry.occurrenceID, track: $0)
             }
         }
+        let restoredTracks = surviving.map(\.track)
+        let queueSource = runtimeQueueSource(session.queue.context)
+        let playlist = restoredPlaylist(session.queue.context)
+
+        switch session.foreground {
+        case .radio:
+            playlistManager.installRestoredQueue(restoredTracks, cursor: nil, source: queueSource, playlist: playlist)
+            restorationTask = nil
+        case .local(let local):
+            let cursor = restoredCursor(local: local, queue: session.queue, surviving: surviving)
+            playlistManager.installRestoredQueue(restoredTracks, cursor: cursor, source: queueSource, playlist: playlist)
+
+            guard let cursor, restoredTracks.indices.contains(cursor) else {
+                playbackManager.abandonSessionRestoration()
+                playbackManager.currentTrack = nil
+                restorationTask = nil
+                return
+            }
+            var current = restoredTracks[cursor]
+            let ids = [current.trackId].compactMap { $0 }
+            let hydrated = await Task.detached(priority: .userInitiated) {
+                databaseManager.getTracksWithArtwork(byIds: ids).first
+            }.value
+            guard !Task.isCancelled, playbackManager.sourceGeneration == generation else { return }
+            if let hydrated {
+                current = hydrated
+                playlistManager.currentQueue[cursor] = hydrated
+            }
+            let fileIsAvailable = FileManager.default.isReadableFile(atPath: current.url.path)
+            let position = matches(local.track, current) && fileIsAvailable ? local.position : 0
+            playbackManager.prepareTrackForRestoration(
+                current,
+                at: position,
+                queueIndex: cursor,
+                expecting: generation
+            ) { [weak self] in
+                self?.restorationTask = nil
+            }
+            Logger.info("Playback session restored")
+        case .none:
+            let cursor = restoredCursor(queue: session.queue, surviving: surviving)
+            playlistManager.installRestoredQueue(restoredTracks, cursor: cursor, source: queueSource, playlist: playlist)
+            restorationTask = nil
+        }
+    }
+
+    // MARK: - Queue Reconciliation
+
+    private struct RestoredEntry {
+        let oldIndex: Int
+        let occurrenceID: UUID
+        let track: Track
+    }
+
+    private func foregroundReferences(_ foreground: PlaybackSession.Foreground) -> [PlaybackSession.TrackReference] {
+        if case .local(let local) = foreground { return [local.track] }
+        return []
+    }
+
+    private func restoredCursor(
+        local: PlaybackSession.LocalForeground,
+        queue: PlaybackSession.SavedQueue,
+        surviving: [RestoredEntry]
+    ) -> Int? {
+        if let occurrenceID = local.queueOccurrenceID,
+           let index = surviving.firstIndex(where: { $0.occurrenceID == occurrenceID }) {
+            return index
+        }
+        if let index = surviving.firstIndex(where: { matches(local.track, $0.track) }) { return index }
+        return fallbackCursor(queue: queue, surviving: surviving)
+    }
+
+    private func restoredCursor(
+        queue: PlaybackSession.SavedQueue,
+        surviving: [RestoredEntry]
+    ) -> Int? {
+        guard let cursor = queue.cursorOccurrenceID else { return nil }
+        if let index = surviving.firstIndex(where: { $0.occurrenceID == cursor }) {
+            return index
+        }
+        return fallbackCursor(queue: queue, surviving: surviving)
+    }
+
+    private func fallbackCursor(
+        queue: PlaybackSession.SavedQueue,
+        surviving: [RestoredEntry]
+    ) -> Int? {
+        guard !surviving.isEmpty else { return nil }
+        let oldCursor = queue.cursorOccurrenceID
+            .flatMap { id in queue.entries.firstIndex { $0.occurrenceID == id } } ?? 0
+        return surviving.firstIndex { $0.oldIndex >= oldCursor } ?? surviving.indices.last
+    }
+
+    private func matches(_ reference: PlaybackSession.TrackReference, _ track: Track) -> Bool {
+        if let id = reference.databaseID, id == track.trackId { return true }
+        return reference.path == track.url.path
+    }
+
+    private func runtimeQueueSource(_ context: PlaybackSession.QueueContext) -> PlaylistManager.QueueSource {
+        switch context {
+        case .folder: return .folder
+        case .playlist: return .playlist
+        case .library, .detached: return .library
+        }
+    }
+
+    private func restoredPlaylist(_ context: PlaybackSession.QueueContext) -> Playlist? {
+        guard case .playlist(let id) = context else { return nil }
+        return playlistManager.playlists.first { $0.id == id }
     }
 }

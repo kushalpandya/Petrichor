@@ -443,9 +443,7 @@ struct LibraryTabView: View {
         UserDefaults.standard.removeObject(forKey: "SecurityBookmarks")
         UserDefaults.standard.removeObject(forKey: "LastScanDate")
 
-        UserDefaults.standard.removeObject(forKey: "SavedPlaybackState")
-        UserDefaults.standard.removeObject(forKey: "SavedPlaybackUIState")
-        UserDefaults.standard.removeObject(forKey: "SavedRadioStationId")
+        AppCoordinator.shared?.clearSavedPlaybackSession()
 
         if alsoResetPreferences {
             if let bundleID = Bundle.main.bundleIdentifier {

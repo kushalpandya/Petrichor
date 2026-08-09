@@ -1,6 +1,42 @@
 import SwiftUI
 import AppKit
 
+struct ArtworkColorSnapshot: Codable {
+    struct Components: Codable {
+        let red: Double
+        let green: Double
+        let blue: Double
+        let alpha: Double
+    }
+
+    let colors: [Components]
+
+    init?(colors: [NSColor]) {
+        let components = colors.compactMap { color -> Components? in
+            guard let rgb = color.usingColorSpace(.sRGB) else { return nil }
+            return Components(
+                red: Double(rgb.redComponent),
+                green: Double(rgb.greenComponent),
+                blue: Double(rgb.blueComponent),
+                alpha: Double(rgb.alphaComponent)
+            )
+        }
+        guard !components.isEmpty else { return nil }
+        self.colors = components
+    }
+
+    var nsColors: [NSColor] {
+        colors.map {
+            NSColor(
+                srgbRed: CGFloat($0.red),
+                green: CGFloat($0.green),
+                blue: CGFloat($0.blue),
+                alpha: CGFloat($0.alpha)
+            )
+        }
+    }
+}
+
 /// A track or a station, so the now-playing surfaces don't each branch on which.
 struct NowPlayingSource {
     /// Identity for the artwork colour caches; a track's UUID or a station's derived one.

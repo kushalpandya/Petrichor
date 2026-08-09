@@ -36,6 +36,7 @@ class LibraryManager: ObservableObject {
     @Published var pendingMergeRequest: MergeRequest?
     @Published internal var cachedArtistEntities: [ArtistEntity] = []
     @Published internal var cachedAlbumEntities: [AlbumEntity] = []
+    @Published internal var entitiesLoaded = false
     @Published private(set) var totalTrackCount: Int = 0
     @Published private(set) var artistCount: Int = 0
     @Published private(set) var albumCount: Int = 0
@@ -43,19 +44,7 @@ class LibraryManager: ObservableObject {
     static let initialScanTrackThreshold = 100
 
     // MARK: - Entity Properties
-    var artistEntities: [ArtistEntity] {
-        if !entitiesLoaded {
-            loadEntities()
-        }
-        return cachedArtistEntities
-    }
-
-    var albumEntities: [AlbumEntity] {
-        if !entitiesLoaded {
-            loadEntities()
-        }
-        return cachedAlbumEntities
-    }
+    var albumEntities: [AlbumEntity] { cachedAlbumEntities }
     
     var isLocalLibraryReady: Bool {
         guard !folders.isEmpty else { return false }
@@ -105,7 +94,9 @@ class LibraryManager: ObservableObject {
     private let thresholdCheckInterval: TimeInterval = 1.0
     internal var cachedLibraryCategories: [LibraryFilterType: [LibraryFilterItem]] = [:]
     internal var libraryCategoriesLoaded = false
-    internal var entitiesLoaded = false
+    internal var entityLoadGeneration = 0
+    internal var entityLoadTaskGeneration = 0
+    internal var entityLoadTask: Task<Void, Never>?
     internal let userDefaults = UserDefaults.standard
     internal let fileManager = FileManager.default
     internal var folderTrackCounts: [Int64: Int] = [:]
@@ -160,11 +151,17 @@ class LibraryManager: ObservableObject {
             try? await Task.sleep(nanoseconds: TimeConstants.fiftyMilliseconds)
             let didRunMigration = await databaseManager.runPendingBackgroundMigrations()
             await MainActor.run {
-                refreshEntities()
                 // A migration that ran (e.g. the v12 album-artist backfill) can change
-                // category membership; reload the load-once sidebar caches so it shows
-                // without requiring a relaunch.
+                // entities and category membership; refresh both so the changes show
+                // without requiring a relaunch. Otherwise entities stay lazy at launch.
                 if didRunMigration {
+                    invalidatePendingEntityLoad()
+                    if entitiesLoaded {
+                        Task { await refreshEntitiesAsync() }
+                    } else {
+                        refreshArtistNameLookup()
+                        updateTotalCounts()
+                    }
                     refreshLibraryCategories()
                     NotificationCenter.default.post(name: .libraryDataDidChange, object: nil)
                 }
@@ -441,6 +438,7 @@ class LibraryManager: ObservableObject {
     // MARK: - Database Management
 
     func resetAllData() async throws {
+        invalidatePendingEntityLoad()
         // Use the existing resetDatabase method
         try databaseManager.resetDatabase()
 
@@ -452,6 +450,9 @@ class LibraryManager: ObservableObject {
             totalTrackCount = 0
             artistCount = 0
             albumCount = 0
+            cachedArtistEntities.removeAll()
+            cachedAlbumEntities.removeAll()
+            entitiesLoaded = false
             // Static parser state outlives the database, so drop the deleted library's names
             ArtistParser.setLibraryArtists([:])
 

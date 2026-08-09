@@ -258,7 +258,7 @@ extension LibraryManager {
                 Logger.info("Database \(context) completed")
                 
                 await MainActor.run {
-                    refreshEntities()
+                    Task { await refreshEntitiesAsync() }
                     updateTotalCounts()
                     
                     if spaceSaved > 0 {

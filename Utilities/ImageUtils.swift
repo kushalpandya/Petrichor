@@ -304,6 +304,12 @@ enum ImageUtils {
         return colors
     }
 
+    static func seedDominantColors(_ colors: [NSColor], id: UUID, imageData: Data) {
+        guard !colors.isEmpty else { return }
+        let cacheKey = "\(id.uuidString)-\(imageData.count)-dominantColors" as NSString
+        colorCache.setObject(CachedNSColors(colors: colors), forKey: cacheKey)
+    }
+
     /// Returns cached background gradient colors for the given ID and color scheme.
     static func cachedBackgroundGradientColors(
         id: UUID,

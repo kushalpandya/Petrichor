@@ -1,6 +1,6 @@
 import Foundation
 
-enum RepeatMode {
+enum RepeatMode: String, Codable {
     case off
     case one
     case all

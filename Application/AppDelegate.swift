@@ -98,6 +98,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             Logger.warning("Termination diagnostic snapshot timed out")
         }
     }
+
+    func applicationDidResignActive(_ notification: Notification) {
+        AppCoordinator.shared?.savePlaybackState(synchronous: false)
+    }
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Initialize logging system explicitly
@@ -421,6 +425,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             "colorMode": "Auto",
             "showFoldersTab": false,
             "showTrackTechnicalInfo": true,
+            "useArtworkColors": true,
             "tintPlaybackControls": true,
             "tintNowPlayingBackground": true,
             "playerBarBackgroundStyle": "Full width",
