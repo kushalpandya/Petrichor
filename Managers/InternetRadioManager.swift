@@ -12,6 +12,8 @@ class InternetRadioManager: ObservableObject {
 
     @Published var stations: [RadioStation] = []
     @Published var isFetchingDefaults = false
+    @Published private(set) var hasLoadedStations = false
+    @Published private(set) var hasStoredStations = false
 
     // Presented from `ContentView` so any tab can open it.
     @Published var showingStationEditor = false
@@ -20,8 +22,10 @@ class InternetRadioManager: ObservableObject {
     /// Starter-set source. Overridable via `RADIO_BROWSER_ENDPOINT_URL` in
     /// `Secrets.xcconfig` (not a secret), so swapping directories needs no code change.
     private enum RadioBrowser {
+        static let starterStationCount = 25
+
         /// `all.api` is round-robin DNS over the mirrors, so no single host goes stale.
-        static let defaultEndpoint = "https://all.api.radio-browser.info/json/stations/topclick/25?hidebroken=true"
+        static let defaultEndpoint = "https://all.api.radio-browser.info/json/stations/topclick/30?hidebroken=true"
 
         static var endpoint: URL? {
             let configured = (Bundle.main.object(forInfoDictionaryKey: "RADIO_BROWSER_ENDPOINT_URL") as? String)?
@@ -45,11 +49,29 @@ class InternetRadioManager: ObservableObject {
     /// Ample for the station list, whose size follows a configurable station count.
     private static let maxDirectoryBytes = 16 * 1024 * 1024
 
+    private var artworkBackfillTask: Task<Void, Never>?
+    private var downloadGeneration = 0
+    private var stationLoadGeneration = 0
+    private var stationLoadTask: Task<Void, Never>?
+
     private var databaseManager: DatabaseManager? {
         AppCoordinator.shared?.libraryManager.databaseManager
     }
 
     private init() {}
+
+    func prepareForLaunch(stations: [RadioStation]) {
+        self.stations = stations
+        hasStoredStations = !stations.isEmpty
+        hasLoadedStations = stations.isEmpty
+    }
+
+    struct DownloadResult {
+        let savedStations: [RadioStation]
+        let hadExistingStations: Bool
+
+        var canOpenRadio: Bool { !savedStations.isEmpty || hadExistingStations }
+    }
 
     /// Crescendo has no validator; it routes only http/https to its streaming path.
     static func validate(streamURL: String) -> URL? {
@@ -79,10 +101,50 @@ class InternetRadioManager: ObservableObject {
     /// serialized, so a main-thread read blocks behind any in-flight write.
     func loadStations() {
         guard let databaseManager else { return }
-        Task.detached(priority: .userInitiated) {
-            let loaded = databaseManager.loadAllStations()
-            await MainActor.run { self.stations = loaded }
+        Task { @MainActor in
+            stationLoadGeneration += 1
+            let generation = stationLoadGeneration
+            stationLoadTask?.cancel()
+            stationLoadTask = Task.detached(priority: .userInitiated) {
+                let loaded = databaseManager.loadAllStations()
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    guard generation == self.stationLoadGeneration else { return }
+                    self.stations = loaded
+                    self.hasStoredStations = !loaded.isEmpty
+                    self.hasLoadedStations = true
+                }
+            }
         }
+    }
+
+    @MainActor
+    func clearLoadedStations() {
+        stations = []
+        hasStoredStations = false
+        hasLoadedStations = true
+    }
+
+    @MainActor
+    func cancelDownloadsAndWait() async {
+        downloadGeneration += 1
+        artworkBackfillTask?.cancel()
+        await artworkBackfillTask?.value
+        artworkBackfillTask = nil
+        while isFetchingDefaults {
+            try? await Task.sleep(nanoseconds: TimeConstants.fiftyMilliseconds)
+        }
+        artworkBackfillTask?.cancel()
+        await artworkBackfillTask?.value
+        artworkBackfillTask = nil
+    }
+
+    @MainActor
+    func cancelStationLoads() async {
+        stationLoadGeneration += 1
+        stationLoadTask?.cancel()
+        await stationLoadTask?.value
+        stationLoadTask = nil
     }
 
     @discardableResult
@@ -164,40 +226,88 @@ class InternetRadioManager: ObservableObject {
     // MARK: - radio-browser
 
     @discardableResult
-    func downloadTopStations() async -> Int {
-        guard let databaseManager else { return 0 }
+    func downloadTopStations() async -> DownloadResult {
+        guard let databaseManager else {
+            return DownloadResult(savedStations: [], hadExistingStations: false)
+        }
 
-        // The dedupe snapshot is per run: two concurrent runs would each insert the lot.
-        guard await claimDownloadSlot() else { return 0 }
-        defer { Task { @MainActor in self.isFetchingDefaults = false } }
+        guard await claimDownloadSlot() else {
+            return DownloadResult(savedStations: [], hadExistingStations: !stations.isEmpty)
+        }
+        let generation = await MainActor.run { downloadGeneration }
+        let ownsActivity = await MainActor.run { !NotificationManager.shared.isActivityInProgress }
+        if ownsActivity {
+            NotificationManager.shared.startActivity(String(localized: "Downloading popular stations..."))
+        }
+        defer {
+            if ownsActivity { NotificationManager.shared.stopActivity() }
+            Task { @MainActor in self.isFetchingDefaults = false }
+        }
 
-        guard let payload = await fetchTopStationPayload() else { return 0 }
+        guard let payload = await fetchTopStationPayload() else {
+            return DownloadResult(savedStations: [], hadExistingStations: !stations.isEmpty)
+        }
 
         let (knownUUIDs, knownURLs) = databaseManager.existingStationIdentities()
         var seenURLs = knownURLs
 
-        let candidates = payload.compactMap { entry -> RadioStation? in
-            guard let station = Self.makeStation(from: entry) else { return nil }
-            if let uuid = station.stationUUID, knownUUIDs.contains(uuid) { return nil }
-            guard seenURLs.insert(station.streamURL).inserted else { return nil }
-            return station
-        }
+        let candidates = payload
+            .compactMap { entry -> RadioStation? in
+                guard let station = Self.makeStation(from: entry) else { return nil }
+                if let uuid = station.stationUUID, knownUUIDs.contains(uuid) { return nil }
+                guard seenURLs.insert(station.streamURL).inserted else { return nil }
+                return station
+            }
+            .prefix(RadioBrowser.starterStationCount)
 
         // Store artwork-less first: waiting on every favicon keeps the empty state up.
         var saved: [RadioStation] = []
         for candidate in candidates {
+            guard await MainActor.run(body: { generation == downloadGeneration }) else { break }
             do {
                 saved.append(try await databaseManager.saveStation(candidate))
             } catch {
                 Logger.error("Failed to store downloaded station '\(candidate.name)': \(error)")
             }
         }
-        loadStations()
+        let savedStations = saved
+        let isCurrent = await MainActor.run { generation == downloadGeneration }
+        guard isCurrent else {
+            return DownloadResult(savedStations: [], hadExistingStations: !knownURLs.isEmpty)
+        }
+        await MainActor.run {
+            if !savedStations.isEmpty {
+                stations.append(contentsOf: savedStations)
+                stations.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            }
+            hasStoredStations = !stations.isEmpty
+            hasLoadedStations = true
+        }
 
-        await backfillArtwork(for: saved)
+        if savedStations.isEmpty && knownURLs.isEmpty {
+            NotificationManager.shared.addMessage(.warning, String(localized: "No stations were available to download"))
+        } else if savedStations.isEmpty {
+            NotificationManager.shared.addMessage(.info, String(localized: "Popular stations are already in your library"))
+        } else {
+            NotificationManager.shared.addMessage(
+                .info,
+                String(localized: "Downloaded \(savedStations.count) popular stations")
+            )
+        }
 
-        Logger.info("Downloaded \(saved.count) radio stations from radio-browser")
-        return saved.count
+        if await MainActor.run(body: { generation == downloadGeneration }) {
+            await startArtworkBackfill(for: savedStations)
+        }
+
+        Logger.info("Downloaded \(savedStations.count) radio stations from radio-browser")
+        return DownloadResult(savedStations: savedStations, hadExistingStations: !knownURLs.isEmpty)
+    }
+
+    @MainActor
+    private func startArtworkBackfill(for stations: [RadioStation]) async {
+        artworkBackfillTask?.cancel()
+        await artworkBackfillTask?.value
+        artworkBackfillTask = Task { await backfillArtwork(for: stations) }
     }
 
     /// Batched: each publish re-sorts the whole list in the views watching it.
@@ -228,6 +338,10 @@ class InternetRadioManager: ObservableObject {
             }
 
             for await (stationId, artwork, faviconFailed) in group {
+                guard !Task.isCancelled else {
+                    group.cancelAll()
+                    break
+                }
                 inFlight -= 1
                 while inFlight < Self.artworkFetchWindow, let station = next.next() {
                     if addTask(for: station) { inFlight += 1 }
@@ -237,6 +351,7 @@ class InternetRadioManager: ObservableObject {
 
                 guard let artwork else { continue }
                 do {
+                    guard !Task.isCancelled else { break }
                     guard try await databaseManager.updateStationArtwork(id: stationId, artwork: artwork) else {
                         continue
                     }
@@ -285,6 +400,11 @@ class InternetRadioManager: ObservableObject {
     @MainActor
     private func claimDownloadSlot() -> Bool {
         guard !isFetchingDefaults else { return false }
+        // A launch-time full read may have captured the table before this download
+        // inserts its rows. Do not let that stale snapshot replace the appended results.
+        stationLoadGeneration += 1
+        stationLoadTask?.cancel()
+        stationLoadTask = nil
         isFetchingDefaults = true
         return true
     }
@@ -301,7 +421,12 @@ class InternetRadioManager: ObservableObject {
 
         switch directoryFetch {
         case .success(let data):
-            return (try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]) ?? []
+            guard let payload = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+                Logger.error("radio-browser returned an invalid response")
+                NotificationManager.shared.addMessage(.error, String(localized: "Couldn't read the station directory"))
+                return nil
+            }
+            return payload
         case .failure(let failure):
             Logger.error("radio-browser request failed: \(failure.description)")
             NotificationManager.shared.addMessage(.error, String(localized: "Couldn't reach the station directory"))

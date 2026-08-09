@@ -27,6 +27,8 @@ class LibraryManager: ObservableObject {
     @Published var featuredSection: DiscoverSection = .loading
     @Published var recentlyPlayedSection: DiscoverSection = .loading
     @Published var mostLovedSection: DiscoverSection = .loading
+    @Published var isDiscoverRecentlyPlayedUnlocked = false
+    @Published var isDiscoverMostLovedUnlocked = false
     /// Starts true: Discover is the default sidebar selection, so it loads from the moment
     /// the window appears, and the track list would otherwise flash its empty state.
     @Published var isLoadingDiscoverTracks: Bool = true
@@ -55,15 +57,18 @@ class LibraryManager: ObservableObject {
         return cachedAlbumEntities
     }
     
-    var shouldShowMainUI: Bool {
+    var isLocalLibraryReady: Bool {
         guard !folders.isEmpty else { return false }
-        
-        // If we're in initial onboarding scan, only show UI after threshold is reached
         if isInitialOnboardingScan {
             return hasReachedInitialScanThreshold
         }
-        
         return true
+    }
+
+    var hasLocalMusic: Bool { totalTrackCount > 0 }
+
+    var isInitialLibraryScanBlocking: Bool {
+        isInitialOnboardingScan && !hasReachedInitialScanThreshold
     }
 
     // MARK: - Private/Internal Properties
@@ -444,6 +449,9 @@ class LibraryManager: ObservableObject {
             // Clear in-memory data
             folders.removeAll()
             tracks.removeAll()
+            totalTrackCount = 0
+            artistCount = 0
+            albumCount = 0
             // Static parser state outlives the database, so drop the deleted library's names
             ArtistParser.setLibraryArtists([:])
 

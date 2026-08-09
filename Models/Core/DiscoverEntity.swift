@@ -9,6 +9,7 @@ import Foundation
 enum DiscoverConfiguration {
     static let carouselItemCount = 25
     static let freshMusicTrackCount = 25
+    static let sectionUnlockTrackCount = 5
 }
 
 // MARK: - Discover Entity Types
@@ -177,6 +178,54 @@ struct DiscoverCache: Codable {
     var lastScheduledUpdate: Date?
     var lovedSignalGeneration: Int
     var lovedSelectionGeneration: Int
+    var isMostLovedUnlocked: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case version
+        case carouselItemCount
+        case featuredRefs
+        case mostLovedRefs
+        case freshMusicTrackIds
+        case lastScheduledUpdate
+        case lovedSignalGeneration
+        case lovedSelectionGeneration
+        case isMostLovedUnlocked
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        version = try container.decode(Int.self, forKey: .version)
+        carouselItemCount = try container.decode(Int.self, forKey: .carouselItemCount)
+        featuredRefs = try container.decode([DiscoverEntityRef].self, forKey: .featuredRefs)
+        mostLovedRefs = try container.decode([DiscoverEntityRef].self, forKey: .mostLovedRefs)
+        freshMusicTrackIds = try container.decode([Int64].self, forKey: .freshMusicTrackIds)
+        lastScheduledUpdate = try container.decodeIfPresent(Date.self, forKey: .lastScheduledUpdate)
+        lovedSignalGeneration = try container.decode(Int.self, forKey: .lovedSignalGeneration)
+        lovedSelectionGeneration = try container.decode(Int.self, forKey: .lovedSelectionGeneration)
+        isMostLovedUnlocked = try container.decodeIfPresent(Bool.self, forKey: .isMostLovedUnlocked) ?? false
+    }
+
+    init(
+        version: Int,
+        carouselItemCount: Int,
+        featuredRefs: [DiscoverEntityRef],
+        mostLovedRefs: [DiscoverEntityRef],
+        freshMusicTrackIds: [Int64],
+        lastScheduledUpdate: Date?,
+        lovedSignalGeneration: Int,
+        lovedSelectionGeneration: Int,
+        isMostLovedUnlocked: Bool
+    ) {
+        self.version = version
+        self.carouselItemCount = carouselItemCount
+        self.featuredRefs = featuredRefs
+        self.mostLovedRefs = mostLovedRefs
+        self.freshMusicTrackIds = freshMusicTrackIds
+        self.lastScheduledUpdate = lastScheduledUpdate
+        self.lovedSignalGeneration = lovedSignalGeneration
+        self.lovedSelectionGeneration = lovedSelectionGeneration
+        self.isMostLovedUnlocked = isMostLovedUnlocked
+    }
 
     static var empty: Self {
         DiscoverCache(
@@ -187,7 +236,8 @@ struct DiscoverCache: Codable {
             freshMusicTrackIds: [],
             lastScheduledUpdate: nil,
             lovedSignalGeneration: 0,
-            lovedSelectionGeneration: -1
+            lovedSelectionGeneration: -1,
+            isMostLovedUnlocked: false
         )
     }
 }
@@ -206,6 +256,8 @@ struct DiscoverPayload {
     let didRegenerateFeatured: Bool
     let didRegenerateLoved: Bool
     let lovedSignalGeneration: Int
+    let isRecentlyPlayedUnlocked: Bool
+    let isMostLovedUnlocked: Bool
     let didRegenerateTracks: Bool
     let didRunScheduled: Bool
 }

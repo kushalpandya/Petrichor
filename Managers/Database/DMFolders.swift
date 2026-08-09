@@ -145,8 +145,7 @@ extension DatabaseManager {
             return folders
         }
         
-        // Post .initialScanStarted before .foldersAddedToDatabase so the onboarding
-        // flag is set before folders publish, else shouldShowMainUI briefly flashes
+        // Post .initialScanStarted before folders publish so the shell cannot flash
         // the main UI with an empty track list.
         let existingTrackCount = try await dbQueue.read { db in
             try Track.fetchCount(db)

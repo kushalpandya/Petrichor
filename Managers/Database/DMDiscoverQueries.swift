@@ -60,7 +60,9 @@ extension DatabaseManager {
                 let sql = """
                     SELECT t.id AS trackId
                     FROM tracks t
-                    WHERE t.last_played_date IS NOT NULL \(Self.duplicateClause(hideDuplicates, alias: "t"))
+                    WHERE t.play_count > 0
+                      AND t.last_played_date IS NOT NULL
+                      \(Self.duplicateClause(hideDuplicates, alias: "t"))
                     ORDER BY t.last_played_date DESC
                     LIMIT ?
                 """
@@ -69,6 +71,25 @@ extension DatabaseManager {
         } catch {
             Logger.error("Failed to get discover recent track ids: \(error)")
             return []
+        }
+    }
+
+    func hasDiscoverEngagementThreshold(_ threshold: Int) -> Bool {
+        let hideDuplicates = UserDefaults.standard.bool(forKey: "hideDuplicateTracks")
+        do {
+            return try dbQueue.read { db in
+                var request = Track.filter(
+                    Track.Columns.isFavorite == true
+                        || (Track.Columns.playCount > 0 && Track.Columns.lastPlayedDate != nil)
+                )
+                if hideDuplicates {
+                    request = request.filter(Track.Columns.isDuplicate == false)
+                }
+                return try request.limit(threshold).fetchCount(db) >= threshold
+            }
+        } catch {
+            Logger.error("Failed to check Discover engagement threshold: \(error)")
+            return false
         }
     }
 

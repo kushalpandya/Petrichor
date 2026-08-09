@@ -48,6 +48,16 @@ extension LibraryManager {
     @objc
     func handleDiscoverLovedSignalChanged() {
         updateDiscoverCache { $0.lovedSignalGeneration += 1 }
+        Task { @MainActor in
+            guard !isDiscoverMostLovedUnlocked else { return }
+            let epoch = discoverResetEpoch
+            let unlocked = await Task.detached(priority: .utility) {
+                self.databaseManager.hasDiscoverEngagementThreshold(DiscoverConfiguration.sectionUnlockTrackCount)
+            }.value
+            guard unlocked, epoch == discoverResetEpoch else { return }
+            updateDiscoverCache { $0.isMostLovedUnlocked = true }
+            isDiscoverMostLovedUnlocked = true
+        }
     }
 
     private func hasElapsed(since date: Date?) -> Bool {
@@ -202,9 +212,12 @@ extension LibraryManager {
         let smart = captureDiscoverSmartSnapshot(eligiblePlaylists)
         let epoch = discoverResetEpoch
 
-        let result = await Task.detached(priority: .utility) { () -> ([DiscoverEntityRow], [UUID: [Track]]) in
+        let result = await Task.detached(priority: .utility) {
+            () -> ([DiscoverEntityRow], [UUID: [Track]], Bool) in
             let smartTracks = manager.discoverSmartPlaylistTracks(for: smartPlaylists)
             let recentTrackIds = manager.discoverRecentTrackIds(limit: LibraryManager.recentTrackPoolSize)
+            let isUnlocked = recentTrackIds.count >= DiscoverConfiguration.sectionUnlockTrackCount
+            guard isUnlocked else { return ([], smartTracks, false) }
             let candidates = LibraryManager.mergingPlaylistCandidates(
                 manager.getDiscoverRecentlyPlayedCandidates(trackIds: recentTrackIds),
                 smart: manager.getDiscoverRecentSmartPlaylistCandidates(
@@ -221,7 +234,7 @@ extension LibraryManager {
                 excluding: featuredRefs
             )
             LibraryManager.warmCategoryArtwork(for: rows)
-            return (rows, smartTracks)
+            return (rows, smartTracks, true)
         }.value
 
         guard generation == discoverRecentGeneration, epoch == discoverResetEpoch else { return }
@@ -232,6 +245,7 @@ extension LibraryManager {
             return
         }
         recentlyPlayedSection = .loaded(makeEntities(from: result.0))
+        isDiscoverRecentlyPlayedUnlocked = result.2
 
         Task { @MainActor in
             await warmDiscoverPlaylistArtwork(
@@ -281,6 +295,8 @@ extension LibraryManager {
         featuredSection = .loading
         mostLovedSection = .loading
         recentlyPlayedSection = .loading
+        isDiscoverRecentlyPlayedUnlocked = false
+        isDiscoverMostLovedUnlocked = false
         isLoadingDiscoverTracks = true
     }
 
@@ -412,6 +428,10 @@ extension LibraryManager {
         let payload = await Task.detached(priority: .userInitiated) { () -> DiscoverPayload in
             // One criteria evaluation shared by every consumer below.
             let smartTracks = manager.discoverSmartPlaylistTracks(for: smartPlaylists)
+            let isMostLovedUnlocked = cache?.isMostLovedUnlocked == true
+                || manager.hasDiscoverEngagementThreshold(DiscoverConfiguration.sectionUnlockTrackCount)
+            let shouldRegenerateLoved = isMostLovedUnlocked
+                && (regenerateLoved || cache?.isMostLovedUnlocked != true)
 
             // Featured: reselect, or cheaply re-resolve the persisted picks.
             let featuredRefs: [DiscoverEntityRef]
@@ -447,7 +467,7 @@ extension LibraryManager {
             // genuine favourite is allowed to appear in more than one.
             let lovedRefs: [DiscoverEntityRef]
             let lovedRows: [DiscoverEntityRow]
-            if regenerateLoved {
+            if shouldRegenerateLoved {
                 let loved = LibraryManager.mergingPlaylistCandidates(
                     manager.getDiscoverFeaturedCandidates(signal: .mostLoved),
                     smart: manager.getDiscoverSmartPlaylistCandidates(
@@ -468,7 +488,8 @@ extension LibraryManager {
 
             // Recently Played: always fresh, minus anything already in Featured.
             let recentTrackIds = manager.discoverRecentTrackIds(limit: LibraryManager.recentTrackPoolSize)
-            let recentCandidates = LibraryManager.mergingPlaylistCandidates(
+            let isRecentlyPlayedUnlocked = recentTrackIds.count >= DiscoverConfiguration.sectionUnlockTrackCount
+            let recentCandidates = isRecentlyPlayedUnlocked ? LibraryManager.mergingPlaylistCandidates(
                 manager.getDiscoverRecentlyPlayedCandidates(trackIds: recentTrackIds),
                 smart: manager.getDiscoverRecentSmartPlaylistCandidates(
                     for: smartPlaylists,
@@ -477,7 +498,7 @@ extension LibraryManager {
                 ),
                 eligibleIds: eligiblePlaylistIds,
                 ranking: .recency
-            )
+            ) : []
             let recentRows = LibraryManager.selectRoundRobin(
                 recentCandidates,
                 target: DiscoverConfiguration.carouselItemCount,
@@ -501,8 +522,10 @@ extension LibraryManager {
                 smartTracks: smartTracks,
                 smart: smart,
                 didRegenerateFeatured: regenerateFeatured,
-                didRegenerateLoved: regenerateLoved,
+                didRegenerateLoved: shouldRegenerateLoved,
                 lovedSignalGeneration: lovedSignalGeneration,
+                isRecentlyPlayedUnlocked: isRecentlyPlayedUnlocked,
+                isMostLovedUnlocked: isMostLovedUnlocked,
                 didRegenerateTracks: regenerateTracks,
                 didRunScheduled: scheduled
             )
@@ -635,6 +658,10 @@ extension LibraryManager {
                 cache.lovedSelectionGeneration = payload.lovedSignalGeneration
                 cacheChanged = true
             }
+            if payload.isMostLovedUnlocked && !cache.isMostLovedUnlocked {
+                cache.isMostLovedUnlocked = true
+                cacheChanged = true
+            }
         }
         if tracksAreCurrent {
             discoverTracks = payload.tracks
@@ -646,6 +673,10 @@ extension LibraryManager {
         }
         if recentIsCurrent {
             recentlyPlayedSection = .loaded(makeEntities(from: payload.recentRows))
+            isDiscoverRecentlyPlayedUnlocked = payload.isRecentlyPlayedUnlocked
+        }
+        if stickyIsCurrent {
+            isDiscoverMostLovedUnlocked = isDiscoverMostLovedUnlocked || payload.isMostLovedUnlocked
         }
 
         // The shared clock only advances when a scheduled regeneration actually landed.

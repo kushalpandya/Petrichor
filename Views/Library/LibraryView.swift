@@ -21,8 +21,8 @@ struct LibraryView: View {
     @Binding var pendingFilter: LibraryFilterRequest?
 
     var body: some View {
-        if !libraryManager.shouldShowMainUI {
-            NoMusicEmptyStateView(context: .mainWindow)
+        if !libraryManager.hasLocalMusic {
+            NoMusicEmptyStateView(context: .localLibrary)
         } else {
             tracksListView
                 .onAppear {

@@ -171,6 +171,7 @@ extension LibraryManager {
             }
             // Tile counts change, but the sticky Featured selection must not reshuffle.
             await self.reresolveStickyDiscoverSections()
+            await self.reloadDiscoverRecentlyPlayed()
         }
     }
 

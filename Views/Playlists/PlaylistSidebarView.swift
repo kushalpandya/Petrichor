@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 
 struct PlaylistSidebarView: View {
     @EnvironmentObject var playlistManager: PlaylistManager
+    @EnvironmentObject var libraryManager: LibraryManager
     @Binding var selectedPlaylist: Playlist?
     @State private var selectedSidebarItem: PlaylistSidebarItem?
     @State private var playlistToDelete: Playlist?
@@ -69,10 +70,12 @@ struct PlaylistSidebarView: View {
                 Button("New Playlist") {
                     playlistManager.showCreateRegularPlaylistModal()
                 }
+                .disabled(!libraryManager.hasLocalMusic)
 
                 Button("New Smart Playlist") {
                     playlistManager.showCreateSmartPlaylistModal()
                 }
+                .disabled(!libraryManager.hasLocalMusic)
 
                 Button("New Station Collection") {
                     playlistManager.showCreateStationCollectionEditor()
@@ -112,7 +115,7 @@ struct PlaylistSidebarView: View {
     // MARK: - Playlists List
 
     private var nonEditableCount: Int {
-        playlistManager.playlists.prefix { !$0.isUserEditable }.count
+        allPlaylistItems.prefix { !$0.playlist.isUserEditable }.count
     }
 
     private var playlistsList: some View {
@@ -166,13 +169,24 @@ struct PlaylistSidebarView: View {
     }
 
     private var allPlaylistItems: [PlaylistSidebarItem] {
-        playlistManager.playlists.map { PlaylistSidebarItem(playlist: $0) }
+        playlistManager.playlists
+            .filter { libraryManager.hasLocalMusic || $0.type == .stations }
+            .map { PlaylistSidebarItem(playlist: $0) }
     }
 
     // MARK: - Reorder Playlists
 
     private func handlePlaylistReorder(_ reorderedItems: [PlaylistSidebarItem]) {
-        let reorderedPlaylists = reorderedItems.map { $0.playlist }
+        if libraryManager.hasLocalMusic {
+            playlistManager.reorderPlaylists(reorderedItems.map(\.playlist))
+            return
+        }
+
+        let visible = reorderedItems.map(\.playlist)
+        var iterator = visible.makeIterator()
+        let reorderedPlaylists = playlistManager.playlists.map { playlist in
+            playlist.type == .stations ? (iterator.next() ?? playlist) : playlist
+        }
         playlistManager.reorderPlaylists(reorderedPlaylists)
     }
 

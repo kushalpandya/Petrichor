@@ -285,7 +285,7 @@ struct LibraryTabView: View {
             infoButton(
                 isPresented: $showResetInfo,
                 text: String(localized: """
-                                    Removes all folders, tracks, playlists, and pinned items. \
+                                    Removes all folders, tracks, playlists, radio stations, station collections, and pinned items. \
                                     Use the checkbox in the confirmation dialog to optionally reset app preferences.
                                     """)
             )
@@ -438,7 +438,6 @@ struct LibraryTabView: View {
             coordinator.playbackManager.stop()
             coordinator.playlistManager.clearQueue()
         }
-
         UserDefaults.standard.removeObject(forKey: "SavedMusicFolders")
         UserDefaults.standard.removeObject(forKey: "SavedMusicTracks")
         UserDefaults.standard.removeObject(forKey: "SecurityBookmarks")
@@ -446,6 +445,7 @@ struct LibraryTabView: View {
 
         UserDefaults.standard.removeObject(forKey: "SavedPlaybackState")
         UserDefaults.standard.removeObject(forKey: "SavedPlaybackUIState")
+        UserDefaults.standard.removeObject(forKey: "SavedRadioStationId")
 
         if alsoResetPreferences {
             if let bundleID = Bundle.main.bundleIdentifier {
@@ -459,9 +459,12 @@ struct LibraryTabView: View {
 
         Task {
             do {
+                await InternetRadioManager.shared.cancelDownloadsAndWait()
+                await InternetRadioManager.shared.cancelStationLoads()
                 try await libraryManager.resetAllData()
                 await libraryManager.loadPinnedItems()
                 await MainActor.run {
+                    InternetRadioManager.shared.clearLoadedStations()
                     AppCoordinator.shared?.playlistManager.loadPlaylists()
                 }
 
@@ -489,8 +492,8 @@ struct LibraryTabView: View {
         let alert = NSAlert()
         alert.messageText = String(localized: "Reset Library Data")
         alert.informativeText = String(localized: """
-            This will permanently remove all library data, including added folders, tracks, playlists, \
-            and pinned items. This action cannot be undone.
+            This will permanently remove all data, including added folders, tracks, playlists, radio stations, \
+            station collections, and pinned items. This action cannot be undone.
             """)
         alert.alertStyle = .critical
         alert.icon = nil

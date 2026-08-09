@@ -57,15 +57,7 @@ struct HomeView: View {
     var isActiveTab: Bool = true
     
     var body: some View {
-        if !libraryManager.shouldShowMainUI {
-            // Radio needs no library, so it stays reachable behind the add-folders empty state.
-            if case .fixed(.internetRadio) = selectedSidebarItem?.source {
-                InternetRadioView()
-            } else {
-                NoMusicEmptyStateView(context: .mainWindow)
-            }
-        } else {
-            ZStack {
+        ZStack {
                 // Base content (always rendered)
                 VStack(spacing: 0) {
                     if let selectedItem = selectedSidebarItem {
@@ -103,8 +95,8 @@ struct HomeView: View {
                         .id(detail.id)
                         .zIndex(1)
                 }
-            }
-            .onChange(of: selectedSidebarItem) { _, newItem in
+        }
+        .onChange(of: selectedSidebarItem) { _, newItem in
                 homeDetail = nil
                 pinnedEntity = nil
 
@@ -131,8 +123,8 @@ struct HomeView: View {
                 } else {
                     isShowingEntities = false
                 }
-            }
-            .onChange(of: homeDetail) {
+        }
+        .onChange(of: homeDetail) {
                 // When showing entity detail (tracks), we're not showing entities anymore
                 if homeDetail != nil {
                     isShowingEntities = false
@@ -144,7 +136,6 @@ struct HomeView: View {
                         isShowingEntities = false
                     }
                 }
-            }
         }
     }
     
@@ -251,7 +242,7 @@ struct HomeView: View {
             
             // Artists list
             if libraryManager.artistEntities.isEmpty {
-                NoMusicEmptyStateView(context: .mainWindow)
+                NoMusicEmptyStateView(context: .localLibrary)
             } else {
                 EntityView(
                     entities: sortedArtistEntities,
@@ -354,7 +345,7 @@ struct HomeView: View {
             
             // Albums list
             if libraryManager.albumEntities.isEmpty {
-                NoMusicEmptyStateView(context: .mainWindow)
+                NoMusicEmptyStateView(context: .localLibrary)
             } else {
                 EntityView(
                     entities: sortedAlbumEntities,
@@ -394,10 +385,10 @@ struct HomeView: View {
                 } else if let entity = pinnedEntity {
                     EntityDetailView(entity: entity, pinnedItem: pinnedItem)
                 } else {
-                    NoMusicEmptyStateView(context: .mainWindow)
+                    NoMusicEmptyStateView(context: .localLibrary)
                 }
             } else {
-                NoMusicEmptyStateView(context: .mainWindow)
+                NoMusicEmptyStateView(context: .localLibrary)
             }
         }
     }

@@ -359,7 +359,7 @@ struct PlayerView: View {
         }
         .frame(width: 100)
         .controlSize(.small)
-        .tint(controlAccent)
+        .tint(volumeAccent)
         .overlay(alignment: .leading) {
             if isDraggingVolume {
                 Text(playbackManager.volume.formatted(.percent.precision(.fractionLength(0))))
@@ -483,6 +483,12 @@ struct PlayerView: View {
             useArtworkTint: controlsTinted,
             isDarkBackground: colorScheme == .dark
         )
+    }
+
+    private var volumeAccent: Color {
+        playbackManager.nowPlayingSource == nil
+            ? Color(nsColor: .controlAccentColor)
+            : controlAccent
     }
 
     private var volumeIcon: String {

@@ -1,12 +1,49 @@
 import Combine
 import SwiftUI
 
+private struct DiscoverInitialScanBanner: View {
+    @ObservedObject var libraryManager: LibraryManager
+
+    var body: some View {
+        if libraryManager.isInitialOnboardingScan,
+           libraryManager.hasReachedInitialScanThreshold,
+           libraryManager.isScanning {
+            HStack(spacing: 12) {
+                ActivityAnimation(size: .small)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Discover will populate when scanning finishes")
+                        .font(.system(size: 13, weight: .semibold))
+
+                    Text(statusText)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 44)
+            .background(Color.accentColor.opacity(0.08))
+        }
+    }
+
+    private var statusText: String {
+        libraryManager.scanStatusMessage.isEmpty
+            ? String(localized: "Discover will finish loading when the scan completes.")
+            : libraryManager.scanStatusMessage
+    }
+}
+
 private final class DiscoverViewModel: ObservableObject {
     @Published private(set) var featuredSection: DiscoverSection
     @Published private(set) var recentlyPlayedSection: DiscoverSection
     @Published private(set) var mostLovedSection: DiscoverSection
     @Published private(set) var tracks: [Track]
     @Published private(set) var isLoadingTracks: Bool
+    @Published private(set) var showsRecentlyPlayed: Bool
+    @Published private(set) var showsMostLoved: Bool
 
     init(libraryManager: LibraryManager) {
         featuredSection = libraryManager.featuredSection
@@ -14,12 +51,16 @@ private final class DiscoverViewModel: ObservableObject {
         mostLovedSection = libraryManager.mostLovedSection
         tracks = libraryManager.discoverTracks
         isLoadingTracks = libraryManager.isLoadingDiscoverTracks
+        showsRecentlyPlayed = libraryManager.isDiscoverRecentlyPlayedUnlocked
+        showsMostLoved = libraryManager.isDiscoverMostLovedUnlocked
 
         libraryManager.$featuredSection.assign(to: &$featuredSection)
         libraryManager.$recentlyPlayedSection.assign(to: &$recentlyPlayedSection)
         libraryManager.$mostLovedSection.assign(to: &$mostLovedSection)
         libraryManager.$discoverTracks.assign(to: &$tracks)
         libraryManager.$isLoadingDiscoverTracks.assign(to: &$isLoadingTracks)
+        libraryManager.$isDiscoverRecentlyPlayedUnlocked.assign(to: &$showsRecentlyPlayed)
+        libraryManager.$isDiscoverMostLovedUnlocked.assign(to: &$showsMostLoved)
     }
 }
 
@@ -79,46 +120,52 @@ struct DiscoverView: View {
     }
 
     var body: some View {
-        ScrollView(.vertical) {
-            LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
-                Section {
-                    featuredRow
-                } header: {
-                    EntityListHeader(title: String(localized: "Featured"), metrics: metrics) {
-                        refreshButton(help: String(localized: "Refresh featured picks")) {
-                            Task { await libraryManager.refreshFeatured() }
+        VStack(spacing: 0) {
+            DiscoverInitialScanBanner(libraryManager: libraryManager)
+
+            ScrollView(.vertical) {
+                LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                    Section {
+                        featuredRow
+                    } header: {
+                        EntityListHeader(title: String(localized: "Featured"), metrics: metrics) {
+                            refreshButton(help: String(localized: "Refresh featured picks")) {
+                                Task { await libraryManager.refreshFeatured() }
+                            }
                         }
                     }
-                }
 
-                Section {
-                    recentlyPlayedRow
-                } header: {
-                    EntityListHeader(title: String(localized: "Recently Played"), metrics: metrics)
-                }
+                    if viewModel.showsRecentlyPlayed {
+                        Section {
+                            recentlyPlayedRow
+                        } header: {
+                            EntityListHeader(title: String(localized: "Recently Played"), metrics: metrics)
+                        }
+                    }
 
-                Section {
-                    mostLovedRow
-                } header: {
-                    EntityListHeader(title: String(localized: "Most Loved & Played"), metrics: metrics)
-                }
+                    if viewModel.showsMostLoved {
+                        Section {
+                            mostLovedRow
+                        } header: {
+                            EntityListHeader(title: String(localized: "Most Loved & Played"), metrics: metrics)
+                        }
+                    }
 
-                Section {
-                    freshMusicContent
-                } header: {
-                    freshMusicHeader
+                    Section {
+                        freshMusicContent
+                    } header: {
+                        freshMusicHeader
+                    }
                 }
             }
-        }
-        .background {
-            // Height probe. A background can't feed its size back into its own content,
-            // so this measures the resolved height without creating a layout cycle.
-            GeometryReader { geometry in
-                Color.clear
-                    .onAppear { updateMetrics(forAvailableHeight: geometry.size.height) }
-                    .onChange(of: geometry.size.height) { _, newHeight in
-                        updateMetrics(forAvailableHeight: newHeight)
-                    }
+            .background {
+                GeometryReader { geometry in
+                    Color.clear
+                        .onAppear { updateMetrics(forAvailableHeight: geometry.size.height) }
+                        .onChange(of: geometry.size.height) { _, newHeight in
+                            updateMetrics(forAvailableHeight: newHeight)
+                        }
+                }
             }
         }
         .task {
@@ -128,7 +175,16 @@ struct DiscoverView: View {
         // settle when Discover next becomes visible. Most Loved & Played tracks its own
         // staleness in `LibraryManager`, since plays land whether or not Discover is open.
         .onReceive(NotificationCenter.default.publisher(for: .trackPlayCountUpdated)) { _ in
-            recentlyPlayedIsStale = true
+            if isVisible {
+                recentlyPlayedIsStale = false
+                Task { await libraryManager.loadDiscover() }
+            } else {
+                recentlyPlayedIsStale = true
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .trackFavoriteStatusChanged)) { _ in
+            guard isVisible else { return }
+            Task { await libraryManager.loadDiscover() }
         }
         // Generation is skipped while a scan is running, so pick it up once the scan ends.
         .onReceive(libraryManager.$isScanning.removeDuplicates().dropFirst()) { scanning in

@@ -14,7 +14,7 @@ struct InternetRadioView: View {
 
             // The spinner only stands in for an empty list; stored stations show at once.
             if radioManager.stations.isEmpty {
-                if radioManager.isFetchingDefaults {
+                if radioManager.isFetchingDefaults || !radioManager.hasLoadedStations {
                     fetchingView
                 } else {
                     emptyStateView

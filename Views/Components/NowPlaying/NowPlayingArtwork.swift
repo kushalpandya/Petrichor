@@ -51,8 +51,7 @@ enum NowPlayingArtwork {
     static func controlColor(for source: NowPlayingSource?, useArtworkTint: Bool, isDarkBackground: Bool) -> Color {
         // Tinting off: use the system accent (the empty AccentColor asset means Color.accentColor won't track it).
         guard useArtworkTint else { return Color(nsColor: .controlAccentColor) }
-        // Tinting on but nothing playing: no artwork to derive from, so read as the
-        // primary label color (black/white) rather than the accent color.
+        // Tinting on but nothing playing: transport controls use the primary label color.
         guard let dominant = source?.dominantColors.first else { return .primary }
 
         let srgb = dominant.usingColorSpace(.sRGB) ?? dominant

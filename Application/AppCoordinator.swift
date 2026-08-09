@@ -56,6 +56,9 @@ class AppCoordinator: ObservableObject {
         Self.shared = self
 
         // Set after `shared`: the manager reads the database through it.
+        InternetRadioManager.shared.prepareForLaunch(
+            stations: libraryManager.databaseManager.loadStationSummaries()
+        )
         InternetRadioManager.shared.loadStations()
         restoreStationIfNeeded()
 

@@ -267,6 +267,7 @@ extension PetrichorApp {
             }
         }
         .keyboardShortcut("n", modifiers: .command)
+        .disabled(!appCoordinator.libraryManager.hasLocalMusic)
     }
 
     private func newRadioStationMenuItem() -> some View {
