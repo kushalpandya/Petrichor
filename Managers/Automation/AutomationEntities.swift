@@ -66,22 +66,12 @@ enum AutomationLibrary {
         AppCoordinator.shared?.libraryManager.albumEntities ?? []
     }
 
-    /// Waits (bounded) until the entity caches are populated. The albumEntities cache
-    /// loads ~tens of ms after launch, so an album picker / Siri album lookup fired
-    /// during cold start could otherwise read an empty cache and fail to resolve.
-    /// No-op once the first load has completed (the common, warm-app case).
+    /// Album entities are lazy so launch does not read every artwork blob. Automation
+    /// has no view access to trigger that load, so start it explicitly when needed.
     @MainActor
-    static func awaitAlbumsReady(timeoutMs: Int = 3000) async {
+    static func awaitAlbumsReady() async {
         guard let library = AppCoordinator.shared?.libraryManager else { return }
-        var waited = 0
-        let stepMs = 50
-        while !library.entitiesLoaded && waited < timeoutMs {
-            try? await Task.sleep(nanoseconds: UInt64(stepMs) * 1_000_000)
-            waited += stepMs
-        }
-        if !library.entitiesLoaded {
-            Logger.warning("Automation: album entities not loaded after \(timeoutMs)ms; album picker/lookup may be empty")
-        }
+        await library.loadEntitiesAsync()
     }
 
     /// Picker suggestions for a category, mapped into its AppEntity.

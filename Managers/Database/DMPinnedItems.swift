@@ -143,13 +143,10 @@ extension DatabaseManager {
             }
             
             // For album entities with albumId, use the dedicated method
-            if filterType == .albums && item.albumId != nil {
-                // Try to reconstruct the AlbumEntity to use the proper method
-                if let albumEntity = getAlbumEntities().first(where: {
-                    $0.albumId == item.albumId && $0.name == filterValue
-                }) {
-                    return getTracksForAlbumEntity(albumEntity)
-                }
+            if filterType == .albums, let albumId = item.albumId {
+                var tracks = getTracksByFilterType(.albums, value: filterValue, albumId: albumId)
+                populateAlbumArtworkForTracks(&tracks)
+                return tracks
             }
             
             // Use the same dispatch as the Library sidebar so pinned-item track lists

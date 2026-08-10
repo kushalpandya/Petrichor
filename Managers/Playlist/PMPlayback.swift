@@ -142,6 +142,7 @@ extension PlaylistManager {
     // MARK: - Repeat and Shuffle
 
     func toggleShuffle() {
+        AppCoordinator.shared?.cancelPlaybackRestoration()
         isShuffleEnabled.toggle()
         Logger.info("Shuffle state changed to: \(isShuffleEnabled)")
 

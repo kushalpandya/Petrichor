@@ -131,7 +131,7 @@ extension LibraryManager {
             }
 
             pendingMergeRequest = nil
-            refreshEntities()
+            await refreshEntitiesAsync()
             refreshLibraryCategories()
             await loadPinnedItems()
             NotificationCenter.default.post(name: .libraryDataDidChange, object: nil)

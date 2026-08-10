@@ -103,7 +103,7 @@ struct StationTableView: View {
             }
             .width(min: 220)
             .customizationID("name")
-            .disabledCustomizationBehavior(.visibility)
+            .defaultVisibility(.visible)
 
             TableColumn("Date Added", value: \.sortableDateAdded) { station in
                 Text(station.dateAdded.map(Self.dateFormatter.string(from:)) ?? "")

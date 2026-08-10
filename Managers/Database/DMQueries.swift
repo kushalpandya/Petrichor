@@ -60,6 +60,44 @@ extension DatabaseManager {
         }
     }
 
+    /// Resolves durable playback references in one database read. IDs win; paths recover
+    /// sessions after a database rebuild gives an existing file a new row ID.
+    func resolveTrackReferences(
+        _ references: [PlaybackSession.TrackReference]
+    ) throws -> [PlaybackSession.TrackReference: Track] {
+        let ids = Set(references.compactMap(\.databaseID))
+        let paths = Set(references.map(\.path))
+        return try dbQueue.read { db in
+                var byID: [Int64: Track] = [:]
+                for chunk in Array(ids).chunked(into: 500) {
+                    let tracks = try Track.filter(chunk.contains(Track.Columns.trackId)).fetchAll(db)
+                    byID = Dictionary(uniqueKeysWithValues: tracks.compactMap { track in
+                        track.trackId.map { ($0, track) }
+                    }).merging(byID) { current, _ in current }
+                }
+
+                var byPath: [String: Track] = [:]
+                for chunk in Array(paths).chunked(into: 500) {
+                    let tracks = try Track.filter(chunk.contains(Track.Columns.path)).fetchAll(db)
+                    for track in tracks { byPath[track.url.path] = track }
+                }
+
+                var resolved: [PlaybackSession.TrackReference: Track] = [:]
+                for reference in references {
+                    if let id = reference.databaseID, let track = byID[id] {
+                        if track.url.path == reference.path {
+                            resolved[reference] = track
+                            continue
+                        }
+                    }
+                    if let track = byPath[reference.path] {
+                        resolved[reference] = track
+                    }
+                }
+                return resolved
+        }
+    }
+
     /// Get tracks by IDs with their album artwork populated, in a single read. Tracks are
     /// returned in the same order as `trackIds` (a plain `IN` fetch returns DB order), so
     /// callers building a playlist preserve the intended track order.

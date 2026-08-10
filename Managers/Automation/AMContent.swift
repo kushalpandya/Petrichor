@@ -80,6 +80,7 @@ extension AutomationManager {
             // A station owns the player: stage the whole set on standby instead of taking
             // playback from it, matching the single-track queue operations.
             if playback?.currentStation != nil {
+                AppCoordinator.shared?.cancelPlaybackRestoration()
                 playlist.currentQueue = tracks
                 playlist.currentQueueIndex = -1
                 return

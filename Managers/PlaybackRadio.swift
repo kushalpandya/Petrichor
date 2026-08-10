@@ -196,7 +196,14 @@ extension PlaybackManager {
 
         // Absence is not deletion: a failed read also yields an empty list.
         // Deletion comes through `stationWasDeleted`.
-        guard let updated = stations.first(where: { $0.id == stationId }), updated != current else { return }
+        guard var updated = stations.first(where: { $0.id == stationId }) else { return }
+
+        // Launch first publishes lightweight station rows without artwork. Never let one
+        // temporarily downgrade the fully restored player source while the full read runs.
+        if updated.artworkData == nil, current.artworkData != nil {
+            updated.artworkData = current.artworkData
+        }
+        guard updated != current else { return }
 
         let addressChanged = updated.streamURL != current.streamURL
         let wasStreaming = isStreamActive
@@ -226,8 +233,15 @@ extension PlaybackManager {
     }
 
     /// Launch-time restoration: shown but not connected.
-    func restoreStation(_ station: RadioStation) {
+    func restoreStation(_ station: RadioStation, colorSnapshot: ArtworkColorSnapshot?) {
         beginSourceGeneration()
+        if let artworkData = station.artworkData, let colorSnapshot {
+            ImageUtils.seedDominantColors(
+                colorSnapshot.nsColors,
+                id: station.artworkCacheID,
+                imageData: artworkData
+            )
+        }
         currentStation = station
         streamMetadata = [:]
         streamFormat = nil

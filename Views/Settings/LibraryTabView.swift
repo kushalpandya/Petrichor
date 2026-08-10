@@ -12,7 +12,7 @@ struct LibraryTabView: View {
     private var discoverUpdateInterval: DiscoverUpdateInterval = .weekly
 
     @AppStorage("discoverTrackCount")
-    private var discoverTrackCount: Int = 50
+    private var discoverTrackCount: Int = DiscoverConfiguration.freshMusicTrackCount
 
     @State private var isFoldersListExpanded: Bool = false
 
@@ -45,7 +45,7 @@ struct LibraryTabView: View {
                 .help("Automatically scan for new music in the library on selected interval")
                 .pickerStyle(.menu)
 
-                Picker("Refresh Discover", selection: $discoverUpdateInterval) {
+                Picker("Refresh Featured & Fresh Music", selection: $discoverUpdateInterval) {
                     ForEach(DiscoverUpdateInterval.allCases, id: \.self) { interval in
                         Text(interval.displayName).tag(interval)
                     }
@@ -285,7 +285,7 @@ struct LibraryTabView: View {
             infoButton(
                 isPresented: $showResetInfo,
                 text: String(localized: """
-                                    Removes all folders, tracks, playlists, and pinned items. \
+                                    Removes all folders, tracks, playlists, radio stations, station collections, and pinned items. \
                                     Use the checkbox in the confirmation dialog to optionally reset app preferences.
                                     """)
             )
@@ -438,14 +438,12 @@ struct LibraryTabView: View {
             coordinator.playbackManager.stop()
             coordinator.playlistManager.clearQueue()
         }
-
         UserDefaults.standard.removeObject(forKey: "SavedMusicFolders")
         UserDefaults.standard.removeObject(forKey: "SavedMusicTracks")
         UserDefaults.standard.removeObject(forKey: "SecurityBookmarks")
         UserDefaults.standard.removeObject(forKey: "LastScanDate")
 
-        UserDefaults.standard.removeObject(forKey: "SavedPlaybackState")
-        UserDefaults.standard.removeObject(forKey: "SavedPlaybackUIState")
+        AppCoordinator.shared?.clearSavedPlaybackSession()
 
         if alsoResetPreferences {
             if let bundleID = Bundle.main.bundleIdentifier {
@@ -459,9 +457,12 @@ struct LibraryTabView: View {
 
         Task {
             do {
+                await InternetRadioManager.shared.cancelDownloadsAndWait()
+                await InternetRadioManager.shared.cancelStationLoads()
                 try await libraryManager.resetAllData()
                 await libraryManager.loadPinnedItems()
                 await MainActor.run {
+                    InternetRadioManager.shared.clearLoadedStations()
                     AppCoordinator.shared?.playlistManager.loadPlaylists()
                 }
 
@@ -489,8 +490,8 @@ struct LibraryTabView: View {
         let alert = NSAlert()
         alert.messageText = String(localized: "Reset Library Data")
         alert.informativeText = String(localized: """
-            This will permanently remove all library data, including added folders, tracks, playlists, \
-            and pinned items. This action cannot be undone.
+            This will permanently remove all data, including added folders, tracks, playlists, radio stations, \
+            station collections, and pinned items. This action cannot be undone.
             """)
         alert.alertStyle = .critical
         alert.icon = nil

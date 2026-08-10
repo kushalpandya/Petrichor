@@ -6,6 +6,12 @@
 
 import Foundation
 
+enum DiscoverConfiguration {
+    static let carouselItemCount = 25
+    static let freshMusicTrackCount = 25
+    static let sectionUnlockTrackCount = 5
+}
+
 // MARK: - Discover Entity Types
 
 enum DiscoverEntityKind: String, Codable, Hashable {
@@ -159,17 +165,81 @@ enum DiscoverSection {
     }
 }
 
-// MARK: - Sticky Cache
+// MARK: - Cache
 
-/// One JSON blob rather than parallel plist arrays, which would desynchronize given the
-/// heterogeneous ref shape.
-struct DiscoverFeaturedCache: Codable {
-    /// Bump to make every install regenerate after a selection or ref-shape change, with no
-    /// database migration. v2 added `DiscoverEntityRef.artistId`.
-    static let currentVersion = 2
+struct DiscoverCache: Codable {
+    static let currentVersion = 1
 
     let version: Int
-    let refs: [DiscoverEntityRef]
+    let carouselItemCount: Int
+    var featuredRefs: [DiscoverEntityRef]
+    var mostLovedRefs: [DiscoverEntityRef]
+    var freshMusicTrackIds: [Int64]
+    var lastScheduledUpdate: Date?
+    var lovedSignalGeneration: Int
+    var lovedSelectionGeneration: Int
+    var isMostLovedUnlocked: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case version
+        case carouselItemCount
+        case featuredRefs
+        case mostLovedRefs
+        case freshMusicTrackIds
+        case lastScheduledUpdate
+        case lovedSignalGeneration
+        case lovedSelectionGeneration
+        case isMostLovedUnlocked
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        version = try container.decode(Int.self, forKey: .version)
+        carouselItemCount = try container.decode(Int.self, forKey: .carouselItemCount)
+        featuredRefs = try container.decode([DiscoverEntityRef].self, forKey: .featuredRefs)
+        mostLovedRefs = try container.decode([DiscoverEntityRef].self, forKey: .mostLovedRefs)
+        freshMusicTrackIds = try container.decode([Int64].self, forKey: .freshMusicTrackIds)
+        lastScheduledUpdate = try container.decodeIfPresent(Date.self, forKey: .lastScheduledUpdate)
+        lovedSignalGeneration = try container.decode(Int.self, forKey: .lovedSignalGeneration)
+        lovedSelectionGeneration = try container.decode(Int.self, forKey: .lovedSelectionGeneration)
+        isMostLovedUnlocked = try container.decodeIfPresent(Bool.self, forKey: .isMostLovedUnlocked) ?? false
+    }
+
+    init(
+        version: Int,
+        carouselItemCount: Int,
+        featuredRefs: [DiscoverEntityRef],
+        mostLovedRefs: [DiscoverEntityRef],
+        freshMusicTrackIds: [Int64],
+        lastScheduledUpdate: Date?,
+        lovedSignalGeneration: Int,
+        lovedSelectionGeneration: Int,
+        isMostLovedUnlocked: Bool
+    ) {
+        self.version = version
+        self.carouselItemCount = carouselItemCount
+        self.featuredRefs = featuredRefs
+        self.mostLovedRefs = mostLovedRefs
+        self.freshMusicTrackIds = freshMusicTrackIds
+        self.lastScheduledUpdate = lastScheduledUpdate
+        self.lovedSignalGeneration = lovedSignalGeneration
+        self.lovedSelectionGeneration = lovedSelectionGeneration
+        self.isMostLovedUnlocked = isMostLovedUnlocked
+    }
+
+    static var empty: Self {
+        DiscoverCache(
+            version: currentVersion,
+            carouselItemCount: DiscoverConfiguration.carouselItemCount,
+            featuredRefs: [],
+            mostLovedRefs: [],
+            freshMusicTrackIds: [],
+            lastScheduledUpdate: nil,
+            lovedSignalGeneration: 0,
+            lovedSelectionGeneration: -1,
+            isMostLovedUnlocked: false
+        )
+    }
 }
 
 // MARK: - Detached Task Payload
@@ -185,6 +255,9 @@ struct DiscoverPayload {
     let smart: DiscoverSmartSnapshot
     let didRegenerateFeatured: Bool
     let didRegenerateLoved: Bool
+    let lovedSignalGeneration: Int
+    let isRecentlyPlayedUnlocked: Bool
+    let isMostLovedUnlocked: Bool
     let didRegenerateTracks: Bool
     let didRunScheduled: Bool
 }

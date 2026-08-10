@@ -13,8 +13,8 @@ struct FoldersView: View {
     private var trackTableRowSize: TableRowSize = .expanded
 
     var body: some View {
-        if !libraryManager.shouldShowMainUI {
-            NoMusicEmptyStateView(context: .mainWindow)
+        if !libraryManager.hasLocalMusic {
+            NoMusicEmptyStateView(context: .localLibrary)
         } else {
             folderTracksView
                 .onChange(of: selectedFolderNode) { _, newNode in

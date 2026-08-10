@@ -7,6 +7,18 @@
 import Foundation
 
 extension PlaylistManager {
+    func installRestoredQueue(
+        _ tracks: [Track],
+        cursor: Int?,
+        source: QueueSource,
+        playlist: Playlist?
+    ) {
+        currentQueue = tracks
+        currentQueueIndex = cursor ?? -1
+        currentQueueSource = source
+        currentPlaylist = playlist
+    }
+
     func createLibraryQueue() {
         guard let library = libraryManager else { return }
         currentQueue = library.tracks
@@ -20,6 +32,7 @@ extension PlaylistManager {
     }
 
     func clearQueue() {
+        AppCoordinator.shared?.cancelPlaybackRestoration()
         currentQueue.removeAll()
         currentQueueIndex = -1
         currentPlaylist = nil
@@ -34,6 +47,7 @@ extension PlaylistManager {
     }
 
     func playNext(_ track: Track) {
+        AppCoordinator.shared?.cancelPlaybackRestoration()
         // A standby queue (entries but no cursor, as radio and Clear Queue leave it) takes
         // an insertion at the front; only a genuinely empty one is initialised.
         if !currentQueue.isEmpty, currentQueueIndex < 0 {
@@ -83,6 +97,7 @@ extension PlaylistManager {
     }
 
     func addToQueue(_ track: Track) {
+        AppCoordinator.shared?.cancelPlaybackRestoration()
         if !currentQueue.isEmpty, currentQueueIndex < 0 {
             stageInStandbyQueue(track, atFront: false)
             return
@@ -107,6 +122,7 @@ extension PlaylistManager {
     }
 
     func removeFromQueue(at index: Int) {
+        AppCoordinator.shared?.cancelPlaybackRestoration()
         guard index >= 0 && index < currentQueue.count else { return }
 
         if index == currentQueueIndex {
@@ -136,6 +152,7 @@ extension PlaylistManager {
     }
 
     func moveInQueue(from sourceIndex: Int, to destinationIndex: Int) {
+        AppCoordinator.shared?.cancelPlaybackRestoration()
         guard sourceIndex >= 0, sourceIndex < currentQueue.count,
               destinationIndex >= 0, destinationIndex < currentQueue.count,
               sourceIndex != destinationIndex else { return }
@@ -157,6 +174,7 @@ extension PlaylistManager {
     }
 
     func playFromQueue(at index: Int) {
+        AppCoordinator.shared?.cancelPlaybackRestoration()
         guard index >= 0 && index < currentQueue.count else { return }
 
         currentQueueIndex = index

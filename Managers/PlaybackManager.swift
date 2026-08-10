@@ -17,8 +17,6 @@ class PlaybackManager: NSObject, ObservableObject {
         AppCoordinator.shared?.scrobbleManager
     }
 
-    // MARK: - Published Properties
-
     @Published var currentTrack: Track?
     @Published var isPlaying: Bool = false {
         didSet {
@@ -38,6 +36,7 @@ class PlaybackManager: NSObject, ObservableObject {
         }
     }
     @Published var restoredUITrack: Track?
+    private var restoredQueueIndex: Int?
 
     // MARK: - Internet Radio
 
@@ -183,36 +182,43 @@ class PlaybackManager: NSObject, ObservableObject {
     
     // MARK: - Player State Management
     
-    func restoreUIState(_ uiState: PlaybackUIState) {
+    func restoreUIState(_ presentation: PlaybackSession.Presentation, position: Double) {
         var tempTrack = Track(url: URL(fileURLWithPath: "/restored"))
-        tempTrack.title = uiState.trackTitle
-        tempTrack.artist = uiState.trackArtist
-        tempTrack.album = uiState.trackAlbum
-        tempTrack.albumArtworkData = uiState.artworkData
-        tempTrack.duration = uiState.trackDuration
+        tempTrack.title = presentation.title
+        tempTrack.artist = presentation.artist
+        tempTrack.album = presentation.album ?? "Unknown Album"
+        tempTrack.albumArtworkData = presentation.artworkData
+        tempTrack.duration = presentation.duration ?? 0
+
+        if let artworkData = tempTrack.artworkData, let artworkColors = presentation.artworkColors {
+            ImageUtils.seedDominantColors(artworkColors.nsColors, id: tempTrack.id, imageData: artworkData)
+        }
         
         restoredUITrack = tempTrack
         currentTrack = tempTrack
-        restoredPosition = uiState.playbackPosition
-        volume = uiState.volume
+        restoredPosition = position
+        currentTime = position
     }
     
-    /// `generation` is the source identity restoration was *scheduled* under. Capturing it
-    /// here instead would be too late: the coordinator defers this past a delay and a
-    /// library load, by which time the user may already have chosen a source.
-    func prepareTrackForRestoration(_ track: Track, at position: Double, expecting generation: UInt64) {
+    func prepareTrackForRestoration(
+        _ track: Track,
+        at position: Double,
+        queueIndex: Int,
+        expecting generation: UInt64,
+        completion: @escaping () -> Void
+    ) {
         guard generation == sourceGeneration else {
             Logger.info("Skipped track restoration: a source was selected before it began")
             return
         }
-        restoredUITrack = nil
-
+        restoredQueueIndex = queueIndex
         Task {
             do {
                 guard let fullTrack = try await track.fullTrack(using: libraryManager.databaseManager.dbQueue) else {
                     await MainActor.run {
                         Logger.error("Failed to fetch track data for restoration")
-                        self.abandonPendingPlayOnRestore()
+                        self.abandonSessionRestoration()
+                        completion()
                     }
                     return
                 }
@@ -220,38 +226,44 @@ class PlaybackManager: NSObject, ObservableObject {
                 await MainActor.run {
                     guard self.sourceGeneration == generation else {
                         Logger.info("Abandoned track restoration: another source was selected")
+                        completion()
                         return
                     }
 
                     self.currentTrack = track
                     self.currentFullTrack = fullTrack
+                    self.restoredUITrack = nil
                     self.restoredPosition = position
                     self.currentTime = position
 
                     if self.pendingPlayOnRestore {
-                        // Play was pressed while this fetch was in flight; honor it now
                         self.pendingPlayOnRestore = false
-                        self.startPlayback(of: fullTrack, lightweightTrack: track)
+                        self.startPlayback(of: fullTrack, lightweightTrack: track, queueIndex: queueIndex)
                     } else {
                         self.isPlaying = false
                     }
 
                     Logger.info("Prepared track for restoration at position: \(position)")
+                    completion()
                 }
             } catch {
                 await MainActor.run {
                     Logger.error("Failed to prepare track for restoration: \(error)")
-                    self.abandonPendingPlayOnRestore()
+                    self.abandonSessionRestoration()
+                    completion()
                 }
             }
         }
     }
 
-    /// Resets a latched play when the restore it was waiting on failed.
-    private func abandonPendingPlayOnRestore() {
-        guard pendingPlayOnRestore else { return }
+    func abandonSessionRestoration() {
         pendingPlayOnRestore = false
-        isPlaying = false
+        restoredQueueIndex = nil
+        restoredUITrack = nil
+        if currentTrack?.trackId == nil { currentTrack = nil }
+        currentFullTrack = nil
+        restoredPosition = 0
+        if audioPlayer.state == .stopped { isPlaying = false }
     }
     
     // MARK: - Playback Controls
@@ -281,7 +293,7 @@ class PlaybackManager: NSObject, ObservableObject {
             audioPlayer.resume()
             isPlaying = true
         } else if let fullTrack = currentFullTrack, let track = currentTrack {
-            startPlayback(of: fullTrack, lightweightTrack: track)
+            startPlayback(of: fullTrack, lightweightTrack: track, queueIndex: restoredQueueIndex)
         } else if currentTrack != nil {
             // Restored track still loading; resume() would no-op, so latch the intent
             pendingPlayOnRestore = true
@@ -547,14 +559,19 @@ class PlaybackManager: NSObject, ObservableObject {
     
     // MARK: - Private Methods
     
-    private func startPlayback(of fullTrack: FullTrack, lightweightTrack: Track) {
+    private func startPlayback(
+        of fullTrack: FullTrack,
+        lightweightTrack: Track,
+        queueIndex: Int? = nil
+    ) {
         // Hand the restore/watchdog position over explicitly (see startQueue's resumeAt).
         let resumeAt = restoredPosition
         restoredPosition = 0
+        restoredQueueIndex = nil
 
         // A track that is in the queue starts as a queue entry, so the engine can
         // advance through the rest of the queue by itself.
-        if let position = playlistManager.currentQueue.firstIndex(where: { $0.url == lightweightTrack.url }) {
+        if let position = queueIndex ?? playlistManager.currentQueue.firstIndex(where: { $0.url == lightweightTrack.url }) {
             startQueue(at: position, resumeAt: resumeAt)
         } else {
             startOffQueueTrack(lightweightTrack, url: fullTrack.url, resumeAt: resumeAt)

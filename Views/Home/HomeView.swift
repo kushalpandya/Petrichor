@@ -57,15 +57,7 @@ struct HomeView: View {
     var isActiveTab: Bool = true
     
     var body: some View {
-        if !libraryManager.shouldShowMainUI {
-            // Radio needs no library, so it stays reachable behind the add-folders empty state.
-            if case .fixed(.internetRadio) = selectedSidebarItem?.source {
-                InternetRadioView()
-            } else {
-                NoMusicEmptyStateView(context: .mainWindow)
-            }
-        } else {
-            ZStack {
+        ZStack {
                 // Base content (always rendered)
                 VStack(spacing: 0) {
                     if let selectedItem = selectedSidebarItem {
@@ -103,8 +95,8 @@ struct HomeView: View {
                         .id(detail.id)
                         .zIndex(1)
                 }
-            }
-            .onChange(of: selectedSidebarItem) { _, newItem in
+        }
+        .onChange(of: selectedSidebarItem) { _, newItem in
                 homeDetail = nil
                 pinnedEntity = nil
 
@@ -131,8 +123,8 @@ struct HomeView: View {
                 } else {
                     isShowingEntities = false
                 }
-            }
-            .onChange(of: homeDetail) {
+        }
+        .onChange(of: homeDetail) {
                 // When showing entity detail (tracks), we're not showing entities anymore
                 if homeDetail != nil {
                     isShowingEntities = false
@@ -144,7 +136,6 @@ struct HomeView: View {
                         isShowingEntities = false
                     }
                 }
-            }
         }
     }
     
@@ -153,7 +144,11 @@ struct HomeView: View {
     private var discoverView: some View {
         // Only built when Discover is the selected sidebar item, so visibility reduces
         // to whether Home is the active tab.
-        DiscoverView(isVisible: isActiveTab) { target in
+        DiscoverView(
+            libraryManager: libraryManager,
+            playlistManager: playlistManager,
+            isVisible: isActiveTab
+        ) { target in
             homeDetail = target
         }
     }
@@ -228,7 +223,7 @@ struct HomeView: View {
             // Header
             TrackListHeader(
                 title: String(localized: "All Artists"),
-                trackCount: libraryManager.artistEntities.count
+                trackCount: libraryManager.cachedArtistEntities.count
             ) {
                 Button(action: {
                     entitySortAscending.toggle()
@@ -246,8 +241,11 @@ struct HomeView: View {
             Divider()
             
             // Artists list
-            if libraryManager.artistEntities.isEmpty {
-                NoMusicEmptyStateView(context: .mainWindow)
+            if !libraryManager.entitiesLoaded {
+                ActivityAnimation(size: .large)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if libraryManager.cachedArtistEntities.isEmpty {
+                NoMusicEmptyStateView(context: .localLibrary)
             } else {
                 EntityView(
                     entities: sortedArtistEntities,
@@ -265,6 +263,9 @@ struct HomeView: View {
                 sortArtistEntities()
             }
         }
+        .task {
+            await libraryManager.loadEntitiesAsync()
+        }
         .onReceive(libraryManager.$cachedArtistEntities) { artists in
             // Sort the received value; @Published fires on willSet, so the manager still holds the old array
             sortArtistEntities(artists)
@@ -278,7 +279,7 @@ struct HomeView: View {
             // Header
             TrackListHeader(
                 title: String(localized: "All Albums"),
-                trackCount: libraryManager.albumEntities.count
+                trackCount: libraryManager.cachedAlbumEntities.count
             ) {
                 Menu {
                     Section("Sort by") {
@@ -349,8 +350,11 @@ struct HomeView: View {
             Divider()
             
             // Albums list
-            if libraryManager.albumEntities.isEmpty {
-                NoMusicEmptyStateView(context: .mainWindow)
+            if !libraryManager.entitiesLoaded {
+                ActivityAnimation(size: .large)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if libraryManager.cachedAlbumEntities.isEmpty {
+                NoMusicEmptyStateView(context: .localLibrary)
             } else {
                 EntityView(
                     entities: sortedAlbumEntities,
@@ -367,6 +371,9 @@ struct HomeView: View {
             if sortedAlbumEntities.isEmpty {
                 sortAlbumEntities()
             }
+        }
+        .task {
+            await libraryManager.loadEntitiesAsync()
         }
         .onReceive(libraryManager.$cachedAlbumEntities) { albums in
             // Sort the received value (see artists onReceive); no count guard, artwork updates keep the count
@@ -389,11 +396,15 @@ struct HomeView: View {
                     PlaylistDetailView(playlist: playlist)
                 } else if let entity = pinnedEntity {
                     EntityDetailView(entity: entity, pinnedItem: pinnedItem)
+                } else if (pinnedItem.filterType == .artists || pinnedItem.filterType == .albums)
+                            && !libraryManager.entitiesLoaded {
+                    ActivityAnimation(size: .large)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    NoMusicEmptyStateView(context: .mainWindow)
+                    NoMusicEmptyStateView(context: .localLibrary)
                 }
             } else {
-                NoMusicEmptyStateView(context: .mainWindow)
+                NoMusicEmptyStateView(context: .localLibrary)
             }
         }
     }
@@ -420,14 +431,14 @@ struct HomeView: View {
     }
 
     private func sortArtistEntities(_ artists: [ArtistEntity]? = nil) {
-        let artists = artists ?? libraryManager.artistEntities
+        let artists = artists ?? libraryManager.cachedArtistEntities
         sortedArtistEntities = entitySortAscending
         ? artists.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         : artists.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedDescending }
     }
 
     private func sortAlbumEntities(_ albums: [AlbumEntity]? = nil) {
-        let albums = albums ?? libraryManager.albumEntities
+        let albums = albums ?? libraryManager.cachedAlbumEntities
 
         func tiebreaker(_ a: AlbumEntity, _ b: AlbumEntity) -> Bool {
             let comparison = a.name.localizedCaseInsensitiveCompare(b.name)
@@ -505,15 +516,9 @@ struct HomeView: View {
         if let filterType = item.filterType, let filterValue = item.filterValue {
             switch filterType {
             case .artists:
-                pinnedEntity = libraryManager.artistEntities.first { $0.name == filterValue }
+                loadPinnedArtistOrAlbumEntity(item, filterType: filterType, filterValue: filterValue)
             case .albums:
-                // Match the exact album by id (titles aren't unique); legacy nil falls back to title.
-                if let albumId = item.albumId {
-                    pinnedEntity = libraryManager.albumEntities.first { $0.albumId == albumId }
-                        ?? libraryManager.albumEntities.first { $0.name == filterValue }
-                } else {
-                    pinnedEntity = libraryManager.albumEntities.first { $0.name == filterValue }
-                }
+                loadPinnedArtistOrAlbumEntity(item, filterType: filterType, filterValue: filterValue)
             case .albumArtists, .composers:
                 pinnedEntity = buildArtistEntityForPerson(name: filterValue)
             case .genres, .decades, .years:
@@ -521,6 +526,35 @@ struct HomeView: View {
             }
         } else {
             pinnedEntity = nil
+        }
+    }
+
+    private func loadPinnedArtistOrAlbumEntity(
+        _ item: PinnedItem,
+        filterType: LibraryFilterType,
+        filterValue: String
+    ) {
+        pinnedEntity = nil
+        let pinnedId = item.id
+        Task {
+            await libraryManager.loadEntitiesAsync()
+            guard case .pinned(let selected)? = selectedSidebarItem?.source,
+                  selected.id == pinnedId else { return }
+
+            switch filterType {
+            case .artists:
+                pinnedEntity = libraryManager.cachedArtistEntities.first { $0.name == filterValue }
+            case .albums:
+                // Match the exact album by id (titles aren't unique); legacy nil falls back to title.
+                if let albumId = item.albumId {
+                    pinnedEntity = libraryManager.cachedAlbumEntities.first { $0.albumId == albumId }
+                        ?? libraryManager.cachedAlbumEntities.first { $0.name == filterValue }
+                } else {
+                    pinnedEntity = libraryManager.cachedAlbumEntities.first { $0.name == filterValue }
+                }
+            default:
+                break
+            }
         }
     }
 }

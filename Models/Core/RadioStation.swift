@@ -197,6 +197,7 @@ extension RadioStation: Equatable {
             && lhs.playCount == rhs.playCount
             && lhs.lastPlayed == rhs.lastPlayed
             && lhs.artworkVersion == rhs.artworkVersion
+            && (lhs.artworkData != nil) == (rhs.artworkData != nil)
     }
 }
 

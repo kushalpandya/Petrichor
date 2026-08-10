@@ -309,6 +309,7 @@ extension Notification.Name {
     static let exportPlaylists = Notification.Name("ExportPlaylists")
     
     static let navigateToPlaylists = Notification.Name("navigateToPlaylists")
+    static let navigateToInternetRadio = Notification.Name("navigateToInternetRadio")
     
     static let playEntityTracks = Notification.Name("playEntityTracks")
     static let playPlaylistTracks = Notification.Name("playPlaylistTracks")

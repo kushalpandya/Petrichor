@@ -25,6 +25,39 @@ extension DatabaseManager {
         }
     }
 
+    func loadStationSummaries() -> [RadioStation] {
+        do {
+            return try dbQueue.read { db in
+                try RadioStation
+                    .select(
+                        RadioStation.Columns.id,
+                        RadioStation.Columns.name,
+                        RadioStation.Columns.streamURL,
+                        RadioStation.Columns.description,
+                        RadioStation.Columns.stationUUID,
+                        RadioStation.Columns.faviconURL,
+                        RadioStation.Columns.homepageURL,
+                        RadioStation.Columns.tags,
+                        RadioStation.Columns.country,
+                        RadioStation.Columns.countryCode,
+                        RadioStation.Columns.language,
+                        RadioStation.Columns.codec,
+                        RadioStation.Columns.bitrate,
+                        RadioStation.Columns.votes,
+                        RadioStation.Columns.playCount,
+                        RadioStation.Columns.lastPlayed,
+                        RadioStation.Columns.dateAdded,
+                        RadioStation.Columns.dateModified
+                    )
+                    .order(RadioStation.Columns.name)
+                    .fetchAll(db)
+            }
+        } catch {
+            Logger.error("Failed to load radio station summaries: \(error)")
+            return []
+        }
+    }
+
     /// A single station, for the launch restore, which must not read the whole table.
     func loadStation(id stationId: Int64) -> RadioStation? {
         do {

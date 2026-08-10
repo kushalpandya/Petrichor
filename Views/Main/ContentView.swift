@@ -64,6 +64,7 @@ struct ContentView: View {
     @State private var windowDelegate = WindowDelegate()
     @State private var shouldFocusSearch = false
     @State private var showingExportPlaylistSheet = false
+    @State private var wasInitialLibraryScan = false
 
     // Sidebar selection state (owned here, passed as bindings to sidebars + content views)
     @State private var selectedHomeSidebarItem: HomeSidebarItem?
@@ -139,6 +140,7 @@ struct ContentView: View {
             showingSettings: $showingSettings,
             selectedTab: $selectedTab,
             pendingLibraryFilter: $pendingLibraryFilter,
+            selectedHomeSidebarItem: $selectedHomeSidebarItem,
             showTrackDetail: showTrackDetail
         )
         .onChange(of: playbackManager.currentTrack?.id) { oldId, _ in
@@ -164,6 +166,19 @@ struct ContentView: View {
                     selectedTab = .home
                 }
             }
+        }
+        .onChange(of: libraryManager.isInitialOnboardingScan) { _, isInitialScan in
+            if isInitialScan {
+                wasInitialLibraryScan = true
+            } else if wasInitialLibraryScan && libraryManager.hasLocalMusic {
+                navigateToDiscover()
+                wasInitialLibraryScan = false
+            }
+        }
+        .onChange(of: libraryManager.hasReachedInitialScanThreshold) { _, reachedThreshold in
+            guard reachedThreshold, libraryManager.hasLocalMusic else { return }
+            navigateToDiscover()
+            wasInitialLibraryScan = false
         }
         .background(WindowAccessor(windowDelegate: windowDelegate))
         .navigationTitle("")
@@ -278,8 +293,19 @@ struct ContentView: View {
     // MARK: - View Components
 
     @ViewBuilder private var mainContentArea: some View {
-        if !libraryManager.shouldShowMainUI {
-            NoMusicEmptyStateView(context: .mainWindow)
+        if libraryManager.isInitialLibraryScanBlocking {
+            NoMusicEmptyStateView(context: .localLibrary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if !libraryManager.isLocalLibraryReady
+                    && radioManager.stations.isEmpty
+                    && !radioManager.hasStoredStations
+                    && !radioManager.hasLoadedStations {
+            ActivityAnimation(size: .large)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if !libraryManager.isLocalLibraryReady
+                    && radioManager.stations.isEmpty
+                    && !radioManager.hasStoredStations {
+            NoMusicEmptyStateView(context: .onboarding)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             PersistentSplitView(
@@ -304,13 +330,17 @@ struct ContentView: View {
                 .allowsHitTesting(selectedTab == .home)
 
             if selectedTab == .library {
-                LibrarySidebarView(
-                    selectedFilterType: $libraryFilterType,
-                    selectedFilterItem: $libraryFilterItem,
-                    pendingSearchText: $libraryPendingSearchText,
-                    filteredItems: $libraryFilteredItems,
-                    selectedSidebarItem: $librarySelectedSidebarItem
-                )
+                if libraryManager.hasLocalMusic {
+                    LibrarySidebarView(
+                        selectedFilterType: $libraryFilterType,
+                        selectedFilterItem: $libraryFilterItem,
+                        pendingSearchText: $libraryPendingSearchText,
+                        filteredItems: $libraryFilteredItems,
+                        selectedSidebarItem: $librarySelectedSidebarItem
+                    )
+                } else {
+                    emptyLocalLibrarySidebar(title: String(localized: "Library"))
+                }
             }
 
             if selectedTab == .playlists {
@@ -318,8 +348,23 @@ struct ContentView: View {
             }
 
             if selectedTab == .folders {
-                FoldersSidebarView(selectedNode: $selectedFolderNode)
+                if libraryManager.isLocalLibraryReady {
+                    FoldersSidebarView(selectedNode: $selectedFolderNode)
+                } else {
+                    emptyLocalLibrarySidebar(title: String(localized: "Folders"))
+                }
             }
+        }
+    }
+
+    private func emptyLocalLibrarySidebar(title: String) -> some View {
+        VStack(spacing: 0) {
+            ListHeader(opaque: true) {
+                Text(title).headerTitleStyle()
+                Spacer()
+            }
+            Divider()
+            Spacer()
         }
     }
 
@@ -383,7 +428,7 @@ struct ContentView: View {
     }
 
     @ViewBuilder private var playerControls: some View {
-        if libraryManager.shouldShowMainUI {
+        if libraryManager.isLocalLibraryReady || !radioManager.stations.isEmpty {
             PlayerView(
                 rightSidebarContent: $rightSidebarContent
             )
@@ -402,7 +447,7 @@ struct ContentView: View {
                 items: Sections.allCases.filter { $0 != .folders || showFoldersTab },
                 selection: $selectedTab,
                 animation: .transform,
-                isDisabled: libraryManager.folders.isEmpty
+                isDisabled: false
             )
         }
 
@@ -423,7 +468,7 @@ struct ContentView: View {
                     shouldFocus: shouldFocusSearch
                 )
                 .frame(width: 280)
-                .disabled(!libraryManager.shouldShowMainUI)
+                .disabled(!libraryManager.hasLocalMusic)
             }
         }
     }
@@ -436,7 +481,7 @@ struct ContentView: View {
                 selection: $selectedTab,
                 style: .modern,
                 animation: .transform,
-                isDisabled: libraryManager.folders.isEmpty
+                isDisabled: false
             )
         }
 
@@ -454,16 +499,22 @@ struct ContentView: View {
                 shouldFocus: shouldFocusSearch
             )
             .frame(width: 280)
-            .disabled(!libraryManager.shouldShowMainUI)
+            .disabled(!libraryManager.hasLocalMusic)
         }
     }
     
     // MARK: - Event Handlers
 
     private func handleOnAppear() {
+        wasInitialLibraryScan = libraryManager.isInitialOnboardingScan
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             NSApp.keyWindow?.makeFirstResponder(nil)
         }
+    }
+
+    private func navigateToDiscover() {
+        selectedTab = .home
+        selectedHomeSidebarItem = HomeSidebarItem(type: .discover)
     }
 
     // MARK: - Playlist Import/Export
@@ -571,6 +622,7 @@ extension View {
         showingSettings: Binding<Bool>,
         selectedTab: Binding<Sections>,
         pendingLibraryFilter: Binding<LibraryFilterRequest?>,
+        selectedHomeSidebarItem: Binding<HomeSidebarItem?>,
         showTrackDetail: @escaping (Track) -> Void
     ) -> some View {
         self
@@ -620,6 +672,13 @@ extension View {
                         )
                     }
                 }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .navigateToInternetRadio)) { _ in
+                selectedTab.wrappedValue = .home
+                selectedHomeSidebarItem.wrappedValue = HomeSidebarItem(
+                    type: .internetRadio,
+                    stationCount: InternetRadioManager.shared.stations.count
+                )
             }
     }
 }
