@@ -63,24 +63,29 @@ final class EntityArtworkCache: @unchecked Sendable {
         cache.totalCostLimit = 80 * 1024 * 1024
     }
 
-    private func cacheKey(for entity: any Entity) -> NSString {
-        // `artworkIdentity` defaults to "<id>-<artwork byte count>"; types with
-        // lazily-rendered artwork override it.
-        "\(entity.artworkIdentity)-rendered" as NSString
+    private func cacheKey(for entity: any Entity, isDark: Bool) -> NSString {
+        // `artworkIdentity` defaults to "<id>-<artwork fingerprint>"; types with
+        // lazily-rendered artwork override it. The scheme is in the key because procedural
+        // artwork differs per appearance.
+        "\(entity.artworkIdentity)-rendered-\(isDark ? "d" : "l")" as NSString
     }
 
-    func getCachedImage(for entity: any Entity) -> NSImage? {
-        cache.object(forKey: cacheKey(for: entity))
+    func getCachedImage(for entity: any Entity, isDark: Bool) -> NSImage? {
+        cache.object(forKey: cacheKey(for: entity, isDark: isDark))
     }
 
-    func loadImage(for entity: any Entity) async -> NSImage? {
-        let key = cacheKey(for: entity)
+    func loadImage(for entity: any Entity, isDark: Bool) async -> NSImage? {
+        let key = cacheKey(for: entity, isDark: isDark)
 
         if let cached = cache.object(forKey: key) {
             return cached
         }
 
-        guard let artworkData = entity.artworkData else { return nil }
+        // Bail before generating: a flick-scroll recycles tiles faster than they render, and
+        // dead work here queues ahead of the tiles that are actually on screen.
+        guard !Task.isCancelled else { return nil }
+
+        guard let artworkData = await entity.resolvedArtworkData(isDark: isDark) else { return nil }
 
         return await loadQueue.renderArtwork { [self] in
             // Re-check cache, another operation may have loaded it while queued
@@ -157,6 +162,9 @@ private struct EntityGridItem<T: Entity>: View {
 
     @State private var renderedImage: NSImage?
 
+    @Environment(\.colorScheme)
+    private var colorScheme
+
     var body: some View {
         VStack(spacing: 8) {
             Group {
@@ -177,7 +185,8 @@ private struct EntityGridItem<T: Entity>: View {
                                         .font(.system(size: 40, weight: .medium, design: .rounded))
                                         .foregroundColor(.gray)
                                 } else {
-                                    Image(systemName: Icons.entityIcon(for: entity))
+                                    // `SymbolImage`: category icons include custom asset symbols.
+                                    SymbolImage(Icons.entityIcon(for: entity))
                                         .font(.system(size: 48))
                                         .foregroundColor(.gray)
                                 }
@@ -242,18 +251,41 @@ private struct EntityGridItem<T: Entity>: View {
         .onHover(perform: onHover)
     }
     
-    private var artworkTaskID: String { entity.artworkIdentity }
+    // Scheme-qualified: procedural artwork has a light and a dark variant.
+    private var artworkTaskID: String { "\(entity.artworkIdentity)-\(colorScheme)" }
 
     private func loadArtwork() async {
+        let isDark = colorScheme == .dark
+
         // Serve cache hits synchronously to avoid placeholder flicker on scroll recycle
-        if let cached = EntityArtworkCache.shared.getCachedImage(for: entity) {
+        if let cached = EntityArtworkCache.shared.getCachedImage(for: entity, isDark: isDark) {
             renderedImage = cached
             return
         }
 
-        let image = await EntityArtworkCache.shared.loadImage(for: entity)
+        let image = await EntityArtworkCache.shared.loadImage(for: entity, isDark: isDark)
 
         guard !Task.isCancelled else { return }
         renderedImage = image
     }
+}
+
+// MARK: - Preview
+
+#Preview("Album Grid") {
+    let albums = [
+        AlbumEntity(name: "Abbey Road", trackCount: 17, year: "1969", duration: 2832),
+        AlbumEntity(name: "The Dark Side of the Moon", trackCount: 10, year: "1973", duration: 2580),
+        AlbumEntity(name: "Led Zeppelin IV", trackCount: 8, year: "1971", duration: 2556),
+        AlbumEntity(name: "A Night at the Opera", trackCount: 12, year: "1975", duration: 2628)
+    ]
+
+    EntityGridView(
+        entities: albums,
+        onSelectEntity: { album in
+            Logger.debugPrint("Selected: \(album.name)")
+        },
+        contextMenuItems: { _ in [] }
+    )
+    .frame(height: 600)
 }

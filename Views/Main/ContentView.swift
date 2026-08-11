@@ -110,7 +110,7 @@ struct ContentView: View {
             
             return .ignored
         }
-        .frame(minWidth: 1000, minHeight: 600)
+        .frame(minWidth: 1100, minHeight: 600)
         .overlay {
             if isImmersiveActive {
                 ImmersiveView(
@@ -331,13 +331,7 @@ struct ContentView: View {
 
             if selectedTab == .library {
                 if libraryManager.hasLocalMusic {
-                    LibrarySidebarView(
-                        selectedFilterType: $libraryFilterType,
-                        selectedFilterItem: $libraryFilterItem,
-                        pendingSearchText: $libraryPendingSearchText,
-                        filteredItems: $libraryFilteredItems,
-                        selectedSidebarItem: $librarySelectedSidebarItem
-                    )
+                    LibraryTypeSidebarView(selectedFilterType: $libraryFilterType)
                 } else {
                     emptyLocalLibrarySidebar(title: String(localized: "Library"))
                 }
@@ -374,7 +368,6 @@ struct ContentView: View {
             // appear/disappear callbacks on tab switches.
             HomeView(
                 selectedSidebarItem: $selectedHomeSidebarItem,
-                isShowingEntities: .constant(false),
                 isActiveTab: selectedTab == .home
             )
                 .opacity(selectedTab == .home ? 1 : 0)
@@ -387,6 +380,8 @@ struct ContentView: View {
                     selectedFilterItem: $libraryFilterItem,
                     pendingSearchText: $libraryPendingSearchText,
                     cachedFilteredTracks: $libraryCachedTracks,
+                    filteredItems: $libraryFilteredItems,
+                    selectedSidebarItem: $librarySelectedSidebarItem,
                     pendingFilter: $pendingLibraryFilter
                 )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

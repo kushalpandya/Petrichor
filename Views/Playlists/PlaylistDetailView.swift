@@ -10,6 +10,7 @@ struct PlaylistDetailView: View {
     @ObservedObject private var radioManager = InternetRadioManager.shared
     @State private var selectedTrackID: UUID?
     @State private var gradientColors: [Color] = []
+    @State private var gradientTask: Task<Void, Never>?
     @State private var artworkData: Data?
     @State private var collageToken = 0
 
@@ -101,6 +102,7 @@ struct PlaylistDetailView: View {
             .onChange(of: useArtworkColors) {
                 updateGradientColors()
             }
+            .onDisappear { gradientTask?.cancel() }
         } else {
             playlistNotFoundView
         }
@@ -129,6 +131,7 @@ struct PlaylistDetailView: View {
             .background {
                 if !gradientColors.isEmpty {
                     GradientBackground(colors: gradientColors)
+                        .transition(.opacity)
                 }
             }
             .overlay(alignment: .bottomTrailing) {
@@ -446,17 +449,20 @@ struct PlaylistDetailView: View {
     }
 
     private func updateGradientColors() {
-        guard useArtworkColors,
-              let playlist = playlist,
-              let artworkData = artworkData else {
+        gradientTask?.cancel()
+
+        guard let playlist else {
             gradientColors = []
             return
         }
-        gradientColors = ImageUtils.cachedBackgroundGradientColors(
+
+        gradientTask = ArtworkGradient.resolve(
             id: playlist.id,
-            imageData: artworkData,
-            isDark: colorScheme == .dark
-        )
+            artworkData: artworkData,
+            enabled: useArtworkColors,
+            isDark: colorScheme == .dark,
+            animation: .easeOut(duration: AnimationDuration.mediumDuration)
+        ) { gradientColors = $0 }
     }
 
     private var playlistArtworkTaskID: String {

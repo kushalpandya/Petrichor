@@ -8,6 +8,8 @@ struct LibraryView: View {
     @Binding var selectedFilterItem: LibraryFilterItem?
     @Binding var pendingSearchText: String?
     @Binding var cachedFilteredTracks: [Track]
+    @Binding var filteredItems: [LibraryFilterItem]
+    @Binding var selectedSidebarItem: LibrarySidebarItem?
 
     @AppStorage("trackTableRowSize")
     private var trackTableRowSize: TableRowSize = .expanded
@@ -24,7 +26,7 @@ struct LibraryView: View {
         if !libraryManager.hasLocalMusic {
             NoMusicEmptyStateView(context: .localLibrary)
         } else {
-            tracksListView
+            libraryContent
                 .onAppear {
                     processPendingFilter()
                     if cachedFilteredTracks.isEmpty, selectedFilterItem != nil {
@@ -86,13 +88,37 @@ struct LibraryView: View {
         selectedFilterItem: Binding<LibraryFilterItem?>,
         pendingSearchText: Binding<String?>,
         cachedFilteredTracks: Binding<[Track]>,
+        filteredItems: Binding<[LibraryFilterItem]>,
+        selectedSidebarItem: Binding<LibrarySidebarItem?>,
         pendingFilter: Binding<LibraryFilterRequest?> = .constant(nil)
     ) {
         self._selectedFilterType = selectedFilterType
         self._selectedFilterItem = selectedFilterItem
         self._pendingSearchText = pendingSearchText
         self._cachedFilteredTracks = cachedFilteredTracks
+        self._filteredItems = filteredItems
+        self._selectedSidebarItem = selectedSidebarItem
         self._pendingFilter = pendingFilter
+    }
+
+    // MARK: - Library Content
+
+    private var libraryContent: some View {
+        PersistentSplitView(
+            left: {
+                LibrarySidebarView(
+                    selectedFilterType: $selectedFilterType,
+                    selectedFilterItem: $selectedFilterItem,
+                    pendingSearchText: $pendingSearchText,
+                    filteredItems: $filteredItems,
+                    selectedSidebarItem: $selectedSidebarItem
+                )
+            },
+            main: {
+                tracksListView
+            },
+            leftStorageKey: "libraryItemsSplitPosition"
+        )
     }
 
     // MARK: - Tracks List View
@@ -245,12 +271,16 @@ struct LibraryView: View {
     @Previewable @State var filterItem: LibraryFilterItem?
     @Previewable @State var searchText: String?
     @Previewable @State var cachedTracks: [Track] = []
+    @Previewable @State var filteredItems: [LibraryFilterItem] = []
+    @Previewable @State var selectedSidebarItem: LibrarySidebarItem?
 
     LibraryView(
         selectedFilterType: $filterType,
         selectedFilterItem: $filterItem,
         pendingSearchText: $searchText,
-        cachedFilteredTracks: $cachedTracks
+        cachedFilteredTracks: $cachedTracks,
+        filteredItems: $filteredItems,
+        selectedSidebarItem: $selectedSidebarItem
     )
         .environmentObject({
             let coordinator = AppCoordinator()

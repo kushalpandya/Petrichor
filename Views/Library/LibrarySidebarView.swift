@@ -129,14 +129,6 @@ struct LibrarySidebarView: View {
 
     private var headerSection: some View {
         ListHeader(opaque: true) {
-            // Filter type dropdown - now icons-only
-            IconOnlyDropdown(
-                items: LibraryFilterType.allCases,
-                selection: $selectedFilterType,
-                iconProvider: { $0.icon },
-                tooltipProvider: { $0.pluralDisplayName }
-            )
-
             // Filter bar
             SearchInputField(
                 text: $searchText,
@@ -144,17 +136,7 @@ struct LibrarySidebarView: View {
                 fontSize: 11
             )
 
-            // Sort button
-            Button {
-                sortAscending.toggle()
-            } label: {
-                Image(Icons.sortIcon(for: sortAscending))
-                    .renderingMode(.template)
-                    .scaleEffect(0.8)
-            }
-            .buttonStyle(.borderless)
-            .hoverEffect(scale: 1.1)
-            .help(sortAscending ? String(localized: "Sort descending") : String(localized: "Sort ascending"))
+            SortDirectionButton(ascending: $sortAscending)
         }
     }
 
@@ -211,9 +193,27 @@ struct LibrarySidebarView: View {
             selectedFilterItem = LibraryFilterItem(
                 name: item.filterName,
                 count: matchingTracks.count,
-                filterType: selectedFilterType
+                filterType: selectedFilterType,
+                albumId: item.albumId
             )
         }
+    }
+
+    /// Re-selects the first match when filtering drops the selection, so tracks don't go stale.
+    private func selectFirstMatchIfNeeded() {
+        if let current = selectedFilterItem {
+            // The "All" row isn't in `filteredItems`, so it survives filtering.
+            if current.isAllItem {
+                return
+            }
+
+            if filteredItems.contains(where: { $0.name == current.name && $0.albumId == current.albumId }) {
+                return
+            }
+        }
+
+        selectedFilterItem = filteredItems.first
+        selectedSidebarItem = filteredItems.first.map { LibrarySidebarItem(filterItem: $0) }
     }
 
     private func handleFilterTypeChange(_ newType: LibraryFilterType) {
@@ -262,6 +262,7 @@ struct LibrarySidebarView: View {
 
         // Apply custom sorting
         filteredItems = sortItemsWithUnknownLast(items)
+        selectFirstMatchIfNeeded()
     }
 
     // MARK: - Custom Sorting

@@ -222,6 +222,8 @@ enum AnimationDuration {
     static let standardDuration: TimeInterval = 0.15
     static let mediumDuration: TimeInterval = 0.2
     static let immersiveTransition: TimeInterval = 0.25
+    /// Artwork colour bleed; slower than the durations above so it reads as a bleed, not a flash.
+    static let colorBleed: TimeInterval = 0.35
 }
 
 // MARK: - Delay Durations
@@ -351,8 +353,10 @@ extension Icons {
             return Icons.opticalDiscFill
         } else if entity is PlaylistEntity {
             return Icons.musicNoteList
-        } else if let category = entity as? CategoryEntity, category.filterType == .decades {
-            return Icons.calendarBadgeClock
+        } else if let category = entity as? CategoryEntity {
+            return category.filterType.icon
+        } else if entity is FolderEntity {
+            return Icons.folderFill
         }
         return Icons.musicNote
     }

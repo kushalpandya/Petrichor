@@ -30,6 +30,13 @@ private enum EntityNamespaces {
     }
 }
 
+extension Data {
+    /// Stable content identity for artwork caches. Byte count alone collides for replacements.
+    var artworkFingerprint: String {
+        SHA256.hash(data: self).map { String(format: "%02x", $0) }.joined()
+    }
+}
+
 // MARK: - Entity Protocol
 protocol Entity: Identifiable {
     var id: UUID { get }
@@ -40,6 +47,11 @@ protocol Entity: Identifiable {
     var subtitle: String? { get }
     var trackCount: Int { get }
     var artworkData: Data? { get }
+
+    // Requirements, not extension-only: extension members static-dispatch through `any Entity`.
+    var artworkIdentity: String { get }
+    func resolvedArtworkData(isDark: Bool) async -> Data?
+    func cachedArtworkData(isDark: Bool) -> Data?
 }
 
 extension Entity {
@@ -47,9 +59,14 @@ extension Entity {
     // override this to translate the "Unknown X" sentinel.
     var displayName: String { name }
 
-    /// Identity for artwork caching and `.task(id:)` invalidation. The byte count is a fine
-    /// stamp for a stored snapshot; types whose artwork is lazily materialised override it.
-    var artworkIdentity: String { "\(id.uuidString)-\(artworkData?.count ?? 0)" }
+    /// Identity for artwork caching and `.task(id:)` invalidation.
+    var artworkIdentity: String { "\(id.uuidString)-\(artworkData?.artworkFingerprint ?? "none")" }
+
+    /// Artwork resolved off the main actor; procedural types render here, not in their init.
+    func resolvedArtworkData(isDark: Bool) async -> Data? { artworkData }
+
+    /// Cache-only artwork for a first render, so the detail view doesn't flash a placeholder.
+    func cachedArtworkData(isDark: Bool) -> Data? { artworkData }
 
     /// Second line of a carousel tile, so a mixed row reads unambiguously.
     var kindLabel: String {
@@ -59,20 +76,6 @@ extension Entity {
         if self is PlaylistEntity { return String(localized: "Playlist") }
         if self is FolderEntity { return String(localized: "Folder") }
         return ""
-    }
-}
-
-// MARK: - Shared Color Defaults
-
-extension Entity {
-    var dominantColors: [NSColor] {
-        guard let original = artworkData else { return [] }
-        return ImageUtils.cachedDominantColors(id: id, imageData: original)
-    }
-
-    func backgroundGradientColors(isDark: Bool) -> [Color] {
-        guard let original = artworkData else { return [] }
-        return ImageUtils.cachedBackgroundGradientColors(id: id, imageData: original, isDark: isDark)
     }
 }
 
@@ -176,7 +179,6 @@ struct CategoryEntity: Entity {
     let id: UUID
     let name: String
     let trackCount: Int
-    let artworkData: Data?
     let filterType: LibraryFilterType
 
     var displayName: String { filterType.localizedDisplay(name) }
@@ -185,28 +187,41 @@ struct CategoryEntity: Entity {
         String(localized: "\(trackCount) songs")
     }
 
+    /// Always nil; `resolvedArtworkData` draws it off-main so building a grid costs nothing.
+    var artworkData: Data? { nil }
+
+    /// Seed-derived, so it is stable before and after the artwork renders. Call sites add the
+    /// colour scheme, which the entity has no way to know.
+    var artworkIdentity: String { "\(id.uuidString)-generated" }
+
     init(name: String, trackCount: Int, filterType: LibraryFilterType) {
         self.id = UUID(name: "\(filterType.rawValue)-\(name)".lowercased(), namespace: EntityNamespaces.category)
         self.name = name
         self.trackCount = trackCount
         self.filterType = filterType
-        self.artworkData = ImageUtils.cachedCategoryArtwork(
-            text: name,
-            seed: Self.artworkSeed(name: name, filterType: filterType)
-        )
     }
 
-    static func artworkSeed(name: String, filterType: LibraryFilterType) -> String {
-        "\(filterType.rawValue)-\(name)"
+    private var artworkSeed: String { "\(filterType.rawValue)-\(name)" }
+
+    private var artworkStyle: CategoryArtworkStyle {
+        switch filterType {
+        case .decades: return .decade
+        case .years: return .year
+        default: return .genre
+        }
     }
 
-    /// `init` otherwise does its CoreText render inline on the main actor. Calling this
-    /// off-main first turns that into a cache hit. Safe from any thread.
-    static func warmArtwork(name: String, filterType: LibraryFilterType) {
-        _ = ImageUtils.cachedCategoryArtwork(
-            text: name,
-            seed: artworkSeed(name: name, filterType: filterType)
-        )
+    /// No corner label for the unknown placeholder: it wouldn't fit, and the grid labels it.
+    private var artworkLabel: String? {
+        name == filterType.unknownPlaceholder ? nil : name
+    }
+
+    func resolvedArtworkData(isDark: Bool) async -> Data? {
+        await ImageUtils.proceduralArtwork(seed: artworkSeed, style: artworkStyle, isDark: isDark, label: artworkLabel)
+    }
+
+    func cachedArtworkData(isDark: Bool) -> Data? {
+        ImageUtils.generatedCategoryArtwork(seed: artworkSeed, style: artworkStyle, isDark: isDark)
     }
 }
 
@@ -226,9 +241,9 @@ struct PlaylistEntity: Entity {
         String(localized: "\(trackCount) songs")
     }
 
-    /// Signature and byte count: a collage renders after the tile is on screen, filling
+    /// Signature and content identity: a collage renders after the tile is on screen, filling
     /// artwork in without changing membership, so the signature alone never re-fires.
-    var artworkIdentity: String { "\(id.uuidString)-\(signature)-\(artworkData?.count ?? 0)" }
+    var artworkIdentity: String { "\(id.uuidString)-\(signature)-\(artworkData?.artworkFingerprint ?? "none")" }
 
     /// `trackCount` overrides `playlist.trackCount`, which is stale (often zero) for a
     /// cold smart playlist whose criteria haven't been evaluated this session.
@@ -248,19 +263,32 @@ struct FolderEntity: Entity {
     let name: String
     let path: String
     let trackCount: Int
-    let artworkData: Data?
 
     var subtitle: String? {
         String(localized: "\(trackCount) songs")
     }
+
+    /// Drawn on demand, like `CategoryEntity`.
+    var artworkData: Data? { nil }
+
+    var artworkIdentity: String { "\(id.uuidString)-generated" }
 
     init(path: String, name: String, trackCount: Int) {
         self.id = UUID(name: "folder-\(path)".lowercased(), namespace: EntityNamespaces.category)
         self.name = name
         self.path = path
         self.trackCount = trackCount
-        // Seed by path so same-named folders get distinct artwork.
-        self.artworkData = ImageUtils.cachedCategoryArtwork(text: name, seed: "folder-\(path)")
+    }
+
+    /// Seeded by path, so same-named folders get distinct artwork.
+    private var artworkSeed: String { "folder-\(path)" }
+
+    func resolvedArtworkData(isDark: Bool) async -> Data? {
+        await ImageUtils.proceduralArtwork(seed: artworkSeed, style: .folder, isDark: isDark)
+    }
+
+    func cachedArtworkData(isDark: Bool) -> Data? {
+        ImageUtils.generatedCategoryArtwork(seed: artworkSeed, style: .folder, isDark: isDark)
     }
 }
 

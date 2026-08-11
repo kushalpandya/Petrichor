@@ -110,6 +110,19 @@ enum LibraryFilterType: String, CaseIterable {
         }
     }
 
+    /// Entity count for a pinned category's subtitle; a category resolves to a grid, not tracks.
+    func itemCountLabel(_ count: Int) -> String {
+        switch self {
+        case .artists: return String(localized: "\(count) artists")
+        case .albums: return String(localized: "\(count) albums")
+        case .albumArtists: return String(localized: "\(count) album artists")
+        case .composers: return String(localized: "\(count) composers")
+        case .genres: return String(localized: "\(count) genres")
+        case .decades: return String(localized: "\(count) decades")
+        case .years: return String(localized: "\(count) years")
+        }
+    }
+
     var filterPlaceholder: String {
         switch self {
         case .artists: return String(localized: "Filter Artists...")

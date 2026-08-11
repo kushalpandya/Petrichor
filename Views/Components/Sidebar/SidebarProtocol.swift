@@ -27,11 +27,10 @@ struct HomeSidebarItem: SidebarItem {
     }
     let source: ItemSource
 
+    /// The always-present rows; everything below is a pin, including Artists and Albums.
     enum HomeItemType: CaseIterable {
         case discover
         case tracks
-        case artists
-        case albums
         case internetRadio
 
         var stableID: UUID {
@@ -40,10 +39,6 @@ struct HomeSidebarItem: SidebarItem {
                 return makeStableID("00000000-0000-0000-0000-000000000000")
             case .tracks:
                 return makeStableID("00000000-0000-0000-0000-000000000001")
-            case .artists:
-                return makeStableID("00000000-0000-0000-0000-000000000002")
-            case .albums:
-                return makeStableID("00000000-0000-0000-0000-000000000003")
             case .internetRadio:
                 return makeStableID("00000000-0000-0000-0000-000000000004")
             }
@@ -60,8 +55,6 @@ struct HomeSidebarItem: SidebarItem {
             switch self {
             case .discover: return String(localized: "Discover")
             case .tracks: return String(localized: "Tracks")
-            case .artists: return String(localized: "Artists")
-            case .albums: return String(localized: "Albums")
             case .internetRadio: return String(localized: "Internet Radio")
             }
         }
@@ -70,8 +63,6 @@ struct HomeSidebarItem: SidebarItem {
             switch self {
             case .discover: return Icons.sparkles
             case .tracks: return Icons.musicNote
-            case .artists: return Icons.person2Fill
-            case .albums: return Icons.opticalDiscFill
             case .internetRadio: return Icons.radioFill
             }
         }
@@ -81,8 +72,6 @@ struct HomeSidebarItem: SidebarItem {
     init(
         type: HomeItemType,
         trackCount: Int? = nil,
-        artistCount: Int? = nil,
-        albumCount: Int? = nil,
         stationCount: Int? = nil
     ) {
         self.id = type.stableID
@@ -100,26 +89,31 @@ struct HomeSidebarItem: SidebarItem {
             self.subtitle = nil
         case .tracks:
             self.subtitle = String(localized: "\(trackCount ?? 0) songs")
-        case .artists:
-            self.subtitle = String(localized: "\(artistCount ?? 0) artists")
-        case .albums:
-            self.subtitle = String(localized: "\(albumCount ?? 0) albums")
         case .internetRadio:
             self.subtitle = String(localized: "\(stationCount ?? 0) stations")
         }
     }
-    
-    // Init for pinned items
-    init(pinnedItem: PinnedItem, trackCount: Int = 0, playlist: Playlist? = nil) {
+
+    // Init for pinned items.
+    // `count` is tracks, except for a category pin, where it is entities.
+    init(pinnedItem: PinnedItem, trackCount count: Int = 0, playlist: Playlist? = nil) {
         // Must stay stable across rebuilds: the sidebar restores selection by id, and a
         // non-UUID string parses to nil, minting a random id that drops the highlight.
         self.id = UUID(uuidString: String(format: "00000000-0000-0000-0002-%012d", pinnedItem.id ?? 0)) ?? UUID()
         self.type = nil
         self.source = .pinned(pinnedItem)
-        self.title = playlist.map(DefaultPlaylists.displayName) ?? pinnedItem.displayName
-        self.subtitle = playlist?.type == .stations
-            ? String(localized: "\(trackCount) stations")
-            : String(localized: "\(trackCount) songs")
+
+        if pinnedItem.itemType == .category, let filterType = pinnedItem.filterType {
+            // `displayName` is stored English; the plural form keeps the sidebar localized.
+            self.title = filterType.pluralDisplayName
+            self.subtitle = filterType.itemCountLabel(count)
+        } else {
+            self.title = playlist.map(DefaultPlaylists.displayName) ?? pinnedItem.displayName
+            self.subtitle = playlist?.type == .stations
+                ? String(localized: "\(count) stations")
+                : String(localized: "\(count) songs")
+        }
+
         self.icon = HomeSidebarItem.deriveIcon(for: pinnedItem, playlist: playlist)
     }
 
@@ -127,7 +121,8 @@ struct HomeSidebarItem: SidebarItem {
         switch pinnedItem.itemType {
         case .playlist:
             return playlist.map { Icons.defaultPlaylistIcon(for: $0) } ?? Icons.musicNoteList
-        case .library:
+        // `icon`, not `allItemIcon`: category rows mirror the Library type column.
+        case .library, .category:
             return pinnedItem.filterType?.icon ?? Icons.musicNote
         case .folder:
             return Icons.folderFill
@@ -198,6 +193,28 @@ struct LibrarySidebarItem: SidebarItem {
 
     private static func getIcon(for filterType: LibraryFilterType, isAllItem: Bool) -> String {
         isAllItem ? filterType.allItemIcon : filterType.icon
+    }
+}
+
+// MARK: - Library Type Sidebar Item
+
+/// A row in the Library tab's entity-type column (Artists, Albums, Genres, ...).
+struct LibraryTypeSidebarItem: SidebarItem {
+    let id: UUID
+    let title: String
+    let subtitle: String?
+    let icon: String?
+    let count: Int?
+    let filterType: LibraryFilterType
+
+    init(filterType: LibraryFilterType) {
+        // Distinct group from `LibrarySidebarItem`'s "All" rows so the two can never collide.
+        self.id = UUID(uuidString: "00000000-0000-0000-0003-\(String(format: "%012d", filterType.stableIndex))") ?? UUID()
+        self.title = filterType.pluralDisplayName
+        self.subtitle = nil
+        self.icon = filterType.icon
+        self.count = nil
+        self.filterType = filterType
     }
 }
 

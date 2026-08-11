@@ -617,22 +617,38 @@ extension DatabaseManager {
                 .filter(Playlist.Columns.name == DefaultPlaylists.mostPlayed)
                 .fetchOne(db)
             
+            // Artists and Albums are ordinary pins now, so they can be reordered or removed.
+            try insertDefaultCategoryPins(in: db, startingAt: 0)
+            let playlistOrder = defaultCategoryPins.count
+
             // Create pinned items for these playlists
             if let favorites = favoritesPlaylist {
                 let pinnedFavorites = PinnedItem(playlist: favorites)
                 var savedItem = pinnedFavorites
-                savedItem.sortOrder = 0
+                savedItem.sortOrder = playlistOrder
                 try savedItem.insert(db)
                 Logger.info("Pinned default playlist: \(favorites.name)")
             }
-            
+
             if let mostPlayed = mostPlayedPlaylist {
                 let pinnedMostPlayed = PinnedItem(playlist: mostPlayed)
                 var savedItem = pinnedMostPlayed
-                savedItem.sortOrder = 1
+                savedItem.sortOrder = playlistOrder + 1
                 try savedItem.insert(db)
                 Logger.info("Pinned default playlist: \(mostPlayed.name)")
             }
+        }
+    }
+
+    /// Shared by first-run seeding and the v15 migration so both produce the same pins.
+    static let defaultCategoryPins: [LibraryFilterType] = [.artists, .albums]
+
+    static func insertDefaultCategoryPins(in db: Database, startingAt sortOrder: Int) throws {
+        for (offset, filterType) in defaultCategoryPins.enumerated() {
+            var item = PinnedItem(categoryType: filterType)
+            item.sortOrder = sortOrder + offset
+            try item.insert(db)
+            Logger.info("Pinned default category: \(filterType.rawValue)")
         }
     }
     

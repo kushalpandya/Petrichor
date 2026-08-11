@@ -133,6 +133,10 @@ extension DatabaseManager {
     /// Get tracks for a pinned item
     func getTracksForPinnedItem(_ item: PinnedItem) -> [Track] {
         switch item.itemType {
+        case .category:
+            // Resolves to a grid of entities, not a track list.
+            return []
+
         case .library:
             guard let filterType = item.filterType,
                   let filterValue = item.filterValue else { return [] }
@@ -280,6 +284,13 @@ extension DatabaseManager {
     
     private func findExistingPinnedItem(_ item: PinnedItem, in db: Database) throws -> PinnedItem? {
         switch item.itemType {
+        case .category:
+            guard let filterType = item.filterType else { return nil }
+            return try PinnedItem
+                .filter(PinnedItem.Columns.itemType == PinnedItem.ItemType.category.rawValue)
+                .filter(PinnedItem.Columns.filterType == filterType.rawValue)
+                .fetchOne(db)
+
         case .library:
             guard let filterType = item.filterType,
                   let filterValue = item.filterValue else { return nil }

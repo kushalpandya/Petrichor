@@ -7,6 +7,7 @@ struct TrackDetailView: View {
     @State private var fullTrack: FullTrack?
     @State private var isLoading = true
     @State private var gradientColors: [Color] = []
+    @State private var gradientTask: Task<Void, Never>?
 
     @AppStorage("useArtworkColors")
     private var useArtworkColors = true
@@ -29,6 +30,7 @@ struct TrackDetailView: View {
                     .easeInOut(duration: AnimationDuration.standardDuration),
                     value: gradientColors
                 )
+                .transition(.opacity)
             }
 
             VStack(spacing: 0) {
@@ -105,14 +107,18 @@ struct TrackDetailView: View {
         .onChange(of: useArtworkColors) {
             updateGradientColors()
         }
+        .onDisappear { gradientTask?.cancel() }
     }
 
     private func updateGradientColors() {
-        guard useArtworkColors else {
-            gradientColors = []
-            return
-        }
-        gradientColors = track.backgroundGradientColors(isDark: colorScheme == .dark)
+        gradientTask?.cancel()
+        gradientTask = ArtworkGradient.resolve(
+            id: track.id,
+            artworkData: track.albumArtworkData,
+            enabled: useArtworkColors,
+            isDark: colorScheme == .dark,
+            animation: .easeOut(duration: AnimationDuration.mediumDuration)
+        ) { gradientColors = $0 }
     }
 
     // MARK: - Load Full Track

@@ -239,7 +239,7 @@ class AppCoordinator: ObservableObject {
                 RestoredEntry(oldIndex: oldIndex, occurrenceID: entry.occurrenceID, track: $0)
             }
         }
-        let restoredTracks = surviving.map(\.track)
+        var restoredTracks = surviving.map(\.track)
         let queueSource = runtimeQueueSource(session.queue.context)
         let playlist = restoredPlaylist(session.queue.context)
 
@@ -257,16 +257,24 @@ class AppCoordinator: ObservableObject {
                 restorationTask = nil
                 return
             }
-            var current = restoredTracks[cursor]
-            let ids = [current.trackId].compactMap { $0 }
+            let nextIndex = restoredSuccessorIndex(after: cursor, count: restoredTracks.count)
+            let hydrationIndices = Set([cursor, nextIndex].compactMap { $0 })
+            let ids = hydrationIndices.compactMap { restoredTracks[$0].trackId }
             let hydrated = await Task.detached(priority: .userInitiated) {
-                databaseManager.getTracksWithArtwork(byIds: ids).first
+                databaseManager.getTracksWithArtwork(byIds: Array(Set(ids)))
             }.value
             guard !Task.isCancelled, playbackManager.sourceGeneration == generation else { return }
-            if let hydrated {
-                current = hydrated
-                playlistManager.currentQueue[cursor] = hydrated
+
+            let hydratedByID = Dictionary(uniqueKeysWithValues: hydrated.compactMap { track in
+                track.trackId.map { ($0, track) }
+            })
+            for index in hydrationIndices {
+                guard let trackID = restoredTracks[index].trackId,
+                      let hydratedTrack = hydratedByID[trackID] else { continue }
+                restoredTracks[index] = hydratedTrack
+                playlistManager.currentQueue[index] = hydratedTrack
             }
+            let current = restoredTracks[cursor]
             let fileIsAvailable = FileManager.default.isReadableFile(atPath: current.url.path)
             let position = matches(local.track, current) && fileIsAvailable ? local.position : 0
             playbackManager.prepareTrackForRestoration(
@@ -291,6 +299,19 @@ class AppCoordinator: ObservableObject {
         let oldIndex: Int
         let occurrenceID: UUID
         let track: Track
+    }
+
+    private func restoredSuccessorIndex(after cursor: Int, count: Int) -> Int? {
+        guard count > 0 else { return nil }
+        switch playlistManager.repeatMode {
+        case .one:
+            return cursor
+        case .all:
+            return (cursor + 1) % count
+        case .off:
+            let next = cursor + 1
+            return next < count ? next : nil
+        }
     }
 
     private func foregroundReferences(_ foreground: PlaybackSession.Foreground) -> [PlaybackSession.TrackReference] {

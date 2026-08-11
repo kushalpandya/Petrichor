@@ -130,20 +130,15 @@ struct HomeSidebarView: View {
             return
         }
 
-        let artistCount = libraryManager.artistCount
-        let albumCount = libraryManager.albumCount
-
         var items: [HomeSidebarItem] = [
             HomeSidebarItem(type: .discover),
             HomeSidebarItem(type: .tracks, trackCount: libraryManager.totalTrackCount),
-            HomeSidebarItem(type: .artists, artistCount: artistCount),
-            HomeSidebarItem(type: .albums, albumCount: albumCount),
             HomeSidebarItem(type: .internetRadio, stationCount: radioManager.stations.count)
         ]
         // O(1) playlist lookups instead of a linear scan per pinned item.
         let playlistsById = Dictionary(playlistManager.playlists.map { ($0.id, $0) }) { first, _ in first }
         let pinnedSidebarItems = libraryManager.pinnedItems.map { pinnedItem in
-            let cachedCount = pinnedItemTrackCounts[pinnedItem.id ?? 0] ?? 0
+            let cachedCount = pinnedItemTrackCounts[pinnedItem.id ?? 0] ?? fallbackCount(for: pinnedItem)
             let playlist = pinnedItem.playlistId.flatMap { playlistsById[$0] }
             return HomeSidebarItem(pinnedItem: pinnedItem, trackCount: cachedCount, playlist: playlist)
         }
@@ -158,6 +153,17 @@ struct HomeSidebarView: View {
         }
     }
     
+    /// Stand-in until the async count lands, so default pins don't read "0 artists" at first.
+    private func fallbackCount(for pinnedItem: PinnedItem) -> Int {
+        guard pinnedItem.itemType == .category else { return 0 }
+
+        switch pinnedItem.filterType {
+        case .artists: return libraryManager.artistCount
+        case .albums: return libraryManager.albumCount
+        default: return 0
+        }
+    }
+
     private func updatePinnedItemTrackCounts() async {
         // Don't update if we have no pinned items
         guard !libraryManager.pinnedItems.isEmpty else { return }

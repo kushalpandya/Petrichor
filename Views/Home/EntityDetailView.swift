@@ -1,5 +1,14 @@
 import SwiftUI
 
+/// Bounds of the header artwork, so the background can grow its colour from that point.
+private struct ArtworkBoundsKey: PreferenceKey {
+    static let defaultValue: Anchor<CGRect>? = nil
+
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
+        value = nextValue() ?? value
+    }
+}
+
 struct EntityDetailView: View {
     let entity: any Entity
     let onBack: (() -> Void)?
@@ -13,9 +22,11 @@ struct EntityDetailView: View {
     @State private var isArtworkHovered = false
     @State private var showingImagePicker = false
     @State private var overrideArtworkData: Data?
+    @State private var resolvedArtworkData: Data?
     @State private var artworkDeleted = false
     @State private var artistBio: String?
     @State private var gradientColors: [Color] = []
+    @State private var gradientTask: Task<Void, Never>?
 
     init(entity: any Entity, onBack: (() -> Void)? = nil, pinnedItem: PinnedItem? = nil) {
         self.entity = entity
@@ -72,14 +83,25 @@ struct EntityDetailView: View {
         }
         .onChange(of: entity.id) { oldValue, newValue in
             if oldValue != newValue {
+                // Cleared first, or the gradient extracts from the previous entity's bytes
+                // and caches the result under the new entity's id.
+                resolvedArtworkData = nil
                 loadTracks()
                 updateGradientColors()
             }
         }
+        .onDisappear { gradientTask?.cancel() }
         .onChange(of: colorScheme) {
             updateGradientColors()
         }
         .onChange(of: useArtworkColors) {
+            updateGradientColors()
+        }
+        // Procedural artwork isn't rendered yet, and differs per appearance.
+        .task(id: "\(entity.artworkIdentity)-\(colorScheme)") {
+            let resolved = await entity.resolvedArtworkData(isDark: colorScheme == .dark)
+            guard !Task.isCancelled else { return }
+            resolvedArtworkData = resolved
             updateGradientColors()
         }
     }
@@ -96,6 +118,8 @@ struct EntityDetailView: View {
 
                 // Artwork
                 entityArtwork
+                    // Measured, not assumed: the optional back button shifts the artwork's x.
+                    .anchorPreference(key: ArtworkBoundsKey.self, value: .bounds) { $0 }
 
                 // Info and controls
                 VStack(alignment: .leading, spacing: 12) {
@@ -112,12 +136,19 @@ struct EntityDetailView: View {
                 Spacer()
             }
         }
-        .background {
-            if !gradientColors.isEmpty {
-                GradientBackground(colors: gradientColors)
-                    .transaction { $0.animation = nil }
-            } else {
-                Rectangle().fill(.regularMaterial)
+        .backgroundPreferenceValue(ArtworkBoundsKey.self) { anchor in
+            GeometryReader { geometry in
+                ZStack {
+                    // Always present: the bleed reveals over this, so the header is never bare.
+                    Rectangle().fill(.regularMaterial)
+
+                    if !gradientColors.isEmpty {
+                        GradientBackground(colors: gradientColors)
+                            // Suppresses colour tweening only (a mesh gradient smears mid-flight).
+                            .animation(nil, value: gradientColors)
+                            .transition(.artworkBleed(from: bleedOrigin(anchor, in: geometry)))
+                    }
+                }
             }
         }
         .overlay(alignment: .bottomTrailing) {
@@ -131,9 +162,21 @@ struct EntityDetailView: View {
         }
     }
     
+    /// Artwork centre as the bleed's unit point; `.center` until the anchor is measured.
+    private func bleedOrigin(_ anchor: Anchor<CGRect>?, in geometry: GeometryProxy) -> UnitPoint {
+        guard let anchor, geometry.size.width > 0, geometry.size.height > 0 else { return .center }
+
+        let bounds = geometry[anchor]
+        return UnitPoint(
+            x: bounds.midX / geometry.size.width,
+            y: bounds.midY / geometry.size.height
+        )
+    }
+
     private var displayedArtworkData: Data? {
         if artworkDeleted { return nil }
-        return overrideArtworkData ?? entity.artworkData
+        // Synchronous cache read, so the clicked tile's artwork paints on the first pass.
+        return overrideArtworkData ?? resolvedArtworkData ?? entity.cachedArtworkData(isDark: colorScheme == .dark)
     }
 
     private var isPersonEntity: Bool {
@@ -372,15 +415,8 @@ struct EntityDetailView: View {
     // MARK: - Views
     
     private var loadingView: some View {
-        VStack {
-            ProgressView()
-                .scaleEffect(0.8)
-            Text("Loading tracks...")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.top, 8)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        ActivityAnimation(size: .large)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     private var emptyViewIcon: String {
@@ -442,17 +478,15 @@ struct EntityDetailView: View {
 
 extension EntityDetailView {
     private func updateGradientColors() {
-        guard useArtworkColors else {
-            gradientColors = []
-            return
-        }
-
-        if let overrideData = overrideArtworkData {
-            let colors = ImageUtils.extractDominantColors(from: overrideData)
-            gradientColors = ImageUtils.backgroundGradientColors(from: colors, isDark: colorScheme == .dark)
-        } else {
-            gradientColors = entity.backgroundGradientColors(isDark: colorScheme == .dark)
-        }
+        gradientTask?.cancel()
+        // `displayedArtworkData`, so pasted and procedural artwork both tint the header.
+        gradientTask = ArtworkGradient.resolve(
+            id: entity.id,
+            artworkData: displayedArtworkData,
+            enabled: useArtworkColors,
+            isDark: colorScheme == .dark,
+            animation: .easeOut(duration: AnimationDuration.colorBleed)
+        ) { gradientColors = $0 }
     }
 
     private func loadTracks() {
