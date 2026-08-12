@@ -268,8 +268,26 @@ enum DatabaseMigrator {
             Logger.info("v14_add_internet_radio migration completed")
         }
 
+        migrator.registerMigration("v15_pin_default_categories") { db in
+            // Existing installs get them at the top, matching a fresh seed; user pins keep their order.
+            let existingCategoryPins = try PinnedItem
+                .filter(PinnedItem.Columns.itemType == PinnedItem.ItemType.category.rawValue)
+                .fetchCount(db)
+
+            guard existingCategoryPins == 0 else {
+                Logger.info("v15_pin_default_categories skipped, category pins already present")
+                return
+            }
+
+            let offset = DatabaseManager.defaultCategoryPins.count
+            try db.execute(sql: "UPDATE pinned_items SET sort_order = sort_order + \(offset)")
+            try DatabaseManager.insertDefaultCategoryPins(in: db, startingAt: 0)
+
+            Logger.info("v15_pin_default_categories migration completed")
+        }
+
         // MARK: - Future Migrations
-        // Add new migrations here as: migrator.registerMigration("v15_description") { db in ... }
+        // Add new migrations here as: migrator.registerMigration("v16_description") { db in ... }
 
         return migrator
     }

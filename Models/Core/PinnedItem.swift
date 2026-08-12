@@ -19,10 +19,28 @@ struct PinnedItem: Identifiable, FetchableRecord, PersistableRecord {
         case library
         case playlist
         case folder
+        /// A whole entity type (all Artists, all Genres, ...) rather than one value within it.
+        case category
     }
-    
+
     // MARK: - Initialization
-    
+
+    // For a whole entity type, browsed on Home as a grid
+    init(categoryType: LibraryFilterType) {
+        self.itemType = .category
+        self.filterType = categoryType
+        self.filterValue = nil
+        self.entityId = nil
+        self.artistId = nil
+        self.albumId = nil
+        self.playlistId = nil
+        // Stored English like `rawValue`; display sites use `pluralDisplayName` to stay localized.
+        self.displayName = categoryType.rawValue
+        self.subtitle = nil
+        self.sortOrder = 0
+        self.dateAdded = Date()
+    }
+
     // For library sidebar items
     init(filterType: LibraryFilterType, filterValue: String, displayName: String, subtitle: String? = nil, albumId: Int64? = nil) {
         self.itemType = .library

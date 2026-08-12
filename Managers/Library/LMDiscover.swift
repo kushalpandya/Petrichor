@@ -156,7 +156,6 @@ extension LibraryManager {
             )
             let featured = cachedRefs.compactMap { resolved[$0] }
             let loved = cachedLovedRefs.compactMap { resolved[$0] }
-            LibraryManager.warmCategoryArtwork(for: featured + loved)
             return (featured, loved, smartTracks)
         }.value
 
@@ -233,7 +232,6 @@ extension LibraryManager {
                 target: DiscoverConfiguration.carouselItemCount,
                 excluding: featuredRefs
             )
-            LibraryManager.warmCategoryArtwork(for: rows)
             return (rows, smartTracks, true)
         }.value
 
@@ -510,8 +508,6 @@ extension LibraryManager {
                 ? manager.getDiscoverTracks(limit: trackLimit)
                 : manager.getTracksWithArtwork(byIds: cachedTrackIds)
 
-            LibraryManager.warmCategoryArtwork(for: featuredRows + recentRows + lovedRows)
-
             return DiscoverPayload(
                 featuredRefs: featuredRefs,
                 featuredRows: featuredRows,
@@ -569,7 +565,6 @@ extension LibraryManager {
         }
     }
 
-
     /// Retry once, which covers the common case where the rewrite has already landed. Past
     /// that, put back whatever the forced sections cleared so nothing sits on a skeleton.
     @MainActor
@@ -616,16 +611,6 @@ extension LibraryManager {
                     prior: prior
                 )
             }
-        }
-    }
-
-    /// Renders genre/decade artwork before `makeEntities` needs it: that runs on the main
-    /// actor and `CategoryEntity.init` does its CoreText render inline.
-    private static func warmCategoryArtwork(for rows: [DiscoverEntityRow]) {
-        for row in rows {
-            guard let filterType = row.ref.kind.filterType,
-                  row.ref.kind == .genre || row.ref.kind == .decade else { continue }
-            CategoryEntity.warmArtwork(name: row.ref.value, filterType: filterType)
         }
     }
 

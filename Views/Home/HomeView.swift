@@ -34,12 +34,6 @@ struct HomeView: View {
     @EnvironmentObject var libraryManager: LibraryManager
     @EnvironmentObject var playlistManager: PlaylistManager
     
-    @AppStorage("entitySortAscending")
-    private var entitySortAscending: Bool = true
-
-    @AppStorage("albumSortBy")
-    private var albumSortBy: AlbumSortOption = .album
-    
     @AppStorage("trackTableRowSize")
     private var trackTableRowSize: TableRowSize = .expanded
     
@@ -47,11 +41,10 @@ struct HomeView: View {
     @State private var selectedTrackID: UUID?
     @State private var pinnedItemTracks: [Track] = []
     @State private var pinnedEntity: (any Entity)?
-    @State private var sortedArtistEntities: [ArtistEntity] = []
-    @State private var sortedAlbumEntities: [AlbumEntity] = []
     @State private var homeDetail: HomeDetailTarget?
+    /// Carries the role behind an album-artist or composer tile into its detail view.
+    @State private var detailRoleCarrier: PinnedItem?
     @State private var trackTableSortOrder = [KeyPathComparator(\Track.title)]
-    @Binding var isShowingEntities: Bool
     /// True while Home is the selected tab. HomeView is never torn down on tab switches,
     /// so this is the only signal its children have that they became visible again.
     var isActiveTab: Bool = true
@@ -68,16 +61,20 @@ struct HomeView: View {
                                 discoverView
                             case .tracks:
                                 tracksView
-                            case .artists:
-                                artistsView
-                            case .albums:
-                                albumsView
                             case .internetRadio:
                                 InternetRadioView()
                             }
-                        case .pinned:
-                            pinnedItemTracksView
+                        case .pinned(let pinnedItem):
+                            if pinnedItem.itemType == .category, let filterType = pinnedItem.filterType {
+                                EntityTypeView(filterType: filterType) { entity, roleCarrier in
+                                    detailRoleCarrier = roleCarrier
+                                    homeDetail = .entity(entity)
+                                }
                                 .id(selectedSidebarItem?.id)
+                            } else {
+                                pinnedItemTracksView
+                                    .id(selectedSidebarItem?.id)
+                            }
                         }
                     } else {
                         emptySelectionView
@@ -98,47 +95,20 @@ struct HomeView: View {
         }
         .onChange(of: selectedSidebarItem) { _, newItem in
                 homeDetail = nil
+                detailRoleCarrier = nil
                 pinnedEntity = nil
 
-                if let item = newItem {
-                    switch item.source {
-                    case .fixed(let type):
-                        isShowingEntities = (type == .artists || type == .albums)
-
-                        // Load appropriate data
-                        switch type {
-                        case .discover, .tracks, .internetRadio:
-                            isShowingEntities = false
-                        case .artists:
-                            sortArtistEntities()
-                        case .albums:
-                            sortAlbumEntities()
-                        }
-
-                    case .pinned(let pinnedItem):
-                        // Handle pinned items
-                        isShowingEntities = false
-                        loadTracksForPinnedItem(pinnedItem)
-                    }
-                } else {
-                    isShowingEntities = false
+                if case .pinned(let pinnedItem)? = newItem?.source {
+                    loadTracksForPinnedItem(pinnedItem)
                 }
         }
         .onChange(of: homeDetail) {
-                // When showing entity detail (tracks), we're not showing entities anymore
-                if homeDetail != nil {
-                    isShowingEntities = false
-                } else if let item = selectedSidebarItem {
-                    // When going back to entity list, check if we should show entities
-                    if case .fixed(let type) = item.source {
-                        isShowingEntities = (type == .artists || type == .albums)
-                    } else {
-                        isShowingEntities = false
-                    }
+                if homeDetail == nil {
+                    detailRoleCarrier = nil
                 }
         }
     }
-    
+
     // MARK: - Discover View
 
     private var discoverView: some View {
@@ -149,6 +119,7 @@ struct HomeView: View {
             playlistManager: playlistManager,
             isVisible: isActiveTab
         ) { target in
+            detailRoleCarrier = nil
             homeDetail = target
         }
     }
@@ -159,7 +130,11 @@ struct HomeView: View {
     private func detailOverlay(for detail: HomeDetailTarget) -> some View {
         switch detail {
         case .entity(let entity):
-            EntityDetailView(entity: entity) { homeDetail = nil }
+            EntityDetailView(
+                entity: entity,
+                onBack: { homeDetail = nil },
+                pinnedItem: detailRoleCarrier
+            )
         case .playlist(let playlistID):
             PlaylistDetailView(playlistID: playlistID) { homeDetail = nil }
         }
@@ -180,19 +155,13 @@ struct HomeView: View {
             
             // Show loading or tracks
             if libraryManager.tracks.isEmpty {
-                VStack {
-                    Spacer()
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle())
-                        .scaleEffect(1.2)
-                    Spacer()
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .onAppear {
-                    Task {
-                        await libraryManager.loadAllTracks()
+                ActivityAnimation(size: .large)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .onAppear {
+                        Task {
+                            await libraryManager.loadAllTracks()
+                        }
                     }
-                }
             } else {
                 TrackView(
                     tracks: libraryManager.tracks,
@@ -215,175 +184,7 @@ struct HomeView: View {
             }
         }
     }
-    
-    // MARK: - Artists View
-    
-    private var artistsView: some View {
-        VStack(spacing: 0) {
-            // Header
-            TrackListHeader(
-                title: String(localized: "All Artists"),
-                trackCount: libraryManager.cachedArtistEntities.count
-            ) {
-                Button(action: {
-                    entitySortAscending.toggle()
-                    sortEntities()
-                }, label: {
-                    Image(Icons.sortIcon(for: entitySortAscending))
-                        .renderingMode(.template)
-                        .scaleEffect(0.8)
-                })
-                .buttonStyle(.borderless)
-                .hoverEffect(scale: 1.1)
-                .help(entitySortAscending ? String(localized: "Sort descending") : String(localized: "Sort ascending"))
-            }
-            
-            Divider()
-            
-            // Artists list
-            if !libraryManager.entitiesLoaded {
-                ActivityAnimation(size: .large)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if libraryManager.cachedArtistEntities.isEmpty {
-                NoMusicEmptyStateView(context: .localLibrary)
-            } else {
-                EntityView(
-                    entities: sortedArtistEntities,
-                    onSelectEntity: { artist in
-                        homeDetail = .entity(artist)
-                    },
-                    contextMenuItems: { artist in
-                        libraryManager.contextMenuItems(for: artist)
-                    }
-                )
-            }
-        }
-        .onAppear {
-            if sortedArtistEntities.isEmpty {
-                sortArtistEntities()
-            }
-        }
-        .task {
-            await libraryManager.loadEntitiesAsync()
-        }
-        .onReceive(libraryManager.$cachedArtistEntities) { artists in
-            // Sort the received value; @Published fires on willSet, so the manager still holds the old array
-            sortArtistEntities(artists)
-        }
-    }
-    
-    // MARK: - Albums View
-    
-    private var albumsView: some View {
-        VStack(spacing: 0) {
-            // Header
-            TrackListHeader(
-                title: String(localized: "All Albums"),
-                trackCount: libraryManager.cachedAlbumEntities.count
-            ) {
-                Menu {
-                    Section("Sort by") {
-                        Toggle("Album", isOn: Binding(
-                            get: { albumSortBy == .album },
-                            set: { _ in
-                                albumSortBy = .album
-                                sortAlbumEntities()
-                            }
-                        ))
 
-                        Toggle("Album artist", isOn: Binding(
-                            get: { albumSortBy == .artist },
-                            set: { _ in
-                                albumSortBy = .artist
-                                sortAlbumEntities()
-                            }
-                        ))
-                        
-                        Toggle("Year", isOn: Binding(
-                            get: { albumSortBy == .year },
-                            set: { _ in
-                                albumSortBy = .year
-                                sortAlbumEntities()
-                            }
-                        ))
-                        
-                        Toggle("Date added", isOn: Binding(
-                            get: { albumSortBy == .dateAdded },
-                            set: { _ in
-                                albumSortBy = .dateAdded
-                                sortAlbumEntities()
-                            }
-                        ))
-                    }
-
-                    Divider()
-
-                    Section("Sort order") {
-                        Toggle("Ascending", isOn: Binding(
-                            get: { entitySortAscending },
-                            set: { _ in
-                                entitySortAscending = true
-                                sortAlbumEntities()
-                            }
-                        ))
-                        
-                        Toggle("Descending", isOn: Binding(
-                            get: { !entitySortAscending },
-                            set: { _ in
-                                entitySortAscending = false
-                                sortAlbumEntities()
-                            }
-                        ))
-                    }
-                } label: {
-                    Image(systemName: Icons.sortMenu)
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
-                }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .fixedSize()
-                .hoverEffect(activeBackgroundColor: Color(NSColor.controlColor))
-                .help("Sort albums")
-            }
-            
-            Divider()
-            
-            // Albums list
-            if !libraryManager.entitiesLoaded {
-                ActivityAnimation(size: .large)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if libraryManager.cachedAlbumEntities.isEmpty {
-                NoMusicEmptyStateView(context: .localLibrary)
-            } else {
-                EntityView(
-                    entities: sortedAlbumEntities,
-                    onSelectEntity: { album in
-                        homeDetail = .entity(album)
-                    },
-                    contextMenuItems: { album in
-                        libraryManager.contextMenuItems(for: album)
-                    }
-                )
-            }
-        }
-        .onAppear {
-            if sortedAlbumEntities.isEmpty {
-                sortAlbumEntities()
-            }
-        }
-        .task {
-            await libraryManager.loadEntitiesAsync()
-        }
-        .onReceive(libraryManager.$cachedAlbumEntities) { albums in
-            // Sort the received value (see artists onReceive); no count guard, artwork updates keep the count
-            sortAlbumEntities(albums)
-        }
-        .onChange(of: albumSortBy) {
-            sortAlbumEntities()
-        }
-    }
-    
     // MARK: - Pinned Item Tracks View
     
     private var pinnedItemTracksView: some View {
@@ -430,75 +231,18 @@ struct HomeView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func sortArtistEntities(_ artists: [ArtistEntity]? = nil) {
-        let artists = artists ?? libraryManager.cachedArtistEntities
-        sortedArtistEntities = entitySortAscending
-        ? artists.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-        : artists.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedDescending }
-    }
-
-    private func sortAlbumEntities(_ albums: [AlbumEntity]? = nil) {
-        let albums = albums ?? libraryManager.cachedAlbumEntities
-
-        func tiebreaker(_ a: AlbumEntity, _ b: AlbumEntity) -> Bool {
-            let comparison = a.name.localizedCaseInsensitiveCompare(b.name)
-            return entitySortAscending
-                ? comparison == .orderedAscending
-                : comparison == .orderedDescending
-        }
-
-        switch albumSortBy {
-        case .album:
-            sortedAlbumEntities = entitySortAscending
-                ? albums.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-                : albums.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedDescending }
-
-        case .artist:
-            sortedAlbumEntities = albums.sorted { a, b in
-                let comparison = (a.artistName ?? "")
-                    .localizedCaseInsensitiveCompare(b.artistName ?? "")
-                if comparison == .orderedSame { return tiebreaker(a, b) }
-                
-                return entitySortAscending
-                    ? comparison == .orderedAscending
-                    : comparison == .orderedDescending
-            }
-
-        case .year:
-            sortedAlbumEntities = albums.sorted { a, b in
-                let comparison = (a.year ?? "").compare(b.year ?? "")
-                if comparison == .orderedSame { return tiebreaker(a, b) }
-                
-                return entitySortAscending
-                    ? comparison == .orderedAscending
-                    : comparison == .orderedDescending
-            }
-
-        case .dateAdded:
-            sortedAlbumEntities = albums.sorted { a, b in
-                let date1 = a.dateAdded ?? .distantPast
-                let date2 = b.dateAdded ?? .distantPast
-                if date1 == date2 { return tiebreaker(a, b) }
-                
-                return entitySortAscending ? date1 < date2 : date1 > date2
-            }
-        }
-    }
-    
-    private func sortEntities() {
-        sortArtistEntities()
-        sortAlbumEntities()
-    }
     
     private func loadTracksForPinnedItem(_ item: PinnedItem) {
-        let tracks: [Track]
-
-        switch item.itemType {
-        case .library, .folder:
-            tracks = libraryManager.getTracksForPinnedItem(item)
-        case .playlist:
-            tracks = playlistManager.getTracksForPinnedPlaylist(item)
+        // Category pins render a grid of entities; `EntityTypeView` owns their loading.
+        guard item.itemType != .category else {
+            pinnedItemTracks = []
+            pinnedEntity = nil
+            return
         }
+
+        let tracks = item.itemType == .playlist
+            ? playlistManager.getTracksForPinnedPlaylist(item)
+            : libraryManager.getTracksForPinnedItem(item)
 
         pinnedItemTracks = tracks
 
@@ -560,10 +304,9 @@ struct HomeView: View {
 }
 
 #Preview {
-    @Previewable @State var isShowingEntities = false
     @Previewable @State var selectedSidebarItem: HomeSidebarItem?
 
-    HomeView(selectedSidebarItem: $selectedSidebarItem, isShowingEntities: $isShowingEntities)
+    HomeView(selectedSidebarItem: $selectedSidebarItem)
         .environmentObject(LibraryManager())
         .environmentObject(PlaybackManager(libraryManager: LibraryManager(), playlistManager: PlaylistManager()))
         .environmentObject(PlaylistManager())

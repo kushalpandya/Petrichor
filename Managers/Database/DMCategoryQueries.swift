@@ -38,8 +38,8 @@ extension DatabaseManager {
     
     // MARK: - Home - Entities
     
-    /// Get all artist entities
-    func getArtistEntities() -> [ArtistEntity] {
+    /// Album artists and composers are rows in the same `artists` table, so images work unchanged.
+    func getArtistEntities(role: String = TrackArtist.Role.artist) -> [ArtistEntity] {
         let isImageFetchEnabled = ArtistBioManager.shared.isArtistInfoFetchEnabled
 
         do {
@@ -54,7 +54,7 @@ extension DatabaseManager {
                         artists.image_source,
                         COUNT(DISTINCT track_artists.track_id) as trackCount
                     FROM artists
-                    JOIN track_artists ON track_artists.artist_id = artists.id AND track_artists.role = 'artist'
+                    JOIN track_artists ON track_artists.artist_id = artists.id AND track_artists.role = ?
                     JOIN tracks ON tracks.id = track_artists.track_id \(duplicateClause)
                     GROUP BY artists.id
                     HAVING trackCount > 0
@@ -75,7 +75,7 @@ extension DatabaseManager {
                     }
                 }
 
-                return try ArtistInfo.fetchAll(db, sql: sql).map { info in
+                return try ArtistInfo.fetchAll(db, sql: sql, arguments: [role]).map { info in
                     // When fetch enabled: show fetched image or placeholder; when disabled: show album art
                     let artworkData = isImageFetchEnabled
                         ? (info.imageSource != nil ? info.artworkData : nil)

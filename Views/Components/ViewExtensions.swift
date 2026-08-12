@@ -99,6 +99,103 @@ struct LosslessLabel: View {
     }
 }
 
+// MARK: - Sort Direction Button
+
+struct SortDirectionButton: View {
+    @Binding var ascending: Bool
+
+    var body: some View {
+        Button {
+            ascending.toggle()
+        } label: {
+            Image(Icons.sortIcon(for: ascending))
+                .renderingMode(.template)
+                .scaleEffect(0.8)
+        }
+        .buttonStyle(.borderless)
+        .hoverEffect(scale: 1.1)
+        .help(ascending ? String(localized: "Sort descending") : String(localized: "Sort ascending"))
+    }
+}
+
+// MARK: - Artwork Gradient Loading
+
+enum ArtworkGradient {
+    /// Resolves artwork colours for a detail header, applying them through `apply`.
+    ///
+    /// Returns nil when it finished synchronously; otherwise the caller keeps the task so it
+    /// can cancel a resolve that a newer entity has superseded.
+    @MainActor
+    static func resolve(
+        id: UUID,
+        artworkData: Data?,
+        enabled: Bool,
+        isDark: Bool,
+        animation: Animation,
+        apply: @escaping ([Color]) -> Void
+    ) -> Task<Void, Never>? {
+        guard enabled, let artworkData else {
+            apply([])
+            return nil
+        }
+
+        // Already extracted: apply in this pass so a revisit doesn't blank and re-fill.
+        if let cached = ImageUtils.gradientColorsIfCached(id: id, imageData: artworkData, isDark: isDark) {
+            apply(cached)
+            return nil
+        }
+
+        return Task {
+            let colors = await ImageUtils.backgroundGradientColors(id: id, imageData: artworkData, isDark: isDark)
+            guard !Task.isCancelled else { return }
+            // Only this path animates; a cache hit lands in the first render pass.
+            withAnimation(animation) { apply(colors) }
+        }
+    }
+}
+
+// MARK: - Artwork Bleed Transition
+
+/// Reveals through a soft-edged circle growing from a point; needs a layer underneath it.
+private struct ArtworkBleed: ViewModifier, Animatable {
+    var progress: CGFloat
+    let center: UnitPoint
+
+    var animatableData: CGFloat {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func body(content: Content) -> some View {
+        content.mask {
+            GeometryReader { geometry in
+                // Twice the diagonal, so the circle clears every corner at any aspect ratio.
+                let reach = hypot(geometry.size.width, geometry.size.height) * 2
+                let diameter = reach * progress
+
+                Circle()
+                    .frame(width: diameter, height: diameter)
+                    .position(
+                        x: center.x * geometry.size.width,
+                        y: center.y * geometry.size.height
+                    )
+                    // Blur the mask, not the content: the edge seeps instead of sweeping past.
+                    .blur(radius: 30 * progress)
+            }
+        }
+    }
+}
+
+extension AnyTransition {
+    /// Colour spreading outward from `center`, as if bleeding out of the artwork there.
+    static func artworkBleed(from center: UnitPoint) -> AnyTransition {
+        .modifier(
+            active: ArtworkBleed(progress: 0, center: center),
+            identity: ArtworkBleed(progress: 1, center: center)
+        )
+    }
+}
+
 // MARK: - Gradient Background
 
 struct GradientBackground: View {

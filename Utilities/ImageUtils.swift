@@ -161,7 +161,7 @@ enum ImageUtils {
     ///   - imageData: Image data in any supported format
     ///   - colorCount: Number of dominant colors to return (default: 6)
     /// - Returns: Array of NSColor with maximum color diversity, or empty array if extraction fails
-    static func extractDominantColors(
+    private static func extractDominantColors(
         from imageData: Data,
         colorCount: Int = 6
     ) -> [NSColor] {
@@ -285,16 +285,18 @@ enum ImageUtils {
 
     // MARK: - Cached Color Lookups
 
-    private static var colorCache = NSCache<NSString, CachedNSColors>()
+    private static let colorCache: NSCache<NSString, CachedNSColors> = {
+        let cache = NSCache<NSString, CachedNSColors>()
+        cache.countLimit = 2_000
+        return cache
+    }()
 
     /// Returns cached dominant colors for the given ID, extracting from imageData on cache miss.
     static func cachedDominantColors(
         id: UUID,
         imageData: Data
     ) -> [NSColor] {
-        // Byte count here too: the id alone is stable across an artwork change, so the
-        // gradient cache could miss while this one still returned the old image's colours.
-        let cacheKey = "\(id.uuidString)-\(imageData.count)-dominantColors" as NSString
+        let cacheKey = "\(id.uuidString)-\(imageData.artworkFingerprint)-dominantColors" as NSString
         if let cached = colorCache.object(forKey: cacheKey) {
             return cached.colors
         }
@@ -306,20 +308,29 @@ enum ImageUtils {
 
     static func seedDominantColors(_ colors: [NSColor], id: UUID, imageData: Data) {
         guard !colors.isEmpty else { return }
-        let cacheKey = "\(id.uuidString)-\(imageData.count)-dominantColors" as NSString
+        let cacheKey = "\(id.uuidString)-\(imageData.artworkFingerprint)-dominantColors" as NSString
         colorCache.setObject(CachedNSColors(colors: colors), forKey: cacheKey)
     }
 
+    private static func gradientCacheKey(id: UUID, imageData: Data, isDark: Bool) -> NSString {
+        "\(id.uuidString)-\(imageData.artworkFingerprint)-gradient-\(isDark ? "dark" : "light")" as NSString
+    }
+
+    /// Cache lookup only, so it is safe on the main actor; nil when nothing is cached.
+    static func gradientColorsIfCached(id: UUID, imageData: Data, isDark: Bool) -> [Color]? {
+        colorCache.object(forKey: gradientCacheKey(id: id, imageData: imageData, isDark: isDark))?
+            .colors
+            .map { Color(nsColor: $0) }
+    }
+
     /// Returns cached background gradient colors for the given ID and color scheme.
+    /// A miss costs ~15 ms of extraction; prefer the async overload off the main actor.
     static func cachedBackgroundGradientColors(
         id: UUID,
         imageData: Data,
         isDark: Bool
     ) -> [Color] {
-        let suffix = isDark ? "dark" : "light"
-        // Byte count is in the key because the id is stable across an artwork change,
-        // so the entry would otherwise keep serving the old image's colours.
-        let cacheKey = "\(id.uuidString)-\(imageData.count)-gradient-\(suffix)" as NSString
+        let cacheKey = gradientCacheKey(id: id, imageData: imageData, isDark: isDark)
         if let cached = colorCache.object(forKey: cacheKey) {
             return cached.colors.map { Color(nsColor: $0) }
         }
@@ -331,207 +342,20 @@ enum ImageUtils {
         return adjusted
     }
 
-    private static var generatedArtworkCache = NSCache<NSString, NSData>()
-
-    /// Returns procedural artwork for the seed, generating (and caching) on a cache miss.
-    static func cachedCategoryArtwork(text: String, seed: String) -> Data? {
-        let cacheKey = seed as NSString
-        if let cached = generatedArtworkCache.object(forKey: cacheKey) {
-            return cached as Data
+    /// Cache hit returns immediately; only a real extraction pays for the detached hop.
+    static func backgroundGradientColors(id: UUID, imageData: Data, isDark: Bool) async -> [Color] {
+        if let cached = gradientColorsIfCached(id: id, imageData: imageData, isDark: isDark) {
+            return cached
         }
 
-        let generated = generateCategoryArtwork(text: text, seed: seed)
-        if let generated {
-            generatedArtworkCache.setObject(generated as NSData, forKey: cacheKey)
-        }
-        return generated
-    }
-
-    // MARK: - Procedural Artwork
-
-    /// Generate deterministic procedural artwork for category entities (Genre, Decade, Year).
-    /// Uses the seed string to produce consistent colors and geometric shapes.
-    /// - Parameters:
-    ///   - text: Display text to render on the artwork
-    ///   - seed: Seed string for deterministic randomization
-    /// - Returns: JPEG image data, or nil if generation fails
-    /// Mix two integers into a new pseudo-random value (xorshift-style)
-    private static func mix(_ a: Int, _ b: Int) -> Int {
-        var x = a &+ b &* 2654435761
-        x ^= (x >> 16)
-        x &*= 0x45d9f3b
-        x ^= (x >> 16)
-        return x & Int.max
-    }
-
-    static func generateCategoryArtwork(text: String, seed: String) -> Data? {
-        let size = 240
-        let h = seed.deterministicHash
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
-
-        guard let ctx = CGContext(
-            data: nil,
-            width: size,
-            height: size,
-            bitsPerComponent: 8,
-            bytesPerRow: 0,
-            space: colorSpace,
-            bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
-        ) else { return nil }
-
-        // Independent hashes for color, layout, and gradient angle
-        let hColor = mix(h, 1)
-        let hLayout = mix(h, 2)
-        let hAngle = mix(h, 3)
-
-        // Golden-ratio hue spacing for maximum visual separation across seeds
-        let goldenRatio = 0.618033988749895
-        let hue1 = CGFloat(hColor % 997) / 997.0
-        let hue2 = (hue1 + goldenRatio).truncatingRemainder(dividingBy: 1.0)
-        let hue3 = (hue1 + goldenRatio * 2).truncatingRemainder(dividingBy: 1.0)
-
-        let c1 = NSColor(hue: hue1, saturation: 0.55, brightness: 0.85, alpha: 1)
-        let c2 = NSColor(hue: hue2, saturation: 0.5, brightness: 0.8, alpha: 1)
-        let c3 = NSColor(hue: hue3, saturation: 0.5, brightness: 0.9, alpha: 1)
-
-        // Gradient angle varies per seed
-        let angle = CGFloat(hAngle % 628) / 100.0  // 0 to ~2π
-        let endX = CGFloat(size) * (0.5 + 0.5 * cos(angle))
-        let endY = CGFloat(size) * (0.5 + 0.5 * sin(angle))
-        let startX = CGFloat(size) - endX
-        let startY = CGFloat(size) - endY
-
-        let gradient = CGGradient(
-            colorsSpace: colorSpace,
-            colors: [c1.cgColor, c2.cgColor] as CFArray,
-            locations: [0, 1]
-        )
-        guard let gradient else { return nil }
-        ctx.drawLinearGradient(
-            gradient,
-            start: CGPoint(x: startX, y: startY),
-            end: CGPoint(x: endX, y: endY),
-            options: [.drawsBeforeStartLocation, .drawsAfterEndLocation]
-        )
-
-        // Large geometric shapes — each shape uses an independent seed via mix()
-        for i in 0..<(3 + hLayout % 3) {
-            let s = mix(hLayout, i &* 31)
-            let x = CGFloat(s % (size + 80)) - 40
-            let y = CGFloat(mix(s, 7) % (size + 80)) - 40
-            let d = CGFloat(100 + mix(s, 13) % 120)
-            ctx.setFillColor(
-                (i.isMultiple(of: 2) ? c3 : c1)
-                    .withAlphaComponent(0.2 + CGFloat(mix(s, 19) % 15) / 100)
-                    .cgColor
-            )
-
-            switch mix(s, 37) % 3 {
-            case 0:
-                ctx.fillEllipse(in: CGRect(x: x - d / 2, y: y - d / 2, width: d, height: d))
-            case 1:
-                ctx.addPath(CGPath(
-                    roundedRect: CGRect(x: x - d / 2, y: y - d / 2, width: d, height: d * 0.75),
-                    cornerWidth: 16,
-                    cornerHeight: 16,
-                    transform: nil
-                ))
-                ctx.fillPath()
-            default:
-                ctx.saveGState()
-                ctx.translateBy(x: x, y: y)
-                ctx.rotate(by: .pi / 4)
-                let r = d * 0.4
-                ctx.fill(CGRect(x: -r, y: -r, width: r * 2, height: r * 2))
-                ctx.restoreGState()
-            }
-        }
-
-        // Centered text overlay
-        ctx.saveGState()
-        ctx.textMatrix = .identity
-        ctx.translateBy(x: 0, y: CGFloat(size))
-        ctx.scaleBy(x: 1, y: -1)
-
-        let fontSize: CGFloat = text.count <= 5 ? 48 : (text.count <= 12 ? 28 : 20)
-        let style = NSMutableParagraphStyle()
-        style.alignment = .center
-        style.lineBreakMode = .byTruncatingTail
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: fontSize, weight: .bold),
-            .foregroundColor: NSColor.white.withAlphaComponent(0.9),
-            .paragraphStyle: style
-        ]
-        let bound = (text as NSString).boundingRect(
-            with: CGSize(width: CGFloat(size - 32), height: CGFloat(size)),
-            options: .usesLineFragmentOrigin,
-            attributes: attrs
-        )
-        (text as NSString).draw(
-            in: CGRect(x: 16, y: (CGFloat(size) - bound.height) / 2, width: CGFloat(size - 32), height: bound.height + 4),
-            withAttributes: attrs
-        )
-        ctx.restoreGState()
-
-        guard let cgImage = ctx.makeImage() else { return nil }
-        return NSBitmapImageRep(cgImage: cgImage).representation(using: .jpeg, properties: [.compressionFactor: 0.85])
+        return await Task.detached(priority: .userInitiated) {
+            cachedBackgroundGradientColors(id: id, imageData: imageData, isDark: isDark)
+        }.value
     }
 
     /// One place, so a pasted image and a downloaded favicon end up the same size.
     static func compressStationArtwork(from imageData: Data) -> Data? {
         compressImage(from: imageData, maxDimension: 480)
-    }
-
-    /// Baked in rather than overlaid by the view, so rows and the player bar get it too.
-    static func generateStationArtwork(name: String) -> Data? {
-        let size = 240
-        guard let backgroundData = generateCategoryArtwork(text: "", seed: "station-\(name)"),
-              let backgroundSource = CGImageSourceCreateWithData(backgroundData as CFData, nil),
-              let background = CGImageSourceCreateImageAtIndex(backgroundSource, 0, nil) else { return nil }
-
-        guard let ctx = CGContext(
-            data: nil,
-            width: size,
-            height: size,
-            bitsPerComponent: 8,
-            bytesPerRow: 0,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
-        ) else { return nil }
-
-        let full = CGRect(x: 0, y: 0, width: size, height: size)
-        ctx.draw(background, in: full)
-
-        // Near-black rather than gray: the generated gradients sit at high brightness,
-        // so a mid-gray glyph washes out against them.
-        let symbolConfig = NSImage.SymbolConfiguration(pointSize: 128, weight: .semibold)
-            .applying(NSImage.SymbolConfiguration(paletteColors: [NSColor(white: 0.11, alpha: 1)]))
-        guard let symbol = NSImage(systemSymbolName: Icons.antennaRadiowaves, accessibilityDescription: nil)?
-            .withSymbolConfiguration(symbolConfig),
-            let symbolImage = symbol.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            // Without the glyph the gradient alone is still usable artwork.
-            return backgroundData
-        }
-
-        let glyphHeight = CGFloat(size) * 0.52
-        let glyphWidth = glyphHeight * CGFloat(symbolImage.width) / CGFloat(symbolImage.height)
-        let glyphRect = CGRect(
-            x: (CGFloat(size) - glyphWidth) / 2,
-            y: (CGFloat(size) - glyphHeight) / 2,
-            width: glyphWidth,
-            height: glyphHeight
-        )
-
-        // No flip: `CGContext.draw` already lands the image upright in a bottom-left
-        // origin context. Getting this wrong renders it upside down.
-        ctx.saveGState()
-        // A light halo, not a dark shadow: it separates a dark glyph from dark gradient.
-        ctx.setShadow(offset: .zero, blur: 12, color: NSColor.white.withAlphaComponent(0.65).cgColor)
-        ctx.draw(symbolImage, in: glyphRect)
-        ctx.restoreGState()
-
-        guard let cgImage = ctx.makeImage() else { return backgroundData }
-        return NSBitmapImageRep(cgImage: cgImage).representation(using: .jpeg, properties: [.compressionFactor: 0.85])
     }
 
     // MARK: - Intel x86_64 fallback

@@ -46,6 +46,35 @@ extension LibraryManager {
         }
     }
     
+    /// Pin a whole entity type, browsed on Home as a grid
+    func pinCategory(_ filterType: LibraryFilterType) async {
+        do {
+            try await databaseManager.savePinnedItem(PinnedItem(categoryType: filterType))
+            await loadPinnedItems()
+        } catch {
+            Logger.error("Failed to pin category: \(error)")
+        }
+    }
+
+    func unpinCategory(_ filterType: LibraryFilterType) async {
+        guard let pinnedItem = pinnedItems.first(where: {
+            $0.itemType == .category && $0.filterType == filterType
+        }) else {
+            return
+        }
+
+        do {
+            try await databaseManager.removePinnedItem(pinnedItem)
+            await loadPinnedItems()
+        } catch {
+            Logger.error("Failed to unpin category: \(error)")
+        }
+    }
+
+    func isCategoryPinned(_ filterType: LibraryFilterType) -> Bool {
+        pinnedItems.contains { $0.itemType == .category && $0.filterType == filterType }
+    }
+
     /// Pin an artist entity (from entity view)
     func pinArtistEntity(_ artist: ArtistEntity) async {
         // Try to find the artist in the database to get its ID
@@ -190,28 +219,33 @@ extension LibraryManager {
         return databaseManager.getTracksForPinnedItem(item)
     }
 
-    /// Get track counts for multiple pinned items.
-    /// Library counts are sourced from `cachedLibraryCategories` so they cannot diverge
-    /// from what the Library sidebar displays. Playlist counts come from the database.
+    /// Tracks per pin, except category pins, which count entities. Library counts come from
+    /// `cachedLibraryCategories` so they cannot diverge from what the Library sidebar shows.
     func getTrackCountForPinnedItems(_ items: [PinnedItem]) async -> [Int64: Int] {
         var counts: [Int64: Int] = [:]
 
-        // Library counts read (and lazily populate) `cachedLibraryCategories`, which is also
-        // mutated by refreshLibraryCategories/loadLibraryCategories on the MainActor. This
-        // method can run off-main, so do the cache-touching work on the MainActor to keep all
-        // access to that dictionary serialized.
+        // Category pins resolve their count first, off-main: every install now seeds two of
+        // them, and on a cold cache this is a full aggregation over the library.
+        for item in items where item.itemType == .category {
+            guard let id = item.id, let filterType = item.filterType else { continue }
+            counts[id] = await libraryFilterItems(for: filterType).count
+        }
+
+        // `cachedLibraryCategories` is MainActor-serialized; keep all access to it there.
         let libraryItems = items.filter { $0.itemType == .library }
         if !libraryItems.isEmpty {
-            counts = await MainActor.run {
+            let libraryCounts = await MainActor.run {
                 var libraryCounts: [Int64: Int] = [:]
                 for item in libraryItems {
                     guard let id = item.id,
                           let filterType = item.filterType,
                           let filterValue = item.filterValue else { continue }
+
                     libraryCounts[id] = self.libraryFilterTrackCount(for: filterType, value: filterValue, albumId: item.albumId)
                 }
                 return libraryCounts
             }
+            counts.merge(libraryCounts) { _, new in new }
         }
 
         let playlistItems = items.filter { $0.itemType == .playlist }
@@ -232,48 +266,55 @@ extension LibraryManager {
         return counts
     }
     
+    /// One title and one Task wrapper for every pin toggle, whatever is being pinned.
+    func pinToggleMenuItem(isPinned: Bool, toggle: @escaping () async -> Void) -> ContextMenuItem {
+        .button(
+            title: isPinned ? String(localized: "Remove from Home") : String(localized: "Pin to Home"),
+            role: nil
+        ) {
+            Task { await toggle() }
+        }
+    }
+
     /// Create context menu items for library sidebar
     func createPinContextMenuItem(for filterType: LibraryFilterType, filterValue: String, albumId: Int64? = nil) -> ContextMenuItem {
         let isPinned = isLibraryItemPinned(filterType: filterType, filterValue: filterValue, albumId: albumId)
 
-        return .button(
-            title: isPinned ? String(localized: "Remove from Home") : String(localized: "Pin to Home"),
-            role: nil
-        ) {
-            Task {
-                if isPinned {
-                    await self.unpinLibraryItem(filterType: filterType, filterValue: filterValue, albumId: albumId)
-                } else {
-                    await self.pinLibraryItem(filterType: filterType, filterValue: filterValue, albumId: albumId)
-                }
+        return pinToggleMenuItem(isPinned: isPinned) {
+            if isPinned {
+                await self.unpinLibraryItem(filterType: filterType, filterValue: filterValue, albumId: albumId)
+            } else {
+                await self.pinLibraryItem(filterType: filterType, filterValue: filterValue, albumId: albumId)
             }
         }
     }
     
+    func createCategoryPinContextMenuItem(for filterType: LibraryFilterType) -> ContextMenuItem {
+        let isPinned = isCategoryPinned(filterType)
+
+        return pinToggleMenuItem(isPinned: isPinned) {
+            if isPinned {
+                await self.unpinCategory(filterType)
+            } else {
+                await self.pinCategory(filterType)
+            }
+        }
+    }
+
     /// Create context menu items for entity views
     func createPinContextMenuItem(for entity: any Entity) -> ContextMenuItem {
         let isPinned = isEntityPinned(entity)
         
-        return .button(
-            title: isPinned ? String(localized: "Remove from Home") : String(localized: "Pin to Home"),
-            role: nil
-        ) {
-            Task {
-                if isPinned {
-                    await self.unpinEntity(entity)
-                } else {
-                    if let artist = entity as? ArtistEntity {
-                        await self.pinArtistEntity(artist)
-                    } else if let album = entity as? AlbumEntity {
-                        await self.pinAlbumEntity(album)
-                    } else if let category = entity as? CategoryEntity {
-                        // Discover genre/decade tiles have no PinnedItem to route through.
-                        await self.pinLibraryItem(
-                            filterType: category.filterType,
-                            filterValue: category.name
-                        )
-                    }
-                }
+        return pinToggleMenuItem(isPinned: isPinned) {
+            if isPinned {
+                await self.unpinEntity(entity)
+            } else if let artist = entity as? ArtistEntity {
+                await self.pinArtistEntity(artist)
+            } else if let album = entity as? AlbumEntity {
+                await self.pinAlbumEntity(album)
+            } else if let category = entity as? CategoryEntity {
+                // Discover genre/decade tiles have no PinnedItem to route through.
+                await self.pinLibraryItem(filterType: category.filterType, filterValue: category.name)
             }
         }
     }

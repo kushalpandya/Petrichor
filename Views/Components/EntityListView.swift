@@ -445,6 +445,9 @@ private struct EntityListItem: View {
 
     @State private var renderedImage: NSImage?
 
+    @Environment(\.colorScheme)
+    private var colorScheme
+
     var body: some View {
         // Button, not onTapGesture: VoiceOver traits, keyboard activation, and
         // scroll-to-focused-child under Full Keyboard Access.
@@ -484,7 +487,8 @@ private struct EntityListItem: View {
         .frame(width: metrics.artworkSize, height: metrics.artworkSize)
         // Softer than the grid's radius-10/y-5: the row clips at its vertical bounds.
         .shadow(color: .black.opacity(0.18), radius: 6, x: 0, y: 3)
-        .task(id: entity.artworkIdentity) {
+        // Scheme-qualified: procedural artwork has a light and a dark variant.
+        .task(id: "\(entity.artworkIdentity)-\(colorScheme)") {
             await loadArtwork()
         }
     }
@@ -495,7 +499,8 @@ private struct EntityListItem: View {
                 .font(.system(size: metrics.artworkSize * 0.25, weight: .medium, design: .rounded))
                 .foregroundStyle(.secondary)
         } else {
-            Image(systemName: Icons.entityIcon(for: entity))
+            // `SymbolImage`: category icons include custom asset symbols.
+            SymbolImage(Icons.entityIcon(for: entity))
                 .font(.system(size: metrics.artworkSize * 0.3))
                 .foregroundStyle(.secondary)
         }
@@ -534,13 +539,15 @@ private struct EntityListItem: View {
     }
 
     private func loadArtwork() async {
+        let isDark = colorScheme == .dark
+
         // Synchronous cache hit first, so recycled tiles don't flash a placeholder.
-        if let cached = EntityArtworkCache.shared.getCachedImage(for: entity) {
+        if let cached = EntityArtworkCache.shared.getCachedImage(for: entity, isDark: isDark) {
             renderedImage = cached
             return
         }
 
-        let image = await EntityArtworkCache.shared.loadImage(for: entity)
+        let image = await EntityArtworkCache.shared.loadImage(for: entity, isDark: isDark)
 
         guard !Task.isCancelled else { return }
         renderedImage = image

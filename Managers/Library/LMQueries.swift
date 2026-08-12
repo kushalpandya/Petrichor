@@ -37,6 +37,26 @@ extension LibraryManager {
         return items
     }
 
+    /// Cache read with no query behind it, for callers that must not block the main actor.
+    func cachedLibraryFilterItems(for filterType: LibraryFilterType) -> [LibraryFilterItem]? {
+        cachedLibraryCategories[filterType]
+    }
+
+    /// Serves the cache when warm and otherwise queries off-main. `getLibraryFilterItems`
+    /// runs a full GROUP BY aggregation on a miss, which is a visible stall on a large library.
+    func libraryFilterItems(for filterType: LibraryFilterType) async -> [LibraryFilterItem] {
+        if let cached = await MainActor.run(body: { cachedLibraryCategories[filterType] }) {
+            return cached
+        }
+
+        let items = await Task.detached(priority: .userInitiated) { [self] in
+            getLibraryFilterItemsFromDatabase(for: filterType)
+        }.value
+
+        await MainActor.run { cachedLibraryCategories[filterType] = items }
+        return items
+    }
+
     func libraryFilterTrackCount(for filterType: LibraryFilterType, value: String, albumId: Int64? = nil) -> Int {
         let items = getLibraryFilterItems(for: filterType)
         if filterType == .albums, let albumId {

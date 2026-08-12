@@ -20,6 +20,7 @@ extension PlaybackManager {
                 guard let self, self.currentTrack != nil else { return }
                 let state = self.audioPlayer.state
                 guard state == .playing || state == .paused else { return }
+                self.hydrateArtworkWindow()
                 self.primeRepeatLookahead()
             }
             .store(in: &queueObservers)
@@ -148,6 +149,7 @@ extension PlaybackManager {
         scrobbleManager?.trackStarted(track)
         publishNowPlayingMetadata(for: track)
         loadFullTrack(for: track)
+        hydrateArtworkWindow()
         primeRepeatLookahead()
         Logger.info("Advanced to: \(track.title)")
     }
@@ -176,6 +178,63 @@ extension PlaybackManager {
         currentTime = position
         scrobbleManager?.trackStarted(track)
         loadFullTrack(for: track)
+        hydrateArtworkWindow()
+    }
+
+    /// Keeps artwork loading bounded to the playing entry and its successor.
+    func hydrateArtworkWindow() {
+        guard let currentEntryId,
+              let currentPosition = queuePosition(ofEntry: currentEntryId) else { return }
+
+        var candidates: [(entryId: AudioEntryId, trackID: Int64)] = []
+        let positions = [currentPosition, playlistManager.peekNextTrack()?.index].compactMap { $0 }
+        for position in Set(positions) {
+            guard mirror.indices.contains(position),
+                  mirror[position].track.artworkData == nil,
+                  let trackID = mirror[position].track.trackId else { continue }
+            candidates.append((mirror[position].entryId, trackID))
+        }
+        guard !candidates.isEmpty else { return }
+
+        let databaseManager = libraryManager.databaseManager
+        let ids = Array(Set(candidates.map(\.trackID)))
+        Task { @MainActor [weak self, candidates] in
+            let hydrated = await Task.detached(priority: .utility) {
+                databaseManager.getTracksWithArtwork(byIds: ids)
+            }.value
+            let byID = Dictionary(uniqueKeysWithValues: hydrated.compactMap { track in
+                track.trackId.map { ($0, track) }
+            })
+
+            guard let self else { return }
+            for candidate in candidates {
+                guard let track = byID[candidate.trackID] else { continue }
+                self.installHydratedTrack(track, for: candidate.entryId)
+            }
+        }
+    }
+
+    private func installHydratedTrack(_ track: Track, for entryId: AudioEntryId) {
+        guard let position = queuePosition(ofEntry: entryId),
+              mirror[position].track.trackId == track.trackId else { return }
+
+        mirror[position] = MirroredEntry(entryId: entryId, track: track)
+        if playlistManager.currentQueue.indices.contains(position) {
+            playlistManager.currentQueue[position] = track
+        }
+
+        if let injected = injectedNext, injected.standsInFor == position {
+            injectedNext = InjectedNext(
+                entryId: injected.entryId,
+                track: track,
+                standsInFor: injected.standsInFor
+            )
+            unmirroredTracks[injected.entryId.id] = track
+        }
+
+        guard currentEntryId == entryId else { return }
+        currentTrack = track
+        publishNowPlayingMetadata(for: track)
     }
 
     // MARK: - Queue mirroring (called by PlaylistManager)
@@ -308,6 +367,7 @@ extension PlaybackManager {
         } else {
             audioPlayer.append(entry)
         }
+        hydrateArtworkWindow()
         primeRepeatLookahead()
     }
 
@@ -322,6 +382,7 @@ extension PlaybackManager {
         guard mirror[index].entryId != currentEntryId else { return }
         let entryId = mirror.remove(at: index).entryId
         audioPlayer.removeQueueEntry(id: entryId)
+        hydrateArtworkWindow()
         primeRepeatLookahead()
     }
 
@@ -339,6 +400,7 @@ extension PlaybackManager {
         if let from, let to {
             audioPlayer.move(from: from, to: engineMoveDestination(from: from, to: to))
         }
+        hydrateArtworkWindow()
         primeRepeatLookahead()
     }
 

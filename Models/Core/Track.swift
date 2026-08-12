@@ -64,16 +64,6 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
     var displayComposer: String { LibraryFilterType.composers.localizedDisplay(composer) }
     var displayYear: String { LibraryFilterType.years.localizedDisplay(year) }
 
-    var dominantColors: [NSColor] {
-        guard let original = albumArtworkData else { return [] }
-        return ImageUtils.cachedDominantColors(id: id, imageData: original)
-    }
-
-    func backgroundGradientColors(isDark: Bool) -> [Color] {
-        guard let original = albumArtworkData else { return [] }
-        return ImageUtils.cachedBackgroundGradientColors(id: id, imageData: original, isDark: isDark)
-    }
-
     // MARK: - Initialization
     
     init(url: URL) {
