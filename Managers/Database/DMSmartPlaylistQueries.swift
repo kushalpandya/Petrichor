@@ -144,6 +144,19 @@ extension DatabaseManager {
     
     /// Build SQL expression for a single rule
     private func buildExpression(for rule: SmartPlaylistCriteria.Rule, artists: [Artist], genres: [Genre]) -> SQLExpression? {
+        if let affirmativeCondition = rule.condition.affirmativeTwin {
+            let affirmativeRule = SmartPlaylistCriteria.Rule(
+                field: rule.field,
+                condition: affirmativeCondition,
+                value: rule.value
+            )
+            guard let expression = buildExpression(for: affirmativeRule, artists: artists, genres: genres) else {
+                return nil
+            }
+            // Unlike NOT, IS NOT 1 treats a NULL affirmative result as false and includes it.
+            return SQL("(\(expression)) IS NOT 1").sqlExpression
+        }
+
         switch rule.field {
         case "isFavorite":
             return buildBooleanExpression(column: Track.Columns.isFavorite, rule: rule)
@@ -235,6 +248,9 @@ extension DatabaseManager {
             // Case-insensitive pattern matching
             let pattern = buildLikePattern(for: rule.value, condition: rule.condition)
             return column.collating(.nocase).like(pattern)
+        case .regex:
+            // SQLite calls regexp(pattern, value) for the `value REGEXP pattern` syntax.
+            return SQL("\(column) REGEXP \(rule.value)").sqlExpression
         default:
             return nil
         }

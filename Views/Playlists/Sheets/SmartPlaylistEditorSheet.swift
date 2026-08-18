@@ -395,6 +395,15 @@ private struct SmartRuleRow: View {
             TextField("Value", text: $rule.value)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: RuleLayout.valueWidth)
+                .overlay(alignment: .trailing) {
+                    if hasInvalidRegex {
+                        Image(systemName: "exclamationmark.circle.fill")
+                            .foregroundStyle(.red)
+                            .padding(.trailing, 6)
+                            .help("Invalid pattern")
+                    }
+                }
+                .help(hasInvalidRegex ? String(localized: "Invalid pattern") : "")
 
         case .number:
             TextField("Value", text: $rule.value)
@@ -429,6 +438,12 @@ private struct SmartRuleRow: View {
             .pickerStyle(.menu)
             .frame(width: RuleLayout.valueWidth)
         }
+    }
+
+    private var hasInvalidRegex: Bool {
+        rule.condition == .regex &&
+        !rule.value.isEmpty &&
+        !SmartPlaylistRegex.isValid(rule.value)
     }
 
     /// Coerces the operator selection to always be one of the current field's valid

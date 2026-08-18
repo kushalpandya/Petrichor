@@ -21,10 +21,26 @@ struct SmartPlaylistCriteria: Codable, Equatable {
         case equals
         case startsWith
         case endsWith
+        case regex
+        case notEquals
+        case notContains
+        case notStartsWith
+        case notEndsWith
         case greaterThan
         case greaterThanOrEqual
         case lessThan
         case lessThanOrEqual
+
+        /// The affirmative operator this condition negates, or nil when it is affirmative.
+        var affirmativeTwin: Condition? {
+            switch self {
+            case .notEquals: return .equals
+            case .notContains: return .contains
+            case .notStartsWith: return .startsWith
+            case .notEndsWith: return .endsWith
+            default: return nil
+            }
+        }
     }
     
     struct Rule: Codable, Equatable {
