@@ -85,7 +85,13 @@ enum SmartField: String, CaseIterable, Identifiable {
     var operators: [SmartPlaylistCriteria.Condition] {
         switch valueKind {
         case .text:
-            return [.equals, .contains, .startsWith, .endsWith]
+            return [
+                .equals, .notEquals,
+                .contains, .notContains,
+                .startsWith, .notStartsWith,
+                .endsWith, .notEndsWith,
+                .regex
+            ]
         case .number:
             // `year` is stored as text and only supports equals/greaterThan/lessThan reliably.
             if self == .year {
@@ -165,11 +171,28 @@ extension SmartPlaylistCriteria.Condition {
     private var textLabel: String {
         switch self {
         case .equals: return String(localized: "is")
+        case .notEquals: return String(localized: "is not")
         case .contains: return String(localized: "contains")
+        case .notContains: return String(localized: "does not contain")
         case .startsWith: return String(localized: "starts with")
+        case .notStartsWith: return String(localized: "does not start with")
         case .endsWith: return String(localized: "ends with")
+        case .notEndsWith: return String(localized: "does not end with")
+        case .regex: return String(localized: "matches regex")
         default: return rawValue
         }
+    }
+}
+
+enum SmartPlaylistRegex {
+    static func isValid(_ pattern: String) -> Bool {
+        (try? NSRegularExpression(pattern: pattern)) != nil
+    }
+
+    static func matches(_ value: String, pattern: String) -> Bool {
+        guard let expression = try? NSRegularExpression(pattern: pattern) else { return false }
+        let range = NSRange(value.startIndex..., in: value)
+        return expression.firstMatch(in: value, range: range) != nil
     }
 }
 

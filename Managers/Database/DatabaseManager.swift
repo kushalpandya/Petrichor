@@ -44,6 +44,15 @@ class DatabaseManager: ObservableObject {
         // Configure database before creating the queue
         var config = Configuration()
         config.prepareDatabase { db in
+            let regexp = DatabaseFunction("regexp", argumentCount: 2, pure: true) { values in
+                guard let pattern = String.fromDatabaseValue(values[0]),
+                      let value = String.fromDatabaseValue(values[1]) else {
+                    return false
+                }
+                return SmartPlaylistRegex.matches(value, pattern: pattern)
+            }
+            db.add(function: regexp)
+
             // Set journal mode to WAL
             try db.execute(sql: "PRAGMA journal_mode = WAL")
             // Enable synchronous mode for better durability
