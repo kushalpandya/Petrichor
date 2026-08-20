@@ -273,6 +273,50 @@ extension DatabaseManager {
 
     // MARK: - Artist Info Updates
 
+    func getArtistImage(artistId: Int64) async throws -> (data: Data?, url: String?, source: String?) {
+        try await dbQueue.read { db in
+            guard let artist = try Artist.fetchOne(db, key: artistId) else {
+                return (nil, nil, nil)
+            }
+            return (artist.artworkData, artist.imageUrl, artist.imageSource)
+        }
+    }
+
+    func setArtistImage(
+        artistId: Int64,
+        imageData: Data,
+        imageUrl: String,
+        imageSource: String
+    ) async throws {
+        _ = try await dbQueue.write { db in
+            try Artist
+                .filter(Artist.Columns.id == artistId)
+                .updateAll(
+                    db,
+                    Artist.Columns.artworkData.set(to: imageData),
+                    Artist.Columns.imageUrl.set(to: imageUrl),
+                    Artist.Columns.imageSource.set(to: imageSource),
+                    Artist.Columns.imageUpdatedAt.set(to: Date()),
+                    Artist.Columns.updatedAt.set(to: Date())
+                )
+        }
+    }
+
+    func deleteArtistImageAsync(artistId: Int64) async throws {
+        _ = try await dbQueue.write { db in
+            try Artist
+                .filter(Artist.Columns.id == artistId)
+                .updateAll(
+                    db,
+                    Artist.Columns.artworkData.set(to: nil),
+                    Artist.Columns.imageUrl.set(to: nil),
+                    Artist.Columns.imageSource.set(to: "deleted"),
+                    Artist.Columns.imageUpdatedAt.set(to: Date()),
+                    Artist.Columns.updatedAt.set(to: Date())
+                )
+        }
+    }
+
     func updateArtistInfo(
         artistId: Int64,
         imageData: Data? = nil,

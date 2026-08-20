@@ -36,12 +36,18 @@ struct PlaylistEditorFooter: View {
     let summary: String?
     let saveTitle: String
     let canSave: Bool
+    var leadingActionTitle: String?
+    var leadingActionEnabled = true
+    var onLeadingAction: (() -> Void)?
     let onCancel: () -> Void
     let onSave: () -> Void
 
     var body: some View {
         HStack {
-            if let summary {
+            if let leadingActionTitle, let onLeadingAction {
+                Button(leadingActionTitle, action: onLeadingAction)
+                    .disabled(!leadingActionEnabled)
+            } else if let summary {
                 Text(summary)
                     .font(.subheadline)
                     .foregroundColor(.secondary)

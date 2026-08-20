@@ -1,5 +1,6 @@
 import SwiftUI
 
+// swiftlint:disable:next type_body_length
 struct PlaylistDetailView: View {
     let playlistID: UUID
     /// Set when this is presented as a full-screen overlay (e.g. a Discover
@@ -13,6 +14,8 @@ struct PlaylistDetailView: View {
     @State private var gradientTask: Task<Void, Never>?
     @State private var artworkData: Data?
     @State private var collageToken = 0
+    @State private var showingArtworkEditor = false
+    @State private var isArtworkHovered = false
 
     @AppStorage("useArtworkColors")
     private var useArtworkColors = true
@@ -103,6 +106,19 @@ struct PlaylistDetailView: View {
                 updateGradientColors()
             }
             .onDisappear { gradientTask?.cancel() }
+            .sheet(isPresented: $showingArtworkEditor) {
+                PlaylistArtworkSheet(
+                    playlist: playlist,
+                    defaultArtworkData: playlist.coverArtworkData == nil ? artworkData : nil,
+                    stationArtworkSources: stations.compactMap(\.artworkData),
+                    isPresented: $showingArtworkEditor
+                ) { savedArtwork in
+                    collageToken += 1
+                    artworkData = savedArtwork
+                    updateGradientColors()
+                }
+                .environmentObject(playlistManager)
+            }
         } else {
             playlistNotFoundView
         }
@@ -174,6 +190,31 @@ struct PlaylistDetailView: View {
                     )
             }
         }
+        .contentShape(RoundedRectangle(cornerRadius: 8))
+        .onTapGesture {
+            guard playlist?.isUserEditable == true else { return }
+            showingArtworkEditor = true
+        }
+        .overlay {
+            if playlist?.isUserEditable == true {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.black.opacity(0.4))
+                    .frame(width: 120, height: 120)
+                    .overlay(
+                        VStack(spacing: 4) {
+                            Image(systemName: "pencil")
+                                .font(.system(size: 20, weight: .medium))
+                            Text(String(localized: "Update artwork"))
+                                .font(.system(size: 10, weight: .medium))
+                        }
+                        .foregroundStyle(.white)
+                    )
+                    .opacity(isArtworkHovered ? 1 : 0)
+                    .animation(.easeInOut(duration: 0.15), value: isArtworkHovered)
+                    .allowsHitTesting(false)
+            }
+        }
+        .onHover { isArtworkHovered = $0 }
     }
 
     private var playlistInfo: some View {

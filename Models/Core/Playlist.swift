@@ -415,22 +415,31 @@ struct Playlist: Identifiable, FetchableRecord, PersistableRecord {
         let candidates = tracks
             .filter { $0.artworkData != nil }
             .sorted { ($0.trackId ?? .max) < ($1.trackId ?? .max) }
+        return Self.selectCollageTracks(from: candidates)
+    }
 
+    func collageArtworkSources(shuffled: Bool = false) -> [Data?] {
+        let candidates = shuffled
+            ? tracks.filter { $0.artworkData != nil }.shuffled()
+            : collageTracks()
+        let selected = shuffled ? Self.selectCollageTracks(from: candidates) : candidates
+        return selected.map(\.artworkData)
+    }
+
+    private static func selectCollageTracks(from candidates: [Track]) -> [Track] {
         var seenAlbumIds = Set<Int64>()
-        var result: [Track] = []
+        var selected: [Track] = []
+
         for track in candidates {
-            guard let albumId = track.albumId, !seenAlbumIds.contains(albumId) else { continue }
-            seenAlbumIds.insert(albumId)
-            result.append(track)
-            if result.count == 4 { return result }
+            guard let albumId = track.albumId, seenAlbumIds.insert(albumId).inserted else { continue }
+            selected.append(track)
+            if selected.count == 4 { return selected }
         }
-        if result.count < 4 {
-            for track in candidates where !result.contains(where: { $0.id == track.id }) {
-                result.append(track)
-                if result.count == 4 { break }
-            }
+        for track in candidates where !selected.contains(where: { $0.id == track.id }) {
+            selected.append(track)
+            if selected.count == 4 { break }
         }
-        return result
+        return selected
     }
 
     fileprivate static func renderCollageArtwork(from collageTracks: [Track]) -> Data? {
