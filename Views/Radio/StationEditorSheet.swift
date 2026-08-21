@@ -1,5 +1,4 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct StationEditorSheet: View {
     let station: RadioStation?
@@ -119,12 +118,16 @@ struct StationFormFields: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            StationArtworkWell(
+            ArtworkImageWell(
                 artworkData: $artworkData,
                 isProcessing: $isProcessingArtwork,
-                stationName: stationName
+                placeholderIcon: Icons.antennaRadiowaves,
+                secondaryActionTitle: String(localized: "Generate"),
+                secondaryActionHelp: String(localized: "Create artwork from the station name"),
+                onSecondaryAction: generateArtwork,
+                onImported: nil
             )
-                .frame(maxWidth: .infinity, alignment: .center)
+            .frame(maxWidth: .infinity, alignment: .center)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Stream URL")
@@ -154,231 +157,9 @@ struct StationFormFields: View {
         }
         .padding(.horizontal, 20)
     }
-}
-
-/// Square artwork target: drop onto it, or click it to focus and press Command-V.
-/// Clicking **only focuses**; browsing for a file is its own button underneath.
-/// The paste handler has to live on this box: `onPasteCommand` only fires on a view that
-/// can become first responder, which a plain sheet root can't.
-struct StationArtworkWell: View {
-    @Binding var artworkData: Data?
-    @Binding var isProcessing: Bool
-    let stationName: String
-
-    @FocusState private var isFocused: Bool
-    @State private var isDropTargeted = false
-    /// Only the newest selection may win: two quick picks would otherwise race, and the
-    /// slower first one would land last.
-    @State private var compressionTask: Task<Void, Never>?
-    /// Advanced by every artwork action, so a provider load already in flight when Generate
-    /// or Clear wins can tell that its result is no longer wanted.
-    @State private var artworkGeneration = 0
-
-    private let side: CGFloat = 170
-    private let actionButtonWidth: CGFloat = 80
-
-    var body: some View {
-        VStack(spacing: 10) {
-            box
-            actions
-        }
-    }
-
-    private var box: some View {
-        ZStack {
-            if let artworkData, let image = NSImage(data: artworkData) {
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: side, height: side)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .overlay(alignment: .topTrailing) { clearButton }
-            } else {
-                emptyWell
-            }
-        }
-        .frame(width: side, height: side)
-        .overlay(focusRing)
-        .contentShape(RoundedRectangle(cornerRadius: 8))
-        .onTapGesture { isFocused = true }
-        .focusable()
-        .focused($isFocused)
-        .onPasteCommand(of: [.image, .fileURL]) { _ in pasteFromClipboard() }
-        .onDrop(of: [.image, .fileURL], isTargeted: $isDropTargeted) { providers in
-            load(from: providers)
-        }
-        .help("Drop an image here, or click to select this box and press Command-V")
-    }
-
-    /// Outside the box: a button inside a focusable, tappable container is ambiguous.
-    private var actions: some View {
-        // Width on each label, not the button: a bordered button sizes chrome to its label.
-        HStack(spacing: 8) {
-            Button {
-                pickImageFile()
-            } label: {
-                Text("Browse").frame(width: actionButtonWidth)
-            }
-            .help("Choose an image file")
-
-            Button {
-                generateArtwork()
-            } label: {
-                Text("Generate").frame(width: actionButtonWidth)
-            }
-            .help("Create artwork from the station name")
-        }
-        .buttonStyle(.bordered)
-        .controlSize(.small)
-    }
-
-    private var emptyWell: some View {
-        VStack(spacing: 8) {
-            Image(systemName: Icons.antennaRadiowaves)
-                .font(.system(size: 28))
-                .foregroundColor(.secondary)
-
-            Text("Drop or paste image")
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
-        }
-        .frame(width: side, height: side)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(
-                    Color.secondary.opacity(0.5),
-                    style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])
-                )
-        )
-    }
-
-    private var clearButton: some View {
-        Button {
-            supersedeCompression()
-            artworkData = nil
-        } label: {
-            Image(systemName: Icons.xmarkCircleFill)
-                .font(.system(size: 16))
-                .foregroundStyle(.white, Color.black.opacity(0.5))
-        }
-        .buttonStyle(.plain)
-        .padding(6)
-        .help("Remove artwork")
-    }
-
-    /// The only signal that Command-V lands here rather than in a text field.
-    private var focusRing: some View {
-        RoundedRectangle(cornerRadius: 8)
-            .strokeBorder(Color.accentColor, lineWidth: 2)
-            .opacity(isFocused || isDropTargeted ? 1 : 0)
-    }
 
     private func generateArtwork() {
-        supersedeCompression()
         let seedName = stationName.trimmingCharacters(in: .whitespaces)
         artworkData = ImageUtils.generateStationArtwork(name: seedName.isEmpty ? "Radio" : seedName)
-    }
-
-    /// Every artwork mutation goes through here first, so a slow import can't land on top
-    /// of a later Generate or Clear.
-    private func supersedeCompression() {
-        compressionTask?.cancel()
-        compressionTask = nil
-        artworkGeneration += 1
-        isProcessing = false
-    }
-
-    private func pickImageFile() {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        panel.allowedContentTypes = [.image]
-        panel.prompt = String(localized: "Choose")
-
-        guard panel.runModal() == .OK, let url = panel.url, let data = try? Data(contentsOf: url) else { return }
-        apply(data)
-    }
-
-    /// Reads the pasteboard directly: an image copied from another app arrives as
-    /// several flavors and `readObjects` picks a usable one.
-    private func pasteFromClipboard() {
-        let pasteboard = NSPasteboard.general
-        if let images = pasteboard.readObjects(forClasses: [NSImage.self]) as? [NSImage],
-           let tiff = images.first?.tiffRepresentation {
-            apply(tiff)
-            return
-        }
-        if let urls = pasteboard.readObjects(forClasses: [NSURL.self]) as? [URL],
-           let url = urls.first,
-           let data = try? Data(contentsOf: url) {
-            apply(data)
-        }
-    }
-
-    private func load(from providers: [NSItemProvider]) -> Bool {
-        guard let provider = providers.first else { return false }
-
-        // Claimed now: the provider can take long enough for the user to press Generate or
-        // Clear before it finishes, and its result must lose to that. Processing is marked
-        // here rather than when compression starts, so Save can't run during a slow load
-        // and persist the previous image.
-        supersedeCompression()
-        let generation = artworkGeneration
-        isProcessing = true
-
-        if provider.canLoadObject(ofClass: NSImage.self) {
-            _ = provider.loadObject(ofClass: NSImage.self) { object, _ in
-                guard let image = object as? NSImage, let tiff = image.tiffRepresentation else {
-                    DispatchQueue.main.async { abandonProviderLoad(generation: generation) }
-                    return
-                }
-                DispatchQueue.main.async { apply(tiff, generation: generation) }
-            }
-            return true
-        }
-
-        provider.loadDataRepresentation(forTypeIdentifier: UTType.fileURL.identifier) { data, _ in
-            guard let data,
-                  let path = String(data: data, encoding: .utf8),
-                  let url = URL(string: path),
-                  let imageData = try? Data(contentsOf: url) else {
-                DispatchQueue.main.async { abandonProviderLoad(generation: generation) }
-                return
-            }
-            DispatchQueue.main.async { apply(imageData, generation: generation) }
-        }
-        return true
-    }
-
-    /// Releases the processing flag for a load that produced nothing, unless a later action
-    /// already owns it.
-    private func abandonProviderLoad(generation: Int) {
-        guard generation == artworkGeneration else { return }
-        isProcessing = false
-    }
-
-    /// Off the main thread: a pasted screenshot is easily tens of megabytes.
-    private func apply(_ data: Data, generation: Int? = nil) {
-        // A provider load that lost to a later action never starts compressing.
-        if let generation, generation != artworkGeneration { return }
-
-        supersedeCompression()
-        let current = artworkGeneration
-        isProcessing = true
-
-        compressionTask = Task {
-            let compressed = await Task.detached(priority: .userInitiated) {
-                ImageUtils.compressStationArtwork(from: data)
-            }.value
-
-            guard !Task.isCancelled, current == artworkGeneration else { return }
-            isProcessing = false
-
-            guard let compressed else {
-                NotificationManager.shared.addMessage(.error, String(localized: "Couldn't read that image"))
-                return
-            }
-            artworkData = compressed
-        }
     }
 }

@@ -114,6 +114,18 @@ extension DatabaseManager {
         }
     }
 
+    func updatePlaylistArtwork(playlistId: UUID, artworkData: Data?, dateModified: Date) async throws {
+        _ = try await dbQueue.write { db in
+            try Playlist
+                .filter(Playlist.Columns.id == playlistId.uuidString)
+                .updateAll(
+                    db,
+                    Playlist.Columns.coverArtworkData.set(to: artworkData),
+                    Playlist.Columns.dateModified.set(to: dateModified)
+                )
+        }
+    }
+
     func savePlaylist(_ playlist: Playlist) throws {
         try dbQueue.write { db in
             // Save the playlist using GRDB's save method

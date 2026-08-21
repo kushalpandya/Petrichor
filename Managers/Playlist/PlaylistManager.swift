@@ -163,6 +163,32 @@ class PlaylistManager: ObservableObject {
 
         updateSmartPlaylistCounts()
     }
+
+    @discardableResult
+    func updatePlaylistArtwork(_ playlist: Playlist, artworkData: Data?) async -> Bool {
+        guard playlist.isUserEditable,
+              let dbManager = libraryManager?.databaseManager else { return false }
+
+        let modified = Date()
+        do {
+            try await dbManager.updatePlaylistArtwork(
+                playlistId: playlist.id,
+                artworkData: artworkData,
+                dateModified: modified
+            )
+        } catch {
+            Logger.error("Failed to update artwork for playlist '\(playlist.name)': \(error)")
+            NotificationManager.shared.addMessage(.error, String(localized: "Couldn't save the artwork"))
+            return false
+        }
+
+        await MainActor.run {
+            guard let index = self.playlists.firstIndex(where: { $0.id == playlist.id }) else { return }
+            self.playlists[index].coverArtworkData = artworkData
+            self.playlists[index].dateModified = modified
+        }
+        return true
+    }
     
     /// Ensure tracks are loaded for a playlist
     func loadPlaylistTracks(for playlistId: UUID) {
