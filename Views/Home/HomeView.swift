@@ -107,6 +107,11 @@ struct HomeView: View {
                     detailRoleCarrier = nil
                 }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .homeSidebarItemRetapped)) { _ in
+            withAnimation(.easeInOut(duration: AnimationDuration.standardDuration)) {
+                homeDetail = nil
+            }
+        }
     }
 
     // MARK: - Discover View

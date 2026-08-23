@@ -29,7 +29,14 @@ struct HomeSidebarView: View {
                 items: allItems,
                 selectedItem: $selectedItem,
                 onItemTap: { item in
+                    // Re-tapping the already-selected item assigns an equal value, so
+                    // downstream `.onChange` never fires; announce it explicitly so open
+                    // detail overlays can pop back to the list.
+                    let isRetap = selectedItem?.id == item.id
                     selectedItem = item
+                    if isRetap {
+                        NotificationCenter.default.post(name: .homeSidebarItemRetapped, object: nil)
+                    }
                 },
                 contextMenuItems: { item in
                     createContextMenuItems(for: item)

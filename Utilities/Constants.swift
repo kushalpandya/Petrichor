@@ -312,6 +312,9 @@ extension Notification.Name {
     
     static let navigateToPlaylists = Notification.Name("navigateToPlaylists")
     static let navigateToInternetRadio = Notification.Name("navigateToInternetRadio")
+    /// Posted when the user taps the already-selected item in the Home sidebar, so
+    /// open detail overlays can pop back to the underlying list.
+    static let homeSidebarItemRetapped = Notification.Name("homeSidebarItemRetapped")
     
     static let playEntityTracks = Notification.Name("playEntityTracks")
     static let playPlaylistTracks = Notification.Name("playPlaylistTracks")
