@@ -434,70 +434,6 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Toolbar
-
-    @ToolbarContentBuilder private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .principal) {
-            TabbedButtons(
-                items: Sections.allCases.filter { $0 != .folders || showFoldersTab },
-                selection: $selectedTab,
-                animation: .transform,
-                isDisabled: false
-            )
-        }
-
-        // Do not remove this spacer, it allows
-        // for pushing toolbar items below to the
-        // right-edge of window frame on macOS 14.x
-        ToolbarItem { Spacer() }
-
-        ToolbarItem(placement: .confirmationAction) {
-            HStack(spacing: 8) {
-                NotificationTray()
-                    .frame(width: 24, height: 24)
-
-                SearchInputField(
-                    text: $libraryManager.globalSearchText,
-                    placeholder: String(localized: "Search"),
-                    fontSize: 12,
-                    shouldFocus: shouldFocusSearch
-                )
-                .frame(width: 280)
-                .disabled(!libraryManager.hasLocalMusic)
-            }
-        }
-    }
-
-    @available(macOS 26.0, *)
-    @ToolbarContentBuilder private var modernToolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .principal) {
-            TabbedButtons(
-                items: Sections.allCases.filter { $0 != .folders || showFoldersTab },
-                selection: $selectedTab,
-                style: .modern,
-                animation: .transform,
-                isDisabled: false
-            )
-        }
-
-        ToolbarItem(placement: .confirmationAction) {
-            NotificationTray()
-                .frame(width: 34, height: 30)
-        }
-        .sharedBackgroundVisibility(.hidden)
-
-        ToolbarItem(placement: .confirmationAction) {
-            SearchInputField(
-                text: $libraryManager.globalSearchText,
-                placeholder: String(localized: "Search"),
-                fontSize: 12,
-                shouldFocus: shouldFocusSearch
-            )
-            .frame(width: 280)
-            .disabled(!libraryManager.hasLocalMusic)
-        }
-    }
-    
     // MARK: - Event Handlers
 
     private func handleOnAppear() {
@@ -608,6 +544,81 @@ struct ContentView: View {
         }
         
         return false
+    }
+}
+
+private extension ContentView {
+    @ToolbarContentBuilder var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .principal) {
+            TabbedButtons(
+                items: Sections.allCases.filter { $0 != .folders || showFoldersTab },
+                selection: $selectedTab,
+                animation: .transform,
+                isDisabled: false
+            )
+        }
+
+        // Do not remove this spacer, it allows
+        // for pushing toolbar items below to the
+        // right-edge of window frame on macOS 14.x
+        ToolbarItem { Spacer() }
+
+        ToolbarItem(placement: .confirmationAction) {
+            HStack(spacing: 8) {
+                NotificationTray()
+                    .frame(width: 24, height: 24)
+
+                SearchInputField(
+                    text: $libraryManager.globalSearchText,
+                    placeholder: String(localized: "Search"),
+                    fontSize: 12,
+                    shouldFocus: shouldFocusSearch
+                )
+                .frame(width: 280)
+                .disabled(!libraryManager.hasLocalMusic)
+
+                AirPlayRoutePicker()
+                    .frame(width: 22, height: 22)
+                    .help("AirPlay")
+            }
+        }
+    }
+
+    @available(macOS 26.0, *)
+    @ToolbarContentBuilder var modernToolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .principal) {
+            TabbedButtons(
+                items: Sections.allCases.filter { $0 != .folders || showFoldersTab },
+                selection: $selectedTab,
+                style: .modern,
+                animation: .transform,
+                isDisabled: false
+            )
+        }
+
+        ToolbarItem(placement: .confirmationAction) {
+            NotificationTray()
+                .frame(width: 34, height: 30)
+        }
+        .sharedBackgroundVisibility(.hidden)
+
+        ToolbarItem(placement: .confirmationAction) {
+            SearchInputField(
+                text: $libraryManager.globalSearchText,
+                placeholder: String(localized: "Search"),
+                fontSize: 12,
+                shouldFocus: shouldFocusSearch
+            )
+            .frame(width: 280)
+            .disabled(!libraryManager.hasLocalMusic)
+        }
+
+        ToolbarItem(placement: .confirmationAction) {
+            AirPlayRoutePicker()
+                .frame(width: 22, height: 22)
+                .help("AirPlay")
+        }
+        .sharedBackgroundVisibility(.hidden)
     }
 }
 
