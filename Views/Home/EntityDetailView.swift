@@ -189,7 +189,7 @@ struct EntityDetailView: View {
                let nsImage = NSImage(data: artworkData) {
                 Image(nsImage: nsImage)
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
+                    .scaledToFill()
                     .frame(width: 120, height: 120)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                     .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)

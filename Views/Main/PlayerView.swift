@@ -765,7 +765,7 @@ struct AlbumArtworkContent: View {
            let nsImage = NSImage(data: artworkData) {
             Image(nsImage: nsImage)
                 .resizable()
-                .aspectRatio(contentMode: .fill)
+                .scaledToFill()
                 .frame(width: 76, height: 76)
                 .clipShape(RoundedRectangle(cornerRadius: 5))
         } else {

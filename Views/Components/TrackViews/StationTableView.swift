@@ -309,7 +309,7 @@ struct StationArtworkThumb: View {
             if let image = station.artworkImage {
                 Image(nsImage: image)
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
+                    .scaledToFill()
             } else {
                 RoundedRectangle(cornerRadius: 4)
                     .fill(Color.gray.opacity(0.2))

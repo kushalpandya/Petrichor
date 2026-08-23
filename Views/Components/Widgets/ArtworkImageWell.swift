@@ -37,7 +37,7 @@ struct ArtworkImageWell: View {
             if let artworkData, let image = NSImage(data: artworkData) {
                 Image(nsImage: image)
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
+                    .scaledToFill()
                     .frame(width: side, height: side)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                     .overlay(alignment: .topTrailing) {

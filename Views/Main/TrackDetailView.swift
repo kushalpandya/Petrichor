@@ -175,7 +175,7 @@ struct TrackDetailView: View {
                let nsImage = NSImage(data: artworkData) {
                 Image(nsImage: nsImage)
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
+                    .scaledToFill()
                     .frame(width: 250, height: 250)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
