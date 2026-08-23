@@ -413,7 +413,7 @@ private struct TrackListRow: View {
             if let artworkImage {
                 Image(nsImage: artworkImage)
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
+                    .scaledToFill()
                     .frame(width: ViewDefaults.listArtworkSize, height: ViewDefaults.listArtworkSize)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
             } else {

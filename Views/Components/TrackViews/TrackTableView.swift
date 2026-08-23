@@ -597,7 +597,7 @@ private struct TrackTitleCell: View {
                     if let image = artworkImage {
                         Image(nsImage: image)
                             .resizable()
-                            .aspectRatio(contentMode: .fill)
+                            .scaledToFill()
                             .frame(width: ViewDefaults.listArtworkSize, height: ViewDefaults.listArtworkSize)
                             .clipShape(RoundedRectangle(cornerRadius: 4))
                     } else {

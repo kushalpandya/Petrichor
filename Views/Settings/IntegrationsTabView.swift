@@ -76,7 +76,7 @@ struct IntegrationsTabView: View {
                     if let avatar = cachedLastFMAvatar {
                         Image(nsImage: avatar)
                             .resizable()
-                            .aspectRatio(contentMode: .fill)
+                            .scaledToFill()
                             .frame(width: 32, height: 32)
                             .clipShape(Circle())
                     } else {

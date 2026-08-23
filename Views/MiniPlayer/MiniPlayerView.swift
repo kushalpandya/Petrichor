@@ -256,7 +256,7 @@ struct MiniPlayerView: View {
             if let image = cachedArtwork {
                 Image(nsImage: image)
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
+                    .scaledToFill()
                     .frame(width: side, height: side)
                     .clipped()
             } else {

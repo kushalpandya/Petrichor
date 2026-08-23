@@ -282,7 +282,7 @@ struct ImmersiveView: View {
             if let image = cachedArtwork {
                 Image(nsImage: image)
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
+                    .scaledToFill()
             } else {
                 Rectangle()
                     .fill(Color.white.opacity(0.08))

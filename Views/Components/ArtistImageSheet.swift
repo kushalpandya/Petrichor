@@ -116,7 +116,7 @@ struct ArtistImageSheet: View {
             if let image = NSImage(data: result.imageData) {
                 Image(nsImage: image)
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
+                    .scaledToFill()
                     .frame(width: 108, height: 108)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                     .overlay(
