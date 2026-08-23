@@ -349,6 +349,19 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
         backendDelegate?.backendDidSkipQueueEntry(entryId: AudioEntryId(id: entryId.id))
     }
 
+    func handleAudioRouteProfile(_ profile: CrescendoAudioRouteProfile) {
+        switch profile {
+        case .standard:
+            onMain { player.effectsEnabled = true }
+            Logger.info("Audio effects restored for standard-latency output")
+        case .highLatency:
+            onMain { player.effectsEnabled = false }
+            Logger.info("Audio effects bypassed for high-latency output")
+        @unknown default:
+            Logger.warning("Unrecognised audio route profile reported by Crescendo; leaving audio effects unchanged")
+        }
+    }
+
     // MARK: - Mapping
 
     private static func mapState(_ state: CrescendoPlayerState) -> AudioPlayerState {
@@ -470,6 +483,10 @@ private final class CrescendoDelegateBridge: CrescendoPlayerDelegate {
 
     func playerDidReadMetadata(_ player: CrescendoPlayer, metadata: [String: String]) {
         owner?.handleStreamMetadata(metadata)
+    }
+
+    func playerDidChangeAudioRouteProfile(_ player: CrescendoPlayer, profile: CrescendoAudioRouteProfile) {
+        owner?.handleAudioRouteProfile(profile)
     }
 }
 
