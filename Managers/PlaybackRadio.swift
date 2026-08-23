@@ -135,24 +135,33 @@ extension PlaybackManager {
         playlistManager.currentQueueIndex = -1
 
         currentStation = station
+        let entryId = AudioEntryId.fresh()
+        currentStationEntryId = entryId
+        stationEntryIds.insert(entryId)
+        errorReportedEntryIds.remove(entryId)
+        radioConnectionPhase = .connecting
         streamMetadata = [:]
         streamFormat = nil
         stationListenSeconds = 0
         stationPlayCredited = false
 
         publishStationNowPlaying(station)
-        audioPlayer.playStream(url: url)
+        audioPlayer.playStream(url: url, entryId: entryId)
         isPlaying = true
-        startConnectWatchdog(for: station)
+        startConnectWatchdog(for: station, entryId: entryId)
         Logger.info("Started radio station: \(station.name)")
     }
 
     /// Gives up on a stream that never finishes connecting.
-    private func startConnectWatchdog(for station: RadioStation) {
+    private func startConnectWatchdog(for station: RadioStation, entryId: AudioEntryId) {
         streamConnectWatchdog?.cancel()
 
         let work = DispatchWorkItem { [weak self] in
-            guard let self, self.isBuffering, self.currentStation?.id == station.id else { return }
+            guard let self,
+                  self.radioConnectionPhase == .connecting,
+                  self.audioPlayer.state == .buffering,
+                  self.currentStation?.id == station.id,
+                  self.currentStationEntryId == entryId else { return }
             Logger.warning("Stream '\(station.name)' never finished connecting; stopping")
             self.stopStation()
             NotificationManager.shared.addMessage(
@@ -243,6 +252,8 @@ extension PlaybackManager {
             )
         }
         currentStation = station
+        currentStationEntryId = nil
+        radioConnectionPhase = .stopped
         streamMetadata = [:]
         streamFormat = nil
         isBuffering = false
@@ -270,6 +281,7 @@ extension PlaybackManager {
         }
 
         cancelConnectWatchdog()
+        radioConnectionPhase = .stopped
         audioPlayer.stop()
         isBuffering = false
         stationListenSeconds = 0
@@ -285,6 +297,8 @@ extension PlaybackManager {
         beginSourceGeneration()
         cancelConnectWatchdog()
         currentStation = nil
+        currentStationEntryId = nil
+        radioConnectionPhase = .stopped
         streamMetadata = [:]
         streamFormat = nil
         isBuffering = false
@@ -300,5 +314,114 @@ extension PlaybackManager {
         stationPlayCredited = true
         InternetRadioManager.shared.creditPlay(station)
         Logger.info("Credited a play for radio station: \(station.name)")
+    }
+
+    func audioPlayerUnexpectedError(
+        player: PlaybackEngine,
+        entryId: AudioEntryId?,
+        error: AudioPlayerError
+    ) {
+        DispatchQueue.main.async {
+            if let entryId,
+               entryId == self.currentStationEntryId || self.stationEntryIds.contains(entryId) {
+                guard self.currentStation != nil, entryId == self.currentStationEntryId else {
+                    self.stationEntryIds.remove(entryId)
+                    Logger.info("Ignored an error from a superseded stream: \(entryId.id)")
+                    return
+                }
+            }
+            if self.currentStation != nil {
+                guard entryId == self.currentStationEntryId else {
+                    if let entryId {
+                        Logger.info("Ignored an error from a superseded stream: \(entryId.id)")
+                    }
+                    return
+                }
+                self.cancelConnectWatchdog()
+                self.radioConnectionPhase = .stopped
+                self.isPlaying = false
+                self.isBuffering = false
+            }
+            if let entryId {
+                self.errorReportedEntryIds.insert(entryId)
+                // Terminal finishes are delivered synchronously after errors and
+                // already have a main-queue handler waiting. Avoid retaining IDs
+                // for load failures that have no matching finish callback.
+                DispatchQueue.main.async {
+                    self.errorReportedEntryIds.remove(entryId)
+                    self.stationEntryIds.remove(entryId)
+                }
+            }
+            Logger.error("Audio player error: \(error.localizedDescription)")
+            let message: String
+            if case .restrictedStreamDestination = error {
+                message = String(localized: "This stream points to a local or restricted network address")
+            } else {
+                message = String(localized: "Playback error: \(error.localizedDescription)")
+            }
+            NotificationManager.shared.addMessage(.error, message)
+        }
+    }
+
+    func audioPlayerDidReadStreamMetadata(
+        player: PlaybackEngine,
+        entryId: AudioEntryId,
+        metadata: [String: String]
+    ) {
+        DispatchQueue.main.async {
+            // Fires on every StreamTitle update; a redundant publish re-renders the bar.
+            guard self.currentStation != nil,
+                  self.currentStationEntryId == entryId,
+                  self.streamMetadata != metadata else { return }
+            self.streamMetadata = metadata
+            // The ICY headers carry the advertised bitrate, so the badges can firm up here.
+            self.refreshStreamFormat()
+        }
+    }
+
+    func audioPlayerDidFinishBuffering(player: PlaybackEngine, with entryId: AudioEntryId) {
+        DispatchQueue.main.async {
+            guard self.currentStation != nil, entryId == self.currentStationEntryId else { return }
+            self.cancelConnectWatchdog()
+            if self.isBuffering { self.isBuffering = false }
+            self.refreshStreamFormat()
+        }
+    }
+
+    func updateRadioConnectionPhase(for state: AudioPlayerState) {
+        guard currentStation != nil else { return }
+        switch state {
+        case .buffering:
+            radioConnectionPhase = radioConnectionPhase == .playing ? .reconnecting : .connecting
+        case .playing:
+            radioConnectionPhase = .playing
+        case .stopped:
+            radioConnectionPhase = .stopped
+        case .ready, .paused:
+            break
+        }
+    }
+
+    /// Handles both the active station and a late finish from a superseded stream.
+    func handleStationFinish(entryId: AudioEntryId, stopReason: AudioPlayerStopReason) -> Bool {
+        guard entryId == currentStationEntryId || stationEntryIds.contains(entryId) else { return false }
+        defer {
+            stationEntryIds.remove(entryId)
+            errorReportedEntryIds.remove(entryId)
+        }
+        guard let station = currentStation, entryId == currentStationEntryId else {
+            Logger.info("Ignored a finish from a superseded stream: \(entryId.id)")
+            return true
+        }
+        isPlaying = false
+        isBuffering = false
+        radioConnectionPhase = .stopped
+        if stopReason != .userAction, !errorReportedEntryIds.contains(entryId) {
+            Logger.warning("Radio stream ended unexpectedly: \(station.name)")
+            NotificationManager.shared.addMessage(
+                .warning, String(localized: "'\(station.name)' stopped streaming")
+            )
+        }
+        return true
     }
 }

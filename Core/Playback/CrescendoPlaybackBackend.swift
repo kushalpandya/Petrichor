@@ -58,8 +58,8 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
         onMain { player.currentEntryId.map { AudioEntryId(id: $0.id) } }
     }
 
-    func playStream(url: URL) {
-        onMain { player.play(streamURL: url) }
+    func playStream(url: URL, entryId: AudioEntryId) {
+        onMain { player.play(streamURL: url, entryId: CrescendoEntryId(id: entryId.id)) }
     }
 
     var queue: [AudioEntryId] {
@@ -106,6 +106,7 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
             // order, ignoring Petrichor's repeat, shuffle and injected lookahead.
             player.remoteCommandsEnabled = false
             player.crossfadeCurve = .linear
+            player.streamDestinationPolicy = CrescendoPlayer.publicInternetStreamDestinationPolicy
             installLogBridge()
         }
     }
@@ -319,8 +320,16 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
         backendDelegate?.backendDidStartPlaying(with: AudioEntryId(id: entryId.id))
     }
 
-    func handleStateChange(from oldState: CrescendoPlayerState, to newState: CrescendoPlayerState) {
-        backendDelegate?.backendStateChanged(with: Self.mapState(newState), previous: Self.mapState(oldState))
+    func handleStateChange(
+        entryId: CrescendoEntryId?,
+        from oldState: CrescendoPlayerState,
+        to newState: CrescendoPlayerState
+    ) {
+        backendDelegate?.backendStateChanged(
+            entryId: entryId.map { AudioEntryId(id: $0.id) },
+            with: Self.mapState(newState),
+            previous: Self.mapState(oldState)
+        )
     }
 
     func handleFinish(entryId: CrescendoEntryId, reason: CrescendoStopReason, progress: Double, duration: Double) {
@@ -332,16 +341,22 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
         )
     }
 
-    func handleError(_ error: CrescendoError) {
-        backendDelegate?.backendUnexpectedError(error: Self.mapError(error))
+    func handleError(_ error: CrescendoError, entryId: CrescendoEntryId?) {
+        backendDelegate?.backendUnexpectedError(
+            entryId: entryId.map { AudioEntryId(id: $0.id) },
+            error: Self.mapError(error)
+        )
     }
 
     func handleFinishBuffering(entryId: CrescendoEntryId) {
         backendDelegate?.backendDidFinishBuffering(with: AudioEntryId(id: entryId.id))
     }
 
-    func handleStreamMetadata(_ metadata: [String: String]) {
-        backendDelegate?.backendDidReadStreamMetadata(metadata)
+    func handleStreamMetadata(entryId: CrescendoEntryId, metadata: [String: String]) {
+        backendDelegate?.backendDidReadStreamMetadata(
+            entryId: AudioEntryId(id: entryId.id),
+            metadata: metadata
+        )
     }
 
     func handleSkippedEntry(entryId: CrescendoEntryId, url: URL, reason: CrescendoError) {
@@ -411,6 +426,10 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
     }
 
     private static func mapError(_ error: CrescendoError) -> AudioPlayerError {
+        if case .streamingError(let underlying) = error,
+           underlying is StreamDestinationRejected {
+            return .restrictedStreamDestination
+        }
         switch error {
         case .fileNotFound: return .fileNotFound
         case .unsupportedFormat: return .invalidFormat
@@ -448,10 +467,11 @@ private final class CrescendoDelegateBridge: CrescendoPlayerDelegate {
 
     func playerDidChangeState(
         _ player: CrescendoPlayer,
+        entryId: CrescendoEntryId?,
         from oldState: CrescendoPlayerState,
         to newState: CrescendoPlayerState
     ) {
-        owner?.handleStateChange(from: oldState, to: newState)
+        owner?.handleStateChange(entryId: entryId, from: oldState, to: newState)
     }
 
     func playerDidFinishPlaying(
@@ -465,7 +485,7 @@ private final class CrescendoDelegateBridge: CrescendoPlayerDelegate {
     }
 
     func playerDidEncounterError(_ player: CrescendoPlayer, error: CrescendoError, entryId: CrescendoEntryId?) {
-        owner?.handleError(error)
+        owner?.handleError(error, entryId: entryId)
     }
 
     func playerDidFinishBuffering(_ player: CrescendoPlayer, entryId: CrescendoEntryId) {
@@ -481,8 +501,12 @@ private final class CrescendoDelegateBridge: CrescendoPlayerDelegate {
         owner?.handleSkippedEntry(entryId: entryId, url: url, reason: reason)
     }
 
-    func playerDidReadMetadata(_ player: CrescendoPlayer, metadata: [String: String]) {
-        owner?.handleStreamMetadata(metadata)
+    func playerDidReadMetadata(
+        _ player: CrescendoPlayer,
+        entryId: CrescendoEntryId,
+        metadata: [String: String]
+    ) {
+        owner?.handleStreamMetadata(entryId: entryId, metadata: metadata)
     }
 
     func playerDidChangeAudioRouteProfile(_ player: CrescendoPlayer, profile: CrescendoAudioRouteProfile) {
