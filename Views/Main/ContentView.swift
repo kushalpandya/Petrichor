@@ -752,6 +752,7 @@ struct WindowAccessor: NSViewRepresentable {
                 WindowManager.shared.mainWindow = window
                 window.title = ""
                 window.isExcludedFromWindowsMenu = true
+                WindowManager.shared.playbackWindowVisibilityDidChange()
             }
         }
         return view
@@ -762,9 +763,38 @@ struct WindowAccessor: NSViewRepresentable {
 
 // MARK: - Window Manager
 
+@MainActor
 class WindowManager {
     static let shared = WindowManager()
     weak var mainWindow: NSWindow?
+    private var hiddenReconciliation: DispatchWorkItem?
+
+    var hasVisiblePlaybackWindow: Bool {
+        guard !NSApp.isHidden else { return false }
+        let mainVisible = mainWindow.map { $0.isVisible && !$0.isMiniaturized } ?? false
+        return mainVisible || MiniPlayerWindowManager.shared.isVisible
+    }
+
+    func playbackWindowVisibilityDidChange() {
+        updatePlaybackWindowVisibility(hasVisiblePlaybackWindow)
+    }
+
+    func playbackWindowsDidHide() {
+        updatePlaybackWindowVisibility(false)
+    }
+
+    private func updatePlaybackWindowVisibility(_ visible: Bool) {
+        AppCoordinator.shared?.playbackManager.playbackWindowVisibilityDidChange(isVisible: visible)
+        hiddenReconciliation?.cancel()
+        guard !visible else { return }
+
+        let reconciliation = DispatchWorkItem { [weak self] in
+            guard let self, !self.hasVisiblePlaybackWindow else { return }
+            AppCoordinator.shared?.playbackManager.playbackWindowVisibilityDidChange(isVisible: false)
+        }
+        hiddenReconciliation = reconciliation
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: reconciliation)
+    }
 
     private init() {}
 }

@@ -350,7 +350,12 @@ struct MiniPlayerView: View {
                     neutral: overlayTextColor
                 )
 
-                NowPlayingProgressBar(accent: controlColor, neutral: overlayTextColor)
+                PlayerProgressBar(
+                    accent: controlColor,
+                    neutral: overlayTextColor,
+                    compactStreamIndicator: true
+                )
+                .frame(height: 14)
             }
             .padding(.horizontal, 16)
             .padding(.top, 120)

@@ -28,7 +28,6 @@ struct PetrichorApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(appCoordinator.playbackManager)
-                .environmentObject(appCoordinator.playbackManager.playbackProgressState)
                 .environmentObject(appCoordinator.libraryManager)
                 .environmentObject(appCoordinator.playlistManager)
                 .onReceive(appCoordinator.playlistManager.$repeatMode) { _ in
@@ -246,6 +245,9 @@ extension PetrichorApp {
         if closeToMenubar && isMainWindow {
             appCoordinator.savePlaybackState()
             window.orderOut(nil)
+            DispatchQueue.main.async {
+                WindowManager.shared.playbackWindowVisibilityDidChange()
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 NSApp.setActivationPolicy(.accessory)
             }

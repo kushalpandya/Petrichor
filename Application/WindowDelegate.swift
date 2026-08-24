@@ -6,6 +6,7 @@
 
 import AppKit
 
+@MainActor
 class WindowDelegate: NSObject, NSWindowDelegate {
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         // Save playback state when window closes
@@ -17,6 +18,9 @@ class WindowDelegate: NSObject, NSWindowDelegate {
 
             // Hide the window
             sender.orderOut(nil)
+            DispatchQueue.main.async {
+                WindowManager.shared.playbackWindowVisibilityDidChange()
+            }
 
             // Hide dock icon after a short delay
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -29,6 +33,21 @@ class WindowDelegate: NSObject, NSWindowDelegate {
         }
 
         // Normal close if menubar mode is disabled
+        DispatchQueue.main.async {
+            WindowManager.shared.playbackWindowVisibilityDidChange()
+        }
         return true
+    }
+
+    func windowDidBecomeKey(_ notification: Notification) {
+        WindowManager.shared.playbackWindowVisibilityDidChange()
+    }
+
+    func windowDidMiniaturize(_ notification: Notification) {
+        WindowManager.shared.playbackWindowVisibilityDidChange()
+    }
+
+    func windowDidDeminiaturize(_ notification: Notification) {
+        WindowManager.shared.playbackWindowVisibilityDidChange()
     }
 }

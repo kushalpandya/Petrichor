@@ -12,7 +12,7 @@ import Foundation
 
 public enum AudioPlayerState {
     case ready
-    /// The connect window for a network stream; it never recurs mid-playback.
+    /// A network source is connecting or recovering after a dropped transfer.
     case buffering
     case playing
     case paused
@@ -35,6 +35,7 @@ public enum AudioPlayerError: Error {
     case engineError(Error)
     case seekError
     case invalidState
+    case restrictedStreamDestination
 
     var localizedDescription: String {
         switch self {
@@ -48,6 +49,8 @@ public enum AudioPlayerError: Error {
             return "Failed to seek to position"
         case .invalidState:
             return "Invalid player state for this operation"
+        case .restrictedStreamDestination:
+            return "The stream points to a local or restricted network address"
         }
     }
 }
@@ -135,7 +138,12 @@ public struct NowPlayingMetadata {
 /// Events are always published by the `PlaybackEngine` facade, never by a concrete backend.
 public protocol AudioPlayerDelegate: AnyObject {
     func audioPlayerDidStartPlaying(player: PlaybackEngine, with entryId: AudioEntryId)
-    func audioPlayerStateChanged(player: PlaybackEngine, with newState: AudioPlayerState, previous: AudioPlayerState)
+    func audioPlayerStateChanged(
+        player: PlaybackEngine,
+        entryId: AudioEntryId?,
+        with newState: AudioPlayerState,
+        previous: AudioPlayerState
+    )
     func audioPlayerDidFinishPlaying(
         player: PlaybackEngine,
         entryId: AudioEntryId,
@@ -143,13 +151,17 @@ public protocol AudioPlayerDelegate: AnyObject {
         progress: Double,
         duration: Double
     )
-    func audioPlayerUnexpectedError(player: PlaybackEngine, error: AudioPlayerError)
+    func audioPlayerUnexpectedError(player: PlaybackEngine, entryId: AudioEntryId?, error: AudioPlayerError)
 
     // Optional methods with default implementations
     func audioPlayerDidFinishBuffering(player: PlaybackEngine, with entryId: AudioEntryId)
     func audioPlayerDidSkipQueueEntry(player: PlaybackEngine, entryId: AudioEntryId)
     /// Keyed by ICY header name plus the live `StreamTitle`. Network streams only.
-    func audioPlayerDidReadStreamMetadata(player: PlaybackEngine, metadata: [String: String])
+    func audioPlayerDidReadStreamMetadata(
+        player: PlaybackEngine,
+        entryId: AudioEntryId,
+        metadata: [String: String]
+    )
 }
 
 // MARK: - Default Implementations
@@ -157,7 +169,11 @@ public protocol AudioPlayerDelegate: AnyObject {
 public extension AudioPlayerDelegate {
     func audioPlayerDidFinishBuffering(player: PlaybackEngine, with entryId: AudioEntryId) {}
     func audioPlayerDidSkipQueueEntry(player: PlaybackEngine, entryId: AudioEntryId) {}
-    func audioPlayerDidReadStreamMetadata(player: PlaybackEngine, metadata: [String: String]) {}
+    func audioPlayerDidReadStreamMetadata(
+        player: PlaybackEngine,
+        entryId: AudioEntryId,
+        metadata: [String: String]
+    ) {}
 }
 
 // MARK: - Backend Abstraction
@@ -176,7 +192,7 @@ protocol PlaybackBackend: AnyObject {
     var currentStreamFormat: StreamFormat? { get }
 
     /// Clears the queue and detaches the cursor; the caller rebuilds it for file playback.
-    func playStream(url: URL)
+    func playStream(url: URL, entryId: AudioEntryId)
     /// Identity of the source the engine is actually rendering, for correlating callbacks.
     var currentEntryId: AudioEntryId? { get }
 
@@ -191,6 +207,8 @@ protocol PlaybackBackend: AnyObject {
     func resume()
     func stop()
     func togglePlayPause()
+    func releaseForIdle()
+    func resumeFromIdle()
     @discardableResult
     func seek(to time: Double) -> Bool
     @discardableResult
@@ -268,17 +286,17 @@ enum EqualizerHeadroomCompensation {
 /// re-publishes these to its `AudioPlayerDelegate` with itself as the `player`.
 protocol PlaybackBackendDelegate: AnyObject {
     func backendDidStartPlaying(with entryId: AudioEntryId)
-    func backendStateChanged(with newState: AudioPlayerState, previous: AudioPlayerState)
+    func backendStateChanged(entryId: AudioEntryId?, with newState: AudioPlayerState, previous: AudioPlayerState)
     func backendDidFinishPlaying(
         entryId: AudioEntryId,
         stopReason: AudioPlayerStopReason,
         progress: Double,
         duration: Double
     )
-    func backendUnexpectedError(error: AudioPlayerError)
+    func backendUnexpectedError(entryId: AudioEntryId?, error: AudioPlayerError)
     func backendDidFinishBuffering(with entryId: AudioEntryId)
     func backendDidSkipQueueEntry(entryId: AudioEntryId)
-    func backendDidReadStreamMetadata(_ metadata: [String: String])
+    func backendDidReadStreamMetadata(entryId: AudioEntryId, metadata: [String: String])
 }
 
 // MARK: - PlaybackEngine Facade
@@ -316,8 +334,8 @@ public class PlaybackEngine: NSObject {
         backend.currentEntryId
     }
 
-    public func playStream(url: URL) {
-        backend.playStream(url: url)
+    public func playStream(url: URL, entryId: AudioEntryId) {
+        backend.playStream(url: url, entryId: entryId)
     }
 
     // MARK: - Private Properties
@@ -409,6 +427,14 @@ public class PlaybackEngine: NSObject {
 
     public func stop() {
         backend.stop()
+    }
+
+    public func releaseForIdle() {
+        backend.releaseForIdle()
+    }
+
+    public func resumeFromIdle() {
+        backend.resumeFromIdle()
     }
 
     public func togglePlayPause() {
@@ -512,8 +538,8 @@ extension PlaybackEngine: PlaybackBackendDelegate {
         delegate?.audioPlayerDidStartPlaying(player: self, with: entryId)
     }
 
-    func backendStateChanged(with newState: AudioPlayerState, previous: AudioPlayerState) {
-        delegate?.audioPlayerStateChanged(player: self, with: newState, previous: previous)
+    func backendStateChanged(entryId: AudioEntryId?, with newState: AudioPlayerState, previous: AudioPlayerState) {
+        delegate?.audioPlayerStateChanged(player: self, entryId: entryId, with: newState, previous: previous)
     }
 
     func backendDidFinishPlaying(
@@ -531,8 +557,8 @@ extension PlaybackEngine: PlaybackBackendDelegate {
         )
     }
 
-    func backendUnexpectedError(error: AudioPlayerError) {
-        delegate?.audioPlayerUnexpectedError(player: self, error: error)
+    func backendUnexpectedError(entryId: AudioEntryId?, error: AudioPlayerError) {
+        delegate?.audioPlayerUnexpectedError(player: self, entryId: entryId, error: error)
     }
 
     func backendDidFinishBuffering(with entryId: AudioEntryId) {
@@ -543,7 +569,7 @@ extension PlaybackEngine: PlaybackBackendDelegate {
         delegate?.audioPlayerDidSkipQueueEntry(player: self, entryId: entryId)
     }
 
-    func backendDidReadStreamMetadata(_ metadata: [String: String]) {
-        delegate?.audioPlayerDidReadStreamMetadata(player: self, metadata: metadata)
+    func backendDidReadStreamMetadata(entryId: AudioEntryId, metadata: [String: String]) {
+        delegate?.audioPlayerDidReadStreamMetadata(player: self, entryId: entryId, metadata: metadata)
     }
 }

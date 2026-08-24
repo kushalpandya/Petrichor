@@ -102,6 +102,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     func applicationDidResignActive(_ notification: Notification) {
         AppCoordinator.shared?.savePlaybackState(synchronous: false)
     }
+
+    func applicationDidHide(_ notification: Notification) {
+        WindowManager.shared.playbackWindowsDidHide()
+    }
+
+    func applicationDidUnhide(_ notification: Notification) {
+        WindowManager.shared.playbackWindowVisibilityDidChange()
+    }
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Initialize logging system explicitly

@@ -24,6 +24,10 @@ final class MiniPlayerWindowManager: NSObject {
 
     private var window: NSWindow?
 
+    var isVisible: Bool {
+        window.map { $0.isVisible && !$0.isMiniaturized } ?? false
+    }
+
     override private init() {}
 
     /// Shows the mini player, creating it on first use and focusing the
@@ -42,7 +46,6 @@ final class MiniPlayerWindowManager: NSObject {
 
         let root = MiniPlayerView()
             .environmentObject(coordinator.playbackManager)
-            .environmentObject(coordinator.playbackManager.playbackProgressState)
             .environmentObject(coordinator.libraryManager)
             .environmentObject(coordinator.playlistManager)
 
@@ -77,6 +80,7 @@ final class MiniPlayerWindowManager: NSObject {
 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        WindowManager.shared.playbackWindowVisibilityDidChange()
     }
 
     /// Restores the saved global frame (origin encodes the display) when it's still
@@ -118,6 +122,13 @@ extension MiniPlayerWindowManager: NSWindowDelegate {
         // hosting view could leave a fine-progress-sampling consumer registered.
         (notification.object as? NSWindow)?.contentView = nil
         window = nil
+        DispatchQueue.main.async {
+            WindowManager.shared.playbackWindowVisibilityDidChange()
+        }
+    }
+
+    func windowDidBecomeKey(_ notification: Notification) {
+        WindowManager.shared.playbackWindowVisibilityDidChange()
     }
 }
 

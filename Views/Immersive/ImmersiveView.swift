@@ -269,7 +269,13 @@ struct ImmersiveView: View {
                     neutral: adaptiveText,
                     scale: layout.controlsScale
                 )
-                NowPlayingProgressBar(accent: controlColor, neutral: adaptiveText, scale: layout.controlsScale)
+                PlayerProgressBar(
+                    accent: controlColor,
+                    neutral: adaptiveText,
+                    scale: layout.controlsScale,
+                    compactStreamIndicator: true
+                )
+                .frame(height: 14 * layout.controlsScale)
             }
             .frame(width: layout.artSide)
         }
