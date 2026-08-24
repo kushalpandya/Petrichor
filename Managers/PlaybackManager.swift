@@ -89,16 +89,12 @@ class PlaybackManager: NSObject, ObservableObject {
     var stationPlayCredited = false
     var streamConnectWatchdog: DispatchWorkItem?
     var radioObservers: Set<AnyCancellable> = []
+    var playbackWindowsVisible = true
 
-    // MARK: - Computed Properties
-    
-    /// Alias for currentTime for backwards compatibility
     var actualCurrentTime: Double {
-        currentTime
+        audioPlayer.state == .playing ? audioPlayer.currentPlaybackProgress : currentTime
     }
 
-    // MARK: - Private Properties
-    
     let audioPlayer: PlaybackEngine
     var currentFullTrack: FullTrack?
     private var progressUpdateTimer: DispatchSourceTimer?
@@ -171,7 +167,6 @@ class PlaybackManager: NSObject, ObservableObject {
         self.audioPlayer.delegate = self
         self.audioPlayer.volume = volume
         
-        startProgressUpdateTimer()
         restoreAudioEffectsSettings()
         observeRepeatModeForLookahead()
         observeStationEdits()
@@ -309,7 +304,6 @@ class PlaybackManager: NSObject, ObservableObject {
     func stop() {
         haltPlayback()
         restoredPosition = 0
-        Logger.info("Playback stopped")
     }
 
     /// Quiets the engine for a clean quit. Save state BEFORE calling: audioPlayer.stop()
@@ -598,7 +592,7 @@ class PlaybackManager: NSObject, ObservableObject {
             // can be briefly stale and freeze the bar at 0.
             guard let self = self, self.audioPlayer.state == .playing else { return }
             let sampled = self.audioPlayer.currentPlaybackProgress
-            self.currentTime = sampled
+            if self.playbackWindowsVisible { self.currentTime = sampled }
 
             // A stream has no stored duration to reload against, so the freeze watchdog can't apply.
             if self.currentStation != nil {
@@ -628,7 +622,7 @@ class PlaybackManager: NSObject, ObservableObject {
         let shouldSampleFine = fineSamplingConsumers > 0
         guard shouldSampleFine != fineProgressSampling else { return }
         fineProgressSampling = shouldSampleFine
-        startProgressUpdateTimer()
+        if audioPlayer.state == .playing { startProgressUpdateTimer() }
     }
 
     private func stopProgressUpdateTimer() {
@@ -869,17 +863,23 @@ extension PlaybackManager: AudioPlayerDelegate {
 
             switch newState {
             case .playing:
+                self.startProgressUpdateTimer()
                 self.isPlaying = true
             case .paused:
+                self.currentTime = self.audioPlayer.currentPlaybackProgress
+                self.stopProgressUpdateTimer()
                 self.isPlaying = false
+                self.releasePlaybackForIdleIfHidden()
             case .stopped:
+                self.stopProgressUpdateTimer()
                 self.isPlaying = false
             case .buffering:
+                self.stopProgressUpdateTimer()
                 // Connecting or recovering: the station remains committed to, so
                 // the transport stays stop-shaped.
                 self.isPlaying = true
             case .ready:
-                break
+                self.stopProgressUpdateTimer()
             }
 
             // Finish a deferred restore-resume: the startPaused load has now

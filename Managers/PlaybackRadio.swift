@@ -8,6 +8,24 @@ import Combine
 import Foundation
 
 extension PlaybackManager {
+    func releasePlaybackForIdleIfHidden() {
+        if currentStation == nil, !playbackWindowsVisible {
+            audioPlayer.releaseForIdle()
+        }
+    }
+
+    func playbackWindowVisibilityDidChange(isVisible: Bool) {
+        playbackWindowsVisible = isVisible
+        if isVisible {
+            audioPlayer.resumeFromIdle()
+            if audioPlayer.state == .playing {
+                currentTime = audioPlayer.currentPlaybackProgress
+            }
+        } else if currentStation == nil, audioPlayer.state == .paused {
+            audioPlayer.releaseForIdle()
+        }
+    }
+
     var streamNowPlayingTitle: String? {
         if let icy = streamMetadata["StreamTitle"]?.trimmingCharacters(in: .whitespaces), !icy.isEmpty {
             return Self.icyDisplayTitle(icy)

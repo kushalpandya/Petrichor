@@ -178,6 +178,8 @@ final class CrescendoPlaybackBackend: PlaybackBackend {
     func resume() { onMain { player.resume() } }
     func stop() { onMain { player.stop() } }
     func togglePlayPause() { onMain { player.togglePlayPause() } }
+    func releaseForIdle() { onMain { player.releaseForIdle() } }
+    func resumeFromIdle() { onMain { player.resumeFromIdle() } }
 
     @discardableResult
     func seek(to time: Double) -> Bool {

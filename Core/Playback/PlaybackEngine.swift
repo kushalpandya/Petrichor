@@ -207,6 +207,8 @@ protocol PlaybackBackend: AnyObject {
     func resume()
     func stop()
     func togglePlayPause()
+    func releaseForIdle()
+    func resumeFromIdle()
     @discardableResult
     func seek(to time: Double) -> Bool
     @discardableResult
@@ -425,6 +427,14 @@ public class PlaybackEngine: NSObject {
 
     public func stop() {
         backend.stop()
+    }
+
+    public func releaseForIdle() {
+        backend.releaseForIdle()
+    }
+
+    public func resumeFromIdle() {
+        backend.resumeFromIdle()
     }
 
     public func togglePlayPause() {

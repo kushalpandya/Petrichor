@@ -132,6 +132,7 @@ struct PlayerView: View {
         VStack(spacing: 8) {
             playbackControls
             PlayerProgressBar(accent: controlAccent)
+                .frame(height: 14)
         }
         .frame(maxWidth: PlayerProgressBar.preferredWidth)
     }
@@ -802,7 +803,6 @@ struct ControlButtonStyle: ButtonStyle {
             )
             .environmentObject(coordinator.playbackManager)
             .environmentObject(coordinator.playlistManager)
-            .environmentObject(coordinator.playbackManager.playbackProgressState)
             .frame(height: 200)
         }
     }
