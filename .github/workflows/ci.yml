@@ -72,8 +72,7 @@ jobs:
       - name: Run actionlint
         run: docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:1.7.12 -color
 
-  # Single macOS job: compile once, analyze in the same pass. Debug only on PRs
-  # for fast feedback; Release is covered by release-build on main/tags.
+  # Single macOS job: compile once, analyze in the same pass.
   build-analyze:
     name: Build & Analyze (Debug)
     runs-on: macos-26
@@ -99,8 +98,6 @@ jobs:
         with:
           path: ~/Library/Developer/Xcode/DerivedData
           key: ${{ runner.os }}-dd-debug-${{ hashFiles('**/*.swift', '**/Package.resolved') }}
-          restore-keys: |
-            ${{ runner.os }}-dd-debug-
 
       - name: Create Secrets placeholder
         run: |
@@ -147,15 +144,15 @@ jobs:
           retention-days: 5
           if-no-files-found: ignore
 
-  # Ad-hoc Release compile check (no secrets, not distributable). Catches
-  # Release-only breaks before you tag and run Scripts/build-installer.sh.
+  # Ad-hoc Release compile check (no secrets, not distributable). Runs on PRs
+  # so Release-only breaks are caught before merging or tagging.
   # Signing/notarization/DMG/Sparkle stay in the local release flow.
   release-build:
     name: Release Build Check
     runs-on: macos-26
     timeout-minutes: 45
     needs: [build-analyze]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')))
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -176,8 +173,6 @@ jobs:
         with:
           path: ~/Library/Developer/Xcode/DerivedData
           key: ${{ runner.os }}-dd-release-${{ hashFiles('**/*.swift', '**/Package.resolved') }}
-          restore-keys: |
-            ${{ runner.os }}-dd-release-
 
       - name: Create Secrets placeholder
         run: |
@@ -214,13 +209,13 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             | xcbeautify --renderer github-actions
 
-  # Single required status for branch protection. release-build is intentionally
-  # excluded (it only runs on push to main/tags, never on PRs).
+  # Single required status for branch protection. Release is skipped only for
+  # manual dispatches.
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [lint, actionlint, build-analyze]
+    needs: [lint, actionlint, build-analyze, release-build]
     if: always()
     steps:
       - name: Verify required jobs
@@ -228,10 +223,16 @@ jobs:
           echo "lint=${{ needs.lint.result }}"
           echo "actionlint=${{ needs.actionlint.result }}"
           echo "build-analyze=${{ needs.build-analyze.result }}"
+          echo "release-build=${{ needs.release-build.result }}"
           if [ "${{ needs.lint.result }}" != "success" ] || \
              [ "${{ needs.actionlint.result }}" != "success" ] || \
              [ "${{ needs.build-analyze.result }}" != "success" ]; then
             echo "::error::One or more required checks failed"
+            exit 1
+          fi
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ] && \
+             [ "${{ needs.release-build.result }}" != "success" ]; then
+            echo "::error::Release build failed"
             exit 1
           fi
           echo "All required checks passed ✅"

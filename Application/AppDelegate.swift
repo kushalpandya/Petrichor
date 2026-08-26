@@ -439,6 +439,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             "playerBarBackgroundStyle": "Full width",
             "discoverUpdateInterval": "weekly",
             "discoverTrackCount": DiscoverConfiguration.freshMusicTrackCount,
+            "artistInfoPeriodicRefreshEnabled": false,
+            "internetRadioEnabled": true,
             "crossfadeEnabled": false,
             "crossfadeDuration": 3.0,
             "replayGainEnabled": false,

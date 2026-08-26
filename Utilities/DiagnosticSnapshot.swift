@@ -102,7 +102,9 @@ enum DiagnosticSnapshot {
                 "scrobblingEnabled": defaults.boolOrNull("scrobblingEnabled"),
                 "loveSyncEnabled": defaults.boolOrNull("loveSyncEnabled"),
                 "onlineLyricsEnabled": defaults.boolOrNull("onlineLyricsEnabled"),
-                "artistInfoFetchEnabled": defaults.boolOrNull("artistInfoFetchEnabled")
+                "artistInfoFetchEnabled": defaults.boolOrNull("artistInfoFetchEnabled"),
+                "artistInfoPeriodicRefreshEnabled": defaults.boolOrNull("artistInfoPeriodicRefreshEnabled"),
+                "internetRadioEnabled": defaults.boolOrNull("internetRadioEnabled")
             ]
         ]
 

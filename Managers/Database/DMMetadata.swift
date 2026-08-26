@@ -407,30 +407,31 @@ extension DatabaseManager {
     struct ArtistFetchInfo {
         let id: Int64
         let name: String
-        let hasImage: Bool
-        let hasBio: Bool
+        let needsImage: Bool
+        let needsBio: Bool
     }
 
-    func getArtistsNeedingImageOrBio() -> [ArtistFetchInfo] {
+    func getArtistsNeedingImageOrBio(periodicRefreshEnabled: Bool) -> [ArtistFetchInfo] {
         do {
             return try dbQueue.read { db in
                 let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
-
-                let needsImage = Artist.Columns.imageSource == nil && (
-                    Artist.Columns.imageUpdatedAt == nil ||
-                    Artist.Columns.imageUpdatedAt < sevenDaysAgo.databaseValue
-                )
-                let needsBio = Artist.Columns.bio == nil && (
-                    Artist.Columns.bioUpdatedAt == nil ||
-                    Artist.Columns.bioUpdatedAt < sevenDaysAgo.databaseValue
-                )
+                let imageNeverAttempted = Artist.Columns.imageUpdatedAt == nil
+                let bioNeverAttempted = Artist.Columns.bioUpdatedAt == nil
+                let onlineImage = ["musicbrainz", "tmdb"].contains(Artist.Columns.imageSource)
+                let needsImage = periodicRefreshEnabled
+                    ? imageNeverAttempted || (onlineImage && Artist.Columns.imageUpdatedAt < sevenDaysAgo.databaseValue)
+                    : imageNeverAttempted
+                let needsBio = periodicRefreshEnabled
+                    ? bioNeverAttempted || Artist.Columns.bioUpdatedAt < sevenDaysAgo.databaseValue
+                    : bioNeverAttempted
 
                 let rows = try Artist
                     .select(
                         Artist.Columns.id,
                         Artist.Columns.name,
                         Artist.Columns.imageSource,
-                        Artist.Columns.bio
+                        Artist.Columns.imageUpdatedAt,
+                        Artist.Columns.bioUpdatedAt
                     )
                     // INNER JOIN to require >=1 track; .distinct() collapses the
                     // per-(artist, track) rows it emits (artist with N tracks -> N rows).
@@ -445,12 +446,21 @@ extension DatabaseManager {
                     guard let id: Int64 = row["id"],
                           let name: String = row["name"] else { return nil }
                     let imageSource: String? = row["image_source"]
-                    let bio: String? = row["bio"]
+                    let imageUpdatedAt: Date? = row["image_updated_at"]
+                    let bioUpdatedAt: Date? = row["bio_updated_at"]
+                    let shouldFetchImage = imageUpdatedAt == nil || (
+                        periodicRefreshEnabled &&
+                        ["musicbrainz", "tmdb"].contains(imageSource) &&
+                        imageUpdatedAt.map { $0 < sevenDaysAgo } == true
+                    )
+                    let shouldFetchBio = bioUpdatedAt == nil || (
+                        periodicRefreshEnabled && bioUpdatedAt.map { $0 < sevenDaysAgo } == true
+                    )
                     return ArtistFetchInfo(
                         id: id,
                         name: name,
-                        hasImage: imageSource != nil,
-                        hasBio: bio != nil
+                        needsImage: shouldFetchImage,
+                        needsBio: shouldFetchBio
                     )
                 }
             }
