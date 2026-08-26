@@ -77,6 +77,10 @@ extension PlaybackManager {
         currentTrack != nil || currentStation != nil
     }
 
+    var canShowCompactPlaybackQueue: Bool {
+        currentStation == nil && audioPlayer.state != .stopped
+    }
+
     var isStreamActive: Bool {
         currentStation != nil && (isPlaying || isBuffering)
     }
