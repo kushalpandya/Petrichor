@@ -92,10 +92,9 @@ struct ImmersiveView: View {
 
     private var hasStation: Bool { playbackManager.hasStation }
 
-    /// A station has no lyrics, so that panel is suppressed without touching the stored
-    /// preference. The queue stays available; radio doesn't disturb it.
     private var effectivePanel: ImmersivePanel {
-        hasStation && panel == .lyrics ? .none : panel
+        if panel == .queue && !playbackManager.canShowCompactPlaybackQueue { return .none }
+        return hasStation && panel == .lyrics ? .none : panel
     }
 
     private var controlsUseArtworkTint: Bool {
@@ -175,6 +174,9 @@ struct ImmersiveView: View {
         }
         .onChange(of: backgroundUsesArtwork) {
             updateGradientColors()
+        }
+        .onChange(of: playbackManager.hasPlayableContent) { _, hasPlayableContent in
+            if !hasPlayableContent { close() }
         }
         .clearQueueConfirmation(isPresented: $showingClearConfirmation) {
             playlistManager.clearQueue()
@@ -381,7 +383,7 @@ struct ImmersiveView: View {
         HStack(spacing: 4) {
             PanelToolbarButton(
                 isActive: effectivePanel == .queue,
-                isEnabled: true,
+                isEnabled: playbackManager.canShowCompactPlaybackQueue,
                 activeTint: artworkTint,
                 activeHelp: String(localized: "Hide Queue"),
                 inactiveHelp: String(localized: "Show Queue"),

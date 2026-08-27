@@ -192,6 +192,21 @@ class MenuBarManager: NSObject {
         }
         menu.addItem(showWindowItem)
 
+        // Show Mini Player
+        let showMiniPlayerItem = NSMenuItem(
+            title: String(localized: "Show Mini Player"),
+            action: #selector(showMiniPlayer),
+            keyEquivalent: ""
+        )
+        showMiniPlayerItem.target = self
+        showMiniPlayerItem.isEnabled = playbackManager.hasPlayableContent
+        if #available(macOS 26.0, *) {
+            showMiniPlayerItem.image = NSImage(systemSymbolName: Icons.miniPlayer, accessibilityDescription: nil)
+            showMiniPlayerItem.image?.size = NSSize(width: 16, height: 16)
+            showMiniPlayerItem.image?.isTemplate = true
+        }
+        menu.addItem(showMiniPlayerItem)
+
         menu.addItem(NSMenuItem.separator())
 
         // Quit
@@ -263,6 +278,12 @@ class MenuBarManager: NSObject {
                 }
             }
         }
+    }
+
+    @MainActor
+    @objc
+    private func showMiniPlayer() {
+        MiniPlayerWindowManager.shared.show()
     }
 
     @objc
