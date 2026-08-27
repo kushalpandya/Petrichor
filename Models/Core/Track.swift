@@ -47,8 +47,14 @@ struct Track: Identifiable, Equatable, Hashable, FetchableRecord, PersistableRec
     // Album reference (for artwork lookup)
     var albumId: Int64?
     
-    // Transient properties for album artwork (populated separately)
+    // Transient properties for track artwork (populated separately)
     var albumArtworkData: Data?
+    private(set) var artworkFingerprint: String?
+
+    mutating func setArtworkData(_ data: Data?, fingerprint: String? = nil) {
+        albumArtworkData = data
+        artworkFingerprint = fingerprint ?? data?.artworkFingerprint
+    }
 
     var filename: String {
         url.lastPathComponent

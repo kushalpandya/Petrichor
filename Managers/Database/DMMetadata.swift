@@ -19,13 +19,7 @@ extension DatabaseManager {
         track.year = metadata.year?.nilIfEmpty ?? ""
         track.duration = HelperUtils.sanitizedDuration(metadata.duration)
         
-        // Avoid storing album art in track table for tracks with albums
-        // as we'll store it in albums table instead.
-        if track.album == "Unknown Album" || track.album.isEmpty {
-            track.trackArtworkData = metadata.artworkData
-        } else {
-            track.trackArtworkData = nil
-        }
+        track.trackArtworkData = metadata.artworkData
 
         // Additional metadata
         track.albumArtist = metadata.albumArtist
@@ -129,20 +123,6 @@ extension DatabaseManager {
         if newDuration > 0 && abs(newDuration - track.duration) > 0.1 {
             track.duration = newDuration
             hasChanges = true
-        }
-
-        if let newArtworkData = metadata.artworkData {
-            let shouldStoreInTrack = (track.album == "Unknown Album" || track.album.isEmpty)
-            
-            if shouldStoreInTrack && track.trackArtworkData == nil {
-                // Store artwork for tracks without albums
-                track.trackArtworkData = newArtworkData
-                hasChanges = true
-            } else if !shouldStoreInTrack && track.trackArtworkData != nil {
-                // Clear artwork for tracks with albums
-                track.trackArtworkData = nil
-                hasChanges = true
-            }
         }
 
         return hasChanges

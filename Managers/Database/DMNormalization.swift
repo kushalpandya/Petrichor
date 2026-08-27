@@ -14,6 +14,7 @@ class ScanLookupCache {
     var artists: [String: Artist] = [:]        // normalizedName -> Artist
     var albums: [String: Album] = [:]          // compositeKey -> Album
     var genres: [String: Genre] = [:]          // name -> Genre
+    var albumsWithSelectedArtwork: Set<Int64> = []
 
     static func albumKey(_ normalizedTitle: String, _ normalizedArtist: String?) -> String {
         "\(normalizedTitle)|\(normalizedArtist ?? "")"
@@ -343,23 +344,46 @@ extension DatabaseManager {
     }
 
     /// Update album artwork
-    func updateAlbumArtwork(_ albumId: Int64, artworkData: Data?, in db: Database) throws {
+    func updateAlbumArtwork(
+        _ albumId: Int64,
+        artworkData: Data?,
+        replacingExisting: Bool = false,
+        in db: Database
+    ) throws {
         guard let artworkData = artworkData, !artworkData.isEmpty else { return }
 
-        // Check if album already has artwork, don't overwrite existing artwork
-        if let existingArtwork = try Album
+        let existingArtwork = try Album
             .select(Album.Columns.artworkData)
             .filter(Album.Columns.id == albumId)
-            .fetchOne(db)?[Album.Columns.artworkData] as Data?,
-           !existingArtwork.isEmpty {
-            // Album already has artwork, skip update
+            .fetchOne(db)?[Album.Columns.artworkData] as Data?
+
+        if existingArtwork == artworkData {
             return
         }
 
-        try db.execute(
-            sql: "UPDATE albums SET artwork_data = ?, updated_at = ? WHERE id = ? AND artwork_data IS NULL",
-            arguments: [artworkData, Date(), albumId]
-        )
+        if let existingArtwork, !existingArtwork.isEmpty {
+            guard replacingExisting else { return }
+
+            // Preserve tracks that relied on the old shared cover before replacing it.
+            try FullTrack
+                .filter(FullTrack.Columns.albumId == albumId)
+                .filter(FullTrack.Columns.trackArtworkData == nil)
+                .updateAll(db, FullTrack.Columns.trackArtworkData.set(to: existingArtwork))
+        }
+
+        try Album
+            .filter(Album.Columns.id == albumId)
+            .updateAll(
+                db,
+                Album.Columns.artworkData.set(to: artworkData),
+                Album.Columns.updatedAt.set(to: Date())
+            )
+
+        // The shared album row now owns this image, so matching overrides are redundant.
+        try FullTrack
+            .filter(FullTrack.Columns.albumId == albumId)
+            .filter(FullTrack.Columns.trackArtworkData == artworkData)
+            .updateAll(db, FullTrack.Columns.trackArtworkData.set(to: nil))
     }
 
     // MARK: - Genre Management

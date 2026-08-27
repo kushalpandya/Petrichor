@@ -525,8 +525,14 @@ final class TrackArtworkCache: @unchecked Sendable {
         cache.totalCostLimit = 32 * 1024 * 1024
     }
 
+    func artworkIdentity(for track: Track) -> String {
+        let trackIdentity = track.trackId?.description ?? track.url.path
+        let fingerprint = track.artworkFingerprint ?? "none"
+        return "\(trackIdentity)-\(fingerprint)-trackCell"
+    }
+
     private func cacheKey(for track: Track) -> NSString {
-        "\(track.trackId?.description ?? track.url.path)-trackCell" as NSString
+        artworkIdentity(for: track) as NSString
     }
 
     func getCachedImage(for track: Track) -> NSImage? {
@@ -654,7 +660,7 @@ private struct TrackTitleCell: View {
 
             Spacer()
         }
-        .task(id: track.trackId) {
+        .task(id: TrackArtworkCache.shared.artworkIdentity(for: track)) {
             await loadArtwork()
         }
     }
@@ -668,6 +674,7 @@ private struct TrackTitleCell: View {
             return
         }
 
+        artworkImage = nil
         let image = await TrackArtworkCache.shared.loadImage(for: track)
 
         if !Task.isCancelled {

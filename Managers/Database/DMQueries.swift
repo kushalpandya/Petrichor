@@ -9,13 +9,10 @@ import Foundation
 import GRDB
 
 extension DatabaseManager {
-    /// Populate track album art from albums table, falling back to track's own artwork
+    /// Populate each track's own artwork, falling back to shared album artwork.
     func populateAlbumArtworkForTracks(_ tracks: inout [Track], db: Database) throws {
-        // Populate from albums table
-        try populateAlbumArtwork(for: &tracks, db: db)
-        
-        // Fallback to track's own artwork when there's no album info associated with it
         try populateTrackArtwork(for: &tracks, db: db)
+        try populateAlbumArtwork(for: &tracks, db: db)
     }
 
     func populateAlbumArtworkForTracks(_ tracks: inout [Track]) {
@@ -834,54 +831,51 @@ extension DatabaseManager {
     private func populateAlbumArtwork(for tracks: inout [Track], db: Database) throws {
         let albumIds = tracks.compactMap { $0.albumId }.removingDuplicates()
         guard !albumIds.isEmpty else { return }
-        
-        let request = Album
-            .select(Album.Columns.id, Album.Columns.artworkData)
-            .filter(albumIds.contains(Album.Columns.id))
-        
-        let rows = try Row.fetchAll(db, request)
-        
-        let artworkMap: [Int64: Data] = rows.reduce(into: [:]) { dict, row in
-            if let id: Int64 = row["id"],
-               let artwork: Data = row["artwork_data"] {
-                dict[id] = artwork
+
+        var artworkMap: [Int64: (data: Data, fingerprint: String)] = [:]
+        for chunk in albumIds.chunked(into: 500) {
+            let request = Album
+                .select(Album.Columns.id, Album.Columns.artworkData)
+                .filter(chunk.contains(Album.Columns.id))
+            for row in try Row.fetchAll(db, request) {
+                if let id: Int64 = row["id"],
+                   let artwork: Data = row["artwork_data"] {
+                    artworkMap[id] = (artwork, artwork.artworkFingerprint)
+                }
             }
         }
         
-        for i in 0..<tracks.count {
+        for i in 0..<tracks.count where tracks[i].albumArtworkData == nil {
             if let albumId = tracks[i].albumId,
                let artwork = artworkMap[albumId] {
-                tracks[i].albumArtworkData = artwork
+                tracks[i].setArtworkData(artwork.data, fingerprint: artwork.fingerprint)
             }
         }
     }
 
     private func populateTrackArtwork(for tracks: inout [Track], db: Database) throws {
-        let trackIdsNeedingArtwork = tracks
-            .filter { $0.albumArtworkData == nil }
-            .compactMap { $0.trackId }
+        let trackIdsNeedingArtwork = tracks.compactMap { $0.trackId }
         
         guard !trackIdsNeedingArtwork.isEmpty else { return }
-        
-        let request = FullTrack
-            .select(FullTrack.Columns.trackId, FullTrack.Columns.trackArtworkData)
-            .filter(trackIdsNeedingArtwork.contains(FullTrack.Columns.trackId))
-            .filter(FullTrack.Columns.trackArtworkData != nil)
-        
-        let rows = try Row.fetchAll(db, request)
-        
-        let artworkMap: [Int64: Data] = rows.reduce(into: [:]) { dict, row in
-            if let id: Int64 = row["id"],
-               let artwork: Data = row["track_artwork_data"] {
-                dict[id] = artwork
+
+        var artworkMap: [Int64: (data: Data, fingerprint: String)] = [:]
+        for chunk in trackIdsNeedingArtwork.chunked(into: 500) {
+            let request = FullTrack
+                .select(FullTrack.Columns.trackId, FullTrack.Columns.trackArtworkData)
+                .filter(chunk.contains(FullTrack.Columns.trackId))
+                .filter(FullTrack.Columns.trackArtworkData != nil)
+            for row in try Row.fetchAll(db, request) {
+                if let id: Int64 = row["id"],
+                   let artwork: Data = row["track_artwork_data"] {
+                    artworkMap[id] = (artwork, artwork.artworkFingerprint)
+                }
             }
         }
         
         for i in 0..<tracks.count {
-            if tracks[i].albumArtworkData == nil,
-               let trackId = tracks[i].trackId,
+            if let trackId = tracks[i].trackId,
                let artwork = artworkMap[trackId] {
-                tracks[i].albumArtworkData = artwork
+                tracks[i].setArtworkData(artwork.data, fingerprint: artwork.fingerprint)
             }
         }
     }

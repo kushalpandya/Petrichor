@@ -184,7 +184,7 @@ class PlaybackManager: NSObject, ObservableObject {
         tempTrack.title = presentation.title
         tempTrack.artist = presentation.artist
         tempTrack.album = presentation.album ?? "Unknown Album"
-        tempTrack.albumArtworkData = presentation.artworkData
+        tempTrack.setArtworkData(presentation.artworkData)
         tempTrack.duration = presentation.duration ?? 0
 
         if let artworkData = tempTrack.artworkData, let artworkColors = presentation.artworkColors {
