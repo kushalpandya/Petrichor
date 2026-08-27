@@ -20,6 +20,9 @@ struct PetrichorApp: App {
     @AppStorage("miniPlayerAlwaysOnTop")
     private var miniPlayerAlwaysOnTop = false
 
+    @AppStorage("internetRadioEnabled")
+    private var internetRadioEnabled = true
+
     @State private var menuUpdateTrigger = UUID()
     @Environment(\.openWindow)
     private var openWindow
@@ -182,8 +185,10 @@ extension PetrichorApp {
                 newPlaylistMenuItem()
                 newPlaylistFromSelectionMenuItem()
 
-                Divider()
-                newRadioStationMenuItem()
+                if internetRadioEnabled {
+                    Divider()
+                    newRadioStationMenuItem()
+                }
             } label: {
                 if #available(macOS 26.0, *) {
                     Label("New", systemImage: "plus.square")

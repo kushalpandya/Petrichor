@@ -8,6 +8,8 @@ struct PlaylistSidebarView: View {
     @State private var selectedSidebarItem: PlaylistSidebarItem?
     @State private var playlistToDelete: Playlist?
     @State private var showingDeleteConfirmation = false
+    @AppStorage("internetRadioEnabled")
+    private var internetRadioEnabled = true
 
     var body: some View {
         VStack(spacing: 0) {
@@ -77,8 +79,10 @@ struct PlaylistSidebarView: View {
                 }
                 .disabled(!libraryManager.hasLocalMusic)
 
-                Button("New Station Collection") {
-                    playlistManager.showCreateStationCollectionEditor()
+                if internetRadioEnabled {
+                    Button("New Station Collection") {
+                        playlistManager.showCreateStationCollectionEditor()
+                    }
                 }
             } label: {
                 Image(systemName: "plus")

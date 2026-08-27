@@ -11,6 +11,13 @@ struct HomeSidebarView: View {
     @State private var playlistToDelete: Playlist?
     @State private var showingDeleteConfirmation = false
     @ObservedObject private var radioManager = InternetRadioManager.shared
+    @AppStorage("internetRadioEnabled")
+    private var internetRadioEnabled = true
+
+    private var fixedItemCount: Int {
+        guard libraryManager.hasLocalMusic else { return internetRadioEnabled ? 1 : 0 }
+        return internetRadioEnabled ? HomeSidebarItem.HomeItemType.allCases.count : 2
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -40,9 +47,7 @@ struct HomeSidebarView: View {
                 trailingContent: { item in
                     trailingContentView(for: item)
                 },
-                reorderableFromIndex: libraryManager.hasLocalMusic
-                    ? HomeSidebarItem.HomeItemType.allCases.count
-                    : 1,
+                reorderableFromIndex: fixedItemCount,
                 // swiftlint:disable:next trailing_closure
                 onReorder: { reorderedItems in
                     handlePinnedItemsReorder(reorderedItems)
@@ -90,6 +95,9 @@ struct HomeSidebarView: View {
         .onChange(of: radioManager.stations.count) {
             updateAllItems()
         }
+        .onChange(of: internetRadioEnabled) {
+            updateAllItems()
+        }
         .onChange(of: pinnedPlaylistCountSignature) {
             // Only rebuild when a *pinned* playlist's count changes. Count changes on
             // non-pinned playlists don't affect anything shown in the Home sidebar.
@@ -125,16 +133,20 @@ struct HomeSidebarView: View {
                 let cachedCount = pinnedItemTrackCounts[pinnedItem.id ?? 0] ?? playlist.trackCount
                 return HomeSidebarItem(pinnedItem: pinnedItem, trackCount: cachedCount, playlist: playlist)
             }
-            allItems = [HomeSidebarItem(type: .internetRadio, stationCount: radioManager.stations.count)] + stationPins
+            allItems = internetRadioEnabled
+                ? [HomeSidebarItem(type: .internetRadio, stationCount: radioManager.stations.count)] + stationPins
+                : stationPins
             restoreSelection(defaultType: .internetRadio)
             return
         }
 
         var items: [HomeSidebarItem] = [
             HomeSidebarItem(type: .discover),
-            HomeSidebarItem(type: .tracks, trackCount: libraryManager.totalTrackCount),
-            HomeSidebarItem(type: .internetRadio, stationCount: radioManager.stations.count)
+            HomeSidebarItem(type: .tracks, trackCount: libraryManager.totalTrackCount)
         ]
+        if internetRadioEnabled {
+            items.append(HomeSidebarItem(type: .internetRadio, stationCount: radioManager.stations.count))
+        }
         // O(1) playlist lookups instead of a linear scan per pinned item.
         let playlistsById = Dictionary(playlistManager.playlists.map { ($0.id, $0) }) { first, _ in first }
         let pinnedSidebarItems = libraryManager.pinnedItems.map { pinnedItem in
@@ -247,7 +259,6 @@ struct HomeSidebarView: View {
     // MARK: - Reorder Pinned Items
 
     private func handlePinnedItemsReorder(_ reorderedItems: [HomeSidebarItem]) {
-        let fixedItemCount = libraryManager.hasLocalMusic ? HomeSidebarItem.HomeItemType.allCases.count : 1
         let visiblePinned = reorderedItems.dropFirst(fixedItemCount).compactMap { item -> PinnedItem? in
             if case .pinned(let pinnedItem) = item.source {
                 return pinnedItem
