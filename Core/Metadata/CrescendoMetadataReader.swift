@@ -51,6 +51,7 @@ struct CrescendoMetadataReader: MetadataReader {
         if metadata.artworkData == nil, let externalArtwork = externalArtwork {
             metadata.artworkData = externalArtwork
         }
+        metadata.didInspectArtwork = cover == nil || metadata.artworkData != nil
 
         return metadata
     }

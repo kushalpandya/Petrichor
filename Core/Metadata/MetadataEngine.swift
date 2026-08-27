@@ -12,6 +12,8 @@ struct TrackMetadata {
     var year: String?
     var duration: Double = 0
     var artworkData: Data?
+    var didInspectArtwork = false
+    var canReplaceAlbumArtwork = false
     var albumArtist: String?
     var trackNumber: Int?
     var totalTracks: Int?

@@ -65,12 +65,10 @@ struct FullTrack: Identifiable, Equatable, Hashable, FetchableRecord, Persistabl
     
     // Computed property for artwork
     var artworkData: Data? {
-        // Prefer album artwork if available
-        if let albumArtwork = albumArtworkData {
-            return albumArtwork
+        if let trackArtwork = trackArtworkData {
+            return trackArtwork
         }
-        // Fall back to track's own artwork
-        return trackArtworkData
+        return albumArtworkData
     }
     
     // MARK: - Initialization

@@ -446,7 +446,7 @@ private struct TrackListRow: View {
         .animation(.none, value: isSelected)
         // Attached here rather than to the row: this view only exists while expanded, so
         // switching back to expanded starts the load rather than reusing a stale task.
-        .task(id: track.trackId) {
+        .task(id: TrackArtworkCache.shared.artworkIdentity(for: track)) {
             await loadArtwork()
         }
     }
@@ -492,6 +492,7 @@ private struct TrackListRow: View {
             return
         }
 
+        artworkImage = nil
         let image = await TrackArtworkCache.shared.loadImage(for: track)
 
         guard !Task.isCancelled else { return }

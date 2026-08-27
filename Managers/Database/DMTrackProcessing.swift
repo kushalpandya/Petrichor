@@ -16,30 +16,30 @@ actor LazyArtworkLoader {
         self.artworkPaths = artworkPaths
     }
 
-    func getArtwork(for directory: URL) -> Data? {
+    func getArtwork(for directory: URL) -> (data: Data?, didInspect: Bool) {
         // Return cached result
         if let cached = cache[directory] {
-            return cached
+            return (cached, true)
         }
 
         // Load from file path if available
-        guard let fileURL = artworkPaths[directory],
-              let size = (try? fileURL.resourceValues(forKeys: [.fileSizeKey]))?.fileSize else {
-            return nil
+        guard let fileURL = artworkPaths[directory] else { return (nil, true) }
+        guard let size = (try? fileURL.resourceValues(forKeys: [.fileSizeKey]))?.fileSize else {
+            return (nil, false)
         }
 
         if size > AlbumArtFormat.maxArtworkSize {
             Logger.warning("Skipping oversized artwork: \(fileURL.lastPathComponent) (\(size) bytes)")
-            return nil
+            return (nil, true)
         }
 
         guard let data = try? Data(contentsOf: fileURL) else {
-            return nil
+            return (nil, false)
         }
 
         let compressed = ImageUtils.compressImage(from: data, source: fileURL.path) ?? data
         cache[directory] = compressed
-        return compressed
+        return (compressed, true)
     }
 }
 
@@ -69,7 +69,8 @@ extension DatabaseManager {
 
         Logger.info("Processing batch of \(batch.count) files in chunks of \(chunkSize), up to \(maxConcurrent) concurrent")
 
-        let chunks = batch.chunked(into: chunkSize)
+        let chunks = batch.sorted { $0.url.path < $1.url.path }.chunked(into: chunkSize)
+        let lookupCache = ScanLookupCache()
 
         for chunk in chunks {
             let artworkCache = ArtworkCompressionCache()
@@ -117,7 +118,7 @@ extension DatabaseManager {
                 skipped: 0
             )
             
-            for (_, trackResult) in results {
+            for (_, trackResult) in results.sorted(by: { $0.0.path < $1.0.path }) {
                 switch trackResult {
                 case let .new(track, metadata):
                     processResults.new.append((track, metadata))
@@ -129,11 +130,9 @@ extension DatabaseManager {
             }
             
             try await dbQueue.write { [processResults] db in
-                let cache = ScanLookupCache()
-
                 for (track, metadata) in processResults.new {
                     do {
-                        try self.processNewTrack(track, metadata: metadata, in: db, cache: cache)
+                        try self.processNewTrack(track, metadata: metadata, in: db, cache: lookupCache)
                     } catch {
                         Logger.error("Failed to add new track \(track.title): \(error)")
                     }
@@ -141,7 +140,7 @@ extension DatabaseManager {
 
                 for (track, metadata) in processResults.update {
                     do {
-                        try self.processUpdatedTrack(track, metadata: metadata, in: db, cache: cache)
+                        try self.processUpdatedTrack(track, metadata: metadata, in: db, cache: lookupCache)
                     } catch {
                         Logger.error("Failed to update track \(track.title): \(error)")
                     }
@@ -209,8 +208,11 @@ extension DatabaseManager {
         // Get artwork for this file's directory (eager from artworkMap, or lazy from deferred paths)
         let directory = fileURL.deletingLastPathComponent()
         var externalArtwork = artworkMap[directory]
+        var didInspectExternalArtwork = true
         if externalArtwork == nil, let lazyArtwork = lazyArtwork {
-            externalArtwork = await lazyArtwork.getArtwork(for: directory)
+            let result = await lazyArtwork.getArtwork(for: directory)
+            externalArtwork = result.data
+            didInspectExternalArtwork = result.didInspect
         }
 
         do {
@@ -219,11 +221,13 @@ extension DatabaseManager {
                 // Fetch the full track for comparison and update
                 guard let existingFullTrack = try await existingTrack.fullTrack(using: dbQueue) else {
                     // If we can't get full track, treat as new
-                    let metadata = await MetadataEngine.extractMetadata(
+                    var metadata = await MetadataEngine.extractMetadata(
                         from: fileURL,
                         externalArtwork: externalArtwork,
                         artworkCache: artworkCache
                     )
+                    metadata.didInspectArtwork = metadata.didInspectArtwork
+                        && (metadata.artworkData != nil || didInspectExternalArtwork)
                     var fullTrack = FullTrack(url: fileURL)
                     fullTrack.folderId = folderId
                     applyMetadataToTrack(&fullTrack, from: metadata, at: fileURL)
@@ -233,11 +237,14 @@ extension DatabaseManager {
                 
                 // Re-extract complete metadata on hardRefresh
                 if hardRefresh {
-                    let metadata = await MetadataEngine.extractMetadata(
+                    var metadata = await MetadataEngine.extractMetadata(
                         from: fileURL,
                         externalArtwork: externalArtwork,
                         artworkCache: artworkCache
                     )
+                    metadata.didInspectArtwork = metadata.didInspectArtwork
+                        && (metadata.artworkData != nil || didInspectExternalArtwork)
+                    metadata.canReplaceAlbumArtwork = true
                     
                     var updatedTrack = existingFullTrack
                     _ = updateTrackIfNeeded(&updatedTrack, with: metadata, at: fileURL)
@@ -254,10 +261,12 @@ extension DatabaseManager {
                     
                     if timeDifference > 1.0 {
                         // File modified, extract fresh metadata
-                        let metadata = await MetadataEngine.extractMetadata(
+                        var metadata = await MetadataEngine.extractMetadata(
                             from: fileURL,
                             externalArtwork: externalArtwork
                         )
+                        metadata.didInspectArtwork = metadata.didInspectArtwork
+                            && (metadata.artworkData != nil || didInspectExternalArtwork)
                         
                         var updatedTrack = existingFullTrack
                         let hasChanges = updateTrackIfNeeded(&updatedTrack, with: metadata, at: fileURL)
@@ -275,11 +284,13 @@ extension DatabaseManager {
             }
             
             // New track - extract metadata
-            let metadata = await MetadataEngine.extractMetadata(
+            var metadata = await MetadataEngine.extractMetadata(
                 from: fileURL,
                 externalArtwork: externalArtwork,
                 artworkCache: artworkCache
             )
+            metadata.didInspectArtwork = metadata.didInspectArtwork
+                && (metadata.artworkData != nil || didInspectExternalArtwork)
             
             var fullTrack = FullTrack(url: fileURL)
             fullTrack.folderId = folderId
@@ -298,6 +309,7 @@ extension DatabaseManager {
 
         // Process album first (so we can link the track to it)
         try processTrackAlbum(&mutableTrack, in: db, cache: cache)
+        try prepareTrackArtwork(&mutableTrack, metadata: metadata, in: db, cache: cache)
 
         // Insert the track
         try mutableTrack.insert(db)
@@ -317,9 +329,8 @@ extension DatabaseManager {
         try processTrackArtists(mutableTrack, in: db, cache: cache)
         try processTrackGenres(mutableTrack, in: db, cache: cache)
         
-        // Update artwork for artists and album if this track has artwork
+        // Update artist artwork if this track has artwork
         if let artworkData = metadata.artworkData, !artworkData.isEmpty {
-            // Update artist artwork
             let artistIds = try TrackArtist
                 .filter(TrackArtist.Columns.trackId == trackId)
                 .select(TrackArtist.Columns.artistId, as: Int64.self)
@@ -328,11 +339,6 @@ extension DatabaseManager {
             
             for artistId in artistIds {
                 try updateArtistArtwork(artistId, artworkData: artworkData, in: db)
-            }
-            
-            // Update album artwork
-            if let albumId = mutableTrack.albumId {
-                try updateAlbumArtwork(albumId, artworkData: artworkData, in: db)
             }
         }
         
@@ -348,6 +354,7 @@ extension DatabaseManager {
 
         // Update album association
         try processTrackAlbum(&mutableTrack, in: db, cache: cache)
+        try prepareTrackArtwork(&mutableTrack, metadata: metadata, in: db, cache: cache)
 
         // Update the track
         try mutableTrack.update(db)
@@ -371,9 +378,8 @@ extension DatabaseManager {
         try processTrackArtists(mutableTrack, in: db, cache: cache)
         try processTrackGenres(mutableTrack, in: db, cache: cache)
         
-        // Update artwork for artists and album if this track has artwork
+        // Update artist artwork if this track has artwork
         if let artworkData = metadata.artworkData, !artworkData.isEmpty {
-            // Update artist artwork
             let artistIds = try TrackArtist
                 .filter(TrackArtist.Columns.trackId == trackId)
                 .select(TrackArtist.Columns.artistId, as: Int64.self)
@@ -383,14 +389,41 @@ extension DatabaseManager {
             for artistId in artistIds {
                 try updateArtistArtwork(artistId, artworkData: artworkData, in: db)
             }
-            
-            // Update album artwork
-            if let albumId = mutableTrack.albumId {
-                try updateAlbumArtwork(albumId, artworkData: artworkData, in: db)
-            }
         }
     }
-    
+
+    /// Keep per-track artwork only when it differs from the shared album cover.
+    private func prepareTrackArtwork(
+        _ track: inout FullTrack,
+        metadata: TrackMetadata,
+        in db: Database,
+        cache: ScanLookupCache?
+    ) throws {
+        guard metadata.didInspectArtwork else { return }
+        guard let artworkData = metadata.artworkData, !artworkData.isEmpty else {
+            track.trackArtworkData = nil
+            return
+        }
+        guard let albumId = track.albumId else {
+            track.trackArtworkData = artworkData
+            return
+        }
+
+        let shouldReplaceAlbumArtwork = metadata.canReplaceAlbumArtwork
+            && cache?.albumsWithSelectedArtwork.insert(albumId).inserted == true
+        try updateAlbumArtwork(
+            albumId,
+            artworkData: artworkData,
+            replacingExisting: shouldReplaceAlbumArtwork,
+            in: db
+        )
+        let albumArtwork = try Album
+            .select(Album.Columns.artworkData)
+            .filter(Album.Columns.id == albumId)
+            .fetchOne(db)?[Album.Columns.artworkData] as Data?
+        track.trackArtworkData = albumArtwork == artworkData ? nil : artworkData
+    }
+
     // MARK: - Metadata Logging
     
     private func logTrackMetadata(_ track: FullTrack) {
