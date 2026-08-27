@@ -19,6 +19,8 @@ enum SplitViewConstants {
     static let leftSidebarMinWidth: CGFloat = 250
     static let leftSidebarMaxWidth: CGFloat = 500
 
+    // Right sidebar constraints
+    static let rightSidebarMinWidth: CGFloat = 300
     static let rightSidebarMaxWidth: CGFloat = 500
 }
 
@@ -73,7 +75,7 @@ struct PersistentSplitView<Left: View, Center: View, Right: View>: View {
 
         let storedValue = UserDefaults.standard.double(forKey: rightStorageKey)
         self._leftWidth = State(initialValue: 0)
-        self._rightWidth = State(initialValue: storedValue > 0 ? CGFloat(storedValue) : SplitViewConstants.rightSidebarDefaultWidth)
+        self._rightWidth = State(initialValue: Self.restoredRightWidth(from: storedValue))
         self._isRightSidebarVisible = State(initialValue: true)
     }
 
@@ -95,7 +97,7 @@ struct PersistentSplitView<Left: View, Center: View, Right: View>: View {
         let leftStored = UserDefaults.standard.double(forKey: leftStorageKey)
         let rightStored = UserDefaults.standard.double(forKey: rightStorageKey)
         self._leftWidth = State(initialValue: leftStored > 0 ? CGFloat(leftStored) : SplitViewConstants.leftSidebarDefaultWidth)
-        self._rightWidth = State(initialValue: rightStored > 0 ? CGFloat(rightStored) : SplitViewConstants.rightSidebarDefaultWidth)
+        self._rightWidth = State(initialValue: Self.restoredRightWidth(from: rightStored))
         self._isRightSidebarVisible = State(initialValue: true)
     }
 
@@ -126,7 +128,7 @@ struct PersistentSplitView<Left: View, Center: View, Right: View>: View {
             if (type == .rightOnly || type == .both) && hasRightContent() {
                 SplitDivider(
                     splitWidth: $rightWidth,
-                    minWidth: 0, // Allow collapsing to 0
+                    minWidth: SplitViewConstants.rightSidebarMinWidth,
                     maxWidth: SplitViewConstants.rightSidebarMaxWidth,
                     isLeading: false
                 ) {
@@ -162,9 +164,17 @@ struct PersistentSplitView<Left: View, Center: View, Right: View>: View {
         if let key = storageKeyRight, type == .rightOnly || type == .both {
             let storedRight = UserDefaults.standard.double(forKey: key)
             if storedRight > 0 {
-                rightWidth = CGFloat(storedRight)
+                rightWidth = Self.restoredRightWidth(from: storedRight)
             }
         }
+    }
+
+    private static func restoredRightWidth(from storedWidth: Double) -> CGFloat {
+        guard storedWidth > 0 else { return SplitViewConstants.rightSidebarDefaultWidth }
+        return min(
+            max(SplitViewConstants.rightSidebarMinWidth, CGFloat(storedWidth)),
+            SplitViewConstants.rightSidebarMaxWidth
+        )
     }
 }
 
@@ -178,6 +188,7 @@ private struct SplitDivider: View {
     let onDragEnded: () -> Void
 
     @State private var isHovering = false
+    @State private var dragStartWidth: CGFloat?
 
     init(
         splitWidth: Binding<CGFloat>,
@@ -211,13 +222,17 @@ private struct SplitDivider: View {
                         }
                     }
                     .gesture(
-                        DragGesture()
+                        DragGesture(coordinateSpace: .global)
                             .onChanged { value in
+                                if dragStartWidth == nil {
+                                    dragStartWidth = splitWidth
+                                }
                                 let delta = isLeading ? value.translation.width : -value.translation.width
-                                let newWidth = splitWidth + delta
+                                let newWidth = (dragStartWidth ?? splitWidth) + delta
                                 splitWidth = min(max(minWidth, newWidth), maxWidth)
                             }
                             .onEnded { _ in
+                                dragStartWidth = nil
                                 onDragEnded()
                             }
                     )
