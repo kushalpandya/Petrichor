@@ -41,6 +41,8 @@ struct HomeView: View {
     @State private var selectedTrackID: UUID?
     @State private var pinnedItemTracks: [Track] = []
     @State private var pinnedEntity: (any Entity)?
+    @State private var resolvedPinnedItemID: Int64?
+    @State private var resolvingPinnedItemID: Int64?
     @State private var homeDetail: HomeDetailTarget?
     /// Carries the role behind an album-artist or composer tile into its detail view.
     @State private var detailRoleCarrier: PinnedItem?
@@ -97,6 +99,8 @@ struct HomeView: View {
                 homeDetail = nil
                 detailRoleCarrier = nil
                 pinnedEntity = nil
+                resolvedPinnedItemID = nil
+                resolvingPinnedItemID = nil
 
                 if case .pinned(let pinnedItem)? = newItem?.source {
                     loadTracksForPinnedItem(pinnedItem)
@@ -195,10 +199,10 @@ struct HomeView: View {
                    let playlistId = pinnedItem.playlistId,
                    let playlist = playlistManager.playlists.first(where: { $0.id == playlistId }) {
                     PlaylistDetailView(playlist: playlist)
-                } else if let entity = pinnedEntity {
+                } else if let entity = pinnedEntity, resolvedPinnedItemID == pinnedItem.id {
                     EntityDetailView(entity: entity, pinnedItem: pinnedItem)
                 } else if (pinnedItem.filterType == .artists || pinnedItem.filterType == .albums)
-                            && !libraryManager.entitiesLoaded {
+                            && (resolvingPinnedItemID == pinnedItem.id || !libraryManager.entitiesLoaded) {
                     ActivityAnimation(size: .large)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
@@ -237,6 +241,8 @@ struct HomeView: View {
         guard item.itemType != .category else {
             pinnedItemTracks = []
             pinnedEntity = nil
+            resolvedPinnedItemID = nil
+            resolvingPinnedItemID = nil
             return
         }
 
@@ -253,6 +259,7 @@ struct HomeView: View {
                 name: item.displayName,
                 trackCount: tracks.count
             )
+            resolvedPinnedItemID = item.id
             return
         }
 
@@ -265,11 +272,14 @@ struct HomeView: View {
                 loadPinnedArtistOrAlbumEntity(item, filterType: filterType, filterValue: filterValue)
             case .albumArtists, .composers:
                 pinnedEntity = buildArtistEntityForPerson(name: filterValue)
+                resolvedPinnedItemID = item.id
             case .genres, .decades, .years:
                 pinnedEntity = CategoryEntity(name: filterValue, trackCount: tracks.count, filterType: filterType)
+                resolvedPinnedItemID = item.id
             }
         } else {
             pinnedEntity = nil
+            resolvedPinnedItemID = nil
         }
     }
 
@@ -280,6 +290,7 @@ struct HomeView: View {
     ) {
         pinnedEntity = nil
         let pinnedId = item.id
+        resolvingPinnedItemID = pinnedId
         Task {
             await libraryManager.loadEntitiesAsync()
             guard case .pinned(let selected)? = selectedSidebarItem?.source,
@@ -299,6 +310,8 @@ struct HomeView: View {
             default:
                 break
             }
+            resolvedPinnedItemID = pinnedEntity == nil ? nil : pinnedId
+            resolvingPinnedItemID = nil
         }
     }
 }

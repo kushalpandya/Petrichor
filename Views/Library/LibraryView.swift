@@ -1,5 +1,10 @@
 import SwiftUI
 
+private enum LibraryTrackSortContext: Equatable {
+    case album(id: Int64?, name: String)
+    case global
+}
+
 struct LibraryView: View {
     @EnvironmentObject var libraryManager: LibraryManager
     @EnvironmentObject var playlistManager: PlaylistManager
@@ -20,6 +25,7 @@ struct LibraryView: View {
     @State private var trackTableSortOrder = [KeyPathComparator(\Track.title)]
     @State private var filterUpdateTask: Task<Void, Never>?
     @State private var lastFilterUpdateAt: Date = .distantPast
+    @State private var sortContext: LibraryTrackSortContext?
     @Binding var pendingFilter: LibraryFilterRequest?
 
     var body: some View {
@@ -129,7 +135,8 @@ struct LibraryView: View {
             TrackListHeader(
                 title: headerTitle,
                 sortOrder: $trackTableSortOrder,
-                tableRowSize: $trackTableRowSize
+                tableRowSize: $trackTableRowSize,
+                usesGlobalSortOrder: !usesAlbumPresentation
             )
 
             Divider()
@@ -143,6 +150,8 @@ struct LibraryView: View {
                     selectedTrackID: $selectedTrackID,
                     playlistID: nil,
                     entityID: nil,
+                    groupsTracksByDisc: usesAlbumPresentation,
+                    usesGlobalSortOrder: !usesAlbumPresentation,
                     sortOrder: $trackTableSortOrder,
                     onPlayTrack: { track in
                         playlistManager.playTrack(track, fromTracks: cachedFilteredTracks)
@@ -174,6 +183,12 @@ struct LibraryView: View {
         } else {
             return String(localized: "All Tracks")
         }
+    }
+
+    private var usesAlbumPresentation: Bool {
+        libraryManager.globalSearchText.isEmpty
+            && selectedFilterType == .albums
+            && selectedFilterItem?.isAllItem == false
     }
 
     // MARK: - Empty Filter View
@@ -211,6 +226,8 @@ struct LibraryView: View {
     // MARK: - Filtering Tracks Helper
 
     private func updateFilteredTracks() {
+        updateTrackSortOrder()
+
         let now = Date()
         // Only debounce when the previous request was very recent (rapid sidebar
         // navigation). A single deliberate selection should load immediately.
@@ -262,6 +279,25 @@ struct LibraryView: View {
             } else {
                 cachedFilteredTracks = []
             }
+        }
+    }
+
+    private func updateTrackSortOrder() {
+        let newContext: LibraryTrackSortContext = usesAlbumPresentation
+            ? .album(id: selectedFilterItem?.albumId, name: selectedFilterItem?.name ?? "")
+            : .global
+        guard newContext != sortContext else { return }
+        sortContext = newContext
+
+        if usesAlbumPresentation {
+            trackTableSortOrder = Track.albumSortOrder
+        } else if let savedSort = UserDefaults.standard.dictionary(forKey: "trackTableSortOrder"),
+                  let key = savedSort["key"] as? String,
+                  let ascending = savedSort["ascending"] as? Bool,
+                  let field = TrackSortField.from(storageKey: key) {
+            trackTableSortOrder = [field.getComparator(ascending: ascending)]
+        } else {
+            trackTableSortOrder = [KeyPathComparator(\Track.title, order: .forward)]
         }
     }
 }

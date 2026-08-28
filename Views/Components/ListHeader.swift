@@ -153,6 +153,7 @@ struct TrackListHeader<Trailing: View>: View {
     let trackCount: Int?
     let sortOrder: Binding<[KeyPathComparator<Track>]>?
     let tableRowSize: Binding<TableRowSize>?
+    let usesGlobalSortOrder: Bool
     let trailing: (() -> Trailing)?
 
     // With sort options + trailing content
@@ -161,6 +162,7 @@ struct TrackListHeader<Trailing: View>: View {
         subtitle: String? = nil,
         sortOrder: Binding<[KeyPathComparator<Track>]>,
         tableRowSize: Binding<TableRowSize>,
+        usesGlobalSortOrder: Bool = true,
         @ViewBuilder trailingContent: @escaping () -> Trailing
     ) {
         self.title = title
@@ -168,6 +170,7 @@ struct TrackListHeader<Trailing: View>: View {
         self.trackCount = nil
         self.sortOrder = sortOrder
         self.tableRowSize = tableRowSize
+        self.usesGlobalSortOrder = usesGlobalSortOrder
         self.trailing = trailingContent
     }
 
@@ -176,13 +179,15 @@ struct TrackListHeader<Trailing: View>: View {
         title: String,
         subtitle: String? = nil,
         sortOrder: Binding<[KeyPathComparator<Track>]>,
-        tableRowSize: Binding<TableRowSize>
+        tableRowSize: Binding<TableRowSize>,
+        usesGlobalSortOrder: Bool = true
     ) where Trailing == EmptyView {
         self.title = title
         self.subtitle = subtitle
         self.trackCount = nil
         self.sortOrder = sortOrder
         self.tableRowSize = tableRowSize
+        self.usesGlobalSortOrder = usesGlobalSortOrder
         self.trailing = nil
     }
 
@@ -198,6 +203,7 @@ struct TrackListHeader<Trailing: View>: View {
         self.trackCount = trackCount
         self.sortOrder = nil
         self.tableRowSize = nil
+        self.usesGlobalSortOrder = true
         self.trailing = trailing
     }
 
@@ -212,6 +218,7 @@ struct TrackListHeader<Trailing: View>: View {
         self.trackCount = trackCount
         self.sortOrder = nil
         self.tableRowSize = nil
+        self.usesGlobalSortOrder = true
         self.trailing = nil
     }
 
@@ -239,7 +246,8 @@ struct TrackListHeader<Trailing: View>: View {
             if let sortOrder = sortOrder, let tableRowSize = tableRowSize {
                 TrackTableOptionsDropdown(
                     sortOrder: sortOrder,
-                    tableRowSize: tableRowSize
+                    tableRowSize: tableRowSize,
+                    usesGlobalSortOrder: usesGlobalSortOrder
                 )
             }
         }

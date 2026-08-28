@@ -4,6 +4,8 @@ struct TrackTableView: View {
     let tracks: [Track]
     let playlistID: UUID?
     let entityID: UUID?
+    let groupsTracksByDisc: Bool
+    let usesGlobalSortOrder: Bool
     // Queue source recorded when playing from this table (non-playlist tables); folder detail
     // views pass .folder so row playback keeps folder context, matching the header Play/Shuffle.
     let queueSource: PlaylistManager.QueueSource
@@ -18,6 +20,7 @@ struct TrackTableView: View {
     @State private var selection: Set<Track.ID> = []
     @State private var sortedTracks: [Track] = []
     @State private var trackFavorites: [Int64: Bool] = [:]
+    @State private var sortGeneration = 0
     
     @State private var isCustomSort: Bool = false
     @State private var hasInitializedCustomization = false
@@ -36,6 +39,13 @@ struct TrackTableView: View {
     private static let trackFont = Font.system(size: 13, weight: .regular)
     private static let currentTrackFont = Font.system(size: 13, weight: .medium)
     private static let currentTrackTitleFont = Font.system(size: 13, weight: .bold)
+
+    private struct DiscGroup: Identifiable {
+        let number: Int
+        let tracks: [Track]
+
+        var id: Int { number }
+    }
 
     private func isCurrentTrack(_ track: Track) -> Bool {
         guard let currentTrack = playbackManager.currentTrack else { return false }
@@ -95,35 +105,43 @@ struct TrackTableView: View {
 
                     performBackgroundSort(with: newValue)
 
-                    saveSortOrderToUserDefaults(newValue, key: "trackTableSortOrder")
+                    if usesGlobalSortOrder {
+                        saveSortOrderToUserDefaults(newValue, key: "trackTableSortOrder")
 
-                    NotificationCenter.default.post(
-                        name: .trackTableSortChanged,
-                        object: nil,
-                        userInfo: ["sortOrder": newValue, "fromTable": true]
-                    )
+                        NotificationCenter.default.post(
+                            name: .trackTableSortChanged,
+                            object: nil,
+                            userInfo: ["sortOrder": newValue, "fromTable": true]
+                        )
+                    }
                 }
             }
             .onChange(of: tracks) { _, newTracks in
-                if !newTracks.isEmpty {
-                    // Re-sync custom sort state for the current playlist
-                    if let playlistID = playlistID {
-                        isCustomSort = PlaylistSortManager.shared.getSortField(for: playlistID) == .custom
-                    }
-
-                    if isCustomSort {
-                        sortedTracks = newTracks
-                    } else {
-                        performBackgroundSort(with: sortOrder)
-                    }
-
-                    trackFavorites = Dictionary(uniqueKeysWithValues:
-                        newTracks.compactMap { track in
-                            guard let trackId = track.trackId else { return nil }
-                            return (trackId, track.isFavorite)
-                        }
-                    )
+                guard !newTracks.isEmpty else {
+                    sortGeneration += 1
+                    sortedTracks = []
+                    trackFavorites = [:]
+                    return
                 }
+
+                // Re-sync custom sort state for the current playlist
+                if let playlistID = playlistID {
+                    isCustomSort = PlaylistSortManager.shared.getSortField(for: playlistID) == .custom
+                }
+
+                if isCustomSort {
+                    sortGeneration += 1
+                    sortedTracks = newTracks
+                } else {
+                    performBackgroundSort(with: sortOrder)
+                }
+
+                trackFavorites = Dictionary(uniqueKeysWithValues:
+                    newTracks.compactMap { track in
+                        guard let trackId = track.trackId else { return nil }
+                        return (trackId, track.isFavorite)
+                    }
+                )
             }
             .onAppear {
                 initializeSortedTracks()
@@ -155,7 +173,12 @@ struct TrackTableView: View {
     }
     
     private var tableView: some View {
-        Table(sortedTracks, selection: $selection, sortOrder: $sortOrder, columnCustomization: $columnCustomization) {
+        Table(
+            of: Track.self,
+            selection: $selection,
+            sortOrder: $sortOrder,
+            columnCustomization: $columnCustomization
+        ) {
             Group {
                 // Track Number
                 TableColumn("#", value: \.sortableTrackNumber) { track in
@@ -304,9 +327,45 @@ struct TrackTableView: View {
                 .customizationID("duration")
                 .defaultVisibility(.visible)
             }
+        } rows: {
+            if showsDiscGroups {
+                ForEach(discGroups) { group in
+                    Section {
+                        ForEach(group.tracks) { track in
+                            TableRow(track)
+                        }
+                    } header: {
+                        Text("Disc \(group.number)")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                }
+            } else {
+                ForEach(sortedTracks) { track in
+                    TableRow(track)
+                }
+            }
         }
         .scrollContentBackground(.hidden)
         .environment(\.defaultMinListRowHeight, tableRowSize.rowHeight)
+    }
+
+    private var showsDiscGroups: Bool {
+        groupsTracksByDisc && discGroups.count > 1
+    }
+
+    private var discGroups: [DiscGroup] {
+        Dictionary(grouping: sortedTracks, by: \.normalizedDiscNumber)
+            .map { DiscGroup(number: $0.key, tracks: $0.value) }
+            .sorted { isDiscSortDescending ? $0.number > $1.number : $0.number < $1.number }
+    }
+
+    private var displayedTracks: [Track] {
+        showsDiscGroups ? discGroups.flatMap(\.tracks) : sortedTracks
+    }
+
+    private var isDiscSortDescending: Bool {
+        TrackSortField.detect(from: sortOrder) == .discNumber
+            && !TrackSortField.isAscending(from: sortOrder)
     }
     
     // MARK: - Helper Methods
@@ -321,7 +380,7 @@ struct TrackTableView: View {
         }
 
         // Follow overridden sort order for entities and playlists
-        if entityID != nil || playlistID != nil {
+        if !usesGlobalSortOrder || entityID != nil || playlistID != nil {
             sortedTracks = tracks.sorted(using: sortOrder)
             return
         }
@@ -350,7 +409,7 @@ struct TrackTableView: View {
     }
     
     private func handlePlayTrack(_ track: Track) {
-        playlistManager.playTrack(track, fromTracks: sortedTracks)
+        playlistManager.playTrack(track, fromTracks: displayedTracks)
         
         if let playlistID = playlistID,
            let playlist = playlistManager.playlists.first(where: { $0.id == playlistID }) {
@@ -380,6 +439,9 @@ struct TrackTableView: View {
     // MARK: - Sorting Helpers
     
     private func performBackgroundSort(with newSortOrder: [KeyPathComparator<Track>]) {
+        sortGeneration += 1
+        let generation = sortGeneration
+
         if isCustomSort {
             sortedTracks = tracks
             return
@@ -390,6 +452,7 @@ struct TrackTableView: View {
         Task.detached(priority: .userInitiated) {
             let sorted = initialTracks.sorted(using: newSortOrder)
             await MainActor.run {
+                guard generation == self.sortGeneration else { return }
                 self.sortedTracks = sorted
             }
         }
@@ -423,7 +486,7 @@ struct TrackTableView: View {
         let shuffle = notification.userInfo?["shuffle"] as? Bool ?? false
         playlistManager.isShuffleEnabled = shuffle
         
-        var tracksForPlayback = sortedTracks
+        var tracksForPlayback = displayedTracks
         if shuffle {
             tracksForPlayback.shuffle()
         }
@@ -456,10 +519,13 @@ struct TrackTableView: View {
     }
 
     private func handleSortChangedNotification(_ notification: Notification) {
+        guard usesGlobalSortOrder || playlistID != nil else { return }
+
         // Handle custom sort flag from dropdown
         if let customSort = notification.userInfo?["isCustomSort"] as? Bool {
             isCustomSort = customSort
             if customSort {
+                sortGeneration += 1
                 sortedTracks = tracks
                 return
             }
@@ -489,6 +555,7 @@ struct TrackTableView: View {
         trackFavorites[trackId] = updatedTrack.isFavorite
         
         guard let index = sortedTracks.firstIndex(where: { $0.trackId == trackId }) else { return }
+        sortGeneration += 1
         
         // Check if we're sorted by favorites
         let isSortedByFavorites = TrackSortField.detect(from: sortOrder) == .favorite
@@ -722,6 +789,17 @@ private struct FavoriteButtonCell: View {
 // MARK: - Track Extension for Sorting
 
 extension Track {
+    static var albumSortOrder: [KeyPathComparator<Track>] {
+        [
+            KeyPathComparator(\Track.normalizedDiscNumber, order: .forward),
+            KeyPathComparator(\Track.sortableTrackNumber, order: .forward)
+        ]
+    }
+
+    var normalizedDiscNumber: Int {
+        max(discNumber ?? 1, 1)
+    }
+
     var sortableTrackNumber: Int {
         trackNumber ?? Int.max
     }

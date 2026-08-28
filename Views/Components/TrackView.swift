@@ -6,6 +6,8 @@ struct TrackView: View {
     @Binding var selectedTrackID: UUID?
     let playlistID: UUID?
     let entityID: UUID?
+    var groupsTracksByDisc = false
+    var usesGlobalSortOrder = true
     var queueSource: PlaylistManager.QueueSource = .library
     @Binding var sortOrder: [KeyPathComparator<Track>]
     let onPlayTrack: (Track) -> Void
@@ -19,6 +21,8 @@ struct TrackView: View {
             tracks: tracks,
             playlistID: playlistID,
             entityID: entityID,
+            groupsTracksByDisc: groupsTracksByDisc,
+            usesGlobalSortOrder: usesGlobalSortOrder,
             queueSource: queueSource,
             onPlayTrack: onPlayTrack,
             contextMenuItems: contextMenuItems,
