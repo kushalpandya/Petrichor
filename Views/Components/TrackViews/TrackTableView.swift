@@ -322,7 +322,7 @@ struct TrackTableView: View {
 
         // Follow overridden sort order for entities and playlists
         if entityID != nil || playlistID != nil {
-            sortedTracks = tracks.sorted(using: sortOrder)
+            sortedTracks = tracks.sorted(using: TrackSortField.expanded(sortOrder))
             return
         }
 
@@ -332,13 +332,13 @@ struct TrackTableView: View {
            let field = TrackSortField.from(storageKey: key) {
             let comparator = field.getComparator(ascending: ascending)
             sortOrder = [comparator]
-            sortedTracks = tracks.sorted(using: [comparator])
+            sortedTracks = tracks.sorted(using: TrackSortField.expanded([comparator]))
             return
         }
         
         let defaultComparator = KeyPathComparator(\Track.title, order: .forward)
         sortOrder = [defaultComparator]
-        sortedTracks = tracks.sorted(using: [defaultComparator])
+        sortedTracks = tracks.sorted(using: TrackSortField.expanded([defaultComparator]))
     }
     
     private func handleDoubleTap(on track: Track) {
@@ -386,9 +386,10 @@ struct TrackTableView: View {
         }
 
         let initialTracks = tracks
+        let comparators = TrackSortField.expanded(newSortOrder)
 
         Task.detached(priority: .userInitiated) {
-            let sorted = initialTracks.sorted(using: newSortOrder)
+            let sorted = initialTracks.sorted(using: comparators)
             await MainActor.run {
                 self.sortedTracks = sorted
             }
@@ -498,7 +499,7 @@ struct TrackTableView: View {
             // in-place mutation + sort doesn't trigger proper view refresh on macOS 14/15
             var updatedTracks = sortedTracks
             updatedTracks[index].isFavorite = updatedTrack.isFavorite
-            sortedTracks = updatedTracks.sorted(using: sortOrder)
+            sortedTracks = updatedTracks.sorted(using: TrackSortField.expanded(sortOrder))
         } else {
             sortedTracks[index].isFavorite = updatedTrack.isFavorite
         }

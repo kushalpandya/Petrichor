@@ -136,7 +136,7 @@ struct TrackListView: View {
 
         // Entities and playlists follow the sort order handed down by their container.
         if entityID != nil || playlistID != nil {
-            sortedTracks = tracks.sorted(using: sortOrder)
+            sortedTracks = tracks.sorted(using: TrackSortField.expanded(sortOrder))
             return
         }
 
@@ -146,13 +146,13 @@ struct TrackListView: View {
            let field = TrackSortField.from(storageKey: key) {
             let comparator = field.getComparator(ascending: ascending)
             sortOrder = [comparator]
-            sortedTracks = tracks.sorted(using: [comparator])
+            sortedTracks = tracks.sorted(using: TrackSortField.expanded([comparator]))
             return
         }
 
         let defaultComparator = KeyPathComparator(\Track.title, order: .forward)
         sortOrder = [defaultComparator]
-        sortedTracks = tracks.sorted(using: [defaultComparator])
+        sortedTracks = tracks.sorted(using: TrackSortField.expanded([defaultComparator]))
     }
 
     private func performBackgroundSort(with newSortOrder: [KeyPathComparator<Track>]) {
@@ -165,8 +165,9 @@ struct TrackListView: View {
         sortGeneration += 1
         let generation = sortGeneration
         let initialTracks = tracks
+        let comparators = TrackSortField.expanded(newSortOrder)
         Task.detached(priority: .userInitiated) {
-            let sorted = initialTracks.sorted(using: newSortOrder)
+            let sorted = initialTracks.sorted(using: comparators)
             await MainActor.run {
                 guard generation == self.sortGeneration else { return }
                 self.sortedTracks = sorted
@@ -212,7 +213,7 @@ struct TrackListView: View {
         if TrackSortField.detect(from: sortOrder) == .favorite {
             var updated = sortedTracks
             updated[index].isFavorite = updatedTrack.isFavorite
-            sortedTracks = updated.sorted(using: sortOrder)
+            sortedTracks = updated.sorted(using: TrackSortField.expanded(sortOrder))
         } else {
             sortedTracks[index].isFavorite = updatedTrack.isFavorite
         }

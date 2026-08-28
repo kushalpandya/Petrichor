@@ -61,6 +61,46 @@ enum TrackSortField: String, CaseIterable {
         return sortComparators[self] ?? KeyPathComparator(\Track.title, order: ascending ? .forward : .reverse)
     }
 
+    /// Comparators appended after the primary one so tracks that share the primary value
+    /// fall into album order instead of an arbitrary one. Sorting a multi-album artist by
+    /// `Artist` alone leaves their tracks interleaved across releases; year -> album ->
+    /// disc -> track restores the running order within each one.
+    ///
+    /// Tie-breakers stay ascending even when the primary sort is descending: reversing the
+    /// artist list shouldn't also play albums back to front.
+    var tieBreakers: [KeyPathComparator<Track>] {
+        switch self {
+        case .artist, .composer, .genre:
+            return [
+                KeyPathComparator(\Track.year, order: .forward),
+                KeyPathComparator(\Track.album, order: .forward),
+                KeyPathComparator(\Track.sortableDiscNumber, order: .forward),
+                KeyPathComparator(\Track.sortableTrackNumber, order: .forward)
+            ]
+        case .album, .year:
+            return [
+                KeyPathComparator(\Track.sortableDiscNumber, order: .forward),
+                KeyPathComparator(\Track.sortableTrackNumber, order: .forward)
+            ]
+        default:
+            return []
+        }
+    }
+
+    /// Expand a sort order into the full comparator chain the track views sort with.
+    ///
+    /// The primary comparator is carried over untouched, so the table header indicator, the
+    /// dropdown checkmark and the saved preference all keep reading `sortOrder.first`; only
+    /// the tie-breakers for its field are appended. Callers sort with the result and never
+    /// write it back into the `sortOrder` binding.
+    ///
+    /// A caller that already supplied its own chain — `EntityDetailView` hands down disc/track
+    /// album ordering — is passed through untouched; only a lone comparator is expanded.
+    static func expanded(_ sortOrder: [KeyPathComparator<Track>]) -> [KeyPathComparator<Track>] {
+        guard sortOrder.count == 1, let primary = sortOrder.first else { return sortOrder }
+        return [primary] + detect(from: sortOrder).tieBreakers
+    }
+
     /// User-selectable sort fields. Hidden smart-playlist sort keys like play count and
     /// last played remain supported internally, but are omitted because the table has no
     /// matching visible columns for them.
