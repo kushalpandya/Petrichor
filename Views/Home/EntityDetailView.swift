@@ -61,6 +61,8 @@ struct EntityDetailView: View {
                     selectedTrackID: $selectedTrackID,
                     playlistID: nil,
                     entityID: entity.id,
+                    groupsTracksByDisc: entity is AlbumEntity,
+                    usesGlobalSortOrder: !(entity is AlbumEntity),
                     queueSource: queueSource,
                     sortOrder: $trackTableSortOrder,
                     onPlayTrack: { track in
@@ -155,7 +157,8 @@ struct EntityDetailView: View {
             HStack(spacing: 12) {
                 TrackTableOptionsDropdown(
                     sortOrder: $trackTableSortOrder,
-                    tableRowSize: $trackTableRowSize
+                    tableRowSize: $trackTableRowSize,
+                    usesGlobalSortOrder: !(entity is AlbumEntity)
                 )
             }
             .padding([.bottom, .trailing], 12)
@@ -453,7 +456,7 @@ struct EntityDetailView: View {
         guard entity is AlbumEntity, !tracks.isEmpty else { return false }
         return tracks.allSatisfy { $0.lossless == true }
     }
-    
+
     private var isPinned: Bool {
         if let folder = entity as? FolderEntity {
             return libraryManager.isFolderPinned(path: folder.path)
@@ -515,16 +518,9 @@ extension EntityDetailView {
             fetchedTracks = []
         }
 
-        // Albums with full track numbering force disc/track ordering; everything
-        // else follows the user's saved global sort.
-        let hasCompleteAlbumOrdering = entity is AlbumEntity
-            && fetchedTracks.allSatisfy { ($0.trackNumber ?? 0) > 0 }
-
-        if hasCompleteAlbumOrdering {
-            trackTableSortOrder = [
-                KeyPathComparator(\Track.sortableDiscNumber, order: .forward),
-                KeyPathComparator(\Track.sortableTrackNumber, order: .forward)
-            ]
+        // Albums force disc/track ordering; everything else follows the user's saved global sort.
+        if entity is AlbumEntity {
+            trackTableSortOrder = Track.albumSortOrder
         } else if let savedSort = UserDefaults.standard.dictionary(forKey: "trackTableSortOrder"),
                   let key = savedSort["key"] as? String,
                   let ascending = savedSort["ascending"] as? Bool,
