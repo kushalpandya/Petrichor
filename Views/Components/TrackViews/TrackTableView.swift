@@ -4,7 +4,9 @@ struct TrackTableView: View {
     let tracks: [Track]
     let playlistID: UUID?
     let entityID: UUID?
-    let groupsTracksByDisc: Bool
+    let playbackTargetID: UUID?
+    let grouping: TrackGrouping
+    let fallbackSortOrder: [KeyPathComparator<Track>]
     let usesGlobalSortOrder: Bool
     // Queue source recorded when playing from this table (non-playlist tables); folder detail
     // views pass .folder so row playback keeps folder context, matching the header Play/Shuffle.
@@ -19,8 +21,19 @@ struct TrackTableView: View {
     
     @State private var selection: Set<Track.ID> = []
     @State private var sortedTracks: [Track] = []
+    @State private var artistTrackSections: [ArtistTrackSection] = []
     @State private var trackFavorites: [Int64: Bool] = [:]
     @State private var sortGeneration = 0
+    @State private var artistGroupingGeneration = 0
+
+    @AppStorage("groupArtistTracksByAlbum")
+    private var groupsArtistTracksByAlbum = true
+
+    @AppStorage("artistAlbumGroupsAscending")
+    private var artistAlbumGroupsAscending = true
+
+    @AppStorage("artistAlbumGroupSortField")
+    private var artistAlbumGroupSortField: ArtistAlbumGroupSortField = .albumName
     
     @State private var isCustomSort: Bool = false
     @State private var hasInitializedCustomization = false
@@ -40,39 +53,10 @@ struct TrackTableView: View {
     private static let currentTrackFont = Font.system(size: 13, weight: .medium)
     private static let currentTrackTitleFont = Font.system(size: 13, weight: .bold)
 
-    private struct DiscGroup: Identifiable {
-        let number: Int
-        let tracks: [Track]
-
-        var id: Int { number }
-    }
-
-    private func isCurrentTrack(_ track: Track) -> Bool {
-        guard let currentTrack = playbackManager.currentTrack else { return false }
-        if let currentId = currentTrack.trackId, let trackId = track.trackId {
-            return currentId == trackId
-        }
-        return currentTrack.url.path == track.url.path
-    }
-
-    private func isPlaying(_ track: Track) -> Bool {
-        isCurrentTrack(track) && playbackManager.isPlaying
-    }
-    
-    private func isFavorite(_ track: Track) -> Bool {
-        guard let trackId = track.trackId else { return track.isFavorite }
-        
-        if let favorite = trackFavorites[trackId] {
-            return favorite
-        }
-        
-        return track.isFavorite
-    }
-    
     var body: some View {
         tableView
             .contextMenu(forSelectionType: Track.ID.self) { selectedIDs in
-                let selectedTracks = sortedTracks.filter { selectedIDs.contains($0.id) }
+                let selectedTracks = displayedTracks.filter { selectedIDs.contains($0.id) }
                 if !selectedTracks.isEmpty {
                     ForEach(contextMenuItems(selectedTracks, playbackManager), id: \.id) { item in
                         contextMenuItem(item)
@@ -143,8 +127,21 @@ struct TrackTableView: View {
                     }
                 )
             }
+            .onChange(of: sortedTracks) {
+                rebuildArtistTrackSections()
+            }
+            .onChange(of: fallbackSortOrder) {
+                rebuildArtistTrackSections()
+            }
+            .onChange(of: artistAlbumGroupSortField) {
+                rebuildArtistTrackSections()
+            }
+            .onChange(of: artistAlbumGroupsAscending) {
+                rebuildArtistTrackSections()
+            }
             .onAppear {
                 initializeSortedTracks()
+                rebuildArtistTrackSections()
                 hasInitializedCustomization = true
             }
             .onReceive(NotificationCenter.default.publisher(for: .playEntityTracks)) { notification in
@@ -152,6 +149,9 @@ struct TrackTableView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .playPlaylistTracks)) { notification in
                 handlePlayPlaylistNotification(notification)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .playVisibleTrackTable)) { notification in
+                handlePlayVisibleTracksNotification(notification)
             }
             .onReceive(NotificationCenter.default.publisher(for: .trackTableSortChanged)) { notification in
                 handleSortChangedNotification(notification)
@@ -164,7 +164,7 @@ struct TrackTableView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .createPlaylistFromSelection)) { _ in
                 if !selection.isEmpty {
-                    let selectedTracks = sortedTracks.filter { selection.contains($0.id) }
+                    let selectedTracks = displayedTracks.filter { selection.contains($0.id) }
                     if !selectedTracks.isEmpty {
                         playlistManager.showCreatePlaylistModal(with: selectedTracks)
                     }
@@ -328,7 +328,41 @@ struct TrackTableView: View {
                 .defaultVisibility(.visible)
             }
         } rows: {
-            if showsDiscGroups {
+            if effectiveGrouping == .albumAndDisc {
+                ForEach(artistTrackSections) { section in
+                    Section {
+                        ForEach(section.tracks) { track in
+                            TableRow(track)
+                        }
+                    } header: {
+                        VStack(alignment: .leading, spacing: 6) {
+                            if let albumName = section.albumName,
+                               let albumTracks = section.albumTracks {
+                                HStack(spacing: 6) {
+                                    Button {
+                                        playAlbum(albumTracks)
+                                    } label: {
+                                        Image(systemName: "play.circle")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundStyle(.tint)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help("Play \(albumName)")
+                                    .accessibilityLabel("Play \(albumName)")
+
+                                    Text(albumName)
+                                        .font(.system(size: 14, weight: .semibold))
+                                }
+                            }
+                            if let discNumber = section.discNumber {
+                                Text("Disc \(discNumber)")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            } else if showsDiscGroups {
                 ForEach(discGroups) { group in
                     Section {
                         ForEach(group.tracks) { track in
@@ -350,7 +384,7 @@ struct TrackTableView: View {
     }
 
     private var showsDiscGroups: Bool {
-        groupsTracksByDisc && discGroups.count > 1
+        effectiveGrouping == .disc && discGroups.count > 1
     }
 
     private var discGroups: [DiscGroup] {
@@ -360,7 +394,17 @@ struct TrackTableView: View {
     }
 
     private var displayedTracks: [Track] {
-        showsDiscGroups ? discGroups.flatMap(\.tracks) : sortedTracks
+        if effectiveGrouping == .albumAndDisc {
+            return artistTrackSections.flatMap(\.tracks)
+        }
+        return showsDiscGroups ? discGroups.flatMap(\.tracks) : sortedTracks
+    }
+
+    private var effectiveGrouping: TrackGrouping {
+        if grouping == .albumAndDisc && !groupsArtistTracksByAlbum {
+            return .none
+        }
+        return grouping
     }
 
     private var isDiscSortDescending: Bool {
@@ -385,27 +429,9 @@ struct TrackTableView: View {
             return
         }
 
-        if let savedSort = UserDefaults.standard.dictionary(forKey: "trackTableSortOrder"),
-           let key = savedSort["key"] as? String,
-           let ascending = savedSort["ascending"] as? Bool,
-           let field = TrackSortField.from(storageKey: key) {
-            let comparator = field.getComparator(ascending: ascending)
-            sortOrder = [comparator]
-            sortedTracks = tracks.sorted(using: [comparator])
-            return
-        }
-        
-        let defaultComparator = KeyPathComparator(\Track.title, order: .forward)
-        sortOrder = [defaultComparator]
-        sortedTracks = tracks.sorted(using: [defaultComparator])
-    }
-    
-    private func handleDoubleTap(on track: Track) {
-        if isCurrentTrack(track) {
-            playbackManager.togglePlayPause()
-        } else {
-            handlePlayTrack(track)
-        }
+        let globalSortOrder = TrackSortPreferences.loadGlobal()
+        sortOrder = globalSortOrder
+        sortedTracks = tracks.sorted(using: globalSortOrder)
     }
     
     private func handlePlayTrack(_ track: Track) {
@@ -419,23 +445,7 @@ struct TrackTableView: View {
             playlistManager.currentQueueSource = queueSource
         }
     }
-    
-    private static let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
-        return formatter
-    }()
 
-    private func formatDate(_ date: Date) -> String {
-        Self.dateFormatter.string(from: date)
-    }
-    
-    @ViewBuilder
-    private func contextMenuItem(_ item: ContextMenuItem) -> some View {
-        ContextMenuItemView(item: item)
-    }
-    
     // MARK: - Sorting Helpers
     
     private func performBackgroundSort(with newSortOrder: [KeyPathComparator<Track>]) {
@@ -459,10 +469,7 @@ struct TrackTableView: View {
     }
 
     private func saveSortOrderToUserDefaults(_ sortOrder: [KeyPathComparator<Track>], key: String = "trackTableSortOrder") {
-        let field = TrackSortField.detect(from: sortOrder)
-        let ascending = TrackSortField.isAscending(from: sortOrder)
-        let storage: [String: Any] = ["key": field.storageKey, "ascending": ascending]
-        UserDefaults.standard.set(storage, forKey: key)
+        TrackSortPreferences.save(sortOrder, key: key)
     }
     
     // MARK: - Column Customization Persistence
@@ -569,6 +576,99 @@ struct TrackTableView: View {
         } else {
             sortedTracks[index].isFavorite = updatedTrack.isFavorite
         }
+        rebuildArtistTrackSections()
+    }
+}
+
+private extension TrackTableView {
+    func rebuildArtistTrackSections() {
+        artistGroupingGeneration += 1
+        let generation = artistGroupingGeneration
+
+        guard grouping == .albumAndDisc else {
+            artistTrackSections = []
+            return
+        }
+
+        let tracks = sortedTracks
+        let usesDefaultOrdering = sortOrder == Track.artistSortOrder
+        let fallbackSortOrder = fallbackSortOrder
+        let albumSortField = artistAlbumGroupSortField
+        let albumsAscending = artistAlbumGroupsAscending
+        let discsAscending = !isDiscSortDescending
+
+        Task.detached(priority: .userInitiated) {
+            let groups = ArtistTrackGrouper.groups(
+                from: tracks,
+                usesDefaultOrdering: usesDefaultOrdering,
+                fallbackSortOrder: fallbackSortOrder,
+                albumSortField: albumSortField,
+                albumsAscending: albumsAscending,
+                discsAscending: discsAscending
+            )
+            let sections = ArtistTrackGrouper.sections(from: groups)
+            await MainActor.run {
+                guard generation == self.artistGroupingGeneration else { return }
+                self.artistTrackSections = sections
+            }
+        }
+    }
+
+    @ViewBuilder
+    func contextMenuItem(_ item: ContextMenuItem) -> some View {
+        ContextMenuItemView(item: item)
+    }
+
+    func handlePlayVisibleTracksNotification(_ notification: Notification) {
+        guard let targetID = notification.userInfo?["targetID"] as? UUID,
+              targetID == playbackTargetID,
+              let firstTrack = displayedTracks.first else { return }
+        playlistManager.isShuffleEnabled = false
+        playlistManager.currentQueueSource = queueSource
+        playlistManager.playTrack(firstTrack, fromTracks: displayedTracks)
+    }
+
+    func handleDoubleTap(on track: Track) {
+        if isCurrentTrack(track) {
+            playbackManager.togglePlayPause()
+        } else {
+            handlePlayTrack(track)
+        }
+    }
+
+    static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter
+    }()
+
+    func formatDate(_ date: Date) -> String {
+        Self.dateFormatter.string(from: date)
+    }
+
+    func playAlbum(_ albumTracks: [Track]) {
+        guard let firstTrack = albumTracks.first else { return }
+        playlistManager.isShuffleEnabled = false
+        playlistManager.currentQueueSource = queueSource
+        playlistManager.playTrack(firstTrack, fromTracks: albumTracks)
+    }
+
+    func isCurrentTrack(_ track: Track) -> Bool {
+        guard let currentTrack = playbackManager.currentTrack else { return false }
+        if let currentId = currentTrack.trackId, let trackId = track.trackId {
+            return currentId == trackId
+        }
+        return currentTrack.url.path == track.url.path
+    }
+
+    func isPlaying(_ track: Track) -> Bool {
+        isCurrentTrack(track) && playbackManager.isPlaying
+    }
+
+    func isFavorite(_ track: Track) -> Bool {
+        guard let trackId = track.trackId else { return track.isFavorite }
+        return trackFavorites[trackId] ?? track.isFavorite
     }
 }
 
@@ -789,6 +889,10 @@ private struct FavoriteButtonCell: View {
 // MARK: - Track Extension for Sorting
 
 extension Track {
+    static var artistSortOrder: [KeyPathComparator<Track>] {
+        [KeyPathComparator(\Track.sortableTrackNumber, order: .forward)]
+    }
+
     static var albumSortOrder: [KeyPathComparator<Track>] {
         [
             KeyPathComparator(\Track.normalizedDiscNumber, order: .forward),

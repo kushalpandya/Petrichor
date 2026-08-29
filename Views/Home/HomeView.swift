@@ -38,7 +38,6 @@ struct HomeView: View {
     private var trackTableRowSize: TableRowSize = .expanded
     
     @Binding var selectedSidebarItem: HomeSidebarItem?
-    @State private var selectedTrackID: UUID?
     @State private var pinnedItemTracks: [Track] = []
     @State private var pinnedEntity: (any Entity)?
     @State private var resolvedPinnedItemID: Int64?
@@ -169,7 +168,6 @@ struct HomeView: View {
             } else {
                 TrackView(
                     tracks: libraryManager.tracks,
-                    selectedTrackID: $selectedTrackID,
                     playlistID: nil,
                     entityID: nil,
                     sortOrder: $trackTableSortOrder,

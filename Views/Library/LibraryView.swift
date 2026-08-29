@@ -1,7 +1,8 @@
 import SwiftUI
 
-private enum LibraryTrackSortContext: Equatable {
+private enum LibraryTrackSortContext: Hashable {
     case album(id: Int64?, name: String)
+    case person(type: LibraryFilterType, name: String)
     case global
 }
 
@@ -19,11 +20,14 @@ struct LibraryView: View {
     @AppStorage("trackTableRowSize")
     private var trackTableRowSize: TableRowSize = .expanded
 
-    @State private var selectedTrackID: UUID?
+    @State private var playbackTargetID = UUID()
     @State private var isLibrarySearchActive = false
+    @State private var isFilterLoading = false
     @State private var isViewReady = false
     @State private var trackTableSortOrder = [KeyPathComparator(\Track.title)]
+    @State private var globalFallbackSortOrder = [KeyPathComparator(\Track.title, order: .forward)]
     @State private var filterUpdateTask: Task<Void, Never>?
+    @State private var searchUpdateTask: Task<Void, Never>?
     @State private var lastFilterUpdateAt: Date = .distantPast
     @State private var sortContext: LibraryTrackSortContext?
     @Binding var pendingFilter: LibraryFilterRequest?
@@ -80,12 +84,12 @@ struct LibraryView: View {
 
     private func handleGlobalSearch() {
         isLibrarySearchActive = true
-        Task {
+        searchUpdateTask?.cancel()
+        searchUpdateTask = Task {
             try? await Task.sleep(nanoseconds: TimeConstants.searchDebounceDuration)
-            await MainActor.run {
-                updateFilteredTracks()
-                isLibrarySearchActive = false
-            }
+            guard !Task.isCancelled else { return }
+            updateFilteredTracks()
+            isLibrarySearchActive = false
         }
     }
 
@@ -136,22 +140,29 @@ struct LibraryView: View {
                 title: headerTitle,
                 sortOrder: $trackTableSortOrder,
                 tableRowSize: $trackTableRowSize,
-                usesGlobalSortOrder: !usesAlbumPresentation
+                usesGlobalSortOrder: trackGrouping == .none,
+                showsArtistGroupingOptions: trackGrouping == .albumAndDisc,
+                playAction: playVisibleTracks,
+                isPlayDisabled: cachedFilteredTracks.isEmpty || isFilterLoading
             )
 
             Divider()
 
             // Tracks list content
-            if cachedFilteredTracks.isEmpty && !isLibrarySearchActive {
+            if isFilterLoading {
+                ActivityAnimation(size: .large)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if cachedFilteredTracks.isEmpty && !isLibrarySearchActive {
                 emptyFilterView
             } else {
                 TrackView(
                     tracks: cachedFilteredTracks,
-                    selectedTrackID: $selectedTrackID,
                     playlistID: nil,
                     entityID: nil,
-                    groupsTracksByDisc: usesAlbumPresentation,
-                    usesGlobalSortOrder: !usesAlbumPresentation,
+                    playbackTargetID: playbackTargetID,
+                    grouping: trackGrouping,
+                    fallbackSortOrder: globalFallbackSortOrder,
+                    usesGlobalSortOrder: trackGrouping == .none,
                     sortOrder: $trackTableSortOrder,
                     onPlayTrack: { track in
                         playlistManager.playTrack(track, fromTracks: cachedFilteredTracks)
@@ -171,6 +182,14 @@ struct LibraryView: View {
 
     // MARK: - Tracks List Header
 
+    private func playVisibleTracks() {
+        NotificationCenter.default.post(
+            name: .playVisibleTrackTable,
+            object: nil,
+            userInfo: ["targetID": playbackTargetID]
+        )
+    }
+
     private var headerTitle: String {
         if !libraryManager.globalSearchText.isEmpty {
             return String(localized: "Search Results")
@@ -189,6 +208,18 @@ struct LibraryView: View {
         libraryManager.globalSearchText.isEmpty
             && selectedFilterType == .albums
             && selectedFilterItem?.isAllItem == false
+    }
+
+    private var usesPersonPresentation: Bool {
+        libraryManager.globalSearchText.isEmpty
+            && selectedFilterType.usesMultiArtistParsing
+            && selectedFilterItem?.isAllItem == false
+    }
+
+    private var trackGrouping: TrackGrouping {
+        if usesAlbumPresentation { return .disc }
+        if usesPersonPresentation { return .albumAndDisc }
+        return .none
     }
 
     // MARK: - Empty Filter View
@@ -237,6 +268,7 @@ struct LibraryView: View {
         filterUpdateTask?.cancel()
 
         if !libraryManager.globalSearchText.isEmpty {
+            isFilterLoading = false
             var tracks = libraryManager.searchResults
 
             if let filterItem = selectedFilterItem, !filterItem.isAllItem {
@@ -249,12 +281,15 @@ struct LibraryView: View {
         } else {
             if let filterItem = selectedFilterItem {
                 if filterItem.isAllItem {
+                    isFilterLoading = false
                     cachedFilteredTracks = []
                 } else {
                     let filterType = selectedFilterType
                     let filterValue = filterItem.name
                     let albumId = filterItem.albumId
                     let libManager = libraryManager
+                    cachedFilteredTracks = []
+                    isFilterLoading = true
 
                     filterUpdateTask = Task {
                         if isRapidChange {
@@ -273,31 +308,36 @@ struct LibraryView: View {
 
                         await MainActor.run {
                             self.cachedFilteredTracks = tracks
+                            self.isFilterLoading = false
                         }
                     }
                 }
             } else {
+                isFilterLoading = false
                 cachedFilteredTracks = []
             }
         }
     }
 
     private func updateTrackSortOrder() {
-        let newContext: LibraryTrackSortContext = usesAlbumPresentation
-            ? .album(id: selectedFilterItem?.albumId, name: selectedFilterItem?.name ?? "")
-            : .global
+        let newContext: LibraryTrackSortContext
+        if usesAlbumPresentation {
+            newContext = .album(id: selectedFilterItem?.albumId, name: selectedFilterItem?.name ?? "")
+        } else if usesPersonPresentation {
+            newContext = .person(type: selectedFilterType, name: selectedFilterItem?.name ?? "")
+        } else {
+            newContext = .global
+        }
         guard newContext != sortContext else { return }
         sortContext = newContext
 
+        globalFallbackSortOrder = TrackSortPreferences.loadGlobal()
         if usesAlbumPresentation {
             trackTableSortOrder = Track.albumSortOrder
-        } else if let savedSort = UserDefaults.standard.dictionary(forKey: "trackTableSortOrder"),
-                  let key = savedSort["key"] as? String,
-                  let ascending = savedSort["ascending"] as? Bool,
-                  let field = TrackSortField.from(storageKey: key) {
-            trackTableSortOrder = [field.getComparator(ascending: ascending)]
+        } else if usesPersonPresentation {
+            trackTableSortOrder = Track.artistSortOrder
         } else {
-            trackTableSortOrder = [KeyPathComparator(\Track.title, order: .forward)]
+            trackTableSortOrder = globalFallbackSortOrder
         }
     }
 }

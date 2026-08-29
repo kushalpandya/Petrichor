@@ -113,6 +113,26 @@ enum TrackSortField: String, CaseIterable {
     }
 }
 
+enum TrackSortPreferences {
+    static let globalKey = "trackTableSortOrder"
+
+    static func loadGlobal() -> [KeyPathComparator<Track>] {
+        guard let savedSort = UserDefaults.standard.dictionary(forKey: globalKey),
+              let key = savedSort["key"] as? String,
+              let ascending = savedSort["ascending"] as? Bool,
+              let field = TrackSortField.from(storageKey: key) else {
+            return [KeyPathComparator(\Track.title, order: .forward)]
+        }
+        return [field.getComparator(ascending: ascending)]
+    }
+
+    static func save(_ sortOrder: [KeyPathComparator<Track>], key: String = globalKey) {
+        let field = TrackSortField.detect(from: sortOrder)
+        let ascending = TrackSortField.isAscending(from: sortOrder)
+        UserDefaults.standard.set(["key": field.storageKey, "ascending": ascending], forKey: key)
+    }
+}
+
 // MARK: - TrackTableOptionsDropdown
 
 struct TrackTableOptionsDropdown: View {
@@ -121,20 +141,32 @@ struct TrackTableOptionsDropdown: View {
     private let playlistID: UUID?
     private let showCustomSort: Bool
     private let usesGlobalSortOrder: Bool
+    private let showsArtistGroupingOptions: Bool
     @State private var isCustomSort = false
+
+    @AppStorage("groupArtistTracksByAlbum")
+    private var groupsArtistTracksByAlbum = true
+
+    @AppStorage("artistAlbumGroupsAscending")
+    private var artistAlbumGroupsAscending = true
+
+    @AppStorage("artistAlbumGroupSortField")
+    private var artistAlbumGroupSortField: ArtistAlbumGroupSortField = .albumName
 
     init(
         sortOrder: Binding<[KeyPathComparator<Track>]>,
         tableRowSize: Binding<TableRowSize>,
         playlistID: UUID? = nil,
         showCustomSort: Bool = false,
-        usesGlobalSortOrder: Bool = true
+        usesGlobalSortOrder: Bool = true,
+        showsArtistGroupingOptions: Bool = false
     ) {
         self._sortOrder = sortOrder
         self._tableRowSize = tableRowSize
         self.playlistID = playlistID
         self.showCustomSort = showCustomSort
         self.usesGlobalSortOrder = usesGlobalSortOrder
+        self.showsArtistGroupingOptions = showsArtistGroupingOptions
     }
 
     private var currentSortField: TrackSortField {
@@ -154,7 +186,7 @@ struct TrackTableOptionsDropdown: View {
 
     var body: some View {
         Menu {
-            Section("Sort by") {
+            Section("Sort tracks by") {
                 ForEach(TrackSortField.sortFields, id: \.self) { field in
                     Toggle(field.displayName, isOn: Binding(
                         get: { currentSortField == field },
@@ -169,6 +201,46 @@ struct TrackTableOptionsDropdown: View {
                         get: { isCustomSort },
                         set: { _ in setSortField(.custom) }
                     ))
+                }
+            }
+
+            if showsArtistGroupingOptions {
+                Divider()
+
+                Section("Group tracks by") {
+                    Toggle("None", isOn: Binding(
+                        get: { !groupsArtistTracksByAlbum },
+                        set: { _ in groupsArtistTracksByAlbum = false }
+                    ))
+                    Toggle("Album", isOn: Binding(
+                        get: { groupsArtistTracksByAlbum },
+                        set: { _ in groupsArtistTracksByAlbum = true }
+                    ))
+
+                    Menu("Sort groups by") {
+                        Section("Sort groups by") {
+                            ForEach(ArtistAlbumGroupSortField.allCases, id: \.self) { field in
+                                Toggle(field.displayName, isOn: Binding(
+                                    get: { artistAlbumGroupSortField == field },
+                                    set: { _ in artistAlbumGroupSortField = field }
+                                ))
+                            }
+                        }
+
+                        Divider()
+
+                        Section("Sort order") {
+                            Toggle("Ascending", isOn: Binding(
+                                get: { artistAlbumGroupsAscending },
+                                set: { _ in artistAlbumGroupsAscending = true }
+                            ))
+                            Toggle("Descending", isOn: Binding(
+                                get: { !artistAlbumGroupsAscending },
+                                set: { _ in artistAlbumGroupsAscending = false }
+                            ))
+                        }
+                    }
+                    .disabled(!groupsArtistTracksByAlbum)
                 }
             }
 

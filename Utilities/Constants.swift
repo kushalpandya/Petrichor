@@ -315,6 +315,7 @@ extension Notification.Name {
     
     static let playEntityTracks = Notification.Name("playEntityTracks")
     static let playPlaylistTracks = Notification.Name("playPlaylistTracks")
+    static let playVisibleTrackTable = Notification.Name("playVisibleTrackTable")
     static let trackTableSortChanged = Notification.Name("trackTableSortChanged")
     static let trackTableRowSizeChanged = Notification.Name("trackTableRowSizeChanged")
     static let trackFavoriteStatusChanged = Notification.Name("trackFavoriteStatusChanged")

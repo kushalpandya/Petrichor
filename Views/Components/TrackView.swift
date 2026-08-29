@@ -1,12 +1,33 @@
 import SwiftUI
 
+enum TrackGrouping {
+    case none
+    case disc
+    case albumAndDisc
+}
+
+enum ArtistAlbumGroupSortField: String, CaseIterable {
+    case albumName
+    case year
+    case dateAdded
+
+    var displayName: String {
+        switch self {
+        case .albumName: return String(localized: "Album name")
+        case .year: return String(localized: "Year")
+        case .dateAdded: return String(localized: "Date added")
+        }
+    }
+}
+
 // MARK: - Track View
 struct TrackView: View {
     let tracks: [Track]
-    @Binding var selectedTrackID: UUID?
     let playlistID: UUID?
     let entityID: UUID?
-    var groupsTracksByDisc = false
+    var playbackTargetID: UUID?
+    var grouping: TrackGrouping = .none
+    var fallbackSortOrder = [KeyPathComparator(\Track.title, order: .forward)]
     var usesGlobalSortOrder = true
     var queueSource: PlaylistManager.QueueSource = .library
     @Binding var sortOrder: [KeyPathComparator<Track>]
@@ -21,7 +42,9 @@ struct TrackView: View {
             tracks: tracks,
             playlistID: playlistID,
             entityID: entityID,
-            groupsTracksByDisc: groupsTracksByDisc,
+            playbackTargetID: playbackTargetID,
+            grouping: grouping,
+            fallbackSortOrder: fallbackSortOrder,
             usesGlobalSortOrder: usesGlobalSortOrder,
             queueSource: queueSource,
             onPlayTrack: onPlayTrack,
@@ -57,7 +80,6 @@ struct TrackContextMenuContent: View {
 
     TrackView(
         tracks: sampleTracks,
-        selectedTrackID: .constant(nil),
         playlistID: nil,
         entityID: nil,
         sortOrder: $sortOrder,
@@ -85,7 +107,6 @@ struct TrackContextMenuContent: View {
 
     TrackView(
         tracks: sampleTracks,
-        selectedTrackID: .constant(nil),
         playlistID: nil,
         entityID: nil,
         sortOrder: $sortOrder,

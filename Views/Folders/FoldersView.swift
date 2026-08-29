@@ -5,7 +5,6 @@ struct FoldersView: View {
     @EnvironmentObject var libraryManager: LibraryManager
     @EnvironmentObject var playlistManager: PlaylistManager
     @Binding var selectedFolderNode: FolderNode?
-    @State private var selectedTrackID: UUID?
     @State private var folderTracks: [Track] = []
     @State private var trackTableSortOrder = [KeyPathComparator(\Track.title)]
 
@@ -82,7 +81,6 @@ struct FoldersView: View {
     private var trackListView: some View {
         TrackView(
             tracks: folderTracks,
-            selectedTrackID: $selectedTrackID,
             playlistID: nil,
             entityID: nil,
             queueSource: .folder,
@@ -91,7 +89,6 @@ struct FoldersView: View {
                 if selectedFolderNode != nil {
                     // For hierarchical view, we need to play from the track list
                     playlistManager.playTrack(track, fromTracks: folderTracks)
-                    selectedTrackID = track.id
                 }
             },
             contextMenuItems: { tracks, _ in
