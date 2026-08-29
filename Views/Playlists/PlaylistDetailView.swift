@@ -9,7 +9,6 @@ struct PlaylistDetailView: View {
 
     @EnvironmentObject var playlistManager: PlaylistManager
     @ObservedObject private var radioManager = InternetRadioManager.shared
-    @State private var selectedTrackID: UUID?
     @State private var gradientColors: [Color] = []
     @State private var gradientTask: Task<Void, Never>?
     @State private var artworkData: Data?
@@ -76,7 +75,6 @@ struct PlaylistDetailView: View {
             }
             .onChange(of: playlistID) {
                 // Fired when this view is reused for a different playlist.
-                selectedTrackID = nil
                 stations = []
                 seedArtworkFromCache()
                 loadPlaylistTracksIfNeeded()
@@ -371,14 +369,12 @@ struct PlaylistDetailView: View {
             } else if let playlist, !playlist.tracks.isEmpty {
                 TrackView(
                     tracks: playlist.tracks,
-                    selectedTrackID: $selectedTrackID,
                     playlistID: playlistID,
                     entityID: nil,
                     sortOrder: $playlistSortOrder,
                     onPlayTrack: { track in
                         if let index = playlist.tracks.firstIndex(of: track) {
                             playlistManager.playTrackFromPlaylist(playlist, at: index)
-                            selectedTrackID = track.id
                         }
                     },
                     contextMenuItems: { track, _ in

@@ -140,19 +140,9 @@ struct TrackListView: View {
             return
         }
 
-        if let savedSort = UserDefaults.standard.dictionary(forKey: "trackTableSortOrder"),
-           let key = savedSort["key"] as? String,
-           let ascending = savedSort["ascending"] as? Bool,
-           let field = TrackSortField.from(storageKey: key) {
-            let comparator = field.getComparator(ascending: ascending)
-            sortOrder = [comparator]
-            sortedTracks = tracks.sorted(using: [comparator])
-            return
-        }
-
-        let defaultComparator = KeyPathComparator(\Track.title, order: .forward)
-        sortOrder = [defaultComparator]
-        sortedTracks = tracks.sorted(using: [defaultComparator])
+        let globalSortOrder = TrackSortPreferences.loadGlobal()
+        sortOrder = globalSortOrder
+        sortedTracks = tracks.sorted(using: globalSortOrder)
     }
 
     private func performBackgroundSort(with newSortOrder: [KeyPathComparator<Track>]) {

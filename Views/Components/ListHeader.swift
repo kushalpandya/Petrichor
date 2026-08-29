@@ -154,6 +154,9 @@ struct TrackListHeader<Trailing: View>: View {
     let sortOrder: Binding<[KeyPathComparator<Track>]>?
     let tableRowSize: Binding<TableRowSize>?
     let usesGlobalSortOrder: Bool
+    let showsArtistGroupingOptions: Bool
+    let playAction: (() -> Void)?
+    let isPlayDisabled: Bool
     let trailing: (() -> Trailing)?
 
     // With sort options + trailing content
@@ -163,6 +166,9 @@ struct TrackListHeader<Trailing: View>: View {
         sortOrder: Binding<[KeyPathComparator<Track>]>,
         tableRowSize: Binding<TableRowSize>,
         usesGlobalSortOrder: Bool = true,
+        showsArtistGroupingOptions: Bool = false,
+        playAction: (() -> Void)? = nil,
+        isPlayDisabled: Bool = false,
         @ViewBuilder trailingContent: @escaping () -> Trailing
     ) {
         self.title = title
@@ -171,6 +177,9 @@ struct TrackListHeader<Trailing: View>: View {
         self.sortOrder = sortOrder
         self.tableRowSize = tableRowSize
         self.usesGlobalSortOrder = usesGlobalSortOrder
+        self.showsArtistGroupingOptions = showsArtistGroupingOptions
+        self.playAction = playAction
+        self.isPlayDisabled = isPlayDisabled
         self.trailing = trailingContent
     }
 
@@ -180,7 +189,10 @@ struct TrackListHeader<Trailing: View>: View {
         subtitle: String? = nil,
         sortOrder: Binding<[KeyPathComparator<Track>]>,
         tableRowSize: Binding<TableRowSize>,
-        usesGlobalSortOrder: Bool = true
+        usesGlobalSortOrder: Bool = true,
+        showsArtistGroupingOptions: Bool = false,
+        playAction: (() -> Void)? = nil,
+        isPlayDisabled: Bool = false
     ) where Trailing == EmptyView {
         self.title = title
         self.subtitle = subtitle
@@ -188,6 +200,9 @@ struct TrackListHeader<Trailing: View>: View {
         self.sortOrder = sortOrder
         self.tableRowSize = tableRowSize
         self.usesGlobalSortOrder = usesGlobalSortOrder
+        self.showsArtistGroupingOptions = showsArtistGroupingOptions
+        self.playAction = playAction
+        self.isPlayDisabled = isPlayDisabled
         self.trailing = nil
     }
 
@@ -204,6 +219,9 @@ struct TrackListHeader<Trailing: View>: View {
         self.sortOrder = nil
         self.tableRowSize = nil
         self.usesGlobalSortOrder = true
+        self.showsArtistGroupingOptions = false
+        self.playAction = nil
+        self.isPlayDisabled = false
         self.trailing = trailing
     }
 
@@ -219,11 +237,26 @@ struct TrackListHeader<Trailing: View>: View {
         self.sortOrder = nil
         self.tableRowSize = nil
         self.usesGlobalSortOrder = true
+        self.showsArtistGroupingOptions = false
+        self.playAction = nil
+        self.isPlayDisabled = false
         self.trailing = nil
     }
 
     var body: some View {
         ListHeader(opaque: true) {
+            if let playAction {
+                Button(action: playAction) {
+                    Image(systemName: "play.circle")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.tint)
+                }
+                .buttonStyle(.plain)
+                .disabled(isPlayDisabled)
+                .help("Play all visible tracks")
+                .accessibilityLabel("Play all visible tracks")
+            }
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .headerTitleStyle()
@@ -247,7 +280,8 @@ struct TrackListHeader<Trailing: View>: View {
                 TrackTableOptionsDropdown(
                     sortOrder: sortOrder,
                     tableRowSize: tableRowSize,
-                    usesGlobalSortOrder: usesGlobalSortOrder
+                    usesGlobalSortOrder: usesGlobalSortOrder,
+                    showsArtistGroupingOptions: showsArtistGroupingOptions
                 )
             }
         }

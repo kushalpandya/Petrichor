@@ -17,7 +17,6 @@ struct EntityDetailView: View {
     @EnvironmentObject var playlistManager: PlaylistManager
     @EnvironmentObject var libraryManager: LibraryManager
     @State private var tracks: [Track] = []
-    @State private var selectedTrackID: UUID?
     @State private var isLoading = true
     @State private var isArtworkHovered = false
     @State private var showingImagePicker = false
@@ -44,6 +43,7 @@ struct EntityDetailView: View {
     var colorScheme
 
     @State private var trackTableSortOrder = [KeyPathComparator(\Track.title)]
+    @State private var globalFallbackSortOrder = [KeyPathComparator(\Track.title, order: .forward)]
     
     var body: some View {
         VStack(spacing: 0) {
@@ -58,11 +58,11 @@ struct EntityDetailView: View {
             } else {
                 TrackView(
                     tracks: tracks,
-                    selectedTrackID: $selectedTrackID,
                     playlistID: nil,
                     entityID: entity.id,
-                    groupsTracksByDisc: entity is AlbumEntity,
-                    usesGlobalSortOrder: !(entity is AlbumEntity),
+                    grouping: trackGrouping,
+                    fallbackSortOrder: globalFallbackSortOrder,
+                    usesGlobalSortOrder: trackGrouping == .none,
                     queueSource: queueSource,
                     sortOrder: $trackTableSortOrder,
                     onPlayTrack: { track in
@@ -158,7 +158,8 @@ struct EntityDetailView: View {
                 TrackTableOptionsDropdown(
                     sortOrder: $trackTableSortOrder,
                     tableRowSize: $trackTableRowSize,
-                    usesGlobalSortOrder: !(entity is AlbumEntity)
+                    usesGlobalSortOrder: trackGrouping == .none,
+                    showsArtistGroupingOptions: trackGrouping == .albumAndDisc
                 )
             }
             .padding([.bottom, .trailing], 12)
@@ -184,6 +185,12 @@ struct EntityDetailView: View {
 
     private var isPersonEntity: Bool {
         entity is ArtistEntity
+    }
+
+    private var trackGrouping: TrackGrouping {
+        if entity is AlbumEntity { return .disc }
+        if isPersonEntity { return .albumAndDisc }
+        return .none
     }
 
     private var entityArtwork: some View {
@@ -518,14 +525,15 @@ extension EntityDetailView {
             fetchedTracks = []
         }
 
-        // Albums force disc/track ordering; everything else follows the user's saved global sort.
+        globalFallbackSortOrder = TrackSortPreferences.loadGlobal()
+
+        // Albums and people use local presentation ordering; everything else follows the global sort.
         if entity is AlbumEntity {
             trackTableSortOrder = Track.albumSortOrder
-        } else if let savedSort = UserDefaults.standard.dictionary(forKey: "trackTableSortOrder"),
-                  let key = savedSort["key"] as? String,
-                  let ascending = savedSort["ascending"] as? Bool,
-                  let field = TrackSortField.from(storageKey: key) {
-            trackTableSortOrder = [field.getComparator(ascending: ascending)]
+        } else if isPersonEntity {
+            trackTableSortOrder = Track.artistSortOrder
+        } else {
+            trackTableSortOrder = globalFallbackSortOrder
         }
 
         self.tracks = fetchedTracks
@@ -539,7 +547,7 @@ extension EntityDetailView {
 
         self.isLoading = false
     }
-    
+
     private func pinEntity() {
         Task {
             if let folder = entity as? FolderEntity {
@@ -582,7 +590,6 @@ extension EntityDetailView {
 
     private func playTrack(_ track: Track) {
         playlistManager.playTrack(track, fromTracks: tracks)
-        selectedTrackID = track.id
     }
 
     private func playEntity(shuffle: Bool = false) {
