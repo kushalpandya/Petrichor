@@ -461,8 +461,7 @@ extension DatabaseManager {
         try db.createIndexIfNotExists(name: "idx_tracks_compilation", table: "tracks", columns: ["compilation"])
         try db.createIndexIfNotExists(name: "idx_tracks_media_type", table: "tracks", columns: ["media_type"])
 
-        // TODO: Uncomment in next minor release to add filename index for playlist import performance
-        // try db.createIndexIfNotExists(name: "idx_tracks_filename", table: "tracks", columns: ["filename"])
+        try db.execute(sql: "CREATE INDEX IF NOT EXISTS idx_tracks_filename_lower ON tracks(LOWER(filename))")
 
         // Duplicate tracking indices
         try db.createIndexIfNotExists(name: "idx_tracks_primary_track_id", table: "tracks", columns: ["primary_track_id"])
@@ -572,9 +571,9 @@ extension DatabaseManager {
             columns: ["last_played"]
         )
         try db.createIndexIfNotExists(
-            name: "idx_playlist_stations_playlist_id",
+            name: "idx_playlist_stations_playlist_position",
             table: "playlist_stations",
-            columns: ["playlist_id"]
+            columns: ["playlist_id", "position"]
         )
         try db.createIndexIfNotExists(
             name: "idx_playlist_stations_station_id",

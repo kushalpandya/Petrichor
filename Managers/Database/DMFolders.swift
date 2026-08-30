@@ -629,16 +629,8 @@ extension DatabaseManager {
             }
         }
         
-        // Remove tracks from database
-        try await dbQueue.write { db in
-            for track in tracksToRemove {
-                try track.delete(db)
-                Logger.info("Removed track that no longer exists: \(track.url.lastPathComponent)")
-            }
-        }
-        
-        // Clean up orphaned metadata
-        try await cleanupAfterTrackRemoval(trackIdsToRemove)
+        // Remove tracks and their orphaned metadata in one transaction.
+        try await cleanupAfterTrackRemoval(tracksToRemove)
         
         // Report results to user
         await MainActor.run {

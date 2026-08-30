@@ -55,67 +55,7 @@ extension DatabaseManager {
             )
             deletedCounts["playlist_tracks"] = Int(db.changesCount)
             
-            // 2. Now clean up main tables using GRDB where possible
-            
-            // Get all artist IDs that are still referenced in track_artists OR album_artists.
-            // Album-only artists (e.g. the canonical "Various Artists" used to anchor
-            // compilations) have no track_artists rows but must not be considered orphaned.
-            let artistsWithTracks = try TrackArtist
-                .select(TrackArtist.Columns.artistId, as: Int64.self)
-                .distinct()
-                .fetchSet(db)
-
-            let artistsWithAlbums = try AlbumArtist
-                .select(AlbumArtist.Columns.artistId, as: Int64.self)
-                .distinct()
-                .fetchSet(db)
-
-            let referencedArtists = artistsWithTracks.union(artistsWithAlbums)
-
-            // Delete artists that have NO references in either junction
-            let allArtistIds = try Artist.select(Artist.Columns.id, as: Int64.self).fetchSet(db)
-            let artistsToDelete = allArtistIds.subtracting(referencedArtists)
-            
-            if !artistsToDelete.isEmpty {
-                let orphanedArtists = try Artist
-                    .filter(artistsToDelete.contains(Artist.Columns.id))
-                    .deleteAll(db)
-                deletedCounts["artists"] = orphanedArtists
-            }
-            
-            // Delete orphaned albums (albums with no tracks)
-            let albumsWithTracks = try Track
-                .select(Track.Columns.albumId, as: Int64?.self)
-                .filter(Track.Columns.albumId != nil)
-                .distinct()
-                .fetchSet(db)
-                .compactMap { $0 }
-            
-            let allAlbumIds = try Album.select(Album.Columns.id, as: Int64.self).fetchSet(db)
-            let albumsToDelete = allAlbumIds.subtracting(albumsWithTracks)
-            
-            if !albumsToDelete.isEmpty {
-                let orphanedAlbums = try Album
-                    .filter(albumsToDelete.contains(Album.Columns.id))
-                    .deleteAll(db)
-                deletedCounts["albums"] = orphanedAlbums
-            }
-            
-            // Delete orphaned genres (genres with no tracks)
-            let genresWithTracks = try TrackGenre
-                .select(TrackGenre.Columns.genreId, as: Int64.self)
-                .distinct()
-                .fetchSet(db)
-            
-            let allGenreIds = try Genre.select(Genre.Columns.id, as: Int64.self).fetchSet(db)
-            let genresToDelete = allGenreIds.subtracting(genresWithTracks)
-            
-            if !genresToDelete.isEmpty {
-                let orphanedGenres = try Genre
-                    .filter(genresToDelete.contains(Genre.Columns.id))
-                    .deleteAll(db)
-                deletedCounts["genres"] = orphanedGenres
-            }
+            deletedCounts.merge(try deleteOrphanedEntities(in: db)) { $0 + $1 }
             
             // 3. Clean up other orphaned data using raw SQL
             
@@ -131,16 +71,7 @@ extension DatabaseManager {
                 deletedCounts["extended_metadata"] = Int(db.changesCount)
             }
             
-            // Delete orphaned pinned items
-            try db.execute(
-                sql: """
-                DELETE FROM pinned_items
-                WHERE (artist_id IS NOT NULL AND artist_id NOT IN (SELECT id FROM artists))
-                   OR (album_id IS NOT NULL AND album_id NOT IN (SELECT id FROM albums))
-                   OR (playlist_id IS NOT NULL AND playlist_id NOT IN (SELECT id FROM playlists))
-                """
-            )
-            deletedCounts["pinned_items"] = Int(db.changesCount)
+            deletedCounts["pinned_items"] = try deleteOrphanedPins(in: db)
             
             // Log cleanup results
             var totalDeleted = 0
@@ -157,86 +88,65 @@ extension DatabaseManager {
         }
     }
     
-    //// Clean up after removing specific tracks
-    func cleanupAfterTrackRemoval(_ trackIds: [Int64]) async throws {
+    /// Remove specific tracks and clean up entities and pins orphaned by them.
+    func cleanupAfterTrackRemoval(_ tracks: [Track]) async throws {
+        let trackIds = tracks.compactMap(\.trackId)
         guard !trackIds.isEmpty else { return }
         
         Logger.info("Cleaning up after removing \(trackIds.count) tracks...")
         
         try await dbQueue.write { db in
-            // Get affected artist and album IDs before deletion
-            let affectedArtistIds = try TrackArtist
-                .filter(trackIds.contains(TrackArtist.Columns.trackId))
-                .select(TrackArtist.Columns.artistId, as: Int64.self)
-                .distinct()
-                .fetchSet(db)
-            
-            let affectedAlbumIds = try Track
-                .filter(trackIds.contains(Track.Columns.trackId))
-                .filter(Track.Columns.albumId != nil)
-                .select(Track.Columns.albumId, as: Int64?.self)
-                .fetchSet(db)
-                .compactMap { $0 }
-            
-            // Get affected genre IDs
-            let affectedGenreIds = try TrackGenre
-                .filter(trackIds.contains(TrackGenre.Columns.trackId))
-                .select(TrackGenre.Columns.genreId, as: Int64.self)
-                .distinct()
-                .fetchSet(db)
-            
-            // Now check if these artists/albums/genres still have other tracks
-            // Artists that still have tracks
-            let artistsWithTracks = try TrackArtist
-                .filter(affectedArtistIds.contains(TrackArtist.Columns.artistId))
-                .filter(!trackIds.contains(TrackArtist.Columns.trackId))
-                .select(TrackArtist.Columns.artistId, as: Int64.self)
-                .distinct()
-                .fetchSet(db)
-            
-            // Delete artists that no longer have tracks
-            let artistsToDelete = Set(affectedArtistIds).subtracting(artistsWithTracks)
-            if !artistsToDelete.isEmpty {
-                let count = try Artist
-                    .filter(artistsToDelete.contains(Artist.Columns.id))
+            var removedTrackCount = 0
+            for start in stride(from: 0, to: trackIds.count, by: 500) {
+                let ids = Array(trackIds[start..<min(start + 500, trackIds.count)])
+                removedTrackCount += try Track
+                    .filter(ids.contains(Track.Columns.trackId))
                     .deleteAll(db)
-                Logger.info("Removed \(count) orphaned artists")
             }
-            
-            // Albums that still have tracks
-            let albumsWithTracks = try Track
-                .filter(affectedAlbumIds.contains(Track.Columns.albumId))
-                .filter(!trackIds.contains(Track.Columns.trackId))
-                .select(Track.Columns.albumId, as: Int64?.self)
-                .distinct()
-                .fetchSet(db)
-                .compactMap { $0 }
-            
-            // Delete albums that no longer have tracks
-            let albumsToDelete = Set(affectedAlbumIds).subtracting(albumsWithTracks)
-            if !albumsToDelete.isEmpty {
-                let count = try Album
-                    .filter(albumsToDelete.contains(Album.Columns.id))
-                    .deleteAll(db)
-                Logger.info("Removed \(count) orphaned albums")
+            Logger.info("Removed \(removedTrackCount) tracks that no longer exist")
+
+            for (table, count) in try deleteOrphanedEntities(in: db) where count > 0 {
+                Logger.info("Removed \(count) orphaned \(table)")
             }
-            
-            // Genres that still have tracks
-            let genresWithTracks = try TrackGenre
-                .filter(affectedGenreIds.contains(TrackGenre.Columns.genreId))
-                .filter(!trackIds.contains(TrackGenre.Columns.trackId))
-                .select(TrackGenre.Columns.genreId, as: Int64.self)
-                .distinct()
-                .fetchSet(db)
-            
-            // Delete genres that no longer have tracks
-            let genresToDelete = Set(affectedGenreIds).subtracting(genresWithTracks)
-            if !genresToDelete.isEmpty {
-                let count = try Genre
-                    .filter(genresToDelete.contains(Genre.Columns.id))
-                    .deleteAll(db)
-                Logger.info("Removed \(count) orphaned genres")
+
+            let removedPinCount = try deleteOrphanedPins(in: db)
+            if removedPinCount > 0 {
+                Logger.info("Removed \(removedPinCount) orphaned pinned items")
             }
         }
+    }
+
+    /// Albums go first because deleting one can make its album-only artists orphaned.
+    private func deleteOrphanedEntities(in db: Database) throws -> [String: Int] {
+        var deletedCounts = [String: Int]()
+
+        try db.execute(sql: "DELETE FROM albums WHERE NOT EXISTS (SELECT 1 FROM tracks WHERE tracks.album_id = albums.id)")
+        deletedCounts["albums"] = Int(db.changesCount)
+
+        try db.execute(
+            sql: """
+            DELETE FROM artists
+            WHERE NOT EXISTS (SELECT 1 FROM track_artists WHERE track_artists.artist_id = artists.id)
+              AND NOT EXISTS (SELECT 1 FROM album_artists WHERE album_artists.artist_id = artists.id)
+            """
+        )
+        deletedCounts["artists"] = Int(db.changesCount)
+
+        try db.execute(sql: "DELETE FROM genres WHERE NOT EXISTS (SELECT 1 FROM track_genres WHERE track_genres.genre_id = genres.id)")
+        deletedCounts["genres"] = Int(db.changesCount)
+
+        return deletedCounts
+    }
+
+    private func deleteOrphanedPins(in db: Database) throws -> Int {
+        try db.execute(
+            sql: """
+            DELETE FROM pinned_items
+            WHERE (artist_id IS NOT NULL AND artist_id NOT IN (SELECT id FROM artists))
+               OR (album_id IS NOT NULL AND album_id NOT IN (SELECT id FROM albums))
+               OR (playlist_id IS NOT NULL AND playlist_id NOT IN (SELECT id FROM playlists))
+            """
+        )
+        return Int(db.changesCount)
     }
 }
