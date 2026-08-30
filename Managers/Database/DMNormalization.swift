@@ -305,7 +305,7 @@ extension DatabaseManager {
 
         // Update release year if not set
         if album.releaseYear == nil && !track.year.isEmpty && track.year != "Unknown Year" {
-            if let year = Int(track.year) {
+            if let year = Int(track.year), (1900...2100).contains(year) {
                 album.releaseYear = year
                 needsUpdate = true
             }

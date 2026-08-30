@@ -224,70 +224,76 @@ enum DatabaseMigrator {
             Logger.info("v12_backfill_album_artists: flagged for background album-artist backfill")
         }
 
-        migrator.registerMigration("v13_add_discover_indices") { db in
-            // Discover's Recently Played row scans tracks ordered by last_played_date.
-            // The composite serves the common case (hideDuplicateTracks defaults to
-            // true) as a range scan; the plain index covers the setting being off,
-            // where the leading is_duplicate column can't be constrained.
-            try db.createIndexIfNotExists(
-                name: "idx_tracks_last_played_date",
-                table: "tracks",
-                columns: ["last_played_date"]
-            )
-            try db.createIndexIfNotExists(
-                name: "idx_tracks_duplicate_last_played",
-                table: "tracks",
-                columns: ["is_duplicate", "last_played_date"]
-            )
+        migrator.registerMigration(
+            "v13_add_discover_radio_and_category_pins",
+            merging: ["v13_add_discover_indices", "v14_add_internet_radio", "v15_pin_default_categories"]
+        ) { db, appliedIdentifiers in
+            // v10's plain filename index cannot serve the case-insensitive playlist-import query.
+            try db.execute(sql: "DROP INDEX IF EXISTS idx_tracks_filename")
+            try db.execute(sql: "CREATE INDEX IF NOT EXISTS idx_tracks_filename_lower ON tracks(LOWER(filename))")
 
-            // Fresh Music selects play_count = 0 at random; without this it scans
-            // the whole tracks table.
-            try db.createIndexIfNotExists(
-                name: "idx_tracks_duplicate_play_count",
-                table: "tracks",
-                columns: ["is_duplicate", "play_count"]
-            )
+            if !appliedIdentifiers.contains("v13_add_discover_indices") {
+                // Discover's Recently Played row scans tracks ordered by last_played_date.
+                // The composite serves the common case (hideDuplicateTracks defaults to
+                // true) as a range scan; the plain index covers the setting being off,
+                // where the leading is_duplicate column can't be constrained.
+                try db.createIndexIfNotExists(
+                    name: "idx_tracks_last_played_date",
+                    table: "tracks",
+                    columns: ["last_played_date"]
+                )
+                try db.createIndexIfNotExists(
+                    name: "idx_tracks_duplicate_last_played",
+                    table: "tracks",
+                    columns: ["is_duplicate", "last_played_date"]
+                )
 
-            // Recently Played derives playlists from a pool of track ids;
-            // playlist_tracks was only indexed by playlist_id, forcing a full scan
-            // in that direction.
-            try db.createIndexIfNotExists(
-                name: "idx_playlist_tracks_track_id",
-                table: "playlist_tracks",
-                columns: ["track_id"]
-            )
+                // Fresh Music selects play_count = 0 at random; without this it scans
+                // the whole tracks table.
+                try db.createIndexIfNotExists(
+                    name: "idx_tracks_duplicate_play_count",
+                    table: "tracks",
+                    columns: ["is_duplicate", "play_count"]
+                )
 
-            Logger.info("v13_add_discover_indices migration completed")
-        }
-
-        migrator.registerMigration("v14_add_internet_radio") { db in
-            try DatabaseManager.createInternetRadioTable(in: db)
-            try DatabaseManager.createPlaylistStationsTable(in: db)
-            try DatabaseManager.createInternetRadioIndices(in: db)
-
-            Logger.info("v14_add_internet_radio migration completed")
-        }
-
-        migrator.registerMigration("v15_pin_default_categories") { db in
-            // Existing installs get them at the top, matching a fresh seed; user pins keep their order.
-            let existingCategoryPins = try PinnedItem
-                .filter(PinnedItem.Columns.itemType == PinnedItem.ItemType.category.rawValue)
-                .fetchCount(db)
-
-            guard existingCategoryPins == 0 else {
-                Logger.info("v15_pin_default_categories skipped, category pins already present")
-                return
+                // Recently Played derives playlists from a pool of track ids;
+                // playlist_tracks was only indexed by playlist_id, forcing a full scan
+                // in that direction.
+                try db.createIndexIfNotExists(
+                    name: "idx_playlist_tracks_track_id",
+                    table: "playlist_tracks",
+                    columns: ["track_id"]
+                )
             }
 
-            let offset = DatabaseManager.defaultCategoryPins.count
-            try db.execute(sql: "UPDATE pinned_items SET sort_order = sort_order + \(offset)")
-            try DatabaseManager.insertDefaultCategoryPins(in: db, startingAt: 0)
+            if !appliedIdentifiers.contains("v14_add_internet_radio") {
+                try DatabaseManager.createInternetRadioTable(in: db)
+                try DatabaseManager.createPlaylistStationsTable(in: db)
+            }
 
-            Logger.info("v15_pin_default_categories migration completed")
+            // Pre-release databases used a playlist_id-only index. The composite
+            // still serves that lookup and also avoids sorting collection contents.
+            try db.execute(sql: "DROP INDEX IF EXISTS idx_playlist_stations_playlist_id")
+            try DatabaseManager.createInternetRadioIndices(in: db)
+
+            if !appliedIdentifiers.contains("v15_pin_default_categories") {
+                // Existing installs get them at the top, matching a fresh seed; user pins keep their order.
+                let existingCategoryPins = try PinnedItem
+                    .filter(PinnedItem.Columns.itemType == PinnedItem.ItemType.category.rawValue)
+                    .fetchCount(db)
+
+                if existingCategoryPins == 0 {
+                    let offset = DatabaseManager.defaultCategoryPins.count
+                    try db.execute(sql: "UPDATE pinned_items SET sort_order = sort_order + \(offset)")
+                    try DatabaseManager.insertDefaultCategoryPins(in: db, startingAt: 0)
+                }
+            }
+
+            Logger.info("v13_add_discover_radio_and_category_pins migration completed")
         }
 
         // MARK: - Future Migrations
-        // Add new migrations here as: migrator.registerMigration("v16_description") { db in ... }
+        // Add new migrations here as: migrator.registerMigration("v14_description") { db in ... }
 
         return migrator
     }
