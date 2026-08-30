@@ -702,7 +702,7 @@ extension LibraryManager {
                     artworkData: row.artworkData
                 )
 
-            case .genre, .decade:
+            case .genre, .decade, .year:
                 guard let filterType = row.ref.kind.filterType else { return nil }
                 return CategoryEntity(name: row.ref.value, trackCount: row.trackCount, filterType: filterType)
 

@@ -19,10 +19,11 @@ enum DiscoverEntityKind: String, Codable, Hashable {
     case artist
     case playlist
     case decade
+    case year
     case genre
 
     /// Round-robin fill order. Kinds with real artwork lead, drawn categories trail.
-    static let carouselOrder: [DiscoverEntityKind] = [.album, .artist, .playlist, .decade, .genre]
+    static let carouselOrder: [DiscoverEntityKind] = [.album, .artist, .playlist, .decade, .year, .genre]
 
     var filterType: LibraryFilterType? {
         switch self {
@@ -30,6 +31,7 @@ enum DiscoverEntityKind: String, Codable, Hashable {
         case .artist: return .artists
         case .genre: return .genres
         case .decade: return .decades
+        case .year: return .years
         case .playlist: return nil
         }
     }
@@ -55,7 +57,7 @@ struct DiscoverEntityRef: Codable, Hashable {
         case .album: return "album:\(albumId.map(String.init) ?? value)"
         case .artist: return "artist:\(artistId.map(String.init) ?? value)"
         case .playlist: return "playlist:\(playlistId?.uuidString ?? value)"
-        case .genre, .decade: return "\(kind.rawValue):\(value)"
+        case .genre, .decade, .year: return "\(kind.rawValue):\(value)"
         }
     }
 
@@ -168,7 +170,7 @@ enum DiscoverSection {
 // MARK: - Cache
 
 struct DiscoverCache: Codable {
-    static let currentVersion = 1
+    static let currentVersion = 2
 
     let version: Int
     let carouselItemCount: Int
