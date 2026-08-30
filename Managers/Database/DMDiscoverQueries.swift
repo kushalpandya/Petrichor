@@ -4,10 +4,10 @@
 // This extension contains the queries backing the Discover screen: the Featured and
 // Recently Played entity carousels, and the Fresh Music track list.
 //
-// The carousels mix five entity kinds. Each kind is deliberately sourced from the same
+// The carousels mix six entity kinds. Each kind is deliberately sourced from the same
 // table/column the rest of the app browses it by, so a tile's count and its detail view
 // always agree (genres come from the denormalized `tracks.genre`, decades from a
-// SUBSTR over `tracks.year`, and so on).
+// SUBSTR over `tracks.year`, years from the exact stored value, and so on).
 //
 
 import Foundation
@@ -18,7 +18,7 @@ import GRDB
 extension DatabaseManager {
     // MARK: - Featured
 
-    /// Candidate entities for the Featured carousel, for one signal, across all five kinds.
+    /// Candidate entities for the Featured carousel, for one signal, across all six kinds.
     /// Each kind is ranked independently; `LMDiscover` does the mixing.
     func getDiscoverFeaturedCandidates(
         signal: DiscoverSignal,
@@ -40,6 +40,7 @@ extension DatabaseManager {
                 )
                 rows += try self.featuredPlaylists(db: db, signal: signal, hideDuplicates: hideDuplicates, limit: limitPerKind)
                 rows += try self.featuredDecades(db: db, signal: signal, hideDuplicates: hideDuplicates, limit: limitPerKind)
+                rows += try self.featuredYears(db: db, signal: signal, hideDuplicates: hideDuplicates, limit: limitPerKind)
                 rows += try self.featuredGenres(db: db, signal: signal, hideDuplicates: hideDuplicates, limit: limitPerKind)
                 return rows
             }
@@ -93,7 +94,7 @@ extension DatabaseManager {
         }
     }
 
-    /// Candidate entities derived from the most recently played tracks, across all five kinds.
+    /// Candidate entities derived from the most recently played tracks, across all six kinds.
     func getDiscoverRecentlyPlayedCandidates(
         trackIds: [Int64],
         limitPerKind: Int = DiscoverConfiguration.carouselItemCount * 2
@@ -116,12 +117,14 @@ extension DatabaseManager {
                 )
                 rows += try self.recentPlaylists(db: db, trackIds: trackIds, hideDuplicates: hideDuplicates, limit: limitPerKind)
 
-                // Genre/decade counts come from one grouped pass each rather than a
+                // Category counts come from one grouped pass each rather than a
                 // correlated subquery: `SUBSTR(year, ...) = ?` is not sargable, so a
                 // per-decade count would rescan the whole table every time.
                 let genreCounts = try self.discoverGenreTrackCounts(db: db, hideDuplicates: hideDuplicates)
-                let decadeCounts = try self.discoverDecadeTrackCounts(db: db, hideDuplicates: hideDuplicates)
+                let yearCounts = try self.discoverYearTrackCounts(db: db, hideDuplicates: hideDuplicates)
+                let decadeCounts = Self.discoverDecadeTrackCounts(from: yearCounts)
                 rows += try self.recentDecades(db: db, trackIds: trackIds, counts: decadeCounts, limit: limitPerKind)
+                rows += try self.recentYears(db: db, trackIds: trackIds, counts: yearCounts, limit: limitPerKind)
                 rows += try self.recentGenres(db: db, trackIds: trackIds, counts: genreCounts, limit: limitPerKind)
                 return rows
             }
@@ -257,12 +260,26 @@ extension DatabaseManager {
                 for row in try self.resolvePlaylists(db: db, playlistIds: playlistIds, hideDuplicates: hideDuplicates) {
                     resolved[row.ref] = row
                 }
-                let categoryRefs = refs.filter { $0.kind == .genre || $0.kind == .decade }
+                let categoryRefs = refs.filter { $0.kind == .genre || $0.kind == .decade || $0.kind == .year }
                 if !categoryRefs.isEmpty {
-                    let genreCounts = try self.discoverGenreTrackCounts(db: db, hideDuplicates: hideDuplicates)
-                    let decadeCounts = try self.discoverDecadeTrackCounts(db: db, hideDuplicates: hideDuplicates)
+                    let kinds = Set(categoryRefs.map(\.kind))
+                    let genreCounts = kinds.contains(.genre)
+                        ? try self.discoverGenreTrackCounts(db: db, hideDuplicates: hideDuplicates)
+                        : [:]
+                    let yearCounts = kinds.contains(.year) || kinds.contains(.decade)
+                        ? try self.discoverYearTrackCounts(db: db, hideDuplicates: hideDuplicates)
+                        : [:]
+                    let decadeCounts = kinds.contains(.decade)
+                        ? Self.discoverDecadeTrackCounts(from: yearCounts)
+                        : [:]
                     for ref in categoryRefs {
-                        let count = ref.kind == .genre ? genreCounts[ref.value] : decadeCounts[ref.value]
+                        let count: Int?
+                        switch ref.kind {
+                        case .genre: count = genreCounts[ref.value]
+                        case .decade: count = decadeCounts[ref.value]
+                        case .year: count = yearCounts[ref.value]
+                        default: count = nil
+                        }
                         guard let count, count > 0 else { continue }
                         resolved[ref] = DiscoverEntityRow(
                             ref: ref, trackCount: count, artworkData: nil, year: nil, artistName: nil
@@ -375,7 +392,7 @@ private extension DatabaseManager {
     func minTrackCount(for kind: DiscoverEntityKind) -> Int {
         switch kind {
         case .album, .artist, .playlist: return 2
-        case .genre, .decade: return 5
+        case .genre, .decade, .year: return 5
         }
     }
 
@@ -565,6 +582,32 @@ private extension DatabaseManager {
             )
         }
     }
+
+    func featuredYears(db: Database, signal: DiscoverSignal, hideDuplicates: Bool, limit: Int) throws -> [DiscoverEntityRow] {
+        let duplicateClause = Self.duplicateClause(hideDuplicates, alias: "t")
+        let sql = """
+            SELECT
+                t.year AS name,
+                COUNT(*) AS trackCount,
+                \(Self.signalSelect)
+            FROM tracks t
+            WHERE \(CategorySQL.knownYear(alias: "t")) \(duplicateClause)
+            GROUP BY t.year
+            HAVING trackCount >= ? AND \(signal.sqlHaving)
+            ORDER BY \(signalOrder(signal))
+            LIMIT ?
+        """
+
+        return try Row.fetchAll(db, sql: sql, arguments: [minTrackCount(for: .year), limit]).map { row in
+            DiscoverEntityRow(
+                ref: .category(kind: .year, value: row["name"] ?? ""),
+                trackCount: row["trackCount"] ?? 0,
+                artworkData: nil,
+                year: nil,
+                artistName: nil
+            )
+        }
+    }
 }
 
 // MARK: - Recently Played Helpers
@@ -743,105 +786,26 @@ private extension DatabaseManager {
             )
         }
     }
-}
 
-// MARK: - Resolution Helpers
-
-private extension DatabaseManager {
-    func resolveAlbums(db: Database, albumIds: [Int64], hideDuplicates: Bool) throws -> [DiscoverEntityRow] {
-        guard !albumIds.isEmpty else { return [] }
-        let countClause = Self.duplicateClause(hideDuplicates, alias: "tc")
-        let artistFallbackClause = Self.duplicateClause(hideDuplicates, alias: "ta")
+    func recentYears(db: Database, trackIds: [Int64], counts: [String: Int], limit: Int) throws -> [DiscoverEntityRow] {
         let sql = """
-            SELECT
-                al.id AS albumId,
-                al.title AS title,
-                al.artwork_data AS artwork_data,
-                al.release_year AS release_year,
-                (SELECT COUNT(*) FROM tracks tc WHERE tc.album_id = al.id \(countClause)) AS trackCount,
-                \(Self.albumPrimaryArtist(albumAlias: "al", duplicateClause: artistFallbackClause)) AS artistName
-            FROM albums al
-            WHERE al.id IN (\(self.databaseQuestionMarks(count: albumIds.count)))
+            SELECT t.year AS name,
+                   MAX(t.last_played_date) AS lastPlayed,
+                   COUNT(*) AS recentHits
+            FROM tracks t
+            WHERE t.id IN (\(self.databaseQuestionMarks(count: trackIds.count)))
+              AND \(CategorySQL.knownYear(alias: "t"))
+            GROUP BY t.year
+            ORDER BY lastPlayed DESC, recentHits DESC
+            LIMIT ?
         """
 
-        return try Row.fetchAll(db, sql: sql, arguments: StatementArguments(albumIds)).compactMap { row in
-            let trackCount: Int = row["trackCount"] ?? 0
-            guard trackCount > 0 else { return nil }
-            let releaseYear: Int? = row["release_year"]
-            let artistName: String? = row["artistName"]
+        return try Row.fetchAll(db, sql: sql, arguments: Self.arguments(trackIds, limit)).compactMap { row in
+            let name: String = row["name"] ?? ""
+            guard let count = counts[name], count > 0 else { return nil }
             return DiscoverEntityRow(
-                ref: .album(id: row["albumId"], title: row["title"] ?? ""),
-                trackCount: trackCount,
-                artworkData: row["artwork_data"],
-                year: releaseYear.map(String.init),
-                artistName: (artistName?.isEmpty ?? true) ? nil : artistName
-            )
-        }
-    }
-
-    func resolveArtists(
-        db: Database,
-        ids: [Int64],
-        names: [String],
-        hideDuplicates: Bool,
-        isImageFetchEnabled: Bool
-    ) throws -> [DiscoverEntityRow] {
-        guard !ids.isEmpty || !names.isEmpty else { return [] }
-        let countClause = Self.duplicateClause(hideDuplicates, alias: "tc")
-        // By id where the ref has one; name covers refs persisted before ids were stored.
-        let sql = """
-            SELECT
-                ar.id AS artistId,
-                ar.name AS name,
-                ar.artwork_data AS artwork_data,
-                ar.image_source AS image_source,
-                (SELECT COUNT(DISTINCT ta.track_id)
-                 FROM track_artists ta
-                 JOIN tracks tc ON tc.id = ta.track_id \(countClause)
-                 WHERE ta.artist_id = ar.id AND ta.role = 'artist') AS trackCount
-            FROM artists ar
-            WHERE ar.id IN (\(self.databaseQuestionMarks(count: ids.count)))
-           OR ar.name IN (\(self.databaseQuestionMarks(count: names.count)))
-        """
-
-        var argumentValues: [any DatabaseValueConvertible] = ids
-        argumentValues.append(contentsOf: names)
-        return try Row.fetchAll(db, sql: sql, arguments: Self.arguments(argumentValues)).compactMap { row in
-            let trackCount: Int = row["trackCount"] ?? 0
-            guard trackCount > 0 else { return nil }
-            return DiscoverEntityRow(
-                ref: .artist(id: row["artistId"], name: row["name"] ?? ""),
-                trackCount: trackCount,
-                artworkData: Self.artistArtwork(row: row, isImageFetchEnabled: isImageFetchEnabled),
-                year: nil,
-                artistName: nil
-            )
-        }
-    }
-
-    func resolvePlaylists(db: Database, playlistIds: [UUID], hideDuplicates: Bool) throws -> [DiscoverEntityRow] {
-        guard !playlistIds.isEmpty else { return [] }
-        let countClause = Self.duplicateClause(hideDuplicates, alias: "tc")
-        let sql = """
-            SELECT
-                p.id AS playlistId,
-                p.name AS name,
-                (SELECT COUNT(*) FROM playlist_tracks pt
-                  JOIN tracks tc ON tc.id = pt.track_id \(countClause)
-                 WHERE pt.playlist_id = p.id) AS trackCount
-            FROM playlists p
-            WHERE p.id IN (\(self.databaseQuestionMarks(count: playlistIds.count)))
-        """
-
-        let arguments = StatementArguments(playlistIds.map { $0.uuidString })
-        return try Row.fetchAll(db, sql: sql, arguments: arguments).compactMap { row in
-            guard let idString: String = row["playlistId"],
-                  let playlistId = UUID(uuidString: idString) else { return nil }
-            let trackCount: Int = row["trackCount"] ?? 0
-            guard trackCount > 0 else { return nil }
-            return DiscoverEntityRow(
-                ref: .playlist(id: playlistId, name: row["name"] ?? ""),
-                trackCount: trackCount,
+                ref: .category(kind: .year, value: name),
+                trackCount: count,
                 artworkData: nil,
                 year: nil,
                 artistName: nil
@@ -852,7 +816,7 @@ private extension DatabaseManager {
 
 // MARK: - Shared Helpers
 
-private extension DatabaseManager {
+extension DatabaseManager {
     /// Library-wide genre counts in one grouped pass. Predicate matches the known-genre
     /// branch of getGenreFilterItems() so tile counts agree with the Library sidebar.
     func discoverGenreTrackCounts(db: Database, hideDuplicates: Bool) throws -> [String: Int] {
@@ -866,16 +830,24 @@ private extension DatabaseManager {
         return try Self.countMap(Row.fetchAll(db, sql: sql))
     }
 
-    /// Library-wide decade counts in one grouped pass.
-    func discoverDecadeTrackCounts(db: Database, hideDuplicates: Bool) throws -> [String: Int] {
+    /// Library-wide exact-year counts in one grouped pass.
+    func discoverYearTrackCounts(db: Database, hideDuplicates: Bool) throws -> [String: Int] {
         let duplicateClause = Self.duplicateClause(hideDuplicates)
         let sql = """
-            SELECT \(CategorySQL.decadeExpression()) AS name, COUNT(*) AS track_count
+            SELECT year AS name, COUNT(*) AS track_count
             FROM tracks
             WHERE \(CategorySQL.knownYear()) \(duplicateClause)
-            GROUP BY name
+            GROUP BY year
         """
         return try Self.countMap(Row.fetchAll(db, sql: sql))
+    }
+
+    /// Decade totals derive from the exact-year pass so Recently Played and sticky
+    /// resolution do not group the same track column twice.
+    static func discoverDecadeTrackCounts(from yearCounts: [String: Int]) -> [String: Int] {
+        yearCounts.reduce(into: [:]) { counts, entry in
+            counts["\(entry.key.prefix(3))0s", default: 0] += entry.value
+        }
     }
 
     static func countMap(_ rows: [Row]) -> [String: Int] {
