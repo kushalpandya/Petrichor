@@ -111,4 +111,4 @@ SOFTWARE.
 
 ---
 
-_Last Updated: July 2026_
+_Last Updated: August 2026_
