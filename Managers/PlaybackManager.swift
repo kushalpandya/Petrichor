@@ -281,6 +281,7 @@ class PlaybackManager: NSObject, ObservableObject {
         if isPlaying {
             // Pausing while a restored track is still loading cancels the latched play.
             pendingPlayOnRestore = false
+            if audioPlayer.state == .playing { currentTime = audioPlayer.currentPlaybackProgress }
             audioPlayer.pause()
             isPlaying = false
         } else if audioPlayer.state == .paused {
@@ -866,7 +867,6 @@ extension PlaybackManager: AudioPlayerDelegate {
                 self.startProgressUpdateTimer()
                 self.isPlaying = true
             case .paused:
-                self.currentTime = self.audioPlayer.currentPlaybackProgress
                 self.stopProgressUpdateTimer()
                 self.isPlaying = false
                 self.releasePlaybackForIdleIfHidden()
