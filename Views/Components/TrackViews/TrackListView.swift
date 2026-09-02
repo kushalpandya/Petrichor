@@ -26,7 +26,7 @@ struct TrackListView: View {
     let playlistID: UUID?
     let entityID: UUID?
     @Binding var sortOrder: [KeyPathComparator<Track>]
-    let onPlayTrack: (Track) -> Void
+    let onPlayTrack: (Track, [Track]) -> Void
     let onToggleFavorite: (Track, Bool) -> Void
     let contextMenuItems: ([Track], PlaybackManager) -> [ContextMenuItem]
 
@@ -117,7 +117,7 @@ struct TrackListView: View {
         if isCurrentTrack(track) {
             playbackManager.togglePlayPause()
         } else {
-            onPlayTrack(track)
+            onPlayTrack(track, sortedTracks)
         }
     }
 
