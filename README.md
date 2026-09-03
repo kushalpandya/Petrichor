@@ -31,32 +31,66 @@
 ### ✨ Features
 
 - Everything you'd expect from an offline music player!
-- Supports over 20 audio file formats;
-  - MP3, AAC/M4A, WAV, AIFF, AIF, ALAC
-  - Ogg Vorbis, Speex, Opus, and FLAC
-  - APE (Monkey's Audio)
-  - MPC (Musepack)
-  - TTA (True Audio)
-  - WV (WavPack)
-  - DSF/DFF (Direct Stream Digital)
-  - ... MOD, IT, S3M, XM, and AU
+- Supports over 40 audio file formats. See [Supported Formats](#supported-formats) for the complete list.
 - Map your music folders and browse your library in an organized view.
+- Stream Internet Radio and organize saved stations into collections.
 - Synced lyrics of a playing track when available, including ability to download missing lyrics.
 - Create, import or export playlists.
-- Smart playlists with conditional rules.
+- Smart playlists with conditional, negative, and regular-expression rules.
 - Manage the play queue interactively using drag and drop.
 - Browse music using folder view when needed.
 - Pin _anything_ (almost!) to the sidebar for quick access to your favorite music.
 - Navigate easily: right-click a track to go to its album, artist, year, etc.
 - Native macOS integration with menubar and dock playback controls, plus dark mode support.
 - Miniplayer and immersive mode.
+- Gapless playback, Crossfade, ReplayGain volume normalization, Equalizer, Spatial Audio, and AirPlay 2 output.
 - Last.fm scrobbling support.
 - Shortcuts and Automation API support along with Siri.
 - Works well with large libraries containing thousands of songs.
 
 💡 **Tip**: Petrichor relies heavily on tracks having good metadata for all its features to work well.
 
-### ⌛ Upcoming Features
+### 🎵 Supported Formats
+
+Petrichor imports and plays the 46 file extensions below. The equivalent in-app list is generated from the playback engine itself, so it always reflects the build you are running.
+
+| Format                  | Extensions                                          | Type                  |
+| ----------------------- | --------------------------------------------------- | --------------------- |
+| MP3 / MPEG Audio        | `.mp3` `.mp1` `.mp2` `.mpa` `.m1a` `.m2a` `.mpeg`   | Lossy                 |
+| AAC                     | `.aac` `.m4a` `.m4r` `.adts` `.latm` `.loas` `.xhe` | Lossy                 |
+| ALAC (Apple Lossless)   | `.alac` `.m4a`                                      | Lossless              |
+| FLAC                    | `.flac`                                             | Lossless              |
+| Ogg Vorbis              | `.ogg` `.oga` `.ogx`                                | Lossy                 |
+| Opus                    | `.opus`                                             | Lossy                 |
+| Speex                   | `.spx`                                              | Lossy                 |
+| WAV                     | `.wav`                                              | Lossless              |
+| Wave64                  | `.w64`                                              | Lossless              |
+| AIFF                    | `.aiff` `.aif`                                      | Lossless              |
+| APE (Monkey's Audio)    | `.ape`                                              | Lossless              |
+| WavPack                 | `.wv`                                               | Lossless              |
+| TTA (True Audio)        | `.tta`                                              | Lossless              |
+| TAK                     | `.tak`                                              | Lossless              |
+| Shorten                 | `.shn`                                              | Lossless              |
+| Musepack                | `.mpc`                                              | Lossy                 |
+| DSD                     | `.dsf` `.dff`                                       | Lossless              |
+| WMA                     | `.wma`                                              | Lossy †               |
+| AC-3                    | `.ac3`                                              | Lossy                 |
+| E-AC-3                  | `.eac3` `.ec3`                                      | Lossy                 |
+| DTS                     | `.dts`                                              | Lossy                 |
+| AMR / AMR-WB            | `.amr` `.awb`                                       | Lossy                 |
+| CAF (Core Audio Format) | `.caf` `.caff`                                      | Container<sup>1</sup> |
+| Matroska Audio          | `.mka`                                              | Container<sup>1</sup> |
+| AU / NeXT               | `.au` `.snd`                                        | Lossless              |
+| Sound Designer II       | `.sd2`                                              | Lossless              |
+
+<sup>1</sup> Containers hold whichever codec was used, and WMA exists in both lossy and lossless variants. Petrichor reads the actual encoding from the file rather than guessing from the extension, so the Lossless badge on a track is always accurate.
+
+**Not supported**: DRM-protected files (`.m4p`, `.aa`, `.aax`), audiobook containers (`.m4b`), tracker modules (`.mod`, `.it`, `.s3m`, `.xm`), RealAudio (`.ra`, `.ram`), and MIDI (`.mid`, `.midi`).
+
+Starting 1.7, Petrichor no longer supports or imports the tracker-module formats
+MOD, IT, S3M, and XM that were supported in 1.6.x.
+
+### ⌛ Roadmap
 
 - ~~Automatic in-app updates~~ (✅ [v1.0.0](https://github.com/kushalpandya/Petrichor/releases/tag/v1.0.0) )
 - ~~Better file format support (eg; Opus & OGG)~~ (✅ [v.1.2.0](https://github.com/kushalpandya/Petrichor/releases/tag/v1.2.0))
@@ -64,10 +98,12 @@
 - ~~Miniplayer and full-screen modes~~ (✅ [v.1.6.0](https://github.com/kushalpandya/Petrichor/releases/tag/v1.6.0))
 - ~~Smart playlists with user-configurable conditional filters~~ (✅ [v.1.6.0](https://github.com/kushalpandya/Petrichor/releases/tag/v1.6.0))
 - ~~Spatial Audio & Gapless playback~~ (✅ [v.1.6.0](https://github.com/kushalpandya/Petrichor/releases/tag/v1.6.0))
-- Crossfading support
-- AirPlay 2 casting support
-- Internet Streaming Radio
+- ~~Crossfading support~~ (✅ [v1.7.0](https://github.com/kushalpandya/Petrichor/releases/tag/v1.7.0))
+- ~~AirPlay 2 casting support~~ (✅ [v1.7.0](https://github.com/kushalpandya/Petrichor/releases/tag/v1.7.0))
+- ~~Internet Streaming Radio~~ (✅ [v1.7.0](https://github.com/kushalpandya/Petrichor/releases/tag/v1.7.0))
 - Natural language search and smart playlists using Apple Intelligence
+- Audio Enhancements via Apple Audio Units
+- Back-up and import of preferences and library data
 - ... and much more!
 
 ###  Requirements
@@ -107,12 +143,13 @@ Refer to [official website](https://petrichor.page/features)
     - To check for and install app updates.
     - Fetch artist images and bios from online sources (disabled by default)
     - Download track lyrics from the internet (disabled by default)
+    - Stream Internet Radio stations (disabled by default)
     - Last.fm scrobbling (disabled by default)
-        - When enabled, app may ask to store your Last.fm session information in macOS Keychain, if you choose to allow it, macOS will ask for your user account password to store the information in Keychain.
-        - App **does not** store your Last.fm username or password, you still have to provide it on Last.fm website that opens in browser during configuration, once done, app only receives a session key to scrobble track playbacks with your account.
+      - When enabled, app may ask to store your Last.fm session information in macOS Keychain, if you choose to allow it, macOS will ask for your user account password to store the information in Keychain.
+      - App **does not** store your Last.fm username or password, you still have to provide it on Last.fm website that opens in browser during configuration, once done, app only receives a session key to scrobble track playbacks with your account.
     - Reporting issues from within the app (user opt-in only)
-        - Users can report a problem from within the app by going to Menu > Help > Report a Problem..., this opens a form where user is asked to fill out a few details, including detailed app diagnostics, along with app's log file.
-        - This is optional feature and uses network only when user manually initiates this action and sends the information over the internet to app's backend server securely.
+      - Users can report a problem from within the app by going to Menu > Help > Report a Problem..., this opens a form where user is asked to fill out a few details, including detailed app diagnostics, along with app's log file.
+      - This is optional feature and uses network only when user manually initiates this action and sends the information over the internet to app's backend server securely.
 - It doesn't (and never will) have any analytics on how you use the app.
 - It never changes your audio files or folder structure in any way.
 - Your library data remains offline always.
@@ -132,7 +169,7 @@ along the way!
 - Once folders containing music files are added, the app scans them, extracts required metadata, and populates the SQLite database.
 - The app does **not** alter your music files, it only reads from the directories you add.
 - Tracks searching is handled by [SQLite FTS5](https://www.sqlite.org/fts5.html).
-- Playback is handled by [AVFoundation](https://developer.apple.com/av-foundation/) and third-party audio decoders.
+- Playback and metadata reading are handled by [CrescendoKit](https://github.com/kushalpandya/CrescendoKit), which uses FFmpeg and TagLib for broad format support.
 
 <details>
 <summary>View Database Schema</summary>
@@ -367,6 +404,8 @@ erDiagram
 
 Petrichor wouldn't be possible without following open source projects!
 
+- [FFmpeg](https://ffmpeg.org/)
+- [TagLib](https://taglib.org/)
 - [GRDB.swift](https://github.com/groue/GRDB.swift/)
 - [Sparkle](https://github.com/sparkle-project/Sparkle)
 
@@ -397,7 +436,7 @@ Thank you to all the sponsors for supporting Petrichor's development!
 ## 📝 License
 
 - Petrichor is licensed under [MIT](LICENSE)
-- Core dependencies (GRDB, Sparkle) are licensed under MIT
-- The playback engine and metadata reader come from [CrescendoKit](https://github.com/kushalpandya/CrescendoKit) (proprietary, binary distribution), which dynamically links FFmpeg (LGPL-2.1-or-later) and statically embeds TagLib (MPL-1.1)
+- GRDB.swift and Sparkle are licensed under MIT.
+- The playback engine and metadata reader come from [CrescendoKit](https://github.com/kushalpandya/CrescendoKit) (proprietary, binary distribution), which dynamically links FFmpeg (LGPL-2.1-or-later) and statically embeds TagLib (MPL-1.1).
 
 For complete third-party license information, see [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md)

@@ -217,30 +217,34 @@ struct TrackTableOptionsDropdown: View {
                         set: { _ in groupsArtistTracksByAlbum = true }
                     ))
 
-                    Menu("Sort groups by") {
-                        Section("Sort groups by") {
-                            ForEach(ArtistAlbumGroupSortField.allCases, id: \.self) { field in
-                                Toggle(field.displayName, isOn: Binding(
-                                    get: { artistAlbumGroupSortField == field },
-                                    set: { _ in artistAlbumGroupSortField = field }
+                    if groupsArtistTracksByAlbum {
+                        Menu("Sort groups by") {
+                            Section("Sort groups by") {
+                                ForEach(ArtistAlbumGroupSortField.allCases, id: \.self) { field in
+                                    Toggle(field.displayName, isOn: Binding(
+                                        get: { artistAlbumGroupSortField == field },
+                                        set: { _ in artistAlbumGroupSortField = field }
+                                    ))
+                                }
+                            }
+
+                            Divider()
+
+                            Section("Sort order") {
+                                Toggle("Ascending", isOn: Binding(
+                                    get: { artistAlbumGroupsAscending },
+                                    set: { _ in artistAlbumGroupsAscending = true }
+                                ))
+                                Toggle("Descending", isOn: Binding(
+                                    get: { !artistAlbumGroupsAscending },
+                                    set: { _ in artistAlbumGroupsAscending = false }
                                 ))
                             }
                         }
-
-                        Divider()
-
-                        Section("Sort order") {
-                            Toggle("Ascending", isOn: Binding(
-                                get: { artistAlbumGroupsAscending },
-                                set: { _ in artistAlbumGroupsAscending = true }
-                            ))
-                            Toggle("Descending", isOn: Binding(
-                                get: { !artistAlbumGroupsAscending },
-                                set: { _ in artistAlbumGroupsAscending = false }
-                            ))
-                        }
+                    } else {
+                        Button("Sort groups by") {}
+                            .disabled(true)
                     }
-                    .disabled(!groupsArtistTracksByAlbum)
                 }
             }
 

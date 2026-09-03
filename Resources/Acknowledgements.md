@@ -55,3 +55,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - [MusicBrainz](https://musicbrainz.org/) - artist identifiers and Wikidata links (CC0)
 - [Wikidata / Wikimedia Commons](https://www.wikidata.org/) - artist images from Wikidata entities (CC0)
 - [TMDB](https://www.themoviedb.org/) - fallback source for artist images. This product uses the TMDB API but is not endorsed or certified by TMDB.
+
+---
+
+_Last Updated: August 2026_

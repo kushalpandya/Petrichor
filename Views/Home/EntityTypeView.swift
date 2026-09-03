@@ -162,7 +162,9 @@ struct EntityTypeView: View {
     // MARK: - Loading
 
     private func load() async {
-        isLoading = true
+        if isEmpty {
+            isLoading = true
+        }
         defer { isLoading = false }
 
         switch filterType {

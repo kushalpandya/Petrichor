@@ -284,8 +284,8 @@ struct DiscoverView: View {
                 playlistID: nil,
                 entityID: nil,
                 sortOrder: $trackTableSortOrder,
-                onPlayTrack: { track in
-                    playlistManager.playTrack(track, fromTracks: viewModel.tracks)
+                onPlayTrack: { track, displayedTracks in
+                    playlistManager.playTrack(track, fromTracks: displayedTracks)
                     playlistManager.currentQueueSource = .library
                 },
                 onToggleFavorite: { track, currentState in

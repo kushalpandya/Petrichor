@@ -29,7 +29,7 @@
     <array>
         <dict>
             <key>CFBundleURLName</key>
-            <string>org.Petrichor.callback</string>
+            <string>$(PRODUCT_BUNDLE_IDENTIFIER).callback</string>
             <key>CFBundleURLSchemes</key>
             <array>
                 <string>$(PETRICHOR_URL_SCHEME)</string>
@@ -42,20 +42,15 @@
     <string>public.app-category.music</string>
     <key>LSMinimumSystemVersion</key>
     <string>$(MACOSX_DEPLOYMENT_TARGET)</string>
-		<key>NSHumanReadableCopyright</key>
-		<string>© 2025 Kushal Sunil Pandya</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>© 2025-2026 Kushal Sunil Pandya</string>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSSupportsAutomaticGraphicsSwitching</key>
     <true/>
 
-    <!--
-      Internet radio plays over HTTP or HTTPS URLs, and about a third of public
-      stations are http-only with no TLS endpoint at all. The engine streams over
-      URLSession, so ATS applies; no narrower key helps (NSAllowsArbitraryLoadsForMedia
-      covers AVFoundation, and the hosts aren't known ahead of time). Petrichor's own
-      services are https and stay that way.
-    -->
+    <!-- Public radio content may use HTTP on hosts that cannot be enumerated;
+         Petrichor and its playback engine enforce destination policies in code. -->
     <key>NSAppTransportSecurity</key>
     <dict>
         <key>NSAllowsArbitraryLoads</key>

@@ -2,9 +2,9 @@ import Foundation
 
 enum URLSchemeHandler {
     static func handle(_ url: URL) {
-        Logger.info("URLSchemeHandler: Received URL - \(url.absoluteString)")
-        
         guard url.scheme == AppInfo.urlScheme else { return }
+
+        Logger.info("URLSchemeHandler: Received callback - \(url.scheme ?? "nil")://\(url.host ?? "nil")")
         
         switch url.host {
         case "lastfm-callback":
