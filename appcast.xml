@@ -5,6 +5,77 @@
         <description>Updates for Petrichor</description>
         <language>en</language>
         <item>
+            <title>Version 1.7.0</title>
+            <pubDate>Thu, 03 Sep 2026 22:33:09 -0400</pubDate>
+            <sparkle:version>170</sparkle:version>
+            <sparkle:shortVersionString>1.7.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.7.0/Petrichor-1.7.0-Universal.dmg"
+                sparkle:edSignature="LlBfS1cL5YEg2UQRAVcSOI5eBu+M8G9ZmvPftk1tz3zeAR46vITG7jH/lcmh+7B7ABjHsO7OjuESLwdwo0QhDw=="
+                length="21608709"
+                type="application/octet-stream"
+            />
+            <description><![CDATA[
+                <h2>Internet Radio, Crossfade &amp; ReplayGain, AirPlay 2, redesigned Library and Discover, custom playlist artworks, and up to 4x lower CPU usage</h2>
+                <blockquote>
+                    <p><strong>Important: this is the last release to support macOS 14 (Sonoma) and Intel Macs.</strong></p>
+                    <p>v1.7.x will continue to receive point fixes on macOS 14 and Intel when necessary, but the next major release will require macOS 15 or later and Apple Silicon.</p>
+                </blockquote>
+                <h3>Features</h3>
+                <ul>
+                    <li>Add support for Internet Radio with manual HLS stations, popular stations from radio-browser.info, and station collections (<a href="https://github.com/kushalpandya/Petrichor/pull/352">#352</a>, fixes <a href="https://github.com/kushalpandya/Petrichor/issues/100">#100</a>)</li>
+                    <li>Add AirPlay 2 support to play music on compatible devices (<a href="https://github.com/kushalpandya/Petrichor/pull/363">#363</a>, fixes <a href="https://github.com/kushalpandya/Petrichor/issues/112">#112</a>)</li>
+                    <li>Add Crossfade between tracks, configurable in Settings &gt; General &gt; Playback (<a href="https://github.com/kushalpandya/Petrichor/pull/347">#347</a>, fixes <a href="https://github.com/kushalpandya/Petrichor/issues/266">#266</a>)</li>
+                    <li>Add ReplayGain volume normalization with gain source and preamp selection (<a href="https://github.com/kushalpandya/Petrichor/pull/348">#348</a>, fixes <a href="https://github.com/kushalpandya/Petrichor/issues/102">#102</a>)</li>
+                    <li>Redesign Discover with Featured, Recently Played, and Most Loved &amp; Played sections (<a href="https://github.com/kushalpandya/Petrichor/pull/350">#350</a>)</li>
+                    <li>Redesign Library tab into a 3-column layout, and allow pinning any entity type to the Home sidebar (<a href="https://github.com/kushalpandya/Petrichor/pull/356">#356</a>)</li>
+                    <li>Add support for using a custom local or online image as artwork for artists and playlists (<a href="https://github.com/kushalpandya/Petrichor/pull/359">#359</a>)</li>
+                    <li>Add support for negative operators (<code>is not</code>, <code>does not contain</code>, <code>does not start with</code>, <code>does not end with</code>) and regular expressions in Smart Playlists (<a href="https://github.com/kushalpandya/Petrichor/pull/358">#358</a>)</li>
+                    <li>Group tracks by album when viewed under Artist, Album Artist, and Composer, with per-group sorting and play controls (<a href="https://github.com/kushalpandya/Petrichor/pull/371">#371</a>, fixes <a href="https://github.com/kushalpandya/Petrichor/issues/90">#90</a>, <a href="https://github.com/kushalpandya/Petrichor/issues/95">#95</a>, <a href="https://github.com/kushalpandya/Petrichor/issues/99">#99</a>)</li>
+                    <li>Add disc number sections for tracks within multi-disc albums (<a href="https://github.com/kushalpandya/Petrichor/pull/369">#369</a>, fixes <a href="https://github.com/kushalpandya/Petrichor/issues/120">#120</a>)</li>
+                    <li>Show the full list of supported audio formats in a grouped popover, reachable from Settings &gt; Library (<a href="https://github.com/kushalpandya/Petrichor/pull/346">#346</a>, fixes <a href="https://github.com/kushalpandya/Petrichor/issues/211">#211</a>)</li>
+                    <li>Add Mini Player action to the menubar dropdown (<a href="https://github.com/kushalpandya/Petrichor/pull/365">#365</a>)</li>
+                    <li>Revamp the onboarding experience for new users (<a href="https://github.com/kushalpandya/Petrichor/pull/353">#353</a>)</li>
+                </ul>
+                <h3>Enhancements</h3>
+                <ul>
+                    <li>Remove SFBAudioEngine and make CrescendoKit the default (and only) media engine for playback and metadata extraction (<a href="https://github.com/kushalpandya/Petrichor/pull/343">#343</a>)
+                        <ul>
+                            <li><strong>Note:</strong> this drops playback support for the MOD, IT, S3M, and XM tracker formats, and adds a large number of new formats in return. See the updated list in the README or the in-app formats popover.</li>
+                            <li>Thanks to <a href="https://github.com/sbooth">Stephen Booth</a> for building and maintaining <a href="https://github.com/sbooth/SFBAudioEngine/">SFBAudioEngine</a> all these years.</li>
+                        </ul>
+                    </li>
+                    <li>Reduce CPU usage during playback by up to 4 times, idle to ~0% CPU when nothing is playing, and automatically engage macOS App Nap when eligible (<a href="https://github.com/kushalpandya/Petrichor/pull/364">#364</a>, fixes <a href="https://github.com/kushalpandya/Petrichor/issues/274">#274</a>)</li>
+                    <li>Speed up app launch by rewriting state management and restoration (<a href="https://github.com/kushalpandya/Petrichor/pull/353">#353</a>)</li>
+                    <li>Adapt playback queue management and Now Playing publishing to Crescendo APIs (<a href="https://github.com/kushalpandya/Petrichor/pull/344">#344</a>)</li>
+                    <li>Add Years to the Discover carousels alongside albums, artists, genres, and playlists (<a href="https://github.com/kushalpandya/Petrichor/pull/373">#373</a>)</li>
+                    <li>Allow toggling off Internet Radio and artist info refreshing, and make artist info fetching fail-safe (<a href="https://github.com/kushalpandya/Petrichor/pull/366">#366</a>)</li>
+                    <li>Give Genre, Year, Decade, and Folder entities their own distinct procedural artwork, and animate dominant artwork colours on first load (<a href="https://github.com/kushalpandya/Petrichor/pull/356">#356</a>)</li>
+                    <li>Harden database integrity against invalid album years, make track and orphan cleanup atomic and scalable, and clear dangling pins and entities (<a href="https://github.com/kushalpandya/Petrichor/pull/372">#372</a>)</li>
+                    <li>Hide scrollbars in the lyrics view for a cleaner, more immersive look (<a href="https://github.com/kushalpandya/Petrichor/pull/340">#340</a>) (Thanks <a href="https://github.com/akkva">@akkva</a>!)</li>
+                </ul>
+                <h3>Fixes</h3>
+                <ul>
+                    <li>Fix the track Go-to menu incorrectly splitting artist names containing separators like <code>&amp;</code> or <code>/</code> (<a href="https://github.com/kushalpandya/Petrichor/pull/338">#338</a>, fixes <a href="https://github.com/kushalpandya/Petrichor/issues/337">#337</a>)</li>
+                    <li>Fix tracks occasionally showing incorrect artwork (<a href="https://github.com/kushalpandya/Petrichor/pull/368">#368</a>, fixes <a href="https://github.com/kushalpandya/Petrichor/issues/357">#357</a>)</li>
+                    <li>Fix bilingual lyrics highlighting for lines sharing the same timestamp (<a href="https://github.com/kushalpandya/Petrichor/pull/342">#342</a>) (Thanks <a href="https://github.com/akkva">@akkva</a>!)</li>
+                    <li>Prevent the track details sidebar from shrinking past a minimum width while resizing (<a href="https://github.com/kushalpandya/Petrichor/pull/367">#367</a>, fixes <a href="https://github.com/kushalpandya/Petrichor/issues/355">#355</a>)</li>
+                    <li>Fix a regression where advancing tracks could behave incorrectly, plus assorted UI polish across the app (<a href="https://github.com/kushalpandya/Petrichor/pull/356">#356</a>, <a href="https://github.com/kushalpandya/Petrichor/pull/374">#374</a>)</li>
+                </ul>
+                <h3>Others</h3>
+                <ul>
+                    <li>Consolidate all post-v1.6.1 database migrations into a single migration for a clean schema ledger (<a href="https://github.com/kushalpandya/Petrichor/pull/372">#372</a>)</li>
+                    <li>Add a preflight check for missing API keys when building the installer (<a href="https://github.com/kushalpandya/Petrichor/pull/334">#334</a>)</li>
+                    <li>Isolate debug builds with a distinct app icon and debug configuration for <code>--dev</code> installers (<a href="https://github.com/kushalpandya/Petrichor/pull/341">#341</a>)</li>
+                    <li>Run release checks on pull requests in CI (<a href="https://github.com/kushalpandya/Petrichor/pull/366">#366</a>)</li>
+                    <li>Replace <code>.aspectRatio(contentMode: .fill)</code> with <code>.scaledToFill()</code> to clear SwiftLint violations (<a href="https://github.com/kushalpandya/Petrichor/pull/362">#362</a>)</li>
+                    <li>Update Sparkle to 2.9.6, refresh the README and Acknowledgements, and bump the build version (<a href="https://github.com/kushalpandya/Petrichor/pull/374">#374</a>)</li>
+                </ul>
+                <p><a href="https://www.petrichor.page/changelog/">Full Changelog</a></p>
+            ]]></description>
+        </item>
+        <item>
             <title>Version 1.6.1</title>
             <pubDate>Thu, 23 Jul 2026 02:16:45 -0400</pubDate>
             <sparkle:version>161</sparkle:version>
