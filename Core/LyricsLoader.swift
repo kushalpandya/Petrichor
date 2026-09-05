@@ -32,11 +32,17 @@ struct LyricsLoader {
             source = .embedded
         }
         
-        // 3. Online lyrics
-        if lines == nil,
+        // 3. Online lyrics (also upgrade untimed lyrics to timed when available)
+        let needsOnlineFetch = lines == nil
+            || (lines != nil && !areLyricsTimed(lines!) && LyricsManager.shared.isOnlineLyricsEnabled)
+        if needsOnlineFetch,
            let fullTrack = fullTrack,
            let databaseManager = databaseManager,
-           let onlineText = await LyricsManager.shared.fetchLyrics(for: fullTrack, using: databaseManager) {
+           let onlineText = await LyricsManager.shared.fetchLyrics(
+               for: fullTrack,
+               using: databaseManager,
+               onlyIfTimed: lines != nil
+           ) {
             lines = parseAnyLyrics(onlineText)
             source = .online
         }
@@ -76,7 +82,12 @@ struct LyricsLoader {
     }
     
     // MARK: - Helpers
-    
+
+    /// Whether the parsed lyrics contain any timed lines (startTime > 0 or endTime set)
+    private static func areLyricsTimed(_ lines: [LyricLine]) -> Bool {
+        lines.contains { $0.startTime > 0 || $0.endTime != nil }
+    }
+
     /// Try to parse as LRC first, then fallback to plain text lines
     private static func parseAnyLyrics(_ raw: String) -> [LyricLine] {
         // Attempt LRC parsing (covers embedded/online that already have timestamps)
