@@ -41,8 +41,9 @@ class LyricsManager {
     /// - Parameters:
     ///   - fullTrack: The full track to fetch lyrics for
     ///   - databaseManager: Database manager for storing fetched lyrics
+    ///   - onlyIfTimed: When true, only store the result if it contains timed lyrics
     /// - Returns: Lyrics text if found, nil otherwise
-    func fetchLyrics(for fullTrack: FullTrack, using databaseManager: DatabaseManager) async -> String? {
+    func fetchLyrics(for fullTrack: FullTrack, using databaseManager: DatabaseManager, onlyIfTimed: Bool = false) async -> String? {
         guard isOnlineLyricsEnabled else {
             Logger.info("LyricsManager: Online lyrics fetching is disabled")
             return nil
@@ -58,6 +59,16 @@ class LyricsManager {
         
         // Try LRCLIB API
         if let lyrics = await fetchFromLRCLIB(fullTrack: fullTrack) {
+            // When onlyIfTimed is set, skip storing untimed results so we don't
+            // overwrite existing untimed embedded lyrics with more untimed lyrics.
+            let parsed = LyricLine.parseLRC(from: lyrics)
+            let hasTimed = parsed.contains { $0.startTime > 0 || $0.endTime != nil }
+
+            if onlyIfTimed && !hasTimed {
+                Logger.info("LyricsManager: Online result is untimed, keeping existing lyrics")
+                return nil
+            }
+
             // Store in database for future use
             await storeLyrics(lyrics, for: fullTrack, using: databaseManager)
             return lyrics
