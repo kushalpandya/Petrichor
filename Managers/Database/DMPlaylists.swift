@@ -348,8 +348,9 @@ extension DatabaseManager {
                 
                 let trackIds = playlistTracks.map { $0.trackId }
                 
-                // Fetch tracks for this playlist only
-                let tracks = try applyDuplicateFilter(Track.all())
+                // Explicit and frozen playlist snapshots preserve their exact membership even
+                // when duplicate copies are hidden elsewhere in the library.
+                let tracks = try Track.all()
                     .filter(trackIds.contains(Track.Columns.trackId))
                     .fetchAll(db)
                 

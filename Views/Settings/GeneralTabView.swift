@@ -40,7 +40,7 @@ struct GeneralTabView: View {
                 Toggle("Keep running in menubar on close", isOn: $closeToMenubar)
                     .help("Keeps the app running in the menubar even after closing")
                 Toggle("Hide duplicate songs", isOn: $hideDuplicateTracks)
-                    .help("Shows only the highest quality version when multiple copies exist")
+                    .help("Shows only the highest quality version in the library; explicit playlist entries remain visible")
                     .onChange(of: hideDuplicateTracks) {
                         // Filter is applied at query time; invalidate the load-once caches
                         // and reload affected state so it takes effect without a relaunch.
