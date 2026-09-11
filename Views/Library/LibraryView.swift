@@ -12,7 +12,7 @@ struct LibraryView: View {
 
     @Binding var selectedFilterType: LibraryFilterType
     @Binding var selectedFilterItem: LibraryFilterItem?
-    @Binding var pendingSearchText: String?
+    @Binding var pendingSelection: LibraryFilterRequest?
     @Binding var cachedFilteredTracks: [Track]
     @Binding var filteredItems: [LibraryFilterItem]
     @Binding var selectedSidebarItem: LibrarySidebarItem?
@@ -79,7 +79,7 @@ struct LibraryView: View {
         
         pendingFilter = nil
         selectedFilterType = request.filterType
-        pendingSearchText = request.value
+        pendingSelection = request
     }
 
     private func handleGlobalSearch() {
@@ -96,7 +96,7 @@ struct LibraryView: View {
     init(
         selectedFilterType: Binding<LibraryFilterType>,
         selectedFilterItem: Binding<LibraryFilterItem?>,
-        pendingSearchText: Binding<String?>,
+        pendingSelection: Binding<LibraryFilterRequest?>,
         cachedFilteredTracks: Binding<[Track]>,
         filteredItems: Binding<[LibraryFilterItem]>,
         selectedSidebarItem: Binding<LibrarySidebarItem?>,
@@ -104,7 +104,7 @@ struct LibraryView: View {
     ) {
         self._selectedFilterType = selectedFilterType
         self._selectedFilterItem = selectedFilterItem
-        self._pendingSearchText = pendingSearchText
+        self._pendingSelection = pendingSelection
         self._cachedFilteredTracks = cachedFilteredTracks
         self._filteredItems = filteredItems
         self._selectedSidebarItem = selectedSidebarItem
@@ -119,7 +119,7 @@ struct LibraryView: View {
                 LibrarySidebarView(
                     selectedFilterType: $selectedFilterType,
                     selectedFilterItem: $selectedFilterItem,
-                    pendingSearchText: $pendingSearchText,
+                    pendingSelection: $pendingSelection,
                     filteredItems: $filteredItems,
                     selectedSidebarItem: $selectedSidebarItem
                 )
@@ -345,7 +345,7 @@ struct LibraryView: View {
 #Preview {
     @Previewable @State var filterType: LibraryFilterType = .artists
     @Previewable @State var filterItem: LibraryFilterItem?
-    @Previewable @State var searchText: String?
+    @Previewable @State var pendingSelection: LibraryFilterRequest?
     @Previewable @State var cachedTracks: [Track] = []
     @Previewable @State var filteredItems: [LibraryFilterItem] = []
     @Previewable @State var selectedSidebarItem: LibrarySidebarItem?
@@ -353,7 +353,7 @@ struct LibraryView: View {
     LibraryView(
         selectedFilterType: $filterType,
         selectedFilterItem: $filterItem,
-        pendingSearchText: $searchText,
+        pendingSelection: $pendingSelection,
         cachedFilteredTracks: $cachedTracks,
         filteredItems: $filteredItems,
         selectedSidebarItem: $selectedSidebarItem

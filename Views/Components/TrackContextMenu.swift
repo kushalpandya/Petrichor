@@ -244,18 +244,29 @@ enum TrackContextMenu {
 
         // swiftlint:disable:next localized_context_menu_title - dynamic filter category and value
         return .button(title: "\(filterType.pluralDisplayName): \(filterType.localizedDisplay(displayValue))") {
-            postGoToNotification(filterType: filterType, filterValue: displayValue)
+            postGoToNotification(
+                filterType: filterType,
+                filterValue: displayValue,
+                albumId: filterType == .albums ? track.albumId : nil
+            )
         }
     }
     
-    private static func postGoToNotification(filterType: LibraryFilterType, filterValue: String) {
+    private static func postGoToNotification(
+        filterType: LibraryFilterType,
+        filterValue: String,
+        albumId: Int64? = nil
+    ) {
+        var userInfo: [String: Any] = [
+            "filterType": filterType,
+            "filterValue": filterValue
+        ]
+        userInfo["albumId"] = albumId
+
         NotificationCenter.default.post(
             name: .goToLibraryFilter,
             object: nil,
-            userInfo: [
-                "filterType": filterType,
-                "filterValue": filterValue
-            ]
+            userInfo: userInfo
         )
     }
     

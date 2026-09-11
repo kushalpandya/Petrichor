@@ -73,7 +73,7 @@ struct ContentView: View {
     @AppStorage("librarySelectedFilterType")
     private var libraryFilterType: LibraryFilterType = .artists
     @State private var libraryFilterItem: LibraryFilterItem?
-    @State private var libraryPendingSearchText: String?
+    @State private var libraryPendingSelection: LibraryFilterRequest?
     @State private var libraryFilteredItems: [LibraryFilterItem] = []
     @State private var libraryCachedTracks: [Track] = []
     @State private var librarySelectedSidebarItem: LibrarySidebarItem?
@@ -378,7 +378,7 @@ struct ContentView: View {
                 LibraryView(
                     selectedFilterType: $libraryFilterType,
                     selectedFilterItem: $libraryFilterItem,
-                    pendingSearchText: $libraryPendingSearchText,
+                    pendingSelection: $libraryPendingSelection,
                     cachedFilteredTracks: $libraryCachedTracks,
                     filteredItems: $libraryFilteredItems,
                     selectedSidebarItem: $librarySelectedSidebarItem,
@@ -640,7 +640,11 @@ extension View {
                    let filterValue = notification.userInfo?["filterValue"] as? String {
                     withAnimation(.easeInOut(duration: AnimationDuration.standardDuration)) {
                         selectedTab.wrappedValue = .library
-                        pendingLibraryFilter.wrappedValue = LibraryFilterRequest(filterType: filterType, value: filterValue)
+                        pendingLibraryFilter.wrappedValue = LibraryFilterRequest(
+                            filterType: filterType,
+                            value: filterValue,
+                            albumId: notification.userInfo?["albumId"] as? Int64
+                        )
                     }
                 }
             }

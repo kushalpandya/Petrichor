@@ -4,7 +4,7 @@ struct LibrarySidebarView: View {
     @EnvironmentObject var libraryManager: LibraryManager
     @Binding var selectedFilterType: LibraryFilterType
     @Binding var selectedFilterItem: LibraryFilterItem?
-    @Binding var pendingSearchText: String?
+    @Binding var pendingSelection: LibraryFilterRequest?
     @Binding var filteredItems: [LibraryFilterItem]
     @Binding var selectedSidebarItem: LibrarySidebarItem?
 
@@ -95,17 +95,20 @@ struct LibrarySidebarView: View {
                 }
             }
         }
-        .onChange(of: pendingSearchText) { _, newValue in
-            if let searchValue = newValue {
-                pendingSearchText = nil
+        .onChange(of: pendingSelection) { _, request in
+            if let request {
+                pendingSelection = nil
                 
                 let allItems = libraryManager.getLibraryFilterItems(for: selectedFilterType)
                 
                 let matchingItem = allItems.first { item in
+                    if selectedFilterType == .albums, let albumId = request.albumId {
+                        return item.albumId == albumId
+                    }
                     if selectedFilterType.usesMultiArtistParsing {
-                        return ArtistParser.normalizeArtistName(item.name) == ArtistParser.normalizeArtistName(searchValue)
+                        return ArtistParser.normalizeArtistName(item.name) == ArtistParser.normalizeArtistName(request.value)
                     } else {
-                        return item.name == searchValue
+                        return item.name == request.value
                     }
                 }
                 
@@ -318,14 +321,14 @@ struct LibrarySidebarView: View {
 #Preview {
     @Previewable @State var selectedFilterType: LibraryFilterType = .artists
     @Previewable @State var selectedFilterItem: LibraryFilterItem?
-    @Previewable @State var pendingSearchText: String?
+    @Previewable @State var pendingSelection: LibraryFilterRequest?
     @Previewable @State var filteredItems: [LibraryFilterItem] = []
     @Previewable @State var selectedSidebarItem: LibrarySidebarItem?
 
     LibrarySidebarView(
         selectedFilterType: $selectedFilterType,
         selectedFilterItem: $selectedFilterItem,
-        pendingSearchText: $pendingSearchText,
+        pendingSelection: $pendingSelection,
         filteredItems: $filteredItems,
         selectedSidebarItem: $selectedSidebarItem
     )

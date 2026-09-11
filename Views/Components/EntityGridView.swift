@@ -263,6 +263,7 @@ private struct EntityGridItem<T: Entity>: View {
             return
         }
 
+        renderedImage = nil
         let image = await EntityArtworkCache.shared.loadImage(for: entity, isDark: isDark)
 
         guard !Task.isCancelled else { return }
