@@ -137,16 +137,19 @@ struct TrackLyricsContent: View {
             ScrollView {
                 VStack(spacing: fontSize * 0.7) {
                     ForEach(Array(lyricLines.enumerated()), id: \.offset) { index, line in
+                        let isActive = hasTimedLyrics && currentLineIndex == index
+
                         Text(line.text.isEmpty ? " " : line.text)
                             .font(.system(size: fontSize))
-                            // Only apply highlight styles if lyrics are timed
-                            .fontWeight(hasTimedLyrics && currentLineIndex == index ? .bold : .regular)
-                            .scaleEffect(hasTimedLyrics && currentLineIndex == index ? 1.1 : 1.0)
-                            .foregroundColor(hasTimedLyrics && currentLineIndex == index ? activeColor : inactiveColor)
+                            .fontWeight(isActive ? .bold : .regular)
+                            .scaleEffect(isActive ? 1.05 : 1.0)
+                            .foregroundColor(isActive ? activeColor : inactiveColor)
+                            .opacity(isActive ? 1.0 : 0.6)
                             .multilineTextAlignment(.center)
                             .lineSpacing(6)
-                            .id(index)   // For scrollTo
-                            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: currentLineIndex)
+                            .id(index)
+                            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: currentLineIndex)
+                            .animation(.easeInOut(duration: 0.25), value: isActive)
                     }
                 }
                 .padding(20)
@@ -155,9 +158,8 @@ struct TrackLyricsContent: View {
             }
             .scrollIndicators(.never)
             .onChange(of: currentLineIndex) { _, newIndex in
-                // Auto-scroll only for timed lyrics
                 guard hasTimedLyrics else { return }
-                withAnimation {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
                     proxy.scrollTo(newIndex, anchor: .center)
                 }
             }
@@ -236,7 +238,7 @@ struct TrackLyricsContent: View {
         } ?? -1
 
         if newIndex != currentLineIndex {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                 currentLineIndex = newIndex
             }
         }
