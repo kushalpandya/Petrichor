@@ -144,12 +144,10 @@ struct TrackLyricsContent: View {
                             .fontWeight(isActive ? .bold : .regular)
                             .scaleEffect(isActive ? 1.05 : 1.0)
                             .foregroundColor(isActive ? activeColor : inactiveColor)
-                            .opacity(isActive ? 1.0 : 0.6)
                             .multilineTextAlignment(.center)
                             .lineSpacing(6)
                             .id(index)
-                            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: currentLineIndex)
-                            .animation(.easeInOut(duration: 0.25), value: isActive)
+                            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isActive)
                     }
                 }
                 .padding(20)
@@ -158,7 +156,7 @@ struct TrackLyricsContent: View {
             }
             .scrollIndicators(.never)
             .onChange(of: currentLineIndex) { _, newIndex in
-                guard hasTimedLyrics else { return }
+                guard hasTimedLyrics, newIndex >= 0 else { return }
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
                     proxy.scrollTo(newIndex, anchor: .center)
                 }
@@ -238,9 +236,7 @@ struct TrackLyricsContent: View {
         } ?? -1
 
         if newIndex != currentLineIndex {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                currentLineIndex = newIndex
-            }
+            currentLineIndex = newIndex
         }
     }
 }
