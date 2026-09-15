@@ -490,7 +490,20 @@ extension DatabaseManager {
             let tracks = try Track
                 .filter(Track.Columns.folderId == folderId)
                 .fetchAll(db)
-            return Dictionary(uniqueKeysWithValues: tracks.map { ($0.url.path, $0) })
+
+            var tracksByPath: [String: Track] = [:]
+            for track in tracks.sorted(by: { ($0.trackId ?? .max) < ($1.trackId ?? .max) }) {
+                let path = track.url.path
+                if let existing = tracksByPath[path] {
+                    Logger.warning(
+                        "Duplicate normalized track path in folder \(folder.name): \(path) "
+                            + "(keeping ID \(existing.trackId ?? -1), ignoring ID \(track.trackId ?? -1))"
+                    )
+                    continue
+                }
+                tracksByPath[path] = track
+            }
+            return tracksByPath
         }
 
         // Remove tracks that no longer exist (skip on fresh scan when folder has no tracks)
@@ -554,14 +567,26 @@ extension DatabaseManager {
         var artworkMap: [URL: Data] = [:]
         var artworkPaths: [URL: URL] = [:]
         var directoriesWithArtwork: Set<URL> = []
+        var musicPaths: Set<String> = []
 
         while let fileURL = enumerator.nextObject() as? URL {
+            guard let resourceValues = try? fileURL.resourceValues(forKeys: [.isRegularFileKey]),
+                  resourceValues.isRegularFile == true,
+                  fileManager.isReadableFile(atPath: fileURL.path) else {
+                continue
+            }
+
             let fileExtension = fileURL.pathExtension.lowercased()
 
             guard !fileExtension.isEmpty else { continue }
 
             if supportedExtensions.contains(fileExtension) {
-                musicFiles.append(fileURL)
+                let path = fileURL.path
+                if musicPaths.insert(path).inserted {
+                    musicFiles.append(fileURL)
+                } else {
+                    Logger.warning("Skipping duplicate normalized file path while scanning: \(path)")
+                }
             } else if AudioFormat.isNotSupported(fileExtension) {
                 unsupportedFiles.append((url: fileURL, extension: fileExtension))
                 Logger.info("Skipped unsupported audio file: \(fileURL.lastPathComponent) (.\(fileExtension))")
