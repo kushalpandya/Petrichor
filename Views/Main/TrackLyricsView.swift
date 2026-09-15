@@ -137,16 +137,30 @@ struct TrackLyricsContent: View {
             ScrollView {
                 VStack(spacing: fontSize * 0.7) {
                     ForEach(Array(lyricLines.enumerated()), id: \.offset) { index, line in
-                        Text(line.text.isEmpty ? " " : line.text)
-                            .font(.system(size: fontSize))
-                            // Only apply highlight styles if lyrics are timed
-                            .fontWeight(hasTimedLyrics && currentLineIndex == index ? .bold : .regular)
-                            .scaleEffect(hasTimedLyrics && currentLineIndex == index ? 1.1 : 1.0)
-                            .foregroundColor(hasTimedLyrics && currentLineIndex == index ? activeColor : inactiveColor)
-                            .multilineTextAlignment(.center)
-                            .lineSpacing(6)
-                            .id(index)   // For scrollTo
-                            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: currentLineIndex)
+                        let isActive = hasTimedLyrics && currentLineIndex == index
+                        let lyricText = line.text.isEmpty ? " " : line.text
+
+                        ZStack {
+                            Text(lyricText)
+                                .font(.system(size: fontSize))
+                                .foregroundColor(inactiveColor)
+                                .opacity(isActive ? 0.0 : 1.0)
+                                .accessibilityHidden(true)
+
+                            Text(lyricText)
+                                .font(.system(size: fontSize, weight: .bold))
+                                .foregroundColor(activeColor)
+                                .opacity(isActive ? 1.0 : 0.0)
+                                .accessibilityHidden(true)
+                                .allowsHitTesting(false)
+                        }
+                        .scaleEffect(isActive ? 1.05 : 1.0)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(6)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(lyricText)
+                        .id(index)
+                        .animation(.smooth(duration: 0.25), value: isActive)
                     }
                 }
                 .padding(20)
@@ -155,9 +169,8 @@ struct TrackLyricsContent: View {
             }
             .scrollIndicators(.never)
             .onChange(of: currentLineIndex) { _, newIndex in
-                // Auto-scroll only for timed lyrics
-                guard hasTimedLyrics else { return }
-                withAnimation {
+                guard hasTimedLyrics, newIndex >= 0 else { return }
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
                     proxy.scrollTo(newIndex, anchor: .center)
                 }
             }
@@ -236,9 +249,7 @@ struct TrackLyricsContent: View {
         } ?? -1
 
         if newIndex != currentLineIndex {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                currentLineIndex = newIndex
-            }
+            currentLineIndex = newIndex
         }
     }
 }
