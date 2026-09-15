@@ -189,8 +189,8 @@ struct IntegrationsTabView: View {
 
     private var onlineFeaturesSection: some View {
         Group {
-            Toggle("Fetch lyrics from internet when unavailable", isOn: $onlineLyricsEnabled)
-                .help("Automatically search for lyrics online when no local lyrics are found")
+            Toggle("Fetch timed lyrics from internet when not available", isOn: $onlineLyricsEnabled)
+                .help("Search for synced lyrics online when no local lyrics are found, and upgrade untimed lyrics to timed when available")
 
             Toggle("Fetch artist image and bio from internet", isOn: $artistInfoFetchEnabled)
                 .help("Automatically download artist photos and bios from online sources")
