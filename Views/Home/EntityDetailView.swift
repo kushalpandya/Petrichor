@@ -376,50 +376,13 @@ struct EntityDetailView: View {
     }
 
     private var entityControls: some View {
-        let buttonWidth: CGFloat = 90
-        let verticalPadding: CGFloat = 6
-        let iconSize: CGFloat = 12
-        let textSize: CGFloat = 13
-        let buttonSpacing: CGFloat = 10
-        let iconTextSpacing: CGFloat = 4
-        
-        return HStack(spacing: buttonSpacing) {
-            Button(action: pinEntity) {
-                Image(systemName: isPinned ? "pin.fill" : "pin")
-                    .font(.system(size: iconSize))
-                    .foregroundStyle(.secondary)
-                    .padding(.vertical, verticalPadding)
-                    .padding(.horizontal, verticalPadding)
-            }
-            .adaptiveCircularButtonStyle()
-            .help(isPinned ? String(localized: "Remove from Home") : String(localized: "Pin to Home"))
-
-            Button(action: { playEntity() }, label: {
-                HStack(spacing: iconTextSpacing) {
-                    Image(systemName: Icons.playFill)
-                        .font(.system(size: iconSize))
-                    Text("Play")
-                        .font(.system(size: textSize, weight: .medium))
-                }
-                .frame(width: buttonWidth)
-                .padding(.vertical, verticalPadding)
-            })
-            .adaptiveButtonStyle(prominent: true)
-            .disabled(tracks.isEmpty)
-
-            Button(action: { playEntity(shuffle: true) }, label: {
-                HStack(spacing: iconTextSpacing) {
-                    Image(systemName: Icons.shuffleFill)
-                        .font(.system(size: iconSize))
-                    Text("Shuffle")
-                        .font(.system(size: textSize, weight: .medium))
-                }
-                .frame(width: buttonWidth)
-                .padding(.vertical, verticalPadding)
-            })
-            .adaptiveButtonStyle()
-            .disabled(tracks.isEmpty)
-        }
+        DetailHeaderControls(
+            isPinned: isPinned,
+            isPlaybackDisabled: tracks.isEmpty,
+            onTogglePin: pinEntity,
+            onPlay: { playEntity() },
+            onShuffle: { playEntity(shuffle: true) }
+        )
     }
     
     // MARK: - Views
