@@ -1,6 +1,5 @@
 import SwiftUI
 
-// swiftlint:disable:next type_body_length
 struct PlaylistDetailView: View {
     let playlistID: UUID
     /// Set when this is presented as a full-screen overlay (e.g. a Discover
@@ -250,110 +249,38 @@ struct PlaylistDetailView: View {
     }
 
     private var playlistControls: some View {
-        let buttonWidth: CGFloat = 90
-        let verticalPadding: CGFloat = 6
-        let iconSize: CGFloat = 12
-        let textSize: CGFloat = 13
-        let buttonSpacing: CGFloat = 10
-        let iconTextSpacing: CGFloat = 4
+        DetailHeaderControls(
+            isPinned: isPinned,
+            isPlaybackDisabled: playlist?.trackCount == 0,
+            showsPlaybackControls: !isStationCollection,
+            onTogglePin: pinPlaylist,
+            onPlay: { playPlaylist() },
+            onShuffle: { playPlaylist(shuffle: true) },
+            trailing: { playlistEditButton }
+        )
+    }
 
-        return HStack(spacing: buttonSpacing) {
-            Button(action: pinPlaylist) {
-                Image(systemName: isPinned ? "pin.fill" : "pin")
-                    .font(.system(size: iconSize))
-                    .foregroundStyle(.secondary)
-                    .padding(.vertical, verticalPadding)
-                    .padding(.horizontal, verticalPadding)
-            }
-            .adaptiveCircularButtonStyle()
-            .help(isPinned ? String(localized: "Remove from Home") : String(localized: "Pin to Home"))
-
-            // Stations have no queue, so there's no collection-level Play/Shuffle.
-            if isStationCollection {
-                Button(action: editStationCollection) {
-                    HStack(spacing: iconTextSpacing) {
-                        Image(systemName: Icons.edit)
-                            .font(.system(size: iconSize))
-                        Text("Edit")
-                            .font(.system(size: textSize, weight: .medium))
-                    }
-                    .frame(width: buttonWidth)
-                    .padding(.vertical, verticalPadding)
+    @ViewBuilder private var playlistEditButton: some View {
+        if let editAction = playlistEditAction {
+            Button(action: editAction) {
+                HStack(spacing: 4) {
+                    Image(systemName: Icons.edit)
+                        .font(.system(size: 12))
+                    Text("Edit")
+                        .font(.system(size: 13, weight: .medium))
                 }
-                .adaptiveButtonStyle()
-            } else {
-                trackPlaylistControls(
-                    buttonWidth: buttonWidth,
-                    verticalPadding: verticalPadding,
-                    iconSize: iconSize,
-                    textSize: textSize,
-                    iconTextSpacing: iconTextSpacing
-                )
+                .frame(width: 90)
+                .padding(.vertical, 6)
             }
+            .adaptiveButtonStyle()
         }
     }
 
-    @ViewBuilder
-    private func trackPlaylistControls(
-        buttonWidth: CGFloat,
-        verticalPadding: CGFloat,
-        iconSize: CGFloat,
-        textSize: CGFloat,
-        iconTextSpacing: CGFloat
-    ) -> some View {
-        Group {
-            Button(action: { playPlaylist() }, label: {
-                HStack(spacing: iconTextSpacing) {
-                    Image(systemName: Icons.playFill)
-                        .font(.system(size: iconSize))
-                    Text("Play")
-                        .font(.system(size: textSize, weight: .medium))
-                }
-                .frame(width: buttonWidth)
-                .padding(.vertical, verticalPadding)
-            })
-            .adaptiveButtonStyle(prominent: true)
-            .disabled(playlist?.trackCount == 0)
-
-            Button(action: { playPlaylist(shuffle: true) }, label: {
-                HStack(spacing: iconTextSpacing) {
-                    Image(systemName: Icons.shuffleFill)
-                        .font(.system(size: iconSize))
-                    Text("Shuffle")
-                        .font(.system(size: textSize, weight: .medium))
-                }
-                .frame(width: buttonWidth)
-                .padding(.vertical, verticalPadding)
-            })
-            .adaptiveButtonStyle()
-            .disabled(playlist?.trackCount == 0)
-
-            if playlist?.type == .regular {
-                Button(action: editRegularPlaylist) {
-                    HStack(spacing: iconTextSpacing) {
-                        Image(systemName: Icons.edit)
-                            .font(.system(size: iconSize))
-                        Text("Edit")
-                            .font(.system(size: textSize, weight: .medium))
-                    }
-                    .frame(width: buttonWidth)
-                    .padding(.vertical, verticalPadding)
-                }
-                .adaptiveButtonStyle()
-            } else if playlist?.type == .smart && playlist?.isUserEditable == true {
-                Button(action: editSmartPlaylistRules) {
-                    HStack(spacing: iconTextSpacing) {
-                        Image(systemName: Icons.edit)
-                            .font(.system(size: iconSize))
-                        Text("Edit")
-                            .font(.system(size: textSize, weight: .medium))
-                    }
-                    .frame(width: buttonWidth)
-                    .padding(.vertical, verticalPadding)
-                }
-                .adaptiveButtonStyle()
-            }
-        }
+    private var playlistEditAction: (() -> Void)? {
+        if isStationCollection { return editStationCollection }
+        if playlist?.type == .regular { return editRegularPlaylist }
+        if playlist?.type == .smart && playlist?.isUserEditable == true { return editSmartPlaylistRules }
+        return nil
     }
 
     // MARK: - Playlist Content
