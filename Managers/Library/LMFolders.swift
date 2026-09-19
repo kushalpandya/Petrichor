@@ -68,6 +68,7 @@ extension LibraryManager {
             switch result {
             case .success:
                 Logger.info("Successfully removed folder: \(folder.name)")
+                self.releaseSecurityScopedAccess(for: folder)
                 // Remove from local array
                 self.folders.removeAll { $0.id == folder.id }
                 // Reload library immediately
@@ -152,6 +153,12 @@ extension LibraryManager {
         var foldersToRemove: [Folder] = []
             
         for folder in folders where !fileManager.fileExists(atPath: folder.url.path) {
+            // Missing bookmarked folders may be disconnected rather than deleted. Preserve
+            // their records; explicit folder removal remains available in Settings.
+            guard folder.bookmarkData == nil else {
+                Logger.warning("Skipping cleanup for unavailable bookmarked folder: \(folder.name)")
+                continue
+            }
             foldersToRemove.append(folder)
         }
         
@@ -224,10 +231,6 @@ extension LibraryManager {
                 relativeTo: nil
             )
 
-            // Update the folder with new bookmark
-            var updatedFolder = folder
-            updatedFolder.bookmarkData = newBookmarkData
-
             guard let folderId = folder.id else {
                 Logger.error("Failed to refresh bookmark for \(folder.name): folder has no database ID")
                 return
@@ -239,6 +242,61 @@ extension LibraryManager {
             Logger.info("Successfully refreshed bookmark for \(folder.name)")
         } catch {
             Logger.error("Failed to refresh bookmark for \(folder.name): \(error)")
+        }
+    }
+
+    internal func resolveBookmark(for folder: Folder) throws -> (url: URL, isStale: Bool) {
+        guard let bookmarkData = folder.bookmarkData else { throw CocoaError(.fileReadNoPermission) }
+        var isStale = false
+        let url = try URL(
+            resolvingBookmarkData: bookmarkData,
+            options: [.withSecurityScope],
+            relativeTo: nil,
+            bookmarkDataIsStale: &isStale
+        )
+        return (url.standardizedFileURL, isStale)
+    }
+
+    internal func retainSecurityScopedAccess(to url: URL, for folder: Folder) -> Bool {
+        guard let folderId = folder.id else { return false }
+        let standardizedURL = url.standardizedFileURL
+        securityScopedFolderURLsLock.lock()
+        defer { securityScopedFolderURLsLock.unlock() }
+        if securityScopedFolderURLs[folderId]?.path == standardizedURL.path { return true }
+        guard standardizedURL.startAccessingSecurityScopedResource() else { return false }
+        let previousURL = securityScopedFolderURLs.updateValue(standardizedURL, forKey: folderId)
+        previousURL?.stopAccessingSecurityScopedResource()
+        return true
+    }
+
+    internal func releaseSecurityScopedAccess(for folder: Folder) {
+        guard let folderId = folder.id else { return }
+        securityScopedFolderURLsLock.lock()
+        let url = securityScopedFolderURLs.removeValue(forKey: folderId)
+        securityScopedFolderURLsLock.unlock()
+        guard let url else { return }
+        url.stopAccessingSecurityScopedResource()
+    }
+
+    internal func releaseSecurityScopedFolderAccess() {
+        securityScopedFolderURLsLock.lock()
+        let urls = Array(securityScopedFolderURLs.values)
+        securityScopedFolderURLs.removeAll()
+        securityScopedFolderURLsLock.unlock()
+        for url in urls {
+            url.stopAccessingSecurityScopedResource()
+        }
+    }
+
+    internal func releaseSecurityScopedAccess(except folderIDs: Set<Int64>) {
+        securityScopedFolderURLsLock.lock()
+        let removedURLs = securityScopedFolderURLs.compactMap { folderId, url in
+            folderIDs.contains(folderId) ? nil : url
+        }
+        securityScopedFolderURLs = securityScopedFolderURLs.filter { folderIDs.contains($0.key) }
+        securityScopedFolderURLsLock.unlock()
+        for url in removedURLs {
+            url.stopAccessingSecurityScopedResource()
         }
     }
     

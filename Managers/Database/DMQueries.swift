@@ -82,12 +82,10 @@ extension DatabaseManager {
                 var resolved: [PlaybackSession.TrackReference: Track] = [:]
                 for reference in references {
                     if let id = reference.databaseID, let track = byID[id] {
-                        if track.url.path == reference.path {
-                            resolved[reference] = track
-                            continue
-                        }
-                    }
-                    if let track = byPath[reference.path] {
+                        // Track IDs survive path relocation; explicit database resets clear
+                        // the saved session before SQLite IDs can be assigned again.
+                        resolved[reference] = track
+                    } else if let track = byPath[reference.path] {
                         resolved[reference] = track
                     }
                 }
