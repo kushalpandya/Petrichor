@@ -19,30 +19,59 @@ extension LibraryManager {
         let dbFolders = databaseManager.getAllFolders()
         var resolvedFolders: [Folder] = []
         var foldersNeedingRefresh: [Folder] = []
+        var relocatedFolderNames: [String] = []
 
         for folder in dbFolders {
             var folderAccessible = false
+            var effectiveFolder = folder
 
             // Try to resolve bookmark if available
             if let bookmarkData = folder.bookmarkData {
                 do {
-                    var isStale = false
-                    let resolvedURL = try URL(
-                        resolvingBookmarkData: bookmarkData,
-                        options: [.withSecurityScope],
-                        relativeTo: nil,
-                        bookmarkDataIsStale: &isStale
-                    )
+                    let resolvedBookmark = try resolveBookmark(for: folder)
+                    let resolvedURL = resolvedBookmark.url
 
                     // Start accessing the security scoped resource
-                    if resolvedURL.startAccessingSecurityScopedResource() {
-                        folderAccessible = true
-                        resolvedFolders.append(folder)
-                        Logger.info("Successfully resolved bookmark for \(folder.name)")
+                    if retainSecurityScopedAccess(to: resolvedURL, for: folder) {
+                        let storedPath = folder.url.standardizedFileURL.path
+                        let resolvedPath = resolvedURL.standardizedFileURL.path
 
-                        if isStale {
-                            Logger.info("Bookmark for \(folder.name) is stale, queuing for refresh")
-                            foldersNeedingRefresh.append(folder)
+                        if storedPath != resolvedPath {
+                            do {
+                                let refreshedBookmark = (try? resolvedURL.bookmarkData(
+                                    options: [.withSecurityScope],
+                                    includingResourceValuesForKeys: nil,
+                                    relativeTo: nil
+                                )) ?? bookmarkData
+                                effectiveFolder = try databaseManager.relocateFolder(
+                                    folder,
+                                    to: resolvedURL,
+                                    bookmarkData: refreshedBookmark
+                                )
+                                relocatedFolderNames.append(effectiveFolder.name)
+                                Logger.info("Relocated watched folder from \(storedPath) to \(resolvedPath)")
+                            } catch {
+                                releaseSecurityScopedAccess(for: folder)
+                                resolvedFolders.append(folder)
+                                Logger.error(
+                                    "Failed to relocate watched folder from \(storedPath) " +
+                                    "to \(resolvedPath): \(error)"
+                                )
+                                NotificationManager.shared.addMessage(
+                                    .error,
+                                    String(localized: "Could not update the location of '\(folder.name)'")
+                                )
+                                continue
+                            }
+                        }
+
+                        folderAccessible = true
+                        resolvedFolders.append(effectiveFolder)
+                        Logger.info("Successfully resolved bookmark for \(effectiveFolder.name)")
+
+                        if resolvedBookmark.isStale {
+                            Logger.info("Bookmark for \(effectiveFolder.name) is stale, queuing for refresh")
+                            foldersNeedingRefresh.append(effectiveFolder)
                         }
                     } else {
                         Logger.error("Failed to start accessing security scoped resource for \(folder.name)")
@@ -59,7 +88,7 @@ extension LibraryManager {
                 Logger.info("Attempting to create new bookmark for accessible folder \(folder.name)")
 
                 // Check if we already have permission to access this path
-                if folder.url.startAccessingSecurityScopedResource() {
+                if retainSecurityScopedAccess(to: folder.url, for: folder) {
                     // We have access! Create a new bookmark
                     do {
                         let newBookmarkData = try folder.url.bookmarkData(
@@ -88,7 +117,17 @@ extension LibraryManager {
             }
         }
 
+        if !relocatedFolderNames.isEmpty {
+            pinnedItems = databaseManager.getPinnedItemsSync()
+            AppCoordinator.shared?.playlistManager.reconcileRelocatedTracks()
+            let message = relocatedFolderNames.count == 1
+                ? String(localized: "Updated the location of '\(relocatedFolderNames[0])'")
+                : String(localized: "Updated the locations of \(relocatedFolderNames.count) music folders")
+            NotificationManager.shared.addMessage(.info, message)
+        }
+
         folders = resolvedFolders
+        releaseSecurityScopedAccess(except: Set(resolvedFolders.compactMap(\.id)))
         tracks = []
         
         loadLibraryCategories()
@@ -222,19 +261,9 @@ extension LibraryManager {
         let group = DispatchGroup()
 
         Task {
-            // Every successful start must be paired with a stop; track which URLs we took a ref on.
-            var startedScopes: [URL] = []
-            defer {
-                for url in startedScopes {
-                    url.stopAccessingSecurityScopedResource()
-                }
-            }
-
-            // First check bookmarks
+            // Re-establish access if a folder was added after the last library load.
             for folder in folders {
-                if folder.bookmarkData != nil && folder.url.startAccessingSecurityScopedResource() {
-                    startedScopes.append(folder.url)
-                } else {
+                if folder.bookmarkData != nil && !retainSecurityScopedAccess(to: folder.url, for: folder) {
                     await refreshBookmarkForFolder(folder)
                 }
             }

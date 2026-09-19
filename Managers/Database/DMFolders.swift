@@ -73,6 +73,26 @@ actor GlobalScanState {
     }
 }
 
+private enum FolderRelocationError: LocalizedError {
+    case missingFolderID
+    case destinationAlreadyWatched(String)
+    case trackOutsideFolder(String)
+    case trackPathConflict(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .missingFolderID:
+            return "Cannot relocate a folder without a database ID"
+        case .destinationAlreadyWatched(let path):
+            return "A watched folder already exists at \(path)"
+        case .trackOutsideFolder(let path):
+            return "Track path is outside its watched folder: \(path)"
+        case .trackPathConflict(let path):
+            return "A track already exists at the relocated path: \(path)"
+        }
+    }
+}
+
 /// Result of a single-pass folder enumeration
 struct FolderEnumerationResult {
     let musicFiles: [URL]
@@ -294,6 +314,118 @@ extension DatabaseManager {
                 }
             }
         }
+    }
+
+    /// Rebase a watched folder after its bookmark follows a filesystem rename.
+    /// Existing IDs and scan metadata are preserved, so relocation does not re-ingest tracks.
+    func relocateFolder(_ folder: Folder, to resolvedURL: URL, bookmarkData: Data) throws -> Folder {
+        guard let folderId = folder.id else {
+            throw FolderRelocationError.missingFolderID
+        }
+
+        let oldPath = folder.url.standardizedFileURL.path
+        let newURL = resolvedURL.standardizedFileURL
+        let newPath = newURL.path
+        guard oldPath != newPath else { return folder }
+
+        return try dbQueue.write { db in
+            let destinationIsWatched = try Folder
+                .filter(Folder.Columns.path == newPath)
+                .filter(Folder.Columns.id != folderId)
+                .fetchCount(db) > 0
+            guard !destinationIsWatched else {
+                throw FolderRelocationError.destinationAlreadyWatched(newPath)
+            }
+
+            let tracks = try Track
+                .select(Track.Columns.trackId, Track.Columns.path)
+                .filter(Track.Columns.folderId == folderId)
+                .asRequest(of: Row.self)
+                .fetchAll(db)
+            var relocatedTracks: [(id: Int64, path: String)] = []
+            relocatedTracks.reserveCapacity(tracks.count)
+
+            for track in tracks {
+                let trackId: Int64 = track["id"]
+                let trackPath: String = track["path"]
+                guard let relocatedPath = rebasedPath(trackPath, from: oldPath, to: newPath) else {
+                    throw FolderRelocationError.trackOutsideFolder(trackPath)
+                }
+                relocatedTracks.append((trackId, relocatedPath))
+            }
+
+            for chunk in relocatedTracks.chunked(into: 500) {
+                let paths = chunk.map(\.path)
+                let conflictingPath = try Track
+                    .select(Track.Columns.path)
+                    .filter(paths.contains(Track.Columns.path))
+                    .filter(Track.Columns.folderId != folderId)
+                    .asRequest(of: String.self)
+                    .fetchOne(db)
+                guard let conflictingPath else { continue }
+                throw FolderRelocationError.trackPathConflict(conflictingPath)
+            }
+
+            let relocatedPathExpression = SQL(
+                "\(newPath) || substr(\(Track.Columns.path), length(\(oldPath)) + 1)"
+            ).sqlExpression
+            try Track
+                .filter(Track.Columns.folderId == folderId)
+                .updateAll(db, Track.Columns.path.set(to: relocatedPathExpression))
+
+            let folderPins = try PinnedItem
+                .select(PinnedItem.Columns.id, PinnedItem.Columns.filterValue)
+                .filter(PinnedItem.Columns.itemType == PinnedItem.ItemType.folder.rawValue)
+                .asRequest(of: Row.self)
+                .fetchAll(db)
+            for pin in folderPins {
+                let pinId: Int64 = pin["id"]
+                let pinPath: String? = pin["filter_value"]
+                guard let pinPath,
+                      let relocatedPath = rebasedPath(pinPath, from: oldPath, to: newPath) else {
+                    continue
+                }
+
+                if pinPath == oldPath {
+                    try PinnedItem
+                        .filter(PinnedItem.Columns.id == pinId)
+                        .updateAll(
+                            db,
+                            PinnedItem.Columns.filterValue.set(to: relocatedPath),
+                            PinnedItem.Columns.displayName.set(to: newURL.lastPathComponent)
+                        )
+                } else {
+                    try PinnedItem
+                        .filter(PinnedItem.Columns.id == pinId)
+                        .updateAll(
+                            db,
+                            PinnedItem.Columns.filterValue.set(to: relocatedPath)
+                        )
+                }
+            }
+
+            var relocatedFolder = Folder(url: newURL, id: folderId, bookmarkData: bookmarkData)
+            relocatedFolder.trackCount = folder.trackCount
+            relocatedFolder.dateAdded = folder.dateAdded
+            relocatedFolder.dateUpdated = folder.dateUpdated
+            relocatedFolder.shasumHash = folder.shasumHash
+            try relocatedFolder.update(db)
+            return relocatedFolder
+        }
+    }
+
+    private func rebasedPath(_ path: String, from oldRoot: String, to newRoot: String) -> String? {
+        if path == oldRoot {
+            return newRoot
+        }
+
+        let descendantPrefix = oldRoot.hasSuffix("/") ? oldRoot : "\(oldRoot)/"
+        guard path.hasPrefix(descendantPrefix) else { return nil }
+
+        return URL(fileURLWithPath: newRoot, isDirectory: true)
+            .appendingPathComponent(String(path.dropFirst(descendantPrefix.count)))
+            .standardizedFileURL
+            .path
     }
 
     func updateFolderBookmark(_ folderId: Int64, bookmarkData: Data) async throws {

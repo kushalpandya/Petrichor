@@ -10,6 +10,29 @@ import Foundation
 import GRDB
 
 extension PlaylistManager {
+    func reconcileRelocatedTracks() {
+        var trackIds = Set(currentQueue.compactMap(\.trackId))
+        if let currentTrackId = audioPlayer?.currentTrack?.trackId {
+            trackIds.insert(currentTrackId)
+        }
+        guard !trackIds.isEmpty else { return }
+
+        let relocatedTracks = libraryManager?.databaseManager.getTracks(byIds: Array(trackIds)) ?? []
+        let tracksById = Dictionary(uniqueKeysWithValues: relocatedTracks.compactMap { track in
+            track.trackId.map { ($0, track) }
+        })
+        for index in currentQueue.indices {
+            guard let trackId = currentQueue[index].trackId,
+                  let relocatedTrack = tracksById[trackId] else { continue }
+            currentQueue[index] = relocatedTrack
+        }
+
+        if let trackId = audioPlayer?.currentTrack?.trackId,
+           let relocatedTrack = tracksById[trackId] {
+            audioPlayer?.currentTrack = relocatedTrack
+        }
+    }
+
     func updateTrackFavoriteStatus(track: Track, isFavorite: Bool) async {
         guard let trackId = track.trackId else {
             Logger.error("Cannot update favorite - track has no database ID")
@@ -113,14 +136,10 @@ extension PlaylistManager {
                 updateSmartPlaylistCounts()
                 
                 // Refresh smart playlists affected by play count/last played changes
-                Task.detached(priority: .background) { [weak self] in
-                    guard let self = self else { return }
-                    
-                    for playlist in self.playlists where playlist.type == .smart && !playlist.isUserEditable {
-                        if playlist.name == DefaultPlaylists.mostPlayed ||
-                           playlist.name == DefaultPlaylists.recentlyPlayed {
-                            await self.loadSmartPlaylistTracks(playlist)
-                        }
+                for playlist in playlists where playlist.type == .smart && !playlist.isUserEditable {
+                    if playlist.name == DefaultPlaylists.mostPlayed ||
+                       playlist.name == DefaultPlaylists.recentlyPlayed {
+                        await loadSmartPlaylistTracks(playlist)
                     }
                 }
             } catch {
