@@ -27,6 +27,7 @@ struct TrackListView: View {
     let entityID: UUID?
     @Binding var sortOrder: [KeyPathComparator<Track>]
     let onPlayTrack: (Track, [Track]) -> Void
+    let onKeyboardSelection: (TrackListIdentity) -> Void
     let onToggleFavorite: (Track, Bool) -> Void
     let contextMenuItems: ([Track], PlaybackManager) -> [ContextMenuItem]
 
@@ -39,6 +40,7 @@ struct TrackListView: View {
     @State private var trackFavorites: [Int64: Bool] = [:]
     @State private var isCustomSort = false
     @State private var sortGeneration = 0
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         LazyVStack(spacing: 0) {
@@ -51,15 +53,48 @@ struct TrackListView: View {
                     isPlaying: isPlaying(track),
                     isSelected: selectedTrackID == identity,
                     isFavorite: isFavorite(track),
-                    onSelect: { selectedTrackID = identity },
+                    onSelect: {
+                        selectedTrackID = identity
+                        isFocused = true
+                    },
                     onPlay: { handleDoubleTap(on: track) },
                     onToggleFavorite: { onToggleFavorite(track, isFavorite(track)) }
                 )
+                .id(identity)
                 .contextMenu {
                     TrackRowContextMenu(track: track, itemsProvider: contextMenuItems)
                 }
             }
         }
+        .focusable()
+        .focused($isFocused)
+        .focusEffectDisabled()
+        .onMoveCommand { direction in
+            switch direction {
+            case .up:
+                moveSelection(by: -1)
+            case .down:
+                moveSelection(by: 1)
+            default:
+                break
+            }
+        }
+        .onKeyPress(.return) {
+            guard let track = selectedTrack else { return .ignored }
+            if isCurrentTrack(track) {
+                DispatchQueue.main.async {
+                    playbackManager.togglePlayPause()
+                }
+            } else {
+                let displayedTracks = sortedTracks
+                DispatchQueue.main.async {
+                    onPlayTrack(track, displayedTracks)
+                }
+            }
+            return .handled
+        }
+        .accessibilityLabel(String(localized: "Fresh Music"))
+        .accessibilityValue(selectedTrack.map(accessibilityDescription) ?? "")
         .onAppear(perform: initializeSortedTracks)
         .onChange(of: tracks) { _, newTracks in
             guard !newTracks.isEmpty else {
@@ -119,6 +154,34 @@ struct TrackListView: View {
         } else {
             onPlayTrack(track, sortedTracks)
         }
+    }
+
+    private func moveSelection(by offset: Int) {
+        guard !sortedTracks.isEmpty else { return }
+
+        let targetIndex: Int
+        if let selectedTrackID,
+           let currentIndex = sortedTracks.firstIndex(where: { $0.listIdentity == selectedTrackID }) {
+            targetIndex = min(max(currentIndex + offset, 0), sortedTracks.count - 1)
+        } else {
+            targetIndex = offset < 0 ? sortedTracks.count - 1 : 0
+        }
+
+        let identity = sortedTracks[targetIndex].listIdentity
+        guard identity != selectedTrackID else { return }
+        selectedTrackID = identity
+        onKeyboardSelection(identity)
+    }
+
+    private var selectedTrack: Track? {
+        guard let selectedTrackID else { return nil }
+        return sortedTracks.first { $0.listIdentity == selectedTrackID }
+    }
+
+    private func accessibilityDescription(for track: Track) -> String {
+        [track.title, track.artist, track.album]
+            .filter { !$0.isEmpty }
+            .joined(separator: ", ")
     }
 
     // MARK: - Sorting
