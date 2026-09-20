@@ -123,38 +123,42 @@ struct DiscoverView: View {
         VStack(spacing: 0) {
             DiscoverInitialScanBanner(libraryManager: libraryManager)
 
-            ScrollView(.vertical) {
-                LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
-                    Section {
-                        featuredRow
-                    } header: {
-                        EntityListHeader(title: String(localized: "Featured"), metrics: metrics) {
-                            refreshButton(help: String(localized: "Refresh featured picks")) {
-                                Task { await libraryManager.refreshFeatured() }
+            ScrollViewReader { proxy in
+                ScrollView(.vertical) {
+                    LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                        Section {
+                            featuredRow
+                        } header: {
+                            EntityListHeader(title: String(localized: "Featured"), metrics: metrics) {
+                                refreshButton(help: String(localized: "Refresh featured picks")) {
+                                    Task { await libraryManager.refreshFeatured() }
+                                }
                             }
                         }
-                    }
 
-                    if viewModel.showsRecentlyPlayed {
-                        Section {
-                            recentlyPlayedRow
-                        } header: {
-                            EntityListHeader(title: String(localized: "Recently Played"), metrics: metrics)
+                        if viewModel.showsRecentlyPlayed {
+                            Section {
+                                recentlyPlayedRow
+                            } header: {
+                                EntityListHeader(title: String(localized: "Recently Played"), metrics: metrics)
+                            }
                         }
-                    }
 
-                    if viewModel.showsMostLoved {
-                        Section {
-                            mostLovedRow
-                        } header: {
-                            EntityListHeader(title: String(localized: "Most Loved & Played"), metrics: metrics)
+                        if viewModel.showsMostLoved {
+                            Section {
+                                mostLovedRow
+                            } header: {
+                                EntityListHeader(title: String(localized: "Most Loved & Played"), metrics: metrics)
+                            }
                         }
-                    }
 
-                    Section {
-                        freshMusicContent
-                    } header: {
-                        freshMusicHeader
+                        Section {
+                            freshMusicContent { identity in
+                                proxy.scrollTo(identity, anchor: .center)
+                            }
+                        } header: {
+                            freshMusicHeader
+                        }
                     }
                 }
             }
@@ -272,7 +276,10 @@ struct DiscoverView: View {
         }
     }
 
-    @ViewBuilder private var freshMusicContent: some View {
+    @ViewBuilder
+    private func freshMusicContent(
+        onKeyboardSelection: @escaping (TrackListIdentity) -> Void
+    ) -> some View {
         if viewModel.isLoadingTracks {
             TrackListSkeleton()
         } else if viewModel.tracks.isEmpty {
@@ -288,6 +295,7 @@ struct DiscoverView: View {
                     playlistManager.playTrack(track, fromTracks: displayedTracks)
                     playlistManager.currentQueueSource = .library
                 },
+                onKeyboardSelection: onKeyboardSelection,
                 onToggleFavorite: { track, currentState in
                     playlistManager.toggleFavorite(for: track, currentState: currentState)
                 },

@@ -25,6 +25,7 @@ struct TrackTableView: View {
     @State private var trackFavorites: [Int64: Bool] = [:]
     @State private var sortGeneration = 0
     @State private var artistGroupingGeneration = 0
+    @FocusState private var isTableFocused: Bool
 
     @AppStorage("groupArtistTracksByAlbum")
     private var groupsArtistTracksByAlbum = true
@@ -55,6 +56,7 @@ struct TrackTableView: View {
 
     var body: some View {
         tableView
+            .focused($isTableFocused)
             .contextMenu(forSelectionType: Track.ID.self) { selectedIDs in
                 let selectedTracks = displayedTracks.filter { selectedIDs.contains($0.id) }
                 if !selectedTracks.isEmpty {
@@ -126,6 +128,10 @@ struct TrackTableView: View {
                         return (trackId, track.isFavorite)
                     }
                 )
+            }
+            .onChange(of: selection) { oldValue, newValue in
+                guard oldValue != newValue, !newValue.isEmpty else { return }
+                isTableFocused = true
             }
             .onChange(of: sortedTracks) {
                 rebuildArtistTrackSections()
