@@ -5,6 +5,35 @@
         <description>Updates for Petrichor</description>
         <language>en</language>
         <item>
+            <title>Version 1.7.1</title>
+            <pubDate>Mon, 21 Sep 2026 23:14:43 -0400</pubDate>
+            <sparkle:version>171</sparkle:version>
+            <sparkle:shortVersionString>1.7.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.7.1/Petrichor-1.7.1-Universal.dmg"
+                sparkle:edSignature="50QWpFbgzLFJy/8IAPPaoS67BSpK6iUTtnEDmqwNDZnGoE7wcHP/nWNpECm31M/wiIImiiLmYdU9Y5FLIvh8Cg=="
+                length="21381753"
+                type="application/octet-stream"
+            />
+            <description><![CDATA[
+                <h2>Fixes</h2>
+                <ul>
+                    <li>Automatically pick up folder renames instead of leaving track references unusable (<a href="https://github.com/kushalpandya/Petrichor/issues/390">#390</a>)</li>
+                    <li>Fix tracks list navigation not working via Up/Down arrow keys and highlight not following system accent color on macOS 27 (<a href="https://github.com/kushalpandya/Petrichor/issues/392">#392</a>)</li>
+                    <li>Prevent crashes when the same folder is present in the library via multiple routes (<a href="https://github.com/kushalpandya/Petrichor/issues/386">#386</a>)</li>
+                    <li>Fix albums with the same name but different artists being conflated (<a href="https://github.com/kushalpandya/Petrichor/issues/380">#380</a>)</li>
+                    <li>Preserve duplicate tracks explicitly added to playlists (<a href="https://github.com/kushalpandya/Petrichor/issues/381">#381</a>)</li>
+                </ul>
+                <h2>Others</h2>
+                <ul>
+                    <li>Animate lyrics view scrolling during playback (<a href="https://github.com/kushalpandya/Petrichor/issues/384">#384</a>) (Thanks <a href="https://github.com/hemingtsai">@hemingtsai</a>)</li>
+                    <li>Update Pin/Unpin button icons for better usability (<a href="https://github.com/kushalpandya/Petrichor/issues/387">#387</a>)</li>
+                </ul>
+                <p><a href="https://www.petrichor.page/changelog/">Full Changelog</a></p>
+            ]]></description>
+        </item>
+        <item>
             <title>Version 1.7.0</title>
             <pubDate>Thu, 03 Sep 2026 22:33:09 -0400</pubDate>
             <sparkle:version>170</sparkle:version>
