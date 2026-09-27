@@ -128,10 +128,12 @@ struct ContentView: View {
             }
         }
         .onChange(of: isImmersiveActive) { _, active in
-            // Restore the toolbar at the start of the close, while immersive still
-            // covers the window, so its reflow stays off-screen.
-            if !active {
-                WindowManager.shared.mainWindow?.toolbar?.isVisible = immersiveToolbarWasVisible
+            guard !active else { return }
+
+            let shouldRestoreToolbar = immersiveToolbarWasVisible
+            DispatchQueue.main.asyncAfter(deadline: .now() + AnimationDuration.immersiveTransition) {
+                guard !isImmersiveActive else { return }
+                WindowManager.shared.mainWindow?.toolbar?.isVisible = shouldRestoreToolbar
             }
         }
         .onAppear(perform: handleOnAppear)
