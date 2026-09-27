@@ -18,7 +18,7 @@ extension LibraryManager {
         // Load folders and resolve their bookmarks
         let dbFolders = databaseManager.getAllFolders()
         var resolvedFolders: [Folder] = []
-        var foldersNeedingRefresh: [Folder] = []
+        var bookmarkUpdates: [(folderId: Int64, path: String, data: Data)] = []
         var relocatedFolderNames: [String] = []
 
         for folder in dbFolders {
@@ -38,6 +38,7 @@ extension LibraryManager {
 
                         if storedPath != resolvedPath {
                             do {
+                                try validateFolderForScanning(resolvedURL, name: folder.name)
                                 let refreshedBookmark = (try? resolvedURL.bookmarkData(
                                     options: [.withSecurityScope],
                                     includingResourceValuesForKeys: nil,
@@ -63,16 +64,23 @@ extension LibraryManager {
                                 )
                                 continue
                             }
+                        } else if resolvedBookmark.isStale, let folderId = folder.id {
+                            do {
+                                let refreshedBookmark = try resolvedURL.bookmarkData(
+                                    options: [.withSecurityScope],
+                                    includingResourceValuesForKeys: nil,
+                                    relativeTo: nil
+                                )
+                                effectiveFolder.bookmarkData = refreshedBookmark
+                                bookmarkUpdates.append((folderId, effectiveFolder.url.path, refreshedBookmark))
+                            } catch {
+                                Logger.warning("Failed to refresh stale bookmark for \(folder.name): \(error)")
+                            }
                         }
 
                         folderAccessible = true
                         resolvedFolders.append(effectiveFolder)
                         Logger.info("Successfully resolved bookmark for \(effectiveFolder.name)")
-
-                        if resolvedBookmark.isStale {
-                            Logger.info("Bookmark for \(effectiveFolder.name) is stale, queuing for refresh")
-                            foldersNeedingRefresh.append(effectiveFolder)
-                        }
                     } else {
                         Logger.error("Failed to start accessing security scoped resource for \(folder.name)")
                     }
@@ -100,7 +108,9 @@ extension LibraryManager {
                         var updatedFolder = folder
                         updatedFolder.bookmarkData = newBookmarkData
                         resolvedFolders.append(updatedFolder)
-                        foldersNeedingRefresh.append(updatedFolder)
+                        if let folderId = updatedFolder.id {
+                            bookmarkUpdates.append((folderId, updatedFolder.url.path, newBookmarkData))
+                        }
 
                         Logger.info("Created new bookmark for \(folder.name)")
                     } catch {
@@ -136,11 +146,19 @@ extension LibraryManager {
 
         Logger.info("Loaded \(folders.count) folders and \(totalTrackCount) tracks from database")
 
-        // Refresh stale bookmarks in background
-        if !foldersNeedingRefresh.isEmpty {
+        if !bookmarkUpdates.isEmpty {
+            let pendingBookmarkUpdates = bookmarkUpdates
             Task {
-                for folder in foldersNeedingRefresh {
-                    await refreshBookmarkForFolder(folder)
+                for update in pendingBookmarkUpdates {
+                    do {
+                        try await databaseManager.updateFolderBookmark(
+                            update.folderId,
+                            expectedPath: update.path,
+                            bookmarkData: update.data
+                        )
+                    } catch {
+                        Logger.error("Failed to persist refreshed bookmark for folder ID \(update.folderId): \(error)")
+                    }
                 }
             }
         }
@@ -261,19 +279,24 @@ extension LibraryManager {
         let group = DispatchGroup()
 
         Task {
-            // Re-establish access if a folder was added after the last library load.
-            for folder in folders {
-                if folder.bookmarkData != nil && !retainSecurityScopedAccess(to: folder.url, for: folder) {
-                    await refreshBookmarkForFolder(folder)
-                }
-            }
-
             // Filter folders that need refreshing
-            let foldersToRefresh = await determineFoldersToRefresh(hardRefresh: hardRefresh)
+            let refreshPlan = await determineFoldersToRefresh(hardRefresh: hardRefresh)
+            let foldersToRefresh = refreshPlan.folders
+            for folderName in refreshPlan.unavailableFolderNames {
+                await errorTracker.setError(folder: folderName)
+            }
 
             // Only proceed if there are folders to refresh
             if foldersToRefresh.isEmpty {
                 Logger.info("No folders need refreshing")
+                if !refreshPlan.unavailableFolderNames.isEmpty {
+                    await MainActor.run {
+                        let message = refreshPlan.unavailableFolderNames.count == 1
+                            ? String(localized: "Failed to refresh folder '\(refreshPlan.unavailableFolderNames[0])'")
+                            : String(localized: "Failed to refresh \(refreshPlan.unavailableFolderNames.count) folders")
+                        NotificationManager.shared.addMessage(.error, message)
+                    }
+                }
                 // Still retry missing artist info: it's independent of track changes,
                 // and this is the manual-refresh resume path for the offline breaker.
                 await MainActor.run { [weak self] in
@@ -402,71 +425,72 @@ extension LibraryManager {
         }
     }
 
-    private func determineFoldersToRefresh(hardRefresh: Bool = false) async -> [Folder] {
+    private func determineFoldersToRefresh(
+        hardRefresh: Bool = false
+    ) async -> (folders: [Folder], unavailableFolderNames: [String]) {
         var foldersToRefresh: [Folder] = []
+        var unavailableFolderNames: [String] = []
         
         Logger.info("Starting folder refresh check (hardRefresh: \(hardRefresh))")
             
-        // Refresh all folders when hardRefresh is set
-        if hardRefresh {
-            for folder in folders {
-                guard FileManager.default.fileExists(atPath: folder.url.path) else {
-                    Logger.info("Folder '\(folder.name)': Currently unavailable, skipping")
-                    continue
-                }
-                Logger.info("Folder \(folder.name): Hard refresh requested, marking for refresh")
-                foldersToRefresh.append(folder)
-            }
-            Logger.info("Hard refresh: All \(foldersToRefresh.count) accessible folders marked for refresh")
-            return foldersToRefresh
-        }
-        
         for folder in folders {
-            // Skip folders that are currently inaccessible
-            guard FileManager.default.fileExists(atPath: folder.url.path) else {
-                Logger.info("Folder '\(folder.name)': Currently unavailable, skipping refresh")
+            let scanFolder: Folder
+            do {
+                scanFolder = try await prepareFolderForScanning(folder)
+            } catch {
+                Logger.warning("Folder '\(folder.name)' is unavailable, skipping refresh: \(error)")
+                unavailableFolderNames.append(folder.name)
+                continue
+            }
+
+            if hardRefresh {
+                Logger.info("Folder \(scanFolder.name): Hard refresh requested, marking for refresh")
+                foldersToRefresh.append(scanFolder)
                 continue
             }
 
             // Step 1: Check modification timestamp
             let timestampChanged = FilesystemUtils.modificationTimestampChanged(
-                for: folder.url,
-                comparedTo: folder.dateUpdated
+                for: scanFolder.url,
+                comparedTo: scanFolder.dateUpdated
             )
-            
+
             if timestampChanged {
-                Logger.info("Folder \(folder.name): Timestamp changed, marking for refresh")
-                foldersToRefresh.append(folder)
+                Logger.info("Folder \(scanFolder.name): Timestamp changed, marking for refresh")
+                foldersToRefresh.append(scanFolder)
                 continue
             }
             
             // Step 2: If timestamp hasn't changed, check content hash
-            Logger.info("Folder \(folder.name): Timestamp unchanged, checking content hash...")
-            
+            Logger.info("Folder \(scanFolder.name): Timestamp unchanged, checking content hash...")
+
             // If no hash stored yet, we need to scan
-            guard let storedHash = folder.shasumHash else {
-                Logger.info("Folder \(folder.name): No hash stored, marking for refresh")
-                foldersToRefresh.append(folder)
+            guard let storedHash = scanFolder.shasumHash else {
+                Logger.info("Folder \(scanFolder.name): No hash stored, marking for refresh")
+                foldersToRefresh.append(scanFolder)
                 continue
             }
-            
+
             // Calculate current hash
-            if let currentHash = await FilesystemUtils.computeFolderHash(for: folder.url) {
+            if let currentHash = await FilesystemUtils.computeFolderHash(for: scanFolder.url) {
                 if currentHash != storedHash {
-                    Logger.info("Folder \(folder.name): Content changed (hash mismatch), marking for refresh")
-                    foldersToRefresh.append(folder)
+                    Logger.info("Folder \(scanFolder.name): Content changed (hash mismatch), marking for refresh")
+                    foldersToRefresh.append(scanFolder)
                 } else {
-                    Logger.info("Folder \(folder.name): No changes detected, skipping")
+                    Logger.info("Folder \(scanFolder.name): No changes detected, skipping")
                 }
             } else {
                 // If hash calculation fails, scan to be safe
-                Logger.warning("Folder \(folder.name): Hash calculation failed, marking for refresh")
-                foldersToRefresh.append(folder)
+                Logger.warning("Folder \(scanFolder.name): Hash calculation failed, marking for refresh")
+                foldersToRefresh.append(scanFolder)
             }
         }
-        
+
+        if hardRefresh {
+            Logger.info("Hard refresh: All \(foldersToRefresh.count) accessible folders marked for refresh")
+        }
         Logger.info("Refresh check complete: \(foldersToRefresh.count)/\(folders.count) folders need refresh")
-        return foldersToRefresh
+        return (foldersToRefresh, unavailableFolderNames)
     }
 
     @MainActor

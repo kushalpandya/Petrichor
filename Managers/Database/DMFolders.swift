@@ -99,6 +99,7 @@ struct FolderEnumerationResult {
     let unsupportedFiles: [(url: URL, extension: String)]
     let artworkMap: [URL: Data]
     let artworkPaths: [URL: URL]   // directory -> artwork file URL (for deferred loading on slow FS)
+    let failedPaths: [String]
 }
 
 extension DatabaseManager {
@@ -428,10 +429,11 @@ extension DatabaseManager {
             .path
     }
 
-    func updateFolderBookmark(_ folderId: Int64, bookmarkData: Data) async throws {
+    func updateFolderBookmark(_ folderId: Int64, expectedPath: String, bookmarkData: Data) async throws {
         _ = try await dbQueue.write { db in
             try Folder
                 .filter(Folder.Columns.id == folderId)
+                .filter(Folder.Columns.path == expectedPath)
                 .updateAll(db, Folder.Columns.bookmarkData.set(to: bookmarkData))
         }
     }
@@ -492,9 +494,13 @@ extension DatabaseManager {
         var count = 0
         while let fileURL = enumerator.nextObject() as? URL {
             let ext = fileURL.pathExtension.lowercased()
-            if !ext.isEmpty && supportedExtensions.contains(ext) {
-                count += 1
+            guard !ext.isEmpty, supportedExtensions.contains(ext),
+                  let values = try? fileURL.resourceValues(forKeys: [.isRegularFileKey]),
+                  values.isRegularFile == true,
+                  FileManager.default.isReadableFile(atPath: fileURL.path) else {
+                continue
             }
+            count += 1
         }
         return count
     }
@@ -610,6 +616,12 @@ extension DatabaseManager {
         let artworkMap = enumeration.artworkMap
         let artworkPaths = enumeration.artworkPaths
 
+        guard enumeration.failedPaths.isEmpty else {
+            let sample = enumeration.failedPaths.prefix(3).joined(separator: ", ")
+            Logger.warning("Incomplete scan of \(folder.name); preserving existing tracks. Failed paths: \(sample)")
+            throw DatabaseError.scanFailed("Unable to completely read folder contents")
+        }
+
         await scanState.addSkippedFiles(enumeration.unsupportedFiles)
 
         let artworkCount = artworkMap.count + artworkPaths.count
@@ -686,10 +698,26 @@ extension DatabaseManager {
     ) throws -> FolderEnumerationResult {
         let fileManager = FileManager.default
 
+        let rootValues: URLResourceValues
+        do {
+            rootValues = try folderURL.resourceValues(forKeys: [.isDirectoryKey, .isReadableKey])
+        } catch {
+            throw DatabaseError.scanFailed("Folder is unavailable or unreadable")
+        }
+        guard rootValues.isDirectory == true, rootValues.isReadable == true else {
+            throw DatabaseError.scanFailed("Folder is unavailable or unreadable")
+        }
+
+        var failedPaths: [String] = []
         guard let enumerator = fileManager.enumerator(
             at: folderURL,
             includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey],
-            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+            options: [.skipsHiddenFiles, .skipsPackageDescendants],
+            errorHandler: { url, error in
+                failedPaths.append(url.path)
+                Logger.warning("Failed to enumerate \(url.path): \(error)")
+                return true
+            }
         ) else {
             throw DatabaseError.scanFailed("Unable to enumerate folder contents")
         }
@@ -702,24 +730,41 @@ extension DatabaseManager {
         var musicPaths: Set<String> = []
 
         while let fileURL = enumerator.nextObject() as? URL {
-            guard let resourceValues = try? fileURL.resourceValues(forKeys: [.isRegularFileKey]),
-                  resourceValues.isRegularFile == true,
-                  fileManager.isReadableFile(atPath: fileURL.path) else {
+            let fileExtension = fileURL.pathExtension.lowercased()
+            let filename = fileURL.deletingPathExtension().lastPathComponent
+            let isSupportedAudio = supportedExtensions.contains(fileExtension)
+            let isArtwork = AlbumArtFormat.knownFilenames.contains(filename)
+                && AlbumArtFormat.isSupported(fileExtension)
+            let isUnsupportedAudio = AudioFormat.isNotSupported(fileExtension)
+            guard isSupportedAudio || isArtwork || isUnsupportedAudio else { continue }
+
+            let resourceValues: URLResourceValues
+            do {
+                resourceValues = try fileURL.resourceValues(forKeys: [.isRegularFileKey])
+            } catch {
+                failedPaths.append(fileURL.path)
+                Logger.warning("Failed to inspect \(fileURL.path): \(error)")
                 continue
             }
 
-            let fileExtension = fileURL.pathExtension.lowercased()
+            guard resourceValues.isRegularFile == true else { continue }
 
             guard !fileExtension.isEmpty else { continue }
 
-            if supportedExtensions.contains(fileExtension) {
+            if isSupportedAudio {
+                guard fileManager.isReadableFile(atPath: fileURL.path) else {
+                    failedPaths.append(fileURL.path)
+                    Logger.warning("Audio file is unreadable: \(fileURL.path)")
+                    continue
+                }
+
                 let path = fileURL.path
                 if musicPaths.insert(path).inserted {
                     musicFiles.append(fileURL)
                 } else {
                     Logger.warning("Skipping duplicate normalized file path while scanning: \(path)")
                 }
-            } else if AudioFormat.isNotSupported(fileExtension) {
+            } else if isUnsupportedAudio {
                 unsupportedFiles.append((url: fileURL, extension: fileExtension))
                 Logger.info("Skipped unsupported audio file: \(fileURL.lastPathComponent) (.\(fileExtension))")
             }
@@ -727,9 +772,7 @@ extension DatabaseManager {
             // Check for artwork files (cover.jpg, folder.png, etc.)
             let directory = fileURL.deletingLastPathComponent()
             if !directoriesWithArtwork.contains(directory) {
-                let filename = fileURL.deletingPathExtension().lastPathComponent
-                if AlbumArtFormat.knownFilenames.contains(filename)
-                    && AlbumArtFormat.isSupported(fileExtension) {
+                if isArtwork {
                     directoriesWithArtwork.insert(directory)
                     if deferArtworkLoading {
                         // On slow FS, just record the path for lazy loading later
@@ -748,11 +791,22 @@ extension DatabaseManager {
             }
         }
 
+        let finalRootValues: URLResourceValues
+        do {
+            finalRootValues = try folderURL.resourceValues(forKeys: [.isDirectoryKey, .isReadableKey])
+        } catch {
+            throw DatabaseError.scanFailed("Folder became unavailable during scanning")
+        }
+        guard finalRootValues.isDirectory == true, finalRootValues.isReadable == true else {
+            throw DatabaseError.scanFailed("Folder became unavailable during scanning")
+        }
+
         return FolderEnumerationResult(
             musicFiles: musicFiles,
             unsupportedFiles: unsupportedFiles,
             artworkMap: artworkMap,
-            artworkPaths: artworkPaths
+            artworkPaths: artworkPaths,
+            failedPaths: failedPaths
         )
     }
 
