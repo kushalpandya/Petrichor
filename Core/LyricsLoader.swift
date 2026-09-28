@@ -1,7 +1,7 @@
 import Foundation
 import GRDB
 
-struct LyricsLoader {
+enum LyricsLoader {
     /// Load structured lyrics for a track
     /// - Parameters:
     ///   - track: The track to load lyrics for
@@ -12,7 +12,7 @@ struct LyricsLoader {
         for track: Track,
         using dbQueue: DatabaseQueue,
         databaseManager: DatabaseManager? = nil
-    ) async throws -> (lyrics: [LyricLine], source: LyricsSource) {
+    ) async throws -> (lyrics: [LyricLine], source: LyricsSource, fullTrack: FullTrack?) {
         var lines: [LyricLine]?
         var source: LyricsSource = .none
         
@@ -40,9 +40,11 @@ struct LyricsLoader {
             lines = parseAnyLyrics(onlineText)
             source = .online
         }
+
+        try Task.checkCancellation()
         
         // Fallback to empty array
-        return (lines ?? [], source)
+        return (lines ?? [], source, fullTrack)
     }
     
     // MARK: - External files
@@ -76,7 +78,7 @@ struct LyricsLoader {
     }
     
     // MARK: - Helpers
-    
+
     /// Try to parse as LRC first, then fallback to plain text lines
     private static func parseAnyLyrics(_ raw: String) -> [LyricLine] {
         // Attempt LRC parsing (covers embedded/online that already have timestamps)

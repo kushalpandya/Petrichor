@@ -46,6 +46,7 @@ struct TrackLyricsContent: View {
 
     @EnvironmentObject var libraryManager: LibraryManager
     @EnvironmentObject var playbackManager: PlaybackManager
+    @ObservedObject private var lyricsStore = LyricsStore.shared
 
     @State private var lyricLines: [LyricLine] = []
     @State private var isLoading = true
@@ -82,6 +83,10 @@ struct TrackLyricsContent: View {
         // Listen for playback time changes and update the current line in real time.
         .onReceive(playbackManager.playbackProgressState.$currentTime) { newTime in
             updateCurrentLine(for: newTime)
+        }
+        .onReceive(lyricsStore.$cached) { lyrics in
+            guard let lyrics, currentTrack?.id == lyrics.trackId else { return }
+            apply(lyrics)
         }
     }
 
@@ -191,11 +196,7 @@ struct TrackLyricsContent: View {
         let loadedTrackId = track.id
 
         if !forceReload, let cached = LyricsStore.shared.cachedLyrics(for: loadedTrackId) {
-            lyricLines = cached.lines
-            hasTimedLyrics = cached.hasTimed
-            isLoading = false
-            fetchFailed = false
-            updateCurrentLine(for: playbackManager.playbackProgressState.currentTime)
+            apply(cached)
             return
         }
 
@@ -217,11 +218,10 @@ struct TrackLyricsContent: View {
 
                 await MainActor.run {
                     guard currentTrack?.id == loadedTrackId else { return }
-                    lyricLines = result.lines
-                    hasTimedLyrics = result.hasTimed
-                    isLoading = false
-                    fetchFailed = false
+                    apply(result)
                 }
+            } catch is CancellationError {
+                return
             } catch {
                 await MainActor.run {
                     guard currentTrack?.id == loadedTrackId else { return }
@@ -232,6 +232,15 @@ struct TrackLyricsContent: View {
                 }
             }
         }
+    }
+
+    private func apply(_ lyrics: LyricsStore.Lyrics) {
+        lyricLines = lyrics.lines
+        hasTimedLyrics = lyrics.hasTimed
+        isLoading = false
+        fetchFailed = false
+        currentLineIndex = -1
+        updateCurrentLine(for: playbackManager.playbackProgressState.currentTime)
     }
 
     /// Determine the current lyric line based on playback time.
