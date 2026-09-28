@@ -15,6 +15,12 @@ struct LyricLine: Identifiable, Codable, Equatable {
 
 typealias Lyrics = [LyricLine]
 
+extension Collection where Element == LyricLine {
+    var hasTimedLyrics: Bool {
+        contains { $0.startTime > 0 || $0.endTime != nil }
+    }
+}
+
 extension LyricLine {
     /// Normalize CRLF / lone CR line endings to LF so block- and line-splitting
     /// behave consistently regardless of how the lyric file was authored.

@@ -1,7 +1,7 @@
 import Foundation
 import GRDB
 
-struct LyricsLoader {
+enum LyricsLoader {
     /// Load structured lyrics for a track
     /// - Parameters:
     ///   - track: The track to load lyrics for
@@ -12,7 +12,7 @@ struct LyricsLoader {
         for track: Track,
         using dbQueue: DatabaseQueue,
         databaseManager: DatabaseManager? = nil
-    ) async throws -> (lyrics: [LyricLine], source: LyricsSource) {
+    ) async throws -> (lyrics: [LyricLine], source: LyricsSource, fullTrack: FullTrack?) {
         var lines: [LyricLine]?
         var source: LyricsSource = .none
         
@@ -32,23 +32,19 @@ struct LyricsLoader {
             source = .embedded
         }
         
-        // 3. Online lyrics (also upgrade untimed lyrics to timed when available)
-        let needsOnlineFetch = lines == nil
-            || (lines != nil && !areLyricsTimed(lines!) && LyricsManager.shared.isOnlineLyricsEnabled)
-        if needsOnlineFetch,
+        // 3. Online lyrics
+        if lines == nil,
            let fullTrack = fullTrack,
            let databaseManager = databaseManager,
-           let onlineText = await LyricsManager.shared.fetchLyrics(
-               for: fullTrack,
-               using: databaseManager,
-               onlyIfTimed: lines != nil
-           ) {
+           let onlineText = await LyricsManager.shared.fetchLyrics(for: fullTrack, using: databaseManager) {
             lines = parseAnyLyrics(onlineText)
             source = .online
         }
+
+        try Task.checkCancellation()
         
         // Fallback to empty array
-        return (lines ?? [], source)
+        return (lines ?? [], source, fullTrack)
     }
     
     // MARK: - External files
@@ -82,11 +78,6 @@ struct LyricsLoader {
     }
     
     // MARK: - Helpers
-
-    /// Whether the parsed lyrics contain any timed lines (startTime > 0 or endTime set)
-    private static func areLyricsTimed(_ lines: [LyricLine]) -> Bool {
-        lines.contains { $0.startTime > 0 || $0.endTime != nil }
-    }
 
     /// Try to parse as LRC first, then fallback to plain text lines
     private static func parseAnyLyrics(_ raw: String) -> [LyricLine] {

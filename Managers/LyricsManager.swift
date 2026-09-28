@@ -18,6 +18,12 @@ class LyricsManager {
     private enum LRCLIB {
         static let baseURL = "https://lrclib.net/api"
         static let getEndpoint = "/get"
+
+        enum Result {
+            case lyrics(String)
+            case notFound
+            case failed
+        }
     }
     
     private enum UserDefaultsKeys {
@@ -43,7 +49,11 @@ class LyricsManager {
     ///   - databaseManager: Database manager for storing fetched lyrics
     ///   - onlyIfTimed: When true, only store the result if it contains timed lyrics
     /// - Returns: Lyrics text if found, nil otherwise
-    func fetchLyrics(for fullTrack: FullTrack, using databaseManager: DatabaseManager, onlyIfTimed: Bool = false) async -> String? {
+    func fetchLyrics(
+        for fullTrack: FullTrack,
+        using databaseManager: DatabaseManager,
+        onlyIfTimed: Bool = false
+    ) async -> String? {
         guard isOnlineLyricsEnabled else {
             Logger.info("LyricsManager: Online lyrics fetching is disabled")
             return nil
@@ -61,10 +71,7 @@ class LyricsManager {
         if let lyrics = await fetchFromLRCLIB(fullTrack: fullTrack) {
             // When onlyIfTimed is set, skip storing untimed results so we don't
             // overwrite existing untimed embedded lyrics with more untimed lyrics.
-            let parsed = LyricLine.parseLRC(from: lyrics)
-            let hasTimed = parsed.contains { $0.startTime > 0 || $0.endTime != nil }
-
-            if onlyIfTimed && !hasTimed {
+            if onlyIfTimed && !LyricLine.parseLRC(from: lyrics).hasTimedLyrics {
                 Logger.info("LyricsManager: Online result is untimed, keeping existing lyrics")
                 return nil
             }
@@ -92,21 +99,27 @@ class LyricsManager {
     private func fetchFromLRCLIB(fullTrack: FullTrack) async -> String? {
         // Try with album first if available
         if !fullTrack.album.isEmpty && fullTrack.album != "Unknown Album" {
-            if let lyrics = await requestLRCLIB(fullTrack: fullTrack, includeAlbum: true) {
+            switch await requestLRCLIB(fullTrack: fullTrack, includeAlbum: true) {
+            case .lyrics(let lyrics):
                 return lyrics
+            case .notFound:
+                Logger.info("LyricsManager: Retrying without album name")
+            case .failed:
+                return nil
             }
-            // Retry without album
-            Logger.info("LyricsManager: Retrying without album name")
         }
-        
-        return await requestLRCLIB(fullTrack: fullTrack, includeAlbum: false)
+
+        guard case .lyrics(let lyrics) = await requestLRCLIB(fullTrack: fullTrack, includeAlbum: false) else {
+            return nil
+        }
+        return lyrics
     }
             
     /// Make a request to LRCLIB API
-    private func requestLRCLIB(fullTrack: FullTrack, includeAlbum: Bool) async -> String? {
+    private func requestLRCLIB(fullTrack: FullTrack, includeAlbum: Bool) async -> LRCLIB.Result {
         guard var components = URLComponents(string: LRCLIB.baseURL + LRCLIB.getEndpoint) else {
             Logger.error("LyricsManager: Failed to create URL components")
-            return nil
+            return .failed
         }
         
         // Build query parameters
@@ -129,7 +142,7 @@ class LyricsManager {
         
         guard let url = components.url else {
             Logger.error("LyricsManager: Failed to build LRCLIB URL")
-            return nil
+            return .failed
         }
         
         do {
@@ -140,22 +153,27 @@ class LyricsManager {
             
             guard let httpResponse = response as? HTTPURLResponse else {
                 Logger.error("LyricsManager: Invalid response type")
-                return nil
+                return .failed
             }
             
             switch httpResponse.statusCode {
             case 200:
-                return parseLRCLIBResponse(data)
+                guard let lyrics = parseLRCLIBResponse(data) else { return .notFound }
+                return .lyrics(lyrics)
             case 404:
                 Logger.info("LyricsManager: No lyrics found on LRCLIB (includeAlbum: \(includeAlbum))")
-                return nil
+                return .notFound
             default:
                 Logger.error("LyricsManager: LRCLIB API returned status \(httpResponse.statusCode)")
-                return nil
+                return .failed
             }
+        } catch is CancellationError {
+            return .failed
+        } catch let error as URLError where error.code == .cancelled {
+            return .failed
         } catch {
             Logger.error("LyricsManager: Network error - \(error.localizedDescription)")
-            return nil
+            return .failed
         }
     }
     
