@@ -5,6 +5,28 @@
         <description>Updates for Petrichor</description>
         <language>en</language>
         <item>
+            <title>Version 1.7.2</title>
+            <pubDate>Fri, 02 Oct 2026 01:37:09 -0400</pubDate>
+            <sparkle:version>172</sparkle:version>
+            <sparkle:shortVersionString>1.7.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.7.2/Petrichor-1.7.2-Universal.dmg"
+                sparkle:edSignature="dro1RROxSQnC5OrashOn8aSlI/FRY9D2H3z5n9TDyCtjmyLaJhp5SI91kqnP5qhdh3eXue8Mu03sTIENu8KhAw=="
+                length="21439587"
+                type="application/octet-stream"
+            />
+            <description><![CDATA[
+                <h2>Fixes</h2>
+                <ul>
+                    <li>Prevent library data loss when refreshing folders while some are unavailable, such as disconnected external drives (<a href="https://github.com/kushalpandya/Petrichor/issues/395">#395</a>)</li>
+                    <li>Prevent an occasional app crash when opening Immersive mode (<a href="https://github.com/kushalpandya/Petrichor/issues/396">#396</a>)</li>
+                    <li>Fetch synced lyrics from LRCLIB for tracks that only have untimed embedded lyrics (<a href="https://github.com/kushalpandya/Petrichor/issues/377">#377</a>) (Thanks <a href="https://github.com/AmanuelCh">@AmanuelCh</a>!)</li>
+                </ul>
+                <p><a href="https://www.petrichor.page/changelog/">Full Changelog</a></p>
+            ]]></description>
+        </item>
+        <item>
             <title>Version 1.7.1</title>
             <pubDate>Mon, 21 Sep 2026 23:14:43 -0400</pubDate>
             <sparkle:version>171</sparkle:version>
