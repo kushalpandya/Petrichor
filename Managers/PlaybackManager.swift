@@ -362,6 +362,10 @@ class PlaybackManager: NSObject, ObservableObject {
         volume = max(0, min(1, newVolume))
     }
 
+    func previewVolume(_ newVolume: Float) {
+        audioPlayer.volume = max(0, min(1, newVolume))
+    }
+
     /// Feeds the engine the metadata for its system Now Playing tile. Called only
     /// when the engine adopts a new entry; it keeps elapsed and rate current itself.
     func publishNowPlayingMetadata(for track: Track) {

@@ -71,6 +71,7 @@ struct PlayerView: View {
     @State private var isMuted = false
     @State private var previousVolume: Float = 0.7
     @State private var isDraggingVolume = false
+    @State private var sliderVolume: Float = 0.7
 
     var body: some View {
         ZStack {
@@ -337,14 +338,15 @@ struct PlayerView: View {
     private var volumeSlider: some View {
         Slider(
             value: Binding(
-                get: { playbackManager.volume },
+                get: { sliderVolume },
                 set: { newVolume in
                     // Save previous volume before changing
-                    if playbackManager.volume > 0.01 {
-                        previousVolume = playbackManager.volume
+                    if sliderVolume > 0.01 {
+                        previousVolume = sliderVolume
                     }
-                    
-                    playbackManager.setVolume(newVolume)
+
+                    sliderVolume = newVolume
+                    playbackManager.previewVolume(newVolume)
                     
                     // Update mute state
                     if newVolume < 0.01 {
@@ -357,13 +359,21 @@ struct PlayerView: View {
             in: 0...1
         ) { editing in
                 isDraggingVolume = editing
+            if !editing {
+                playbackManager.setVolume(sliderVolume)
+            }
         }
         .frame(width: 100)
         .controlSize(.small)
         .tint(volumeAccent)
+        .onChange(of: playbackManager.volume) { _, newVolume in
+            if !isDraggingVolume {
+                sliderVolume = newVolume
+            }
+        }
         .overlay(alignment: .leading) {
             if isDraggingVolume {
-                Text(playbackManager.volume.formatted(.percent.precision(.fractionLength(0))))
+                Text(sliderVolume.formatted(.percent.precision(.fractionLength(0))))
                     .font(.caption)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
@@ -372,9 +382,9 @@ struct PlayerView: View {
                             .fill(Color(nsColor: .controlBackgroundColor))
                             .shadow(radius: 2)
                     )
-                    .offset(x: 100 * CGFloat(playbackManager.volume) - 15, y: -25)
+                    .offset(x: 100 * CGFloat(sliderVolume) - 15, y: -25)
                     .transition(.opacity)
-                    .animation(.easeInOut(duration: 0.1), value: playbackManager.volume)
+                    .animation(.easeInOut(duration: 0.1), value: sliderVolume)
             }
         }
     }
@@ -493,11 +503,11 @@ struct PlayerView: View {
     }
 
     private var volumeIcon: String {
-        if isMuted || playbackManager.volume < 0.01 {
+        if isMuted || sliderVolume < 0.01 {
             return "speaker.slash.fill"
-        } else if playbackManager.volume < 0.33 {
+        } else if sliderVolume < 0.33 {
             return "speaker.fill"
-        } else if playbackManager.volume < 0.66 {
+        } else if sliderVolume < 0.66 {
             return "speaker.wave.1.fill"
         } else {
             return "speaker.wave.2.fill"
@@ -516,6 +526,8 @@ struct PlayerView: View {
     // MARK: - Helper Methods
 
     private func setupInitialState() {
+        sliderVolume = playbackManager.volume
+
         if playbackManager.volume < 0.01 {
             isMuted = true
             previousVolume = 0.7
@@ -537,11 +549,13 @@ struct PlayerView: View {
     private func toggleMute() {
         if isMuted {
             // Unmute - restore previous volume
+            sliderVolume = previousVolume
             playbackManager.setVolume(previousVolume)
             isMuted = false
         } else {
             // Mute - save current volume and set to 0
             previousVolume = playbackManager.volume
+            sliderVolume = 0
             playbackManager.setVolume(0)
             isMuted = true
         }
