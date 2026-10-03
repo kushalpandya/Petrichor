@@ -12,6 +12,7 @@ import Foundation
 
 class PlaybackManager: NSObject, ObservableObject {
     let playbackProgressState = PlaybackProgressState()
+    let volumeState = PlaybackVolumeState()
     
     var scrobbleManager: ScrobbleManager? {
         AppCoordinator.shared?.scrobbleManager
@@ -30,9 +31,11 @@ class PlaybackManager: NSObject, ObservableObject {
     }
     // The real-time lyrics display need this to get the current time.
     // We can not use the currentTime because it is a computed property
-    @Published var volume: Float = 0.7 {
-        didSet {
-            audioPlayer.volume = volume
+    var volume: Float {
+        get { volumeState.volume }
+        set {
+            volumeState.volume = newValue
+            audioPlayer.volume = newValue
         }
     }
     @Published var restoredUITrack: Track?
