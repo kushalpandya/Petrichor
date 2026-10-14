@@ -71,6 +71,7 @@ struct PlayerView: View {
     @State private var isMuted = false
     @State private var previousVolume: Float = 0.7
     @State private var isDraggingVolume = false
+    @State private var displayedVolume: Float = 0.7
 
     var body: some View {
         ZStack {
@@ -337,13 +338,14 @@ struct PlayerView: View {
     private var volumeSlider: some View {
         Slider(
             value: Binding(
-                get: { playbackManager.volume },
+                get: { displayedVolume },
                 set: { newVolume in
                     // Save previous volume before changing
-                    if playbackManager.volume > 0.01 {
-                        previousVolume = playbackManager.volume
+                    if displayedVolume > 0.01 {
+                        previousVolume = displayedVolume
                     }
-                    
+
+                    displayedVolume = newVolume
                     playbackManager.setVolume(newVolume)
                     
                     // Update mute state
@@ -356,14 +358,15 @@ struct PlayerView: View {
             ),
             in: 0...1
         ) { editing in
-                isDraggingVolume = editing
+            isDraggingVolume = editing
         }
         .frame(width: 100)
         .controlSize(.small)
         .tint(volumeAccent)
+        .onReceive(playbackManager.volumeState.$volume) { displayedVolume = $0 }
         .overlay(alignment: .leading) {
             if isDraggingVolume {
-                Text(playbackManager.volume.formatted(.percent.precision(.fractionLength(0))))
+                Text(displayedVolume.formatted(.percent.precision(.fractionLength(0))))
                     .font(.caption)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
@@ -372,9 +375,9 @@ struct PlayerView: View {
                             .fill(Color(nsColor: .controlBackgroundColor))
                             .shadow(radius: 2)
                     )
-                    .offset(x: 100 * CGFloat(playbackManager.volume) - 15, y: -25)
+                    .offset(x: 100 * CGFloat(displayedVolume) - 15, y: -25)
                     .transition(.opacity)
-                    .animation(.easeInOut(duration: 0.1), value: playbackManager.volume)
+                    .animation(.easeInOut(duration: 0.1), value: displayedVolume)
             }
         }
     }
@@ -493,11 +496,11 @@ struct PlayerView: View {
     }
 
     private var volumeIcon: String {
-        if isMuted || playbackManager.volume < 0.01 {
+        if isMuted || displayedVolume < 0.01 {
             return "speaker.slash.fill"
-        } else if playbackManager.volume < 0.33 {
+        } else if displayedVolume < 0.33 {
             return "speaker.fill"
-        } else if playbackManager.volume < 0.66 {
+        } else if displayedVolume < 0.66 {
             return "speaker.wave.1.fill"
         } else {
             return "speaker.wave.2.fill"
