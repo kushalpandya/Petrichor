@@ -25,12 +25,12 @@ class PlaybackManager: NSObject, ObservableObject {
                 name: NSNotification.Name("PlaybackStateChanged"), object: nil)
         }
     }
+    // The real-time lyrics display need this to get the current time.
+    // We can not use the currentTime because it is a computed property
     var currentTime: Double {
         get { playbackProgressState.currentTime }
         set { playbackProgressState.currentTime = newValue }
     }
-    // The real-time lyrics display need this to get the current time.
-    // We can not use the currentTime because it is a computed property
     var volume: Float {
         get { volumeState.volume }
         set {
