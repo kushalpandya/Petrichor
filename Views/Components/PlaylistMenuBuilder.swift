@@ -53,7 +53,8 @@ enum StationMenuBuilder {
             items.append(.button(title: String(localized: "Play"), icon: Icons.playFill) {
                 AppCoordinator.shared?.playbackManager.playStation(station)
             })
-            items.append(.button(title: String(localized: "Edit"), icon: Icons.edit) {
+            items.append(.divider)
+            items.append(.button(title: String(localized: "Edit")) {
                 InternetRadioManager.shared.showEditStation(station)
             })
         }
@@ -62,11 +63,7 @@ enum StationMenuBuilder {
 
         if let collection {
             items.append(.divider)
-            items.append(.button(
-                title: String(localized: "Remove from Collection"),
-                icon: Icons.trash,
-                role: .destructive
-            ) {
+            items.append(.button(title: String(localized: "Remove from Collection"), role: .destructive) {
                 Task { await playlistManager.removeStations(stations, from: collection) }
             })
         } else if let onDelete {
@@ -110,6 +107,6 @@ enum StationMenuBuilder {
             }
         }
 
-        return .menu(title: String(localized: "Add to Collection"), icon: Icons.stationCollection, items: items)
+        return .menu(title: String(localized: "Add to Collection"), items: items)
     }
 }

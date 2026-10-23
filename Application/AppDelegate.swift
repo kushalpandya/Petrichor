@@ -136,7 +136,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
 
         NSWindow.allowsAutomaticWindowTabbing = false
-        
+
+        MenuImageVisibility.install()
+
         // Remove unwanted menus
         DispatchQueue.main.async {
             self.removeUnwantedMenus()

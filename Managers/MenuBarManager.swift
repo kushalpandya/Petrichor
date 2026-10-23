@@ -185,11 +185,6 @@ class MenuBarManager: NSObject {
         )
         showWindowItem.target = self
         showWindowItem.isEnabled = true
-        if #available(macOS 26.0, *) {
-            showWindowItem.image = NSImage(systemSymbolName: "eye.fill", accessibilityDescription: nil)
-            showWindowItem.image?.size = NSSize(width: 16, height: 16)
-            showWindowItem.image?.isTemplate = true
-        }
         menu.addItem(showWindowItem)
 
         // Show Mini Player
@@ -200,11 +195,6 @@ class MenuBarManager: NSObject {
         )
         showMiniPlayerItem.target = self
         showMiniPlayerItem.isEnabled = playbackManager.hasPlayableContent
-        if #available(macOS 26.0, *) {
-            showMiniPlayerItem.image = NSImage(systemSymbolName: Icons.miniPlayer, accessibilityDescription: nil)
-            showMiniPlayerItem.image?.size = NSSize(width: 16, height: 16)
-            showMiniPlayerItem.image?.isTemplate = true
-        }
         menu.addItem(showMiniPlayerItem)
 
         menu.addItem(NSMenuItem.separator())
@@ -217,11 +207,6 @@ class MenuBarManager: NSObject {
         )
         quitItem.target = self
         quitItem.isEnabled = true
-        if #available(macOS 26.0, *) {
-            quitItem.image = NSImage(systemSymbolName: "power", accessibilityDescription: nil)
-            quitItem.image?.size = NSSize(width: 16, height: 16)
-            quitItem.image?.isTemplate = true
-        }
         menu.addItem(quitItem)
 
         statusItem.menu = menu
