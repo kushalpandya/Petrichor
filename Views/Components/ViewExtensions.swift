@@ -71,6 +71,18 @@ extension View {
     }
 }
 
+// MARK: - Menu Item Label
+
+/// Menu bar commands show icons from macOS 26 on; earlier releases stay text-only.
+@ViewBuilder
+func menuItemLabel(_ title: String, systemImage: String) -> some View {
+    if #available(macOS 26.0, *) {
+        Label(title, systemImage: systemImage)
+    } else {
+        Text(title)
+    }
+}
+
 // MARK: - Lossless Label
 
 /// A glyph + "Lossless" label, shared between the track-detail view and the

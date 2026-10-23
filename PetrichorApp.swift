@@ -133,11 +133,7 @@ extension PetrichorApp {
                 object: nil
             )
         } label: {
-            if #available(macOS 26.0, *) {
-                Label("About Petrichor", systemImage: Icons.infoCircle)
-            } else {
-                Text("About Petrichor")
-            }
+            Text("About Petrichor")
         }
     }
     
@@ -148,11 +144,7 @@ extension PetrichorApp {
                 object: nil
             )
         } label: {
-            if #available(macOS 26.0, *) {
-                Label("Settings", systemImage: Icons.settings)
-            } else {
-                Text("Settings")
-            }
+            menuItemLabel(String(localized: "Settings"), systemImage: Icons.settings)
         }
         .keyboardShortcut(",", modifiers: .command)
     }
@@ -163,11 +155,7 @@ extension PetrichorApp {
                 updater.checkForUpdates()
             }
         } label: {
-            if #available(macOS 26.0, *) {
-                Label("Check for Updates...", systemImage: Icons.checkForUpdates)
-            } else {
-                Text("Check for Updates...")
-            }
+            Text("Check for Updates...")
         }
         // Dev builds don't run the updater, so leave the item visible but inert
         .disabled(!AppInfo.isProductionBuild)
@@ -190,11 +178,7 @@ extension PetrichorApp {
                     newRadioStationMenuItem()
                 }
             } label: {
-                if #available(macOS 26.0, *) {
-                    Label("New", systemImage: "plus.square")
-                } else {
-                    Text("New")
-                }
+                Text("New")
             }
             
             Divider()
@@ -204,11 +188,7 @@ extension PetrichorApp {
                 addFolderMenuItem()
                 refreshLibraryMenuItem()
             } label: {
-                if #available(macOS 26.0, *) {
-                    Label("Library", image: "custom.music.note.rectangle.stack")
-                } else {
-                    Text("Library")
-                }
+                Text("Library")
             }
             
             // Playlists submenu
@@ -216,11 +196,7 @@ extension PetrichorApp {
                 importPlaylistsMenuItem()
                 exportPlaylistsMenuItem()
             } label: {
-                if #available(macOS 26.0, *) {
-                    Label("Playlists", systemImage: Icons.musicNoteList)
-                } else {
-                    Text("Playlists")
-                }
+                Text("Playlists")
             }
             
             Divider()
@@ -233,11 +209,7 @@ extension PetrichorApp {
         Button {
             closeWindow()
         } label: {
-            if #available(macOS 26.0, *) {
-                Label("Close", systemImage: "xmark")
-            } else {
-                Text("Close")
-            }
+            Text("Close")
         }
         .keyboardShortcut("w", modifiers: .command)
     }
@@ -267,11 +239,7 @@ extension PetrichorApp {
         Button {
             appCoordinator.playlistManager.showCreatePlaylistModal()
         } label: {
-            if #available(macOS 26.0, *) {
-                Label("Playlist", systemImage: Icons.musicNoteList)
-            } else {
-                Text("Playlist")
-            }
+            Text("Playlist")
         }
         .keyboardShortcut("n", modifiers: .command)
         .disabled(!appCoordinator.libraryManager.hasLocalMusic)
@@ -281,11 +249,7 @@ extension PetrichorApp {
         Button {
             InternetRadioManager.shared.showAddStation()
         } label: {
-            if #available(macOS 26.0, *) {
-                Label("Radio Station", systemImage: Icons.radioFill)
-            } else {
-                Text("Radio Station")
-            }
+            Text("Radio Station")
         }
         .keyboardShortcut("n", modifiers: [.command, .option])
     }
@@ -297,11 +261,7 @@ extension PetrichorApp {
                 object: nil
             )
         } label: {
-            if #available(macOS 26.0, *) {
-                Label("Playlist from Selection", systemImage: Icons.musicNoteList)
-            } else {
-                Text("Playlist from Selection")
-            }
+            Text("Playlist from Selection")
         }
         .keyboardShortcut("n", modifiers: [.command, .shift])
     }
@@ -312,11 +272,7 @@ extension PetrichorApp {
         Button {
             appCoordinator.libraryManager.addFolder()
         } label: {
-            if #available(macOS 26.0, *) {
-                Label("Add Folder(s) to Library", systemImage: Icons.folderBadgePlus)
-            } else {
-                Text("Add Folder(s) to Library")
-            }
+            Text("Add Folder(s) to Library")
         }
         .keyboardShortcut("o", modifiers: .command)
     }
@@ -325,11 +281,7 @@ extension PetrichorApp {
         Button {
             appCoordinator.libraryManager.refreshLibrary()
         } label: {
-            if #available(macOS 26.0, *) {
-                Label("Refresh Library Folders", systemImage: Icons.arrowClockwise)
-            } else {
-                Text("Refresh Library Folders")
-            }
+            Text("Refresh Library Folders")
         }
         .keyboardShortcut("r", modifiers: [.command, .shift])
     }
@@ -340,11 +292,7 @@ extension PetrichorApp {
         Button {
             NotificationCenter.default.post(name: .importPlaylists, object: nil)
         } label: {
-            if #available(macOS 26.0, *) {
-                Label("Import Playlists", systemImage: "square.and.arrow.down")
-            } else {
-                Text("Import Playlists")
-            }
+            Text("Import Playlists")
         }
     }
 
@@ -352,11 +300,7 @@ extension PetrichorApp {
         Button {
             NotificationCenter.default.post(name: .exportPlaylists, object: nil)
         } label: {
-            if #available(macOS 26.0, *) {
-                Label("Export Playlists", systemImage: "square.and.arrow.up")
-            } else {
-                Text("Export Playlists")
-            }
+            Text("Export Playlists")
         }
     }
     
@@ -389,14 +333,7 @@ extension PetrichorApp {
                 appCoordinator.playbackManager.togglePlayPause()
             }
         } label: {
-            if #available(macOS 26.0, *) {
-                Label(
-                    "Play/Pause",
-                    systemImage: Icons.playPauseFill
-                )
-            } else {
-                Text("Play/Pause")
-            }
+            Text("Play/Pause")
         }
         .keyboardShortcut(" ", modifiers: [])
         .disabled(!appCoordinator.playbackManager.hasPlayableContent)
@@ -411,14 +348,7 @@ extension PetrichorApp {
         } label: {
             let isFavorite = appCoordinator.playbackManager.currentTrack?.isFavorite == true
 
-            if #available(macOS 26.0, *) {
-                Label(
-                    isFavorite ? String(localized: "Remove from Favorites") : String(localized: "Add to Favorites"),
-                    systemImage: isFavorite ? Icons.starFill : Icons.star
-                )
-            } else {
-                Text(isFavorite ? String(localized: "Remove from Favorites") : String(localized: "Add to Favorites"))
-            }
+            Text(isFavorite ? String(localized: "Remove from Favorites") : String(localized: "Add to Favorites"))
         }
         .keyboardShortcut("f", modifiers: [.command, .shift])
         .disabled(appCoordinator.playbackManager.currentTrack == nil)
@@ -433,11 +363,7 @@ extension PetrichorApp {
                 menuUpdateTrigger = UUID()
             }
         )) {
-            if #available(macOS 26.0, *) {
-                Label("Shuffle", systemImage: Icons.shuffleFill)
-            } else {
-                Text("Shuffle")
-            }
+            menuItemLabel(String(localized: "Shuffle"), systemImage: Icons.shuffleFill)
         }
         .keyboardShortcut("s", modifiers: .command)
         .id(menuUpdateTrigger)
@@ -448,14 +374,7 @@ extension PetrichorApp {
             appCoordinator.playlistManager.toggleRepeatMode()
             menuUpdateTrigger = UUID()
         } label: {
-            if #available(macOS 26.0, *) {
-                Label(
-                    repeatModeLabel,
-                    systemImage: Icons.repeatFill
-                )
-            } else {
-                Text(repeatModeLabel)
-            }
+            menuItemLabel(repeatModeLabel, systemImage: Icons.repeatFill)
         }
         .keyboardShortcut("r", modifiers: .command)
         .id(menuUpdateTrigger)
@@ -473,14 +392,7 @@ extension PetrichorApp {
         Button {
             appCoordinator.playlistManager.playNextTrack()
         } label: {
-            if #available(macOS 26.0, *) {
-                Label(
-                    "Next",
-                    systemImage: Icons.nextFill
-                )
-            } else {
-                Text("Next")
-            }
+            Text("Next")
         }
         .keyboardShortcut(.rightArrow, modifiers: .command)
         .disabled(appCoordinator.playbackManager.currentTrack == nil)
@@ -490,14 +402,7 @@ extension PetrichorApp {
         Button {
             appCoordinator.playlistManager.playPreviousTrack()
         } label: {
-            if #available(macOS 26.0, *) {
-                Label(
-                    "Previous",
-                    systemImage: Icons.previousFIll
-                )
-            } else {
-                Text("Previous")
-            }
+            Text("Previous")
         }
         .keyboardShortcut(.leftArrow, modifiers: .command)
         .disabled(appCoordinator.playbackManager.currentTrack == nil)
@@ -513,14 +418,7 @@ extension PetrichorApp {
                 appCoordinator.playbackManager.seekTo(time: newTime)
             }
         } label: {
-            if #available(macOS 26.0, *) {
-                Label(
-                    "Seek Forward",
-                    systemImage: Icons.forwardFill
-                )
-            } else {
-                Text("Seek Forward")
-            }
+            Text("Seek Forward")
         }
         .keyboardShortcut(.rightArrow, modifiers: [.command, .shift])
         .disabled(appCoordinator.playbackManager.currentTrack == nil)
@@ -536,14 +434,7 @@ extension PetrichorApp {
                 appCoordinator.playbackManager.seekTo(time: newTime)
             }
         } label: {
-            if #available(macOS 26.0, *) {
-                Label(
-                    "Seek Backward",
-                    systemImage: Icons.backwardFill
-                )
-            } else {
-                Text("Seek Backward")
-            }
+            Text("Seek Backward")
         }
         .keyboardShortcut(.leftArrow, modifiers: [.command, .shift])
         .disabled(appCoordinator.playbackManager.currentTrack == nil)
@@ -560,14 +451,7 @@ extension PetrichorApp {
             let newVolume = min(appCoordinator.playbackManager.volume + 0.05, 1.0)
             appCoordinator.playbackManager.setVolume(newVolume)
         } label: {
-            if #available(macOS 26.0, *) {
-                Label(
-                    "Volume Up",
-                    systemImage: Icons.volumeIncrease
-                )
-            } else {
-                Text("Volume Up")
-            }
+            Text("Volume Up")
         }
         .keyboardShortcut(.upArrow, modifiers: .command)
     }
@@ -577,14 +461,7 @@ extension PetrichorApp {
             let newVolume = max(appCoordinator.playbackManager.volume - 0.05, 0.0)
             appCoordinator.playbackManager.setVolume(newVolume)
         } label: {
-            if #available(macOS 26.0, *) {
-                Label(
-                    "Volume Down",
-                    systemImage: Icons.volumeDecrease
-                )
-            } else {
-                Text("Volume Down")
-            }
+            Text("Volume Down")
         }
         .keyboardShortcut(.downArrow, modifiers: .command)
     }
@@ -597,28 +474,14 @@ extension PetrichorApp {
             Button {
                 openWindow(id: "equalizer")
             } label: {
-                if #available(macOS 26.0, *) {
-                    Label(
-                        "Equalizer",
-                        systemImage: "slider.vertical.3"
-                    )
-                } else {
-                    Text("Equalizer")
-                }
+                menuItemLabel(String(localized: "Equalizer"), systemImage: "slider.vertical.3")
             }
             .keyboardShortcut("e", modifiers: [.command, .option])
 
             Button {
                 MiniPlayerWindowManager.shared.show()
             } label: {
-                if #available(macOS 26.0, *) {
-                    Label(
-                        "Mini Player",
-                        systemImage: Icons.miniPlayer
-                    )
-                } else {
-                    Text("Mini Player")
-                }
+                menuItemLabel(String(localized: "Mini Player"), systemImage: Icons.miniPlayer)
             }
             .keyboardShortcut("m", modifiers: [.command, .option])
             .disabled(!appCoordinator.playbackManager.hasPlayableContent)
@@ -626,14 +489,7 @@ extension PetrichorApp {
             Button {
                 NotificationCenter.default.post(name: .toggleImmersivePlayer, object: nil)
             } label: {
-                if #available(macOS 26.0, *) {
-                    Label(
-                        "Immersive Mode",
-                        systemImage: Icons.immersive
-                    )
-                } else {
-                    Text("Immersive Mode")
-                }
+                menuItemLabel(String(localized: "Immersive Mode"), systemImage: Icons.immersive)
             }
             .keyboardShortcut("f", modifiers: [.command, .option])
             .disabled(!appCoordinator.playbackManager.hasPlayableContent)
@@ -647,6 +503,7 @@ extension PetrichorApp {
     @CommandsBuilder
     private func viewMenuCommands() -> some Commands {
         CommandGroup(after: .toolbar) {
+            Divider()
             focusSearchMenuItem()
             foldersTabToggle()
             miniPlayerOnTopToggle()
@@ -655,11 +512,7 @@ extension PetrichorApp {
 
     private func miniPlayerOnTopToggle() -> some View {
         Toggle(isOn: $miniPlayerAlwaysOnTop) {
-            if #available(macOS 26.0, *) {
-                Label("Keep Mini Player always on top", systemImage: Icons.miniPlayer)
-            } else {
-                Text("Keep Mini Player always on top")
-            }
+            Text("Keep Mini Player Always on Top")
         }
     }
     
@@ -667,25 +520,14 @@ extension PetrichorApp {
         Button {
             NotificationCenter.default.post(name: .focusSearchField, object: nil)
         } label: {
-            if #available(macOS 26.0, *) {
-                Label(
-                    "Search Library",
-                    systemImage: Icons.magnifyingGlass
-                )
-            } else {
-                Text("Search Library")
-            }
+            Text("Search Library")
         }
         .keyboardShortcut("f", modifiers: .command)
     }
     
     private func foldersTabToggle() -> some View {
         Toggle(isOn: $showFoldersTab) {
-            if #available(macOS 26.0, *) {
-                Label("Folders Tab", systemImage: Icons.folderFill)
-            } else {
-                Text("Folders Tab")
-            }
+            Text("Folders Tab")
         }
         .keyboardShortcut("f", modifiers: [.command, .option, .shift])
     }
@@ -708,14 +550,7 @@ extension PetrichorApp {
         Button {
             openWindow(id: "report-problem")
         } label: {
-            if #available(macOS 26.0, *) {
-                Label(
-                    "Report a Problem...",
-                    systemImage: "exclamationmark.bubble"
-                )
-            } else {
-                Text("Report a Problem...")
-            }
+            menuItemLabel(String(localized: "Report a Problem..."), systemImage: "exclamationmark.bubble")
         }
     }
     
@@ -725,14 +560,7 @@ extension PetrichorApp {
                 NSWorkspace.shared.open(url)
             }
         } label: {
-            if #available(macOS 26.0, *) {
-                Label(
-                    "Project Homepage",
-                    systemImage: "globe"
-                )
-            } else {
-                Text("Project Homepage")
-            }
+            Text("Project Homepage")
         }
     }
     
@@ -742,14 +570,7 @@ extension PetrichorApp {
                 NSWorkspace.shared.open(url)
             }
         } label: {
-            if #available(macOS 26.0, *) {
-                Label(
-                    "Support Development",
-                    systemImage: "dollarsign.circle"
-                )
-            } else {
-                Text("Support Development")
-            }
+            Text("Support Development")
         }
     }
 
@@ -757,14 +578,7 @@ extension PetrichorApp {
         Button {
             openWindow(id: "acknowledgements")
         } label: {
-            if #available(macOS 26.0, *) {
-                Label(
-                    "License & Acknowledgements",
-                    systemImage: "doc.text"
-                )
-            } else {
-                Text("License & Acknowledgements")
-            }
+            Text("License & Acknowledgements")
         }
     }
 
@@ -774,14 +588,7 @@ extension PetrichorApp {
                 NSWorkspace.shared.open(url)
             }
         } label: {
-            if #available(macOS 26.0, *) {
-                Label(
-                    "Petrichor User Guide",
-                    systemImage: "book.pages"
-                )
-            } else {
-                Text("Petrichor User Guide")
-            }
+            Text("Petrichor User Guide")
         }
         .keyboardShortcut("?", modifiers: .command)
     }

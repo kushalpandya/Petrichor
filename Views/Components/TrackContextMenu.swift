@@ -14,7 +14,9 @@ enum TrackContextMenu {
             playlistManager: playlistManager,
             currentContext: currentContext
         ))
-        
+
+        items.append(.divider)
+
         // Add info item
         items.append(createShowInfoItem(for: track))
         
@@ -200,7 +202,7 @@ enum TrackContextMenu {
             }
         }
         
-        return .menu(title: String(localized: "Go to"), icon: "arrow.up.right.square", items: goToItems)
+        return .menu(title: String(localized: "Go to"), items: goToItems)
     }
     
     private static func createMultiValueFilterItems(
@@ -352,12 +354,13 @@ enum TrackContextMenu {
         
         let allFavorited = tracks.allSatisfy { $0.isFavorite }
         let title = allFavorited ? String(localized: "Remove from Favorites") : String(localized: "Add to Favorites")
-        items.append(.button(title: title, icon: Icons.star) {
+        items.append(.button(title: title, icon: allFavorited ? Icons.starFill : Icons.star) {
             playlistManager.toggleFavorite(for: tracks, setTo: !allFavorited)
         })
         
         if case .playlist(let playlist) = currentContext, playlist.type == .regular {
-            items.append(.button(title: String(localized: "Remove from Playlist"), icon: Icons.trash, role: .destructive) {
+            items.append(.divider)
+            items.append(.button(title: String(localized: "Remove from Playlist"), role: .destructive) {
                 Task {
                     await playlistManager.removeTracksFromPlaylist(tracks: tracks, playlistID: playlist.id)
                 }
@@ -375,18 +378,10 @@ enum TrackContextMenu {
         var items: [ContextMenuItem] = []
         
         switch currentContext {
-        case .folder:
-            items.append(.divider)
-            items.append(.button(title: String(localized: "Show in Finder"), icon: "finder") {
-                NSWorkspace.shared.selectFile(
-                    track.url.path,
-                    inFileViewerRootedAtPath: track.url.deletingLastPathComponent().path
-                )
-            })
-            
         case .playlist(let playlist):
             if playlist.type == .regular {
-                items.append(.button(title: String(localized: "Remove from Playlist"), icon: Icons.trash, role: .destructive) {
+                items.append(.divider)
+                items.append(.button(title: String(localized: "Remove from Playlist"), role: .destructive) {
                     playlistManager.removeTrackFromPlaylist(
                         track: track,
                         playlistID: playlist.id
@@ -394,7 +389,7 @@ enum TrackContextMenu {
                 })
             }
             
-        case .library:
+        case .library, .folder:
             break
         }
         
@@ -413,8 +408,8 @@ struct ContextMenuItemView: View {
     
     var body: some View {
         switch item {
-        case .button(_, _, _, let action):
-            Button(action: action) {
+        case let .button(_, _, role, action):
+            Button(role: role, action: action) {
                 HStack {
                     if let icon = item.icon {
                         Image(systemName: icon)
