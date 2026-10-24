@@ -7,12 +7,22 @@ struct EntityTypeView: View {
     let onSelectEntity: (any Entity, PinnedItem?) -> Void
 
     @EnvironmentObject var libraryManager: LibraryManager
+    @EnvironmentObject var playlistManager: PlaylistManager
 
     @AppStorage("entitySortAscending")
     private var entitySortAscending: Bool = true
 
     @AppStorage("albumSortBy")
     private var albumSortBy: AlbumSortOption = .album
+
+    @AppStorage("groupArtistTracksByAlbum")
+    private var groupsArtistTracksByAlbum = true
+
+    @AppStorage("artistAlbumGroupsAscending")
+    private var artistAlbumGroupsAscending = true
+
+    @AppStorage("artistAlbumGroupSortField")
+    private var artistAlbumGroupSortField: ArtistAlbumGroupSortField = .albumName
 
     @State private var artistEntities: [ArtistEntity] = []
     @State private var albumEntities: [AlbumEntity] = []
@@ -124,25 +134,97 @@ struct EntityTypeView: View {
             EntityGridView(
                 entities: artistEntities,
                 onSelectEntity: { onSelectEntity($0, filterType == .artists ? nil : roleCarrier(for: $0.name)) },
-                contextMenuItems: {
-                    filterType == .artists
-                        ? libraryManager.contextMenuItems(for: $0)
-                        : libraryManager.contextMenuItems(filterType: filterType, filterValue: $0.name)
-                }
+                contextMenuItems: { createContextMenuItems(for: $0) }
             )
         case .albums:
             EntityGridView(
                 entities: albumEntities,
                 onSelectEntity: { onSelectEntity($0, nil) },
-                contextMenuItems: { libraryManager.contextMenuItems(for: $0) }
+                contextMenuItems: { createContextMenuItems(for: $0) }
             )
         case .genres, .decades, .years:
             EntityGridView(
                 entities: categoryEntities,
                 onSelectEntity: { onSelectEntity($0, nil) },
-                contextMenuItems: { libraryManager.contextMenuItems(for: $0) }
+                contextMenuItems: { createContextMenuItems(for: $0) }
             )
         }
+    }
+
+    private func createContextMenuItems(for entity: any Entity) -> [ContextMenuItem] {
+        let albumId = (entity as? AlbumEntity)?.albumId
+        let tracksProvider = {
+            orderedTracksForPlayback(
+                libraryManager.getTracksBy(filterType: filterType, value: entity.name, albumId: albumId)
+            )
+        }
+        let managementItems = filterType == .artists || filterType == .albums
+            ? libraryManager.contextMenuItems(for: entity)
+            : libraryManager.contextMenuItems(filterType: filterType, filterValue: entity.name)
+
+        return playbackContextMenuItems(tracksProvider: tracksProvider) + [.divider] + managementItems
+    }
+
+    private func orderedTracksForPlayback(_ tracks: [Track]) -> [Track] {
+        switch filterType {
+        case .albums:
+            return tracks.sorted(using: Track.albumSortOrder)
+        case .artists, .albumArtists, .composers:
+            guard groupsArtistTracksByAlbum else {
+                return tracks.sorted(using: Track.artistSortOrder)
+            }
+            let groups = ArtistTrackGrouper.groups(
+                from: tracks,
+                usesDefaultOrdering: true,
+                fallbackSortOrder: TrackSortPreferences.loadGlobal(),
+                albumSortField: artistAlbumGroupSortField,
+                albumsAscending: artistAlbumGroupsAscending,
+                discsAscending: true
+            )
+            return ArtistTrackGrouper.sections(from: groups).flatMap(\.tracks)
+        case .genres, .decades, .years:
+            return tracks.sorted(using: TrackSortPreferences.loadGlobal())
+        }
+    }
+
+    private func playbackContextMenuItems(
+        tracksProvider: @escaping () -> [Track]
+    ) -> [ContextMenuItem] {
+        [
+            .button(title: String(localized: "Play"), icon: Icons.playFill) {
+                let tracks = tracksProvider()
+                guard let firstTrack = tracks.first else { return }
+                playlistManager.isShuffleEnabled = false
+                playlistManager.playTrack(firstTrack, fromTracks: tracks)
+                playlistManager.currentQueueSource = .library
+            },
+            .button(title: String(localized: "Shuffle"), icon: Icons.shuffleFill) {
+                var shuffledTracks = tracksProvider()
+                shuffledTracks.shuffle()
+                guard let firstTrack = shuffledTracks.first else { return }
+                playlistManager.isShuffleEnabled = true
+                playlistManager.playTrack(firstTrack, fromTracks: shuffledTracks)
+                playlistManager.currentQueueSource = .library
+            },
+            .button(title: String(localized: "Play Next"), icon: "text.line.first.and.arrowtriangle.forward") {
+                let tracks = tracksProvider()
+                if playlistManager.currentQueue.isEmpty {
+                    playlistManager.currentQueueSource = .library
+                    for track in tracks {
+                        playlistManager.addToQueue(track)
+                    }
+                } else {
+                    for track in tracks.reversed() {
+                        playlistManager.playNext(track)
+                    }
+                }
+            },
+            .button(title: String(localized: "Add to Queue"), icon: "text.append") {
+                for track in tracksProvider() {
+                    playlistManager.addToQueue(track)
+                }
+            }
+        ]
     }
 
     private func roleCarrier(for name: String) -> PinnedItem {
