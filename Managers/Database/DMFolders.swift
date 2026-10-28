@@ -616,10 +616,19 @@ extension DatabaseManager {
         let artworkMap = enumeration.artworkMap
         let artworkPaths = enumeration.artworkPaths
 
-        guard enumeration.failedPaths.isEmpty else {
-            let sample = enumeration.failedPaths.prefix(3).joined(separator: ", ")
-            Logger.warning("Incomplete scan of \(folder.name); preserving existing tracks. Failed paths: \(sample)")
-            throw DatabaseError.scanFailed("Unable to completely read folder contents")
+        let failedPaths = enumeration.failedPaths
+        if !failedPaths.isEmpty {
+            let sample = failedPaths.prefix(3).joined(separator: ", ")
+            Logger.warning(
+                "Incomplete scan of \(folder.name); preserving tracks under unreadable paths. "
+                    + "Failed paths (\(failedPaths.count)): \(sample)"
+            )
+            await MainActor.run {
+                let message = failedPaths.count == 1
+                    ? String(localized: "Couldn't read 1 item in '\(folder.name)', existing tracks there were kept")
+                    : String(localized: "Couldn't read \(failedPaths.count) items in '\(folder.name)', existing tracks there were kept")
+                NotificationManager.shared.addMessage(.warning, message)
+            }
         }
 
         await scanState.addSkippedFiles(enumeration.unsupportedFiles)
@@ -657,6 +666,7 @@ extension DatabaseManager {
                 foundPaths: Set(musicFiles),
                 folderName: folder.name,
                 hasRemainingFiles: !musicFiles.isEmpty,
+                protectedPaths: failedPaths,
                 globalScanState: globalScanState
             )
         }
@@ -816,11 +826,16 @@ extension DatabaseManager {
         foundPaths: Set<URL>,
         folderName: String,
         hasRemainingFiles: Bool,
+        protectedPaths: [String] = [],
         globalScanState: GlobalScanState? = nil
     ) async throws {
         let existingTracks = getTracksForFolder(folderId)
         let foundPathStrings = Set(foundPaths.map { $0.path })
-        let tracksToRemove = existingTracks.filter { !foundPathStrings.contains($0.url.path) }
+        let tracksToRemove = existingTracks.filter { track in
+            let path = track.url.path
+            guard !foundPathStrings.contains(path) else { return false }
+            return !protectedPaths.contains { path == $0 || path.hasPrefix($0 + "/") }
+        }
         let trackIdsToRemove = tracksToRemove.compactMap { $0.trackId }
         
         guard !trackIdsToRemove.isEmpty else { return }
