@@ -19,15 +19,29 @@ extension View {
 private struct MiniPlayerWindowAccessor: NSViewRepresentable {
     let onWindow: (NSWindow) -> Void
 
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        DispatchQueue.main.async {
-            if let window = view.window {
-                onWindow(window)
-            }
-        }
+    func makeNSView(context: Context) -> WindowReportingView {
+        let view = WindowReportingView()
+        view.onWindow = onWindow
         return view
     }
 
-    func updateNSView(_ nsView: NSView, context: Context) {}
+    func updateNSView(_ nsView: WindowReportingView, context: Context) {
+        nsView.onWindow = onWindow
+    }
+}
+
+/// Reports its window when it joins one, rather than polling once after
+/// creation, which misses windows whose first layout is delayed (e.g. opened
+/// from the menu bar while another app is in full screen).
+private final class WindowReportingView: NSView {
+    var onWindow: ((NSWindow) -> Void)?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard let window else { return }
+        // Deferred so the callback's SwiftUI state writes don't land mid-update.
+        DispatchQueue.main.async { [weak self] in
+            self?.onWindow?(window)
+        }
+    }
 }
