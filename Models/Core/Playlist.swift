@@ -501,13 +501,7 @@ struct Playlist: Identifiable, FetchableRecord, PersistableRecord {
             return nil
         }
 
-        // Software HEVC encode deadlocks under concurrent invocation on Intel (issue #265),
-        // so mirror the JPEG fallback used by ImageUtils.compressImage.
-        #if arch(x86_64)
-        return ImageUtils.encodeJPEG(collageImage)
-        #else
         return ImageUtils.encodeHEIC(collageImage)
-        #endif
     }
 }
 

@@ -192,7 +192,7 @@ jobs:
             -scheme "$SCHEME" \
             -clonedSourcePackagesDirPath .spm
 
-      # Universal (both archs) to mirror what actually ships; ad-hoc signed.
+      # All shipping archs (arm64 only, per ARCHS) to mirror what ships; ad-hoc signed.
       - name: Build (Release)
         run: |
           set -o pipefail
