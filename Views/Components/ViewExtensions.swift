@@ -214,7 +214,7 @@ struct GradientBackground: View {
     let colors: [Color]
 
     var body: some View {
-        if #available(macOS 15.0, *), colors.count >= 6 {
+        if colors.count >= 6 {
             MeshGradient(
                 width: 3,
                 height: 3,

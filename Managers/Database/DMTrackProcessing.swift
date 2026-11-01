@@ -56,16 +56,7 @@ extension DatabaseManager {
         globalScanState: GlobalScanState? = nil
     ) async throws {
         let chunkSize = 100  // DB-write batch + progress cadence
-        // Bound concurrent parses. Saturating every cooperative-pool thread (each
-        // briefly blocks on GRDB/artwork work) deadlocks macOS 14's runtime; 15+
-        // recovers, so only 14 needs headroom.
-        let cores = ProcessInfo.processInfo.activeProcessorCount
-        let maxConcurrent: Int
-        if #available(macOS 15, *) {
-            maxConcurrent = max(4, cores)
-        } else {
-            maxConcurrent = max(2, cores / 2)
-        }
+        let maxConcurrent = max(4, ProcessInfo.processInfo.activeProcessorCount)
 
         Logger.info("Processing batch of \(batch.count) files in chunks of \(chunkSize), up to \(maxConcurrent) concurrent")
 

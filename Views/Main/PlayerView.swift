@@ -27,7 +27,7 @@ private struct PlayerBarBackground: View, Equatable {
             GeometryReader { geometry in
                 if style == .fullWidth {
                     // Spread the artwork colors across the whole bar as a soft wash
-                    // (mesh on macOS 15+, radial fallback below).
+                    // (mesh with 6+ colors, radial fallback below).
                     GradientBackground(colors: colors)
                 } else {
                     RadialGradient(
