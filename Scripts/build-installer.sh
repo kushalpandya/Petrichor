@@ -308,7 +308,6 @@ EOF
     
     if command -v create-dmg >/dev/null 2>&1; then
         local dmg_title="$APP_BUNDLE_NAME $DMG_VERSION"
-        [ "$suffix" != "Universal" ] && dmg_title="$DMG_NAME-$suffix"
         create-dmg "$APP_BUNDLE_NAME.app" --dmg-title="$dmg_title" || {
             error "create-dmg failed"; return 1
         }
@@ -358,10 +357,6 @@ print_usage() {
     echo "Options:"
     echo "  --version <version>  Specify version number (e.g., 1.0.0)"
     echo "  --verbose           Show full build output"
-    echo "  --universal         Build universal binary (default)"
-    echo "  --intel-only        Build Intel-only installer"
-    echo "  --arm-only          Build Apple Silicon-only installer"
-    echo "  --separate          Build separate Intel and Apple Silicon installers"
     echo "  --bypass-notary     Skip notarization (still signs with Developer ID)"
     echo "  --dev               Build a dev installer ($DEV_BUNDLE_ID, separate library)"
     echo "  --help              Show this help message"
@@ -411,9 +406,6 @@ print_bypass_instructions() {
 # Parse arguments
 VERSION=""
 VERBOSE=false
-BUILD_UNIVERSAL=true
-BUILD_INTEL=false
-BUILD_ARM=false
 BYPASS_NOTARY=false
 DEV_BUILD=false
 
@@ -422,10 +414,8 @@ while [[ $# -gt 0 ]]; do
         --version) VERSION="$2"; shift 2 ;;
         --dev) DEV_BUILD=true; shift ;;
         --verbose) VERBOSE=true; shift ;;
-        --universal) BUILD_UNIVERSAL=true; BUILD_INTEL=false; BUILD_ARM=false; shift ;;
-        --intel-only) BUILD_INTEL=true; BUILD_UNIVERSAL=false; BUILD_ARM=false; shift ;;
-        --arm-only) BUILD_ARM=true; BUILD_UNIVERSAL=false; BUILD_INTEL=false; shift ;;
-        --separate) BUILD_UNIVERSAL=false; BUILD_INTEL=true; BUILD_ARM=true; shift ;;
+        --universal|--intel-only|--arm-only|--separate)
+            error "$1 is no longer supported: Petrichor ships for Apple Silicon only"; exit 1 ;;
         --bypass-notary) BYPASS_NOTARY=true; shift ;;
         --help) print_usage; exit 0 ;;
         *) error "Unknown option: $1"; exit 1 ;;
@@ -582,10 +572,7 @@ if [ "$DEV_BUILD" = true ]; then
 fi
 rm -rf "$BUILD_DIR" && mkdir -p "$BUILD_DIR"
 
-# Build based on selected options
-[ "$BUILD_UNIVERSAL" = true ] && create_installer "x86_64 arm64" "Universal" "Universal"
-[ "$BUILD_INTEL" = true ] && [ "$BUILD_UNIVERSAL" = false ] && create_installer "x86_64" "Intel" "Intel"
-[ "$BUILD_ARM" = true ] && [ "$BUILD_UNIVERSAL" = false ] && create_installer "arm64" "AppleSilicon" "Apple Silicon"
+create_installer "arm64" "AppleSilicon" "Apple Silicon"
 
 # Summary
 echo -e "\n${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
