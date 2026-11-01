@@ -5,6 +5,32 @@
         <description>Updates for Petrichor</description>
         <language>en</language>
         <item>
+            <title>Version 1.7.3</title>
+            <pubDate>Sun, 01 Nov 2026 18:17:13 -0500</pubDate>
+            <sparkle:version>173</sparkle:version>
+            <sparkle:shortVersionString>1.7.3</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/kushalpandya/Petrichor/releases/download/v1.7.3/Petrichor-1.7.3-Universal.dmg"
+                sparkle:edSignature="KyMFMNUEIOC63iVY19XGaUFYmSXyRIjde7H217OWcJOQ71hZ25d54GPuQqz4XXg2tKDG0eeVaJy5fJaAjp0EDA=="
+                length="21448164"
+                type="application/octet-stream"
+            />
+            <description><![CDATA[
+                <h2>Fixes</h2>
+                <ul>
+                    <li>Fix library scans never completing when some subfolders can't be read, such as folders on a NAS that the SMB client fails to open (<a href="https://github.com/kushalpandya/Petrichor/issues/414">#414</a>)</li>
+                    <li>Fix mini player occasionally becoming unresponsive, mostly when opened from the menu bar (<a href="https://github.com/kushalpandya/Petrichor/issues/415">#415</a>)</li>
+                    <li>Fix volume slider animating in from the top left on views with tracks in macOS 27 (<a href="https://github.com/kushalpandya/Petrichor/issues/400">#400</a>) (Thanks <a href="https://github.com/mdas39">@mdas39</a>!)</li>
+                </ul>
+                <h2>Others</h2>
+                <ul>
+                    <li>Update menu icons to follow macOS 27 guidelines, which also fixes menu icons not showing at all on macOS 27 (<a href="https://github.com/kushalpandya/Petrichor/issues/409">#409</a>)</li>
+                </ul>
+                <p><a href="https://github.com/kushalpandya/Petrichor/compare/v1.7.2...v1.7.3">Full Changelog</a></p>
+            ]]></description>
+        </item>
+        <item>
             <title>Version 1.7.2</title>
             <pubDate>Fri, 02 Oct 2026 01:37:09 -0400</pubDate>
             <sparkle:version>172</sparkle:version>
