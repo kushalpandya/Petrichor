@@ -52,10 +52,10 @@
           "position-specializations" : [
             {
               "value" : {
-                "scale" : 1,
+                "scale" : 28,
                 "translation-in-points" : [
-                  -212.78125,
-                  -229.0078125
+                  -14,
+                  0
                 ]
               }
             },
@@ -98,6 +98,15 @@
           "name" : "Play",
           "opacity" : 0.2,
           "position-specializations" : [
+            {
+              "value" : {
+                "scale" : 40,
+                "translation-in-points" : [
+                  19.3836,
+                  0.19399999999995998
+                ]
+              }
+            },
             {
               "idiom" : "macOS",
               "value" : {
